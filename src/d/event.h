@@ -4,7 +4,7 @@
 #define D_EVENT_H
 
 typedef enum {
-	D_KEY_NULL = 0,
+	D_KEY_NONE = 0,
 	D_KEY_Q,
 	D_KEY_W,
 	D_KEY_E,
@@ -82,6 +82,13 @@ typedef enum {
 	D_KEY_LCTRL,
 	D_KEY_RCTRL,
 } d_key;
+
+typedef enum {
+	D_MOUSE_NONE = 0,
+	D_MOUSE_LEFT,
+	D_MOUSE_RIGHT,
+	D_MOUSE_MIDDLE,
+} d_mouse;
 
 #endif
 

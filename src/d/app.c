@@ -17,12 +17,23 @@ typedef struct {
 	float time;
 	float dt;
 	vec2 mouse_pos;
-	d_btn_state pressed_keys[128];
+	d_btn_state key_states[128];
+	d_btn_state mouse_states[4];
 } d_ctx;
 
 static d_ctx d;
 
-d_key sdl_key_to_d(SDL_Scancode code) {
+static d_mouse sdl_mouse_to_d(int btn) {
+	switch (btn) {
+		case SDL_BUTTON_LEFT: return D_MOUSE_LEFT;
+		case SDL_BUTTON_RIGHT: return D_MOUSE_RIGHT;
+		case SDL_BUTTON_MIDDLE: return D_MOUSE_MIDDLE;
+		default: return D_MOUSE_NONE;
+	}
+	return D_MOUSE_NONE;
+}
+
+static d_key sdl_key_to_d(SDL_Scancode code) {
 
 	switch (code) {
 		case SDL_SCANCODE_A: return D_KEY_A;
@@ -101,10 +112,10 @@ d_key sdl_key_to_d(SDL_Scancode code) {
 		case SDL_SCANCODE_RGUI: return D_KEY_RMETA;
 		case SDL_SCANCODE_LSHIFT: return D_KEY_LSHIFT;
 		case SDL_SCANCODE_RSHIFT: return D_KEY_RSHIFT;
-		default: return D_KEY_NULL;
+		default: return D_KEY_NONE;
 	}
 
-	return D_KEY_NULL;
+	return D_KEY_NONE;
 
 }
 
@@ -147,25 +158,42 @@ void d_run(void (*f)(void)) {
 		d.dt = time / 1000.0 - d.time;
 		d.time = time / 1000.0;
 
+		for (int i = 0; i < 128; i++) {
+			if (d.key_states[i] == D_BTN_PRESSED) {
+				d.key_states[i] = D_BTN_DOWN;
+			} else if (d.key_states[i] == D_BTN_RELEASED) {
+				d.key_states[i] = D_BTN_IDLE;
+			}
+		}
+
+		for (int i = 0; i < 4; i++) {
+			if (d.mouse_states[i] == D_BTN_PRESSED) {
+				d.mouse_states[i] = D_BTN_DOWN;
+			} else if (d.mouse_states[i] == D_BTN_RELEASED) {
+				d.mouse_states[i] = D_BTN_IDLE;
+			}
+		}
+
 		while (SDL_PollEvent(&event)) {
 
 			d_key key = sdl_key_to_d(event.key.keysym.scancode);
+			d_mouse mouse = sdl_mouse_to_d(event.button.button);
 
 			switch (event.type) {
 				case SDL_QUIT:
 					d.quit = true;
 					break;
 				case SDL_KEYDOWN:
-					d.pressed_keys[key] = D_BTN_PRESSED;
+					d.key_states[key] = D_BTN_PRESSED;
 					break;
 				case SDL_KEYUP:
-					d.pressed_keys[key] = D_BTN_RELEASED;
+					d.key_states[key] = D_BTN_RELEASED;
 					break;
 				case SDL_MOUSEBUTTONDOWN:
+					d.mouse_states[mouse] = D_BTN_PRESSED;
 					break;
 				case SDL_MOUSEBUTTONUP:
-					break;
-				case SDL_JOYAXISMOTION:
+					d.mouse_states[mouse] = D_BTN_RELEASED;
 					break;
 			}
 
@@ -200,14 +228,26 @@ float d_dt() {
 }
 
 bool d_key_pressed(d_key k) {
-	return d.pressed_keys[k] == D_BTN_PRESSED;
+	return d.key_states[k] == D_BTN_PRESSED;
 }
 
 bool d_key_released(d_key k) {
-	return d.pressed_keys[k] == D_BTN_RELEASED;
+	return d.key_states[k] == D_BTN_RELEASED;
 }
 
 bool d_key_down(d_key k) {
-	return d.pressed_keys[k] == D_BTN_DOWN || d.pressed_keys[k] == D_BTN_PRESSED;
+	return d.key_states[k] == D_BTN_DOWN || d.key_states[k] == D_BTN_PRESSED;
+}
+
+bool d_mouse_pressed(d_mouse k) {
+	return d.mouse_states[k] == D_BTN_PRESSED;
+}
+
+bool d_mouse_released(d_mouse k) {
+	return d.mouse_states[k] == D_BTN_RELEASED;
+}
+
+bool d_mouse_down(d_mouse k) {
+	return d.mouse_states[k] == D_BTN_DOWN || d.mouse_states[k] == D_BTN_PRESSED;
 }
 

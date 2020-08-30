@@ -16,6 +16,9 @@ float d_dt();
 bool d_key_pressed(d_key);
 bool d_key_released(d_key);
 bool d_key_down(d_key);
+bool d_mouse_pressed(d_mouse);
+bool d_mouse_released(d_mouse);
+bool d_mouse_down(d_mouse);
 
 #endif
 
