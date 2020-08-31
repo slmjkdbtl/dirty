@@ -4,7 +4,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+
 #include "gfx.h"
+#include "app.h"
 
 static const char* vert_template =
 "#version 120\n"
@@ -47,14 +49,14 @@ static const char* frag_template =
 "{{user}}"
 "void main() {"
 // 	"gl_FragColor = frag();"
-	"gl_FragColor = v_color;"
+	"gl_FragColor = v_color * u_color;"
 	"if (gl_FragColor.a == 0.0) {"
 		"discard;"
 	"}"
 "}"
 ;
 
-d_mesh d_make_mesh(float* verts, size_t verts_size, unsigned int* indices, size_t indices_size) {
+d_mesh d_make_mesh(d_vertex* verts, size_t verts_size, unsigned int* indices, size_t indices_size) {
 
 	// vertex buffer
 	GLuint vbuf;
@@ -75,6 +77,34 @@ d_mesh d_make_mesh(float* verts, size_t verts_size, unsigned int* indices, size_
 	return (d_mesh) {
 		.vbuf = vbuf,
 		.ibuf = ibuf,
+	};
+
+}
+
+d_tex2d d_make_tex(unsigned char* data, int w, int h) {
+
+	GLuint tex;
+
+	glBindTexture(GL_TEXTURE_2D, tex);
+
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_RGBA,
+		w,
+		h,
+		0,
+		GL_RGBA,
+		GL_UNSIGNED_BYTE,
+		data
+	);
+
+	glTexParameter(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return (d_tex2d) {
+		.id = tex,
 	};
 
 }
@@ -162,6 +192,22 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 
 }
 
+void d_send_f(const char* name, float v) {
+	glUniform1f(glGetUniformLocation(d.cur_prog->id, name), v);
+}
+
+void d_send_vec2(const char* name, vec2 v) {
+	glUniform2f(glGetUniformLocation(d.cur_prog->id, name), v.x, v.y);
+}
+
+void d_send_vec3(const char* name, vec3 v) {
+	glUniform3f(glGetUniformLocation(d.cur_prog->id, name), v.x, v.y, v.z);
+}
+
+void d_send_color(const char* name, color c) {
+	glUniform4f(glGetUniformLocation(d.cur_prog->id, name), c.r, c.g, c.b, c.a);
+}
+
 void d_draw(d_mesh* mesh, d_program* program) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbuf);
@@ -176,6 +222,8 @@ void d_draw(d_mesh* mesh, d_program* program) {
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 48, (void*)32);
 	glEnableVertexAttribArray(3);
+
+	d_send_color("u_color", (color) { 1.0, 1.0, 1.0, 1.0, });
 
 	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 

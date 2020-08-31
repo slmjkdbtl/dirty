@@ -1,33 +1,10 @@
 // wengwengweng
 
 #include <OpenGL/gl.h>
+
 #include "app.h"
-#include "gfx.h"
 
-typedef enum {
-	D_BTN_IDLE = 0,
-	D_BTN_PRESSED,
-	D_BTN_RELEASED,
-	D_BTN_DOWN,
-} d_btn_state;
-
-typedef struct {
-	SDL_GLContext gl;
-	SDL_Window* window;
-	bool quit;
-	float time;
-	float dt;
-	int width;
-	int height;
-	vec2 mouse_pos;
-	vec2 mouse_dpos;
-	d_btn_state key_states[128];
-	d_btn_state mouse_states[4];
-	d_mesh m;
-	d_program p;
-} d_ctx;
-
-static d_ctx d;
+d_ctx d;
 
 static d_mouse sdl_mouse_to_d(int btn) {
 	switch (btn) {
@@ -151,19 +128,34 @@ void d_init(const char* title, int width, int height) {
 	const GLubyte* gl_ver = glGetString(GL_VERSION);
 	printf("%s\n", gl_ver);
 
-	float verts[] = {
-		// pos           // normal      // uv     // color
-		0.0, 0.5, 0.0,   0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
-		-0.5, -0.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,
-		0.5, -0.5, 0.0,  0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+	d_vertex verts[] = {
+		{
+			.pos = { 0.0, 0.5, 0.0, },
+			.normal = { 0.0, 0.0, 1.0 },
+			.uv = { 0.0, 0.0, },
+			.color = { 1.0, 0.0, 0.0, 1.0, }
+		},
+		{
+			.pos = { -0.5, -0.5, 0.0, },
+			.normal = { 0.0, 0.0, 1.0 },
+			.uv = { 0.0, 0.0, },
+			.color = { 0.0, 1.0, 0.0, 1.0, }
+		},
+		{
+			.pos = { 0.5, -0.5, 0.0, },
+			.normal = { 0.0, 0.0, 1.0 },
+			.uv = { 0.0, 0.0, },
+			.color = { 0.0, 0.0, 1.0, 1.0, }
+		},
 	};
 
 	unsigned int indices[] = {
 		0, 1, 2,
 	};
 
-	d.m = d_make_mesh(verts, sizeof(verts), indices, sizeof(indices));
-	d.p = d_make_program(d_vert_default, d_frag_default);
+	d.tri_mesh = d_make_mesh(verts, sizeof(verts), indices, sizeof(indices));
+	d.default_prog = d_make_program(d_vert_default, d_frag_default);
+	d.cur_prog = &d.default_prog;
 
 	SDL_GL_SwapWindow(d.window);
 	SDL_GetWindowSize(d.window, &d.width, &d.height);
@@ -240,7 +232,7 @@ void d_run(void (*f)(void)) {
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-		d_draw(&d.m, &d.p);
+		d_draw(&d.tri_mesh, &d.default_prog);
 
 		if (f != NULL) {
 			f();

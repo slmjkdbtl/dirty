@@ -37,9 +37,16 @@ typedef struct {
 	color color;
 } d_vertex;
 
-d_mesh d_make_mesh(float*, size_t, unsigned int*, size_t);
+d_mesh d_make_mesh(d_vertex*, size_t, unsigned int*, size_t);
+d_tex2d d_make_tex(unsigned char*, int, int);
 d_program d_make_program(const char*, const char*);
+
 void d_draw(d_mesh*, d_program*);
+
+void d_send_f(const char*, float);
+void d_send_vec2(const char*, vec2);
+void d_send_vec3(const char*, vec3);
+void d_send_color(const char*, color);
 
 void d_push_t();
 void d_pop_t();
