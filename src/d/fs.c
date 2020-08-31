@@ -1,43 +1,46 @@
 // wengwengweng
 
 #include <stdbool.h>
+#include <unistd.h>
 #include <SDL2/SDL.h>
+
+#ifdef __APPLE__
+#import <Foundation/Foundation.h>
+#endif
 
 const char* d_fread(const char* path) {
 
-	SDL_RWops* rw = SDL_RWFromFile(path, "rb");
+	int c;
+	FILE* file = fopen(path, "r");
 
-	if (rw == NULL) {
+	if (!file) {
 		return NULL;
 	}
 
-	int size = SDL_RWsize(rw);
+	fseek(file, 0, SEEK_END);
+	long size = ftell(file);
+	fseek(file, 0, SEEK_SET);
 
-	char* res = (char*)malloc(size + 1);
-	Sint64 nb_read_total = 0, nb_read = 1;
-	char* buf = res;
+	char* buffer = malloc(size);
+	fread(buffer, 1, size, file);
 
-	while (nb_read_total < size && nb_read != 0) {
+	fclose(file);
 
-		nb_read = SDL_RWread(rw, buf, 1, (size - nb_read_total));
-		nb_read_total += nb_read;
-		buf += nb_read;
-
-	}
-
-	if (nb_read_total != size) {
-		free(res);
-		return NULL;
-	}
-
-	res[nb_read_total] = '\0';
-	SDL_RWclose(rw);
-
-	return (const char*)res;
+	return buffer;
 
 }
 
 bool d_fexists(const char* path) {
-	return SDL_RWFromFile(path, "rb") != NULL;
+	return access(path, F_OK) != -1;
+}
+
+static const char* res_path() {
+#ifdef __APPLE__
+	NSBundle* bundle = [ NSBundle mainBundle ];
+	NSString* path = [ bundle resourcePath ];
+	return [ path UTF8String ];
+#else
+	return "";
+#endif
 }
 

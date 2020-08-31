@@ -32,6 +32,9 @@ typedef struct {
 	d_mesh tri_mesh;
 	d_program default_prog;
 	d_program* cur_prog;
+	mat4 transform;
+	mat4 t_stack[16];
+	size_t t_stack_cnt;
 } d_ctx;
 
 extern d_ctx d;

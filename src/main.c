@@ -193,82 +193,65 @@ static int l_height(lua_State* L) {
 	return 1;
 }
 
-int run(const char* code) {
+static int l_fread(lua_State* L) {
+	check_arg(L, 1, LUA_TSTRING);
+	lua_pushstring(L, d_fread(lua_tostring(L, 1)));
+	return 1;
+}
 
-	l.lua = luaL_newstate();
-	luaL_openlibs(l.lua);
+static int l_fexists(lua_State* L) {
+	check_arg(L, 1, LUA_TSTRING);
+	lua_pushboolean(L, d_fexists(lua_tostring(L, 1)));
+	return 1;
+}
 
-	lua_pushcfunction(l.lua, l_init);
-	lua_setglobal(l.lua, "d_init");
+int run(const char* path) {
 
-	lua_pushcfunction(l.lua, l_run);
-	lua_setglobal(l.lua, "d_run");
+	lua_State* L = luaL_newstate();
+	l.lua = L;
+	luaL_openlibs(L);
 
-	lua_pushcfunction(l.lua, l_quit);
-	lua_setglobal(l.lua, "d_quit");
+	luaL_Reg reg[] = {
+		{ "d_init", l_init, },
+		{ "d_run", l_run, },
+		{ "d_quit", l_quit, },
+		{ "d_time", l_time, },
+		{ "d_dt", l_dt, },
+		{ "d_width", l_width, },
+		{ "d_height", l_height, },
+		{ "d_key_pressed", l_key_pressed, },
+		{ "d_key_released", l_key_released, },
+		{ "d_key_down", l_key_down, },
+		{ "d_mouse_pressed", l_mouse_pressed, },
+		{ "d_mouse_released", l_mouse_released, },
+		{ "d_mouse_down", l_mouse_down, },
+		{ "d_fread", l_fread, },
+		{ "d_fexists", l_fexists, },
+		{ NULL, NULL, }
+	};
 
-	lua_pushcfunction(l.lua, l_time);
-	lua_setglobal(l.lua, "d_time");
-
-	lua_pushcfunction(l.lua, l_dt);
-	lua_setglobal(l.lua, "d_dt");
-
-	lua_pushcfunction(l.lua, l_key_pressed);
-	lua_setglobal(l.lua, "d_key_pressed");
-
-	lua_pushcfunction(l.lua, l_key_released);
-	lua_setglobal(l.lua, "d_key_released");
-
-	lua_pushcfunction(l.lua, l_key_down);
-	lua_setglobal(l.lua, "d_key_down");
-
-	lua_pushcfunction(l.lua, l_mouse_pressed);
-	lua_setglobal(l.lua, "d_mouse_pressed");
-
-	lua_pushcfunction(l.lua, l_mouse_released);
-	lua_setglobal(l.lua, "d_mouse_released");
-
-	lua_pushcfunction(l.lua, l_mouse_down);
-	lua_setglobal(l.lua, "d_mouse_down");
-
-	lua_pushcfunction(l.lua, l_width);
-	lua_setglobal(l.lua, "d_width");
-
-	lua_pushcfunction(l.lua, l_height);
-	lua_setglobal(l.lua, "d_height");
-
-	if (luaL_dostring(l.lua, code) != LUA_OK) {
-		fprintf(stderr, "%s\n", lua_tostring(l.lua, -1));
+	for (int i = 0; reg[i].name != NULL; i++) {
+		lua_pushcfunction(L, reg[i].func);
+		lua_setglobal(L, reg[i].name);
 	}
 
-	luaL_unref(l.lua, LUA_REGISTRYINDEX, l.run_ref);
-	lua_close(l.lua);
+	if (luaL_dofile(L, path) != LUA_OK) {
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+	}
+
+	luaL_unref(L, LUA_REGISTRYINDEX, l.run_ref);
+	lua_close(L);
 
 	return EXIT_SUCCESS;
 
 }
 
-static const char* vs_src =
-"#version 120\n"
-"attribute vec2 a_pos;"
-"void main() {"
-	"gl_Position = vec4(a_pos, 0.0, 1.0);"
-"}"
-;
-
-static const char* fs_src =
-"#version 120\n"
-"void main() {"
-	"gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);"
-"}"
-;
-
-int main(int argc, char* argv[]) {
+int main(int argc, char** argv) {
 
 	if (argc <= 1) {
 
 		if (d_fexists("main.lua")) {
-			return run(d_fread("main.lua"));
+			return run("main.lua");
 		} else {
 			fprintf(stderr, "no\n");
 		}
@@ -278,7 +261,7 @@ int main(int argc, char* argv[]) {
 		const char* action = argv[1];
 
 		if (d_fexists(action)) {
-			return run(d_fread(action));
+			return run(action);
 		} else {
 			fprintf(stderr, "no\n");
 		}

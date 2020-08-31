@@ -30,8 +30,7 @@ static const char* vert_template =
 	"v_uv = a_uv;"
 	"v_color = a_color;"
 	"v_normal = normalize(a_normal);"
-// 	"gl_Position = vert();"
-	"gl_Position = vec4(a_pos, 1.0);"
+	"gl_Position = vert();"
 "}"
 ;
 
@@ -77,6 +76,7 @@ d_mesh d_make_mesh(d_vertex* verts, size_t verts_size, unsigned int* indices, si
 	return (d_mesh) {
 		.vbuf = vbuf,
 		.ibuf = ibuf,
+		.count = indices_size / sizeof(unsigned int),
 	};
 
 }
@@ -99,7 +99,7 @@ d_tex2d d_make_tex(unsigned char* data, int w, int h) {
 		data
 	);
 
-	glTexParameter(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER);
+// 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -111,7 +111,6 @@ d_tex2d d_make_tex(unsigned char* data, int w, int h) {
 
 char* strsub(const char* str, const char* old, const char* new) {
 
-	char* res;
 	int old_len = strlen(old);
 	int new_len = strlen(new);
 	int i = 0;
@@ -124,7 +123,7 @@ char* strsub(const char* str, const char* old, const char* new) {
 		}
 	}
 
-	res = (char*)malloc(i + cnt * (new_len - old_len) + 1);
+	char* res = (char*)malloc(i + cnt * (new_len - old_len) + 1);
 	i = 0;
 
 	while (*str) {
@@ -145,9 +144,8 @@ char* strsub(const char* str, const char* old, const char* new) {
 
 d_program d_make_program(const char* vs_src, const char* fs_src) {
 
-	// TODO: possible leak
-	vs_src = strsub(vert_template, "{{user}}", vs_src);
-	fs_src = strsub(frag_template, "{{user}}", fs_src);
+	const char* vs_code = strsub(vert_template, "{{user}}", vs_src);
+	const char* fs_code = strsub(frag_template, "{{user}}", fs_src);
 
 	int info_len;
 	char info_log[512];
@@ -155,7 +153,7 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	// vertex shader
 	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
 
-	glShaderSource(vs, 1, &vs_src, 0);
+	glShaderSource(vs, 1, &vs_code, 0);
 	glCompileShader(vs);
 
 	glGetShaderInfoLog(vs, 512, &info_len, info_log);
@@ -164,7 +162,7 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	// fragment shader
 	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
 
-	glShaderSource(fs, 1, &fs_src, 0);
+	glShaderSource(fs, 1, &fs_code, 0);
 	glCompileShader(fs);
 
 	glGetShaderInfoLog(vs, 512, &info_len, info_log);
@@ -185,6 +183,9 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 
 	glGetProgramInfoLog(program, 512, &info_len, info_log);
 	fprintf(stderr, "%s", info_log);
+
+	free((void*)vs_code);
+	free((void*)fs_code);
 
 	return (d_program) {
 		.id = program,
@@ -208,6 +209,10 @@ void d_send_color(const char* name, color c) {
 	glUniform4f(glGetUniformLocation(d.cur_prog->id, name), c.r, c.g, c.b, c.a);
 }
 
+void d_send_mat4(const char* name, mat4 m) {
+	glUniformMatrix4fv(glGetUniformLocation(d.cur_prog->id, name), 1, GL_FALSE, &m.m[0]);
+}
+
 void d_draw(d_mesh* mesh, d_program* program) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbuf);
@@ -223,13 +228,44 @@ void d_draw(d_mesh* mesh, d_program* program) {
 	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 48, (void*)32);
 	glEnableVertexAttribArray(3);
 
+	if (d.t_stack_cnt == 0) {
+		d_send_mat4("u_model", make_mat4());
+	} else {
+		d_send_mat4("u_model", d.t_stack[d.t_stack_cnt - 1]);
+	}
+
+	d_send_mat4("u_view", make_mat4());
+	d_send_mat4("u_proj", make_mat4());
 	d_send_color("u_color", (color) { 1.0, 1.0, 1.0, 1.0, });
 
-	glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+	glDrawElements(GL_TRIANGLES, mesh->count, GL_UNSIGNED_INT, 0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glUseProgram(0);
+
+}
+
+void d_push_t() {
+
+	if (d.t_stack_cnt >= 16) {
+		fprintf(stderr, "transform stack overflow");
+		return d_quit();
+	}
+
+	d.t_stack[d.t_stack_cnt] = d.transform;
+	d.t_stack_cnt++;
+
+}
+
+void d_pop_t() {
+
+	if (d.t_stack_cnt <= 0) {
+		fprintf(stderr, "transform stack underflow");
+		return d_quit();
+	}
+
+	d.t_stack_cnt--;
 
 }
 

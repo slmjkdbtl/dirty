@@ -28,6 +28,7 @@ typedef struct {
 typedef struct {
 	GLuint vbuf;
 	GLuint ibuf;
+	size_t count;
 } d_mesh;
 
 typedef struct {
@@ -47,9 +48,15 @@ void d_send_f(const char*, float);
 void d_send_vec2(const char*, vec2);
 void d_send_vec3(const char*, vec3);
 void d_send_color(const char*, color);
+void d_send_mat4(const char*, mat4);
 
 void d_push_t();
 void d_pop_t();
+void d_translate(vec3);
+void d_scale(vec3);
+void d_rot_x(float);
+void d_rot_y(float);
+void d_rot_z(float);
 
 #endif
 

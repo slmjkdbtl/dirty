@@ -124,6 +124,7 @@ void d_init(const char* title, int width, int height) {
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	const GLubyte* gl_ver = glGetString(GL_VERSION);
 	printf("%s\n", gl_ver);
@@ -160,9 +161,16 @@ void d_init(const char* title, int width, int height) {
 	SDL_GL_SwapWindow(d.window);
 	SDL_GetWindowSize(d.window, &d.width, &d.height);
 
+	d.transform = make_mat4();
+
 }
 
 void d_run(void (*f)(void)) {
+
+	if (!f) {
+		fprintf(stderr, "invalid run func");
+		return d_quit();
+	}
 
 	SDL_Event event;
 
@@ -231,13 +239,8 @@ void d_run(void (*f)(void)) {
 		}
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
 		d_draw(&d.tri_mesh, &d.default_prog);
-
-		if (f != NULL) {
-			f();
-		}
-
+		f();
 		SDL_GL_SwapWindow(d.window);
 
 	}
