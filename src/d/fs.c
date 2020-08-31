@@ -36,8 +36,10 @@ bool d_fexists(const char* path) {
 
 static const char* res_path() {
 #ifdef __APPLE__
-	NSBundle* bundle = [ NSBundle mainBundle ];
-	NSString* path = [ bundle resourcePath ];
+// 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+	NSBundle* bundle = [NSBundle mainBundle];
+	NSString* path = [bundle resourcePath];
+// 	[pool drain];
 	return [ path UTF8String ];
 #else
 	return "";

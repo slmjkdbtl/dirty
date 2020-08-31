@@ -228,12 +228,7 @@ void d_draw(d_mesh* mesh, d_program* program) {
 	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 48, (void*)32);
 	glEnableVertexAttribArray(3);
 
-	if (d.t_stack_cnt == 0) {
-		d_send_mat4("u_model", make_mat4());
-	} else {
-		d_send_mat4("u_model", d.t_stack[d.t_stack_cnt - 1]);
-	}
-
+	d_send_mat4("u_model", d.transform);
 	d_send_mat4("u_view", make_mat4());
 	d_send_mat4("u_proj", make_mat4());
 	d_send_color("u_color", (color) { 1.0, 1.0, 1.0, 1.0, });
@@ -246,7 +241,11 @@ void d_draw(d_mesh* mesh, d_program* program) {
 
 }
 
-void d_push_t() {
+void d_clear() {
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+}
+
+void d_push() {
 
 	if (d.t_stack_cnt >= 16) {
 		fprintf(stderr, "transform stack overflow");
@@ -258,7 +257,7 @@ void d_push_t() {
 
 }
 
-void d_pop_t() {
+void d_pop() {
 
 	if (d.t_stack_cnt <= 0) {
 		fprintf(stderr, "transform stack underflow");
@@ -266,6 +265,27 @@ void d_pop_t() {
 	}
 
 	d.t_stack_cnt--;
+	d.transform = d.t_stack[d.t_stack_cnt];
 
+}
+
+void d_move(vec3 p) {
+	d.transform = mat4_mult(d.transform, mat4_translate(p));
+}
+
+void d_scale(vec3 s) {
+	d.transform = mat4_mult(d.transform, mat4_scale(s));
+}
+
+void d_rot_x(float a) {
+	d.transform = mat4_mult(d.transform, mat4_rot_x(a));
+}
+
+void d_rot_y(float a) {
+	d.transform = mat4_mult(d.transform, mat4_rot_y(a));
+}
+
+void d_rot_z(float a) {
+	d.transform = mat4_mult(d.transform, mat4_rot_z(a));
 }
 

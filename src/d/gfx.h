@@ -50,9 +50,10 @@ void d_send_vec3(const char*, vec3);
 void d_send_color(const char*, color);
 void d_send_mat4(const char*, mat4);
 
-void d_push_t();
-void d_pop_t();
-void d_translate(vec3);
+void d_clear();
+void d_push();
+void d_pop();
+void d_move(vec3);
 void d_scale(vec3);
 void d_rot_x(float);
 void d_rot_y(float);

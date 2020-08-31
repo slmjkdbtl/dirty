@@ -1,6 +1,8 @@
 // wengwengweng
 
 #include <stdio.h>
+#include <math.h>
+
 #include "math.h"
 
 vec2 vec2_add(vec2 a, vec2 b) {
@@ -61,6 +63,79 @@ mat4 make_mat4() {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
 			0.0, 1.0, 0.0, 0.0,
+			0.0, 0.0, 1.0, 0.0,
+			0.0, 0.0, 0.0, 1.0,
+		},
+	};
+}
+
+mat4 mat4_mult(mat4 m1, mat4 m2) {
+
+	mat4 res = make_mat4();
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			res.m[i * 4 + j] =
+				m1.m[0 * 4 + j] * m2.m[i * 4 + 0] +
+				m1.m[1 * 4 + j] * m2.m[i * 4 + 1] +
+				m1.m[2 * 4 + j] * m2.m[i * 4 + 2] +
+				m1.m[3 * 4 + j] * m2.m[i * 4 + 3];
+		}
+	}
+
+	return res;
+
+}
+
+mat4 mat4_scale(vec3 s) {
+	return (mat4) {
+		.m = {
+			s.x, 0.0, 0.0, 0.0,
+			0.0, s.y, 0.0, 0.0,
+			0.0, 0.0, s.z, 0.0,
+			0.0, 0.0, 0.0, 1.0,
+		},
+	};
+}
+
+mat4 mat4_translate(vec3 p) {
+	return (mat4) {
+		.m = {
+			1.0, 0.0, 0.0, 0.0,
+			0.0, 1.0, 0.0, 0.0,
+			0.0, 0.0, 1.0, 0.0,
+			p.x, p.y, p.z, 1.0,
+		},
+	};
+}
+
+mat4 mat4_rot_x(float a) {
+	return (mat4) {
+		.m = {
+			1.0, 0.0, 0.0, 0.0,
+			0.0, cos(a), -sin(a), 0.0,
+			0.0, sin(a), cos(a), 0.0,
+			0.0, 0.0, 0.0, 1.0,
+		},
+	};
+}
+
+mat4 mat4_rot_y(float a) {
+	return (mat4) {
+		.m = {
+			cos(a), 0.0, -sin(a), 0.0,
+			0.0, 1.0, 0.0, 0.0,
+			sin(a), 0.0, cos(a), 0.0,
+			0.0, 0.0, 0.0, 1.0,
+		},
+	};
+}
+
+mat4 mat4_rot_z(float a) {
+	return (mat4) {
+		.m = {
+			cos(a), -sin(a), 0.0, 0.0,
+			sin(a), cos(a), 0.0, 0.0,
 			0.0, 0.0, 1.0, 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},

@@ -205,6 +205,11 @@ static int l_fexists(lua_State* L) {
 	return 1;
 }
 
+static int l_clear(lua_State* L) {
+	d_clear();
+	return 0;
+}
+
 int run(const char* path) {
 
 	lua_State* L = luaL_newstate();
@@ -227,6 +232,7 @@ int run(const char* path) {
 		{ "d_mouse_down", l_mouse_down, },
 		{ "d_fread", l_fread, },
 		{ "d_fexists", l_fexists, },
+		{ "d_clear", l_clear, },
 		{ NULL, NULL, }
 	};
 

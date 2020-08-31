@@ -39,6 +39,9 @@ mat4 make_mat4();
 mat4 mat4_mult(mat4, mat4);
 mat4 mat4_scale(vec3);
 mat4 mat4_translate(vec3);
+mat4 mat4_rot_x(float);
+mat4 mat4_rot_y(float);
+mat4 mat4_rot_z(float);
 void mat4_print(mat4);
 
 #endif

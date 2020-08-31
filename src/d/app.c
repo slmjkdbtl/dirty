@@ -212,6 +212,7 @@ void d_run(void (*f)(void)) {
 
 		d.mouse_pos.x = mx;
 		d.mouse_pos.y = my;
+		d.transform = make_mat4();
 
 		while (SDL_PollEvent(&event)) {
 
