@@ -4,6 +4,7 @@
 #include <lua/lualib.h>
 #include <lua/lauxlib.h>
 
+#include <OpenGL/gl.h>
 #include "d/app.h"
 #include "d/fs.h"
 
@@ -182,6 +183,16 @@ static int l_mouse_down(lua_State* L) {
 	return 1;
 }
 
+static int l_width(lua_State* L) {
+	lua_pushnumber(L, d_width());
+	return 1;
+}
+
+static int l_height(lua_State* L) {
+	lua_pushnumber(L, d_height());
+	return 1;
+}
+
 int run(const char* code) {
 
 	l.lua = luaL_newstate();
@@ -220,6 +231,12 @@ int run(const char* code) {
 	lua_pushcfunction(l.lua, l_mouse_down);
 	lua_setglobal(l.lua, "d_mouse_down");
 
+	lua_pushcfunction(l.lua, l_width);
+	lua_setglobal(l.lua, "d_width");
+
+	lua_pushcfunction(l.lua, l_height);
+	lua_setglobal(l.lua, "d_height");
+
 	if (luaL_dostring(l.lua, code) != LUA_OK) {
 		fprintf(stderr, "%s\n", lua_tostring(l.lua, -1));
 	}
@@ -231,6 +248,21 @@ int run(const char* code) {
 
 }
 
+static const char* vs_src =
+"#version 120\n"
+"attribute vec2 a_pos;"
+"void main() {"
+	"gl_Position = vec4(a_pos, 0.0, 1.0);"
+"}"
+;
+
+static const char* fs_src =
+"#version 120\n"
+"void main() {"
+	"gl_FragColor = vec4(0.0, 0.0, 1.0, 1.0);"
+"}"
+;
+
 int main(int argc, char* argv[]) {
 
 	if (argc <= 1) {
@@ -238,7 +270,7 @@ int main(int argc, char* argv[]) {
 		if (d_fexists("main.lua")) {
 			return run(d_fread("main.lua"));
 		} else {
-			printf("no\n");
+			fprintf(stderr, "no\n");
 		}
 
 	} else {
@@ -248,7 +280,7 @@ int main(int argc, char* argv[]) {
 		if (d_fexists(action)) {
 			return run(d_fread(action));
 		} else {
-			printf("no\n");
+			fprintf(stderr, "no\n");
 		}
 
 	}

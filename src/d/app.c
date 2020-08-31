@@ -2,6 +2,7 @@
 
 #include <OpenGL/gl.h>
 #include "app.h"
+#include "gfx.h"
 
 typedef enum {
 	D_BTN_IDLE = 0,
@@ -16,9 +17,14 @@ typedef struct {
 	bool quit;
 	float time;
 	float dt;
+	int width;
+	int height;
 	vec2 mouse_pos;
+	vec2 mouse_dpos;
 	d_btn_state key_states[128];
 	d_btn_state mouse_states[4];
+	d_mesh m;
+	d_program p;
 } d_ctx;
 
 static d_ctx d;
@@ -134,7 +140,6 @@ void d_init(const char* title, int width, int height) {
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 	d.gl = SDL_GL_CreateContext(d.window);
 
 	glEnable(GL_BLEND);
@@ -143,7 +148,25 @@ void d_init(const char* title, int width, int height) {
 	glDepthFunc(GL_LEQUAL);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 
+	const GLubyte* gl_ver = glGetString(GL_VERSION);
+	printf("%s\n", gl_ver);
+
+	float verts[] = {
+		// pos           // normal      // uv     // color
+		0.0, 0.5, 0.0,   0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0,
+		-0.5, -0.5, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0,
+		0.5, -0.5, 0.0,  0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0,
+	};
+
+	unsigned int indices[] = {
+		0, 1, 2,
+	};
+
+	d.m = d_make_mesh(verts, sizeof(verts), indices, sizeof(indices));
+	d.p = d_make_program(d_vert_default, d_frag_default);
+
 	SDL_GL_SwapWindow(d.window);
+	SDL_GetWindowSize(d.window, &d.width, &d.height);
 
 }
 
@@ -174,6 +197,22 @@ void d_run(void (*f)(void)) {
 			}
 		}
 
+		int mx, my;
+
+		SDL_GetWindowSize(d.window, &d.width, &d.height);
+		SDL_GetMouseState(&mx, &my);
+
+		mx = (float)mx;
+		my = (float)my;
+
+		if (d.mouse_pos.x != 0.0 || d.mouse_pos.y != 0.0) {
+			d.mouse_dpos.x = mx - d.mouse_pos.x;
+			d.mouse_dpos.y = mx - d.mouse_pos.y;
+		}
+
+		d.mouse_pos.x = mx;
+		d.mouse_pos.y = my;
+
 		while (SDL_PollEvent(&event)) {
 
 			d_key key = sdl_key_to_d(event.key.keysym.scancode);
@@ -200,6 +239,8 @@ void d_run(void (*f)(void)) {
 		}
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+		d_draw(&d.m, &d.p);
 
 		if (f != NULL) {
 			f();
@@ -249,5 +290,21 @@ bool d_mouse_released(d_mouse k) {
 
 bool d_mouse_down(d_mouse k) {
 	return d.mouse_states[k] == D_BTN_DOWN || d.mouse_states[k] == D_BTN_PRESSED;
+}
+
+int d_width() {
+	return d.width;
+}
+
+int d_height() {
+	return d.height;
+}
+
+vec2 d_mouse_pos() {
+	return d.mouse_pos;
+}
+
+vec2 d_mouse_dpos() {
+	return d.mouse_dpos;
 }
 

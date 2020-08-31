@@ -19,6 +19,10 @@ bool d_key_down(d_key);
 bool d_mouse_pressed(d_mouse);
 bool d_mouse_released(d_mouse);
 bool d_mouse_down(d_mouse);
+int d_width();
+int d_height();
+vec2 d_mouse_pos();
+vec2 d_mouse_dpos();
 
 #endif
 
