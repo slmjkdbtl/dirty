@@ -1,4 +1,6 @@
 # wengwengweng
 
-dist/
+bin/
+lib/
+obj/
 
