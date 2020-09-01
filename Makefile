@@ -1,18 +1,18 @@
 # wengwengweng
 
 ifeq ($(OS),Windows_NT)
-PLATFORM := Windows
+HOST := Windows
 endif
 
 ifeq ($(shell uname -s),Darwin)
-PLATFORM := MacOS
+HOST := MacOS
 endif
 
 ifeq ($(shell uname -s),Linux)
-PLATFORM := Linux
+HOST := Linux
 endif
 
-TARGET := $(PLATFORM)
+TARGET := $(HOST)
 
 CC := cc
 AR := ar
@@ -22,7 +22,7 @@ CC := emcc
 AR := emar
 endif
 
-ifeq ($(PLATFORM),MacOS)
+ifeq ($(HOST),MacOS)
 ifeq ($(TARGET),Windows)
 CC := x86_64-w64-mingw32-gcc
 AR := x86_64-w64-mingw32-ar
@@ -37,18 +37,24 @@ SRC_PATH := src
 OBJ_PATH := build/obj
 BIN_PATH := build/bin
 LIB_PATH := build/lib
+EXT_INC_PATH := ext/inc
+EXT_LIB_PATH := ext/libs
+LIB_TARGET := build/lib/dirty.a
+BIN_TARGET := build/bin/dirty
 
-C_FLAGS += -I lib/include
+C_FLAGS += -I $(EXT_INC_PATH)
 
 ifeq ($(TARGET),MacOS)
 C_FLAGS += -ObjC
 C_FLAGS += -D GL_SILENCE_DEPRECATION
 endif
 
-LD_FLAGS += -L lib
+LD_FLAGS += -L $(EXT_LIB_PATH)
 LD_FLAGS += -l iconv
 LD_FLAGS += -l SDL2
 LD_FLAGS += -l lua
+
+ifeq ($(TARGET),MacOS)
 LD_FLAGS += -framework CoreFoundation
 LD_FLAGS += -framework OpenGL
 LD_FLAGS += -framework Cocoa
@@ -59,6 +65,7 @@ LD_FLAGS += -framework CoreAudio
 LD_FLAGS += -framework AudioToolbox
 LD_FLAGS += -framework Metal
 LD_FLAGS += -framework ForceFeedback
+endif
 
 ifeq ($(TARGET),Web)
 LD_FLAGS += USE_SDL=2
@@ -66,13 +73,10 @@ endif
 
 AR_FLAGS += -rc
 
-LIB_TARGET := $(LIB_PATH)/dirty.a
-BIN_TARGET := $(BIN_PATH)/dirty
-
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))
 
-#  EXTLIBS := $(addprefix lib/,libSDL2.a liblua.a)
+#  EXTLIBS := $(addprefix ext/lib/,libSDL2.a liblua.a)
 
 SDL2_VERSION := 2.0.12
 LUA_VERSION := 5.4.0
@@ -104,26 +108,32 @@ run: $(BIN_TARGET)
 
 .PHONY: lua
 lua:
-	cd lib; \
+	mkdir -p $(EXT_INC_PATH)/lua
+	cd ext; \
 		curl http://www.lua.org/ftp/lua-$(LUA_VERSION).tar.gz > lua-$(LUA_VERSION).tar.gz; \
 		tar zxf lua-$(LUA_VERSION).tar.gz
-	cd lib/lua-$(LUA_VERSION); \
-		cp src/*.h ../include/lua/; \
+	cd ext/lua-$(LUA_VERSION); \
+		cp src/*.h ../inc/lua/; \
 		$(MAKE)
-	cp -r lib/lua-$(LUA_VERSION)/src/liblua.a lib/liblua.a
-	rm -rf lib/lua-$(LUA_VERSION)
-	rm -rf lib/lua-$(LUA_VERSION).tar.gz
+	cp -r ext/lua-$(LUA_VERSION)/src/liblua.a $(EXT_LIB_PATH)/liblua.a
+	rm -rf ext/lua-$(LUA_VERSION)
+	rm -rf ext/lua-$(LUA_VERSION).tar.gz
 
 .PHONY: sdl2
 sdl2:
-	cd lib; \
+	mkdir -p $(EXT_INC_PATH)/SDL2
+	cd ext; \
 		curl https://www.libsdl.org/release/SDL2-$(SDL2_VERSION).zip > SDL2-$(SDL2_VERSION).zip; \
 		unzip -o SDL2-$(SDL2_VERSION).zip
-	cd lib/SDL2-$(SDL2_VERSION); \
-		cp include/*.h ../include/SDL2/; \
+	cd ext/SDL2-$(SDL2_VERSION); \
+		cp include/*.h ../inc/SDL2/; \
 		./configure; \
 		$(MAKE)
-	cp -r lib/SDL2-$(SDL2_VERSION)/build/.libs/libSDL2.a lib/libSDL2.a
-	rm -rf lib/SDL2-$(SDL2_VERSION)
-	rm -rf lib/SDL2-$(SDL2_VERSION).zip
+	cp -r ext/SDL2-$(SDL2_VERSION)/build/.libs/libSDL2.a $(EXT_LIB_PATH)/libSDL2.a
+	rm -rf ext/SDL2-$(SDL2_VERSION)
+	rm -rf ext/SDL2-$(SDL2_VERSION).zip
+
+.PHONY: update
+update:
+	git submodule foreach git pull origin master
 

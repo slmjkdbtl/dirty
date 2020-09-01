@@ -3,8 +3,8 @@
 #ifndef D_APP_H
 #define D_APP_H
 
-#include <SDL2/SDL.h>
 #include <stdbool.h>
+#include <SDL2/SDL.h>
 
 #include "math.h"
 #include "event.h"
@@ -29,10 +29,14 @@ typedef struct {
 	vec2 mouse_dpos;
 	d_btn_state key_states[128];
 	d_btn_state mouse_states[4];
+	d_tex2d empty_tex;
+	d_tex2d* tex_slots[8];
 	d_mesh tri_mesh;
 	d_program default_prog;
 	d_program* cur_prog;
 	mat4 transform;
+	mat4 view;
+	mat4 proj;
 	mat4 t_stack[16];
 	size_t t_stack_cnt;
 } d_ctx;

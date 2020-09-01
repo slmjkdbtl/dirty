@@ -132,19 +132,19 @@ void d_init(const char* title, int width, int height) {
 
 	d_vertex verts[] = {
 		{
-			.pos = { 0.0, 0.5, 0.0, },
+			.pos = { 0.0, 120.0, 0.0, },
 			.normal = { 0.0, 0.0, 1.0 },
 			.uv = { 0.0, 0.0, },
 			.color = { 1.0, 0.0, 0.0, 1.0, }
 		},
 		{
-			.pos = { -0.5, -0.5, 0.0, },
+			.pos = { -160.0, -120.0, 0.0, },
 			.normal = { 0.0, 0.0, 1.0 },
 			.uv = { 0.0, 0.0, },
 			.color = { 0.0, 1.0, 0.0, 1.0, }
 		},
 		{
-			.pos = { 0.5, -0.5, 0.0, },
+			.pos = { 160.0, -120.0, 0.0, },
 			.normal = { 0.0, 0.0, 1.0 },
 			.uv = { 0.0, 0.0, },
 			.color = { 0.0, 0.0, 1.0, 1.0, }
@@ -158,11 +158,15 @@ void d_init(const char* title, int width, int height) {
 	d.tri_mesh = d_make_mesh(verts, sizeof(verts), indices, sizeof(indices));
 	d.default_prog = d_make_program(d_vert_default, d_frag_default);
 	d.cur_prog = &d.default_prog;
+	d.empty_tex = d_make_tex((unsigned char[]){255, 255, 255, 255}, 1, 1);
+	d.tex_slots[0] = &d.empty_tex;
 
 	SDL_GL_SwapWindow(d.window);
 	SDL_GetWindowSize(d.window, &d.width, &d.height);
 
 	d.transform = make_mat4();
+	d.view = make_mat4();
+	d.proj = mat4_ortho(d.width, d.height, -1024.0, 1024.0);
 
 }
 

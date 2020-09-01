@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb/stb_image.h>
+
 #include "gfx.h"
 #include "app.h"
 
@@ -46,8 +49,7 @@ static const char* frag_template =
 "}"
 "{{user}}"
 "void main() {"
-// 	"gl_FragColor = frag();"
-	"gl_FragColor = v_color * u_color;"
+	"gl_FragColor = frag();"
 	"if (gl_FragColor.a == 0.0) {"
 		"discard;"
 	"}"
@@ -80,10 +82,22 @@ d_mesh d_make_mesh(d_vertex* verts, size_t verts_size, unsigned int* indices, si
 
 }
 
+d_img d_make_img(unsigned char* bytes) {
+	int w, h, size;
+	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, size, &w, &h, NULL, 0);
+	return (d_img) {
+		.data = data,
+		.width = w,
+		.height = h,
+	};
+}
+
 d_tex2d d_make_tex(unsigned char* data, int w, int h) {
 
 	GLuint tex;
 
+	glGenTextures(1, &tex);
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, tex);
 
 	glTexImage2D(
@@ -98,7 +112,10 @@ d_tex2d d_make_tex(unsigned char* data, int w, int h) {
 		data
 	);
 
-// 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -218,6 +235,11 @@ void d_draw(d_mesh* mesh, d_program* program) {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibuf);
 	glUseProgram(program->id);
 
+	for (int i = 0; d.tex_slots[i] != NULL; i++) {
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_2D, d.tex_slots[i]->id);
+	}
+
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 48, (void*)0);
 	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 48, (void*)12);
@@ -228,14 +250,18 @@ void d_draw(d_mesh* mesh, d_program* program) {
 	glEnableVertexAttribArray(3);
 
 	d_send_mat4("u_model", d.transform);
-	d_send_mat4("u_view", make_mat4());
-	d_send_mat4("u_proj", make_mat4());
+	d_send_mat4("u_view", d.view);
+	d_send_mat4("u_proj", d.proj);
 	d_send_color("u_color", (color) { 1.0, 1.0, 1.0, 1.0, });
 
 	glDrawElements(GL_TRIANGLES, mesh->count, GL_UNSIGNED_INT, 0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	for (int i = 0; d.tex_slots[i] != NULL; i++) {
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
 	glUseProgram(0);
 
 }

@@ -27,6 +27,12 @@ typedef struct {
 } d_tex2d;
 
 typedef struct {
+	unsigned char* data;
+	int width;
+	int height;
+} d_img;
+
+typedef struct {
 	GLuint vbuf;
 	GLuint ibuf;
 	size_t count;

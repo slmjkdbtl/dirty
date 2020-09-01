@@ -1,6 +1,9 @@
-[submodule "ext/stb"]
-	path = ext/stb
-	url = https://github.com/nothings/stb
-[submodule "ext/sokol"]
-	path = ext/sokol
+[submodule "ext/inc/cgltf"]
+	path = ext/inc/cgltf
+	url = https://github.com/jkuhlmann/cgltf
+[submodule "ext/inc/sokol"]
+	path = ext/inc/sokol
 	url = https://github.com/floooh/sokol
+[submodule "ext/inc/stb"]
+	path = ext/inc/stb
+	url = https://github.com/nothings/stb
