@@ -56,7 +56,7 @@ static const char* frag_template =
 "}"
 ;
 
-d_mesh d_make_mesh(d_vertex* verts, size_t verts_size, unsigned int* indices, size_t indices_size) {
+d_mesh d_make_mesh(const d_vertex* verts, size_t verts_size, const unsigned int* indices, size_t indices_size) {
 
 	// vertex buffer
 	GLuint vbuf;
@@ -82,9 +82,9 @@ d_mesh d_make_mesh(d_vertex* verts, size_t verts_size, unsigned int* indices, si
 
 }
 
-d_img d_make_img(unsigned char* bytes) {
-	int w, h, size;
-	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, size, &w, &h, NULL, 0);
+d_img d_make_img(const unsigned char* bytes, size_t len) {
+	int w, h;
+	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, len, &w, &h, NULL, 0);
 	return (d_img) {
 		.data = data,
 		.width = w,
@@ -92,7 +92,7 @@ d_img d_make_img(unsigned char* bytes) {
 	};
 }
 
-d_tex2d d_make_tex(unsigned char* data, int w, int h) {
+d_tex2d d_make_tex(const unsigned char* data, int w, int h) {
 
 	GLuint tex;
 

@@ -195,7 +195,9 @@ static int l_height(lua_State* L) {
 
 static int l_fread(lua_State* L) {
 	check_arg(L, 1, LUA_TSTRING);
-	lua_pushstring(L, d_fread(lua_tostring(L, 1)));
+	const char* content = d_fread(lua_tostring(L, 1), NULL);
+	lua_pushstring(L, content);
+	free((void*)content);
 	return 1;
 }
 
@@ -237,8 +239,7 @@ int run(const char* path) {
 	};
 
 	for (int i = 0; reg[i].name != NULL; i++) {
-		lua_pushcfunction(L, reg[i].func);
-		lua_setglobal(L, reg[i].name);
+		lua_register(L, reg[i].name, reg[i].func);
 	}
 
 	if (luaL_dofile(L, path) != LUA_OK) {
