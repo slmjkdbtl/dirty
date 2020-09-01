@@ -94,12 +94,15 @@ lib: $(LIB_TARGET)
 res: $(RES_H_FILES)
 
 $(BIN_TARGET): $(OBJ_FILES)
+	@mkdir -p $(BIN_PATH)
 	$(CC) $(LD_FLAGS) $^ -o $@
 
 $(LIB_TARGET): $(OBJ_FILES)
+	@mkdir -p $(LIB_PATH)
 	$(AR) $(AR_FLAGS) $(LIB_TARGET) $^
 
 $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
+	@mkdir -p $(OBJ_PATH)
 	$(CC) $(C_FLAGS) -c $< -o $@
 
 $(RES_PATH)/%.h: $(RES_PATH)/%
@@ -108,10 +111,7 @@ $(RES_PATH)/%.h: $(RES_PATH)/%
 
 .PHONY: clean
 clean:
-	rm -rf $(OBJ_PATH)/*
-	rm -rf $(BIN_PATH)/*
-	rm -rf $(LIB_PATH)/*
-	rm -rf $(RES_PATH)/*.h
+	rm -rf build
 
 .PHONY: run
 run: $(BIN_TARGET)

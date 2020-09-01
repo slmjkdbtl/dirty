@@ -17,6 +17,8 @@ typedef struct {
 
 typedef struct {
 	GLuint id;
+	int width;
+	int height;
 } d_tex2d;
 
 typedef struct {
@@ -27,6 +29,9 @@ typedef struct {
 
 typedef struct {
 	d_tex2d tex;
+	float qw;
+	float qh;
+	vec2* map;
 } d_font;
 
 typedef struct {
@@ -44,9 +49,9 @@ typedef struct {
 
 typedef struct {
 	d_tex2d default_tex;
+	d_tex2d* tex_slots[4];
 	d_font default_font;
 	d_font* cur_font;
-	d_tex2d* tex_slots[4];
 	d_mesh tri_mesh;
 	d_program default_prog;
 	d_program* cur_prog;
@@ -57,7 +62,7 @@ typedef struct {
 	size_t t_stack_cnt;
 } d_gfx_t;
 
-extern d_gfx_t d_gfx;
+d_gfx_t d_gfx;
 
 void d_gfx_init();
 void d_gfx_frame_start();
@@ -73,7 +78,7 @@ void d_free_img(d_img*);
 d_tex2d d_make_tex(const d_img*);
 void d_free_tex(const d_tex2d*);
 
-d_font d_make_font(d_tex2d);
+d_font d_make_font(d_tex2d tex, int gw, int gh, const char* chars);
 void d_free_font(const d_font*);
 
 d_program d_make_program(const char*, const char*);

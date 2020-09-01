@@ -41,6 +41,13 @@ typedef struct {
 	float m[16];
 } mat4;
 
+typedef struct {
+	float x;
+	float y;
+	float w;
+	float h;
+} quad;
+
 mat4 make_mat4();
 mat4 mat4_mult(mat4, mat4);
 mat4 mat4_scale(vec3);

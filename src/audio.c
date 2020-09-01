@@ -34,7 +34,7 @@ void d_audio_init() {
 		.userdata = NULL,
 	};
 
-	d_audio.dev = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, SDL_AUDIO_ALLOW_FORMAT_CHANGE);
+	d_audio.dev = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, SDL_AUDIO_ALLOW_ANY_CHANGE);
 	SDL_PauseAudioDevice(d_audio.dev, 0);
 
 }

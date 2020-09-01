@@ -177,8 +177,8 @@ void d_run(void (*f)(void)) {
 		SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 		SDL_GetMouseState(&mx, &my);
 
-		d_app.mouse_pos.x = (float)mx;
-		d_app.mouse_pos.y = (float)my;
+		d_app.mouse_pos.x = (float)mx - d_app.width / 2.0;
+		d_app.mouse_pos.y = d_app.height / 2.0 - (float)my;
 		d_app.mouse_dpos.x = 0.0;
 		d_app.mouse_dpos.y = 0.0;
 
@@ -209,7 +209,7 @@ void d_run(void (*f)(void)) {
 					break;
 				case SDL_MOUSEMOTION: {
 					d_app.mouse_dpos.x = event.motion.xrel;
-					d_app.mouse_dpos.y = event.motion.yrel;
+					d_app.mouse_dpos.y = -event.motion.yrel;
 					break;
 				}
 			}

@@ -113,7 +113,7 @@ void d_gfx_init() {
 
 	// init default font
 	d_img font_img = d_parse_img(unscii_png, unscii_png_len);
-	d_gfx.default_font = d_make_font(d_make_tex(&font_img));
+	d_gfx.default_font = d_make_font(d_make_tex(&font_img), 8, 8, " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~");
 	d_free_img(&font_img);
 	d_gfx.cur_font = &d_gfx.default_font;
 
@@ -221,6 +221,8 @@ d_tex2d d_make_tex(const d_img* img) {
 
 	return (d_tex2d) {
 		.id = tex,
+		.width = img->width,
+		.height = img->height,
 	};
 
 }
@@ -229,14 +231,35 @@ void d_free_tex(const d_tex2d* t) {
 	glDeleteTextures(1, &t->id);
 }
 
-d_font d_make_font(d_tex2d tex) {
+d_font d_make_font(d_tex2d tex, int gw, int gh, const char* chars) {
+
+	int cols = tex.width / gw;
+	int rows = tex.height / gh;
+	float qw = 1.0 / cols;
+	float qh = 1.0 / rows;
+	int count = cols * rows;
+
+	vec2* map = malloc(count * sizeof(vec2));
+
+	for (int i = 0; i < count; i++) {
+		map[i] = (vec2) {
+			.x = (i % cols) * qw,
+			.y = (i / cols) * qh,
+		};
+	}
+
 	return (d_font) {
 		.tex = tex,
+		.map = map,
+		.qw = qw,
+		.qh = qh,
 	};
+
 }
 
 void d_free_font(const d_font* f) {
 	d_free_tex(&f->tex);
+	free(f->map);
 }
 
 char* strsub(const char* str, const char* old, const char* new) {

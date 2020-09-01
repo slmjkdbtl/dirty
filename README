@@ -1,0 +1,19 @@
+OVERVIEW
+
+  'DIRTY' is a toolkit for making games
+  it also provides a lua interface for easy scripting
+  https://dirty.enemyspy.xyz/
+
+BUILD
+
+  'DIRTY' can be built as a binary tool for running lua scripts, or a static lib for C usage.
+
+    $ make bin
+    $ make lib
+
+  the built artifacts will be under build/ directory
+
+USAGE
+
+  (the C API and the lua API are identical)
+
