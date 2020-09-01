@@ -27,7 +27,7 @@ static const char* vert_template =
 "vec4 default_pos() {"
 	"return u_proj * u_view * u_model * vec4(v_pos, 1.0);"
 "}"
-"{{user}}"
+"##USER##"
 "void main() {"
 	"v_pos = a_pos;"
 	"v_uv = a_uv;"
@@ -48,7 +48,7 @@ static const char* frag_template =
 "vec4 default_color() {"
 	"return v_color * u_color * texture2D(u_tex, v_uv);"
 "}"
-"{{user}}"
+"##USER##"
 "void main() {"
 	"gl_FragColor = frag();"
 	"if (gl_FragColor.a == 0.0) {"
@@ -305,8 +305,8 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 		fs_src = frag_default;
 	}
 
-	const char* vs_code = strsub(vert_template, "{{user}}", vs_src);
-	const char* fs_code = strsub(frag_template, "{{user}}", fs_src);
+	const char* vs_code = strsub(vert_template, "##USER##", vs_src);
+	const char* fs_code = strsub(frag_template, "##USER##", fs_src);
 	char info_log[512];
 
 	// vertex shader

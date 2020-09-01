@@ -15,5 +15,6 @@ BUILD
 
 USAGE
 
-  (the C API and the lua API are identical)
+  (the C API and the Lua API are identical)
+  see examples/*.lua and src/*.h
 
