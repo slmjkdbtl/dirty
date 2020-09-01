@@ -34,6 +34,7 @@ endif
 endif
 
 SRC_PATH := src
+RES_PATH := src/res
 OBJ_PATH := build/obj
 BIN_PATH := build/bin
 LIB_PATH := build/lib
@@ -73,6 +74,8 @@ endif
 
 AR_FLAGS += -rc
 
+RES_FILES := $(wildcard $(RES_PATH)/*.png)
+RES_H_FILES := $(patsubst $(RES_PATH)/%, $(RES_PATH)/%.h, $(RES_FILES))
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))
 
@@ -87,6 +90,9 @@ bin: $(BIN_TARGET)
 .PHONY: lib
 lib: $(LIB_TARGET)
 
+.PHONY: res
+res: $(RES_H_FILES)
+
 $(BIN_TARGET): $(OBJ_FILES)
 	$(CC) $(LD_FLAGS) $^ -o $@
 
@@ -96,11 +102,16 @@ $(LIB_TARGET): $(OBJ_FILES)
 $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
 	$(CC) $(C_FLAGS) -c $< -o $@
 
+$(RES_PATH)/%.h: $(RES_PATH)/%
+	cd $(RES_PATH); \
+		xxd -i $(notdir $^) > $(notdir $@)
+
 .PHONY: clean
 clean:
 	rm -rf $(OBJ_PATH)/*
 	rm -rf $(BIN_PATH)/*
 	rm -rf $(LIB_PATH)/*
+	rm -rf $(RES_PATH)/*.h
 
 .PHONY: run
 run: $(BIN_TARGET)

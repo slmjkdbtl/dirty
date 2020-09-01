@@ -3,9 +3,9 @@
 #include <stdio.h>
 
 #include "app.h"
-#include "gl.h"
+#include "gfx.h"
 
-d_ctx d;
+d_app_t d_app;
 
 static d_mouse sdl_mouse_to_d(int btn) {
 	switch (btn) {
@@ -107,7 +107,7 @@ void d_init(const char* title, int width, int height) {
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
-	d.window = SDL_CreateWindow(
+	d_app.window = SDL_CreateWindow(
 		title,
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
@@ -118,8 +118,9 @@ void d_init(const char* title, int width, int height) {
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-	d.gl = SDL_GL_CreateContext(d.window);
+	d_app.gl = SDL_GL_CreateContext(d_app.window);
 
+	// init gl
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_DEPTH_TEST);
@@ -127,45 +128,13 @@ void d_init(const char* title, int width, int height) {
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	const GLubyte* gl_ver = glGetString(GL_VERSION);
-	printf("%s\n", gl_ver);
+// 	const GLubyte* gl_ver = glGetString(GL_VERSION);
+// 	printf("%s\n", gl_ver);
 
-	d_vertex verts[] = {
-		{
-			.pos = { 0.0, 120.0, 0.0, },
-			.normal = { 0.0, 0.0, 1.0 },
-			.uv = { 0.0, 0.0, },
-			.color = { 1.0, 0.0, 0.0, 1.0, }
-		},
-		{
-			.pos = { -160.0, -120.0, 0.0, },
-			.normal = { 0.0, 0.0, 1.0 },
-			.uv = { 0.0, 0.0, },
-			.color = { 0.0, 1.0, 0.0, 1.0, }
-		},
-		{
-			.pos = { 160.0, -120.0, 0.0, },
-			.normal = { 0.0, 0.0, 1.0 },
-			.uv = { 0.0, 0.0, },
-			.color = { 0.0, 0.0, 1.0, 1.0, }
-		},
-	};
+	SDL_GL_SwapWindow(d_app.window);
+	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 
-	unsigned int indices[] = {
-		0, 1, 2,
-	};
-
-	SDL_GL_SwapWindow(d.window);
-	SDL_GetWindowSize(d.window, &d.width, &d.height);
-
-	d.tri_mesh = d_make_mesh(verts, sizeof(verts), indices, sizeof(indices));
-	d.default_prog = d_make_program(d_vert_default, d_frag_default);
-	d.cur_prog = &d.default_prog;
-	d.empty_tex = d_make_tex((unsigned char[]){255, 255, 255, 255}, 1, 1);
-	d.tex_slots[0] = &d.empty_tex;
-	d.transform = make_mat4();
-	d.view = make_mat4();
-	d.proj = mat4_ortho(d.width, d.height, -1024.0, 1024.0);
+	d_gfx_init();
 
 }
 
@@ -178,39 +147,40 @@ void d_run(void (*f)(void)) {
 
 	SDL_Event event;
 
-	while (!d.quit) {
+	while (!d_app.quit) {
 
 		int time = SDL_GetTicks();
 
-		d.dt = time / 1000.0 - d.time;
-		d.time = time / 1000.0;
+		d_app.dt = time / 1000.0 - d_app.time;
+		d_app.time = time / 1000.0;
 
 		for (int i = 0; i < 128; i++) {
-			if (d.key_states[i] == D_BTN_PRESSED) {
-				d.key_states[i] = D_BTN_DOWN;
-			} else if (d.key_states[i] == D_BTN_RELEASED) {
-				d.key_states[i] = D_BTN_IDLE;
+			if (d_app.key_states[i] == D_BTN_PRESSED) {
+				d_app.key_states[i] = D_BTN_DOWN;
+			} else if (d_app.key_states[i] == D_BTN_RELEASED) {
+				d_app.key_states[i] = D_BTN_IDLE;
 			}
 		}
 
 		for (int i = 0; i < 4; i++) {
-			if (d.mouse_states[i] == D_BTN_PRESSED) {
-				d.mouse_states[i] = D_BTN_DOWN;
-			} else if (d.mouse_states[i] == D_BTN_RELEASED) {
-				d.mouse_states[i] = D_BTN_IDLE;
+			if (d_app.mouse_states[i] == D_BTN_PRESSED) {
+				d_app.mouse_states[i] = D_BTN_DOWN;
+			} else if (d_app.mouse_states[i] == D_BTN_RELEASED) {
+				d_app.mouse_states[i] = D_BTN_IDLE;
 			}
 		}
 
 		int mx, my;
 
-		SDL_GetWindowSize(d.window, &d.width, &d.height);
+		SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 		SDL_GetMouseState(&mx, &my);
 
-		d.mouse_pos.x = (float)mx;
-		d.mouse_pos.y = (float)my;
-		d.mouse_dpos.x = 0.0;
-		d.mouse_dpos.y = 0.0;
-		d.transform = make_mat4();
+		d_app.mouse_pos.x = (float)mx;
+		d_app.mouse_pos.y = (float)my;
+		d_app.mouse_dpos.x = 0.0;
+		d_app.mouse_dpos.y = 0.0;
+
+		d_gfx_frame_start();
 
 		while (SDL_PollEvent(&event)) {
 
@@ -219,25 +189,25 @@ void d_run(void (*f)(void)) {
 
 			switch (event.type) {
 				case SDL_QUIT:
-					d.quit = true;
+					d_app.quit = true;
 					break;
 				case SDL_KEYDOWN:
-					d.key_states[key] = D_BTN_PRESSED;
+					d_app.key_states[key] = D_BTN_PRESSED;
 					break;
 				case SDL_KEYUP:
-					d.key_states[key] = D_BTN_RELEASED;
+					d_app.key_states[key] = D_BTN_RELEASED;
 					break;
 				case SDL_MOUSEBUTTONDOWN:
-					d.mouse_states[mouse] = D_BTN_PRESSED;
+					d_app.mouse_states[mouse] = D_BTN_PRESSED;
 					break;
 				case SDL_MOUSEBUTTONUP:
-					d.mouse_states[mouse] = D_BTN_RELEASED;
+					d_app.mouse_states[mouse] = D_BTN_RELEASED;
 					break;
 				case SDL_MOUSEWHEEL:
 					break;
 				case SDL_MOUSEMOTION: {
-					d.mouse_dpos.x = event.motion.xrel;
-					d.mouse_dpos.y = event.motion.yrel;
+					d_app.mouse_dpos.x = event.motion.xrel;
+					d_app.mouse_dpos.y = event.motion.yrel;
 					break;
 				}
 			}
@@ -245,71 +215,71 @@ void d_run(void (*f)(void)) {
 		}
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		d_draw(&d.tri_mesh, &d.default_prog);
+		d_draw(&d_gfx.tri_mesh, &d_gfx.default_prog);
 		f();
-		SDL_GL_SwapWindow(d.window);
+		SDL_GL_SwapWindow(d_app.window);
 
 	}
 
-	SDL_GL_DeleteContext(d.gl);
-	SDL_DestroyWindow(d.window);
+	SDL_GL_DeleteContext(d_app.gl);
+	SDL_DestroyWindow(d_app.window);
 	SDL_Quit();
 
 }
 
 void d_quit() {
-	d.quit = true;
+	d_app.quit = true;
 }
 
 float d_time() {
-	return d.time;
+	return d_app.time;
 }
 
 float d_dt() {
-	return d.dt;
+	return d_app.dt;
 }
 
 bool d_key_pressed(d_key k) {
-	return d.key_states[k] == D_BTN_PRESSED;
+	return d_app.key_states[k] == D_BTN_PRESSED;
 }
 
 bool d_key_released(d_key k) {
-	return d.key_states[k] == D_BTN_RELEASED;
+	return d_app.key_states[k] == D_BTN_RELEASED;
 }
 
 bool d_key_down(d_key k) {
-	return d.key_states[k] == D_BTN_DOWN || d.key_states[k] == D_BTN_PRESSED;
+	return d_app.key_states[k] == D_BTN_DOWN || d_app.key_states[k] == D_BTN_PRESSED;
 }
 
 bool d_mouse_pressed(d_mouse k) {
-	return d.mouse_states[k] == D_BTN_PRESSED;
+	return d_app.mouse_states[k] == D_BTN_PRESSED;
 }
 
 bool d_mouse_released(d_mouse k) {
-	return d.mouse_states[k] == D_BTN_RELEASED;
+	return d_app.mouse_states[k] == D_BTN_RELEASED;
 }
 
 bool d_mouse_down(d_mouse k) {
-	return d.mouse_states[k] == D_BTN_DOWN || d.mouse_states[k] == D_BTN_PRESSED;
+	return d_app.mouse_states[k] == D_BTN_DOWN || d_app.mouse_states[k] == D_BTN_PRESSED;
 }
 
 int d_width() {
-	return d.width;
+	return d_app.width;
 }
 
 int d_height() {
-	return d.height;
+	return d_app.height;
 }
 
 vec2 d_mouse_pos() {
-	return d.mouse_pos;
+	return d_app.mouse_pos;
 }
 
 vec2 d_mouse_dpos() {
-	return d.mouse_dpos;
+	return d_app.mouse_dpos;
 }
 
 bool d_mouse_moved() {
-	return d.mouse_dpos.x != 0.0 || d.mouse_dpos.y != 0.0;
+	return d_app.mouse_dpos.x != 0.0 || d_app.mouse_dpos.y != 0.0;
 }
 

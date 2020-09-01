@@ -9,6 +9,7 @@
 
 #include "gfx.h"
 #include "app.h"
+#include "res/unscii.png.h"
 
 static const char* vert_template =
 "#version 120\n"
@@ -56,6 +57,68 @@ static const char* frag_template =
 "}"
 ;
 
+d_gfx_t d_gfx;
+
+void d_gfx_init() {
+
+	// test mesh
+	d_vertex verts[] = {
+		{
+			.pos = { 0.0, 120.0, 0.0, },
+			.normal = { 0.0, 0.0, 1.0 },
+			.uv = { 0.0, 0.0, },
+			.color = { 1.0, 0.0, 0.0, 1.0, }
+		},
+		{
+			.pos = { -160.0, -120.0, 0.0, },
+			.normal = { 0.0, 0.0, 1.0 },
+			.uv = { 0.0, 0.0, },
+			.color = { 0.0, 1.0, 0.0, 1.0, }
+		},
+		{
+			.pos = { 160.0, -120.0, 0.0, },
+			.normal = { 0.0, 0.0, 1.0 },
+			.uv = { 0.0, 0.0, },
+			.color = { 0.0, 0.0, 1.0, 1.0, }
+		},
+	};
+
+	unsigned int indices[] = {
+		0, 1, 2,
+	};
+
+	d_gfx.tri_mesh = d_make_mesh(verts, sizeof(verts), indices, sizeof(indices));
+
+	// init default program
+	d_gfx.default_prog = d_make_program(d_vert_default, d_frag_default);
+	d_gfx.cur_prog = &d_gfx.default_prog;
+
+	// init default tex
+	d_img default_img = d_make_img((unsigned char[]){255, 255, 255, 255}, 1, 1);
+	d_gfx.default_tex = d_make_tex(&default_img);
+	d_free_img(&default_img);
+	d_gfx.tex_slots[0] = &d_gfx.default_tex;
+
+	// init default font
+	d_img font_img = d_parse_img(unscii_png, unscii_png_len);
+	d_gfx.default_font = d_make_font(d_make_tex(&font_img));
+	d_free_img(&font_img);
+	d_gfx.cur_font = &d_gfx.default_font;
+
+	// init default cam
+	d_gfx.default_cam.view = make_mat4();
+	d_gfx.default_cam.proj = mat4_ortho(d_app.width, d_app.height, -1024.0, 1024.0);
+	d_gfx.cur_cam = &d_gfx.default_cam;
+
+	// init transform
+	d_gfx.transform = make_mat4();
+
+}
+
+void d_gfx_frame_start() {
+	d_gfx.transform = make_mat4();
+}
+
 d_mesh d_make_mesh(const d_vertex* verts, size_t verts_size, const unsigned int* indices, size_t indices_size) {
 
 	// vertex buffer
@@ -82,17 +145,37 @@ d_mesh d_make_mesh(const d_vertex* verts, size_t verts_size, const unsigned int*
 
 }
 
-d_img d_make_img(const unsigned char* bytes, size_t len) {
-	int w, h;
-	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, len, &w, &h, NULL, 0);
+d_img d_make_img(const unsigned char* data, int w, int h) {
+
+	size_t size = w * h * 4;
+	unsigned char* mdata = malloc(size);
+	memcpy(mdata, data, size);
+
 	return (d_img) {
-		.data = data,
+		.data = mdata,
 		.width = w,
 		.height = h,
 	};
 }
 
-d_tex2d d_make_tex(const unsigned char* data, int w, int h) {
+d_img d_parse_img(const unsigned char* bytes, size_t len) {
+
+	int w, h;
+	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, len, &w, &h, NULL, 0);
+
+	return (d_img) {
+		.data = data,
+		.width = w,
+		.height = h,
+	};
+
+}
+
+void d_free_img(d_img* img) {
+	free(img->data);
+}
+
+d_tex2d d_make_tex(const d_img* img) {
 
 	GLuint tex;
 
@@ -104,12 +187,12 @@ d_tex2d d_make_tex(const unsigned char* data, int w, int h) {
 		GL_TEXTURE_2D,
 		0,
 		GL_RGBA,
-		w,
-		h,
+		img->width,
+		img->height,
 		0,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
-		data
+		img->data
 	);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -123,6 +206,12 @@ d_tex2d d_make_tex(const unsigned char* data, int w, int h) {
 		.id = tex,
 	};
 
+}
+
+d_font d_make_font(d_tex2d tex) {
+	return (d_font) {
+		.tex = tex,
+	};
 }
 
 char* strsub(const char* str, const char* old, const char* new) {
@@ -162,8 +251,6 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 
 	const char* vs_code = strsub(vert_template, "{{user}}", vs_src);
 	const char* fs_code = strsub(frag_template, "{{user}}", fs_src);
-
-	int info_len;
 	char info_log[512];
 
 	// vertex shader
@@ -172,7 +259,7 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	glShaderSource(vs, 1, &vs_code, 0);
 	glCompileShader(vs);
 
-	glGetShaderInfoLog(vs, 512, &info_len, info_log);
+	glGetShaderInfoLog(vs, 512, NULL, info_log);
 	fprintf(stderr, "%s", info_log);
 
 	// fragment shader
@@ -181,7 +268,7 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	glShaderSource(fs, 1, &fs_code, 0);
 	glCompileShader(fs);
 
-	glGetShaderInfoLog(vs, 512, &info_len, info_log);
+	glGetShaderInfoLog(vs, 512, NULL, info_log);
 	fprintf(stderr, "%s", info_log);
 
 	// program
@@ -197,7 +284,7 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 
 	glLinkProgram(program);
 
-	glGetProgramInfoLog(program, 512, &info_len, info_log);
+	glGetProgramInfoLog(program, 512, NULL, info_log);
 	fprintf(stderr, "%s", info_log);
 
 	free((void*)vs_code);
@@ -210,23 +297,23 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 }
 
 void d_send_f(const char* name, float v) {
-	glUniform1f(glGetUniformLocation(d.cur_prog->id, name), v);
+	glUniform1f(glGetUniformLocation(d_gfx.cur_prog->id, name), v);
 }
 
 void d_send_vec2(const char* name, vec2 v) {
-	glUniform2f(glGetUniformLocation(d.cur_prog->id, name), v.x, v.y);
+	glUniform2f(glGetUniformLocation(d_gfx.cur_prog->id, name), v.x, v.y);
 }
 
 void d_send_vec3(const char* name, vec3 v) {
-	glUniform3f(glGetUniformLocation(d.cur_prog->id, name), v.x, v.y, v.z);
+	glUniform3f(glGetUniformLocation(d_gfx.cur_prog->id, name), v.x, v.y, v.z);
 }
 
 void d_send_color(const char* name, color c) {
-	glUniform4f(glGetUniformLocation(d.cur_prog->id, name), c.r, c.g, c.b, c.a);
+	glUniform4f(glGetUniformLocation(d_gfx.cur_prog->id, name), c.r, c.g, c.b, c.a);
 }
 
 void d_send_mat4(const char* name, mat4 m) {
-	glUniformMatrix4fv(glGetUniformLocation(d.cur_prog->id, name), 1, GL_FALSE, &m.m[0]);
+	glUniformMatrix4fv(glGetUniformLocation(d_gfx.cur_prog->id, name), 1, GL_FALSE, &m.m[0]);
 }
 
 void d_draw(d_mesh* mesh, d_program* program) {
@@ -235,9 +322,9 @@ void d_draw(d_mesh* mesh, d_program* program) {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibuf);
 	glUseProgram(program->id);
 
-	for (int i = 0; d.tex_slots[i] != NULL; i++) {
+	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
 		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(GL_TEXTURE_2D, d.tex_slots[i]->id);
+		glBindTexture(GL_TEXTURE_2D, d_gfx.tex_slots[i]->id);
 	}
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 48, (void*)0);
@@ -249,16 +336,16 @@ void d_draw(d_mesh* mesh, d_program* program) {
 	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 48, (void*)32);
 	glEnableVertexAttribArray(3);
 
-	d_send_mat4("u_model", d.transform);
-	d_send_mat4("u_view", d.view);
-	d_send_mat4("u_proj", d.proj);
+	d_send_mat4("u_model", d_gfx.transform);
+	d_send_mat4("u_view", d_gfx.cur_cam->view);
+	d_send_mat4("u_proj", d_gfx.cur_cam->proj);
 	d_send_color("u_color", (color) { 1.0, 1.0, 1.0, 1.0, });
 
 	glDrawElements(GL_TRIANGLES, mesh->count, GL_UNSIGNED_INT, 0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	for (int i = 0; d.tex_slots[i] != NULL; i++) {
+	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
@@ -272,45 +359,45 @@ void d_clear() {
 
 void d_push() {
 
-	if (d.t_stack_cnt >= 16) {
+	if (d_gfx.t_stack_cnt >= 16) {
 		fprintf(stderr, "transform stack overflow");
 		return d_quit();
 	}
 
-	d.t_stack[d.t_stack_cnt] = d.transform;
-	d.t_stack_cnt++;
+	d_gfx.t_stack[d_gfx.t_stack_cnt] = d_gfx.transform;
+	d_gfx.t_stack_cnt++;
 
 }
 
 void d_pop() {
 
-	if (d.t_stack_cnt <= 0) {
+	if (d_gfx.t_stack_cnt <= 0) {
 		fprintf(stderr, "transform stack underflow");
 		return d_quit();
 	}
 
-	d.t_stack_cnt--;
-	d.transform = d.t_stack[d.t_stack_cnt];
+	d_gfx.t_stack_cnt--;
+	d_gfx.transform = d_gfx.t_stack[d_gfx.t_stack_cnt];
 
 }
 
 void d_move(vec3 p) {
-	d.transform = mat4_mult(d.transform, mat4_translate(p));
+	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_translate(p));
 }
 
 void d_scale(vec3 s) {
-	d.transform = mat4_mult(d.transform, mat4_scale(s));
+	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_scale(s));
 }
 
 void d_rot_x(float a) {
-	d.transform = mat4_mult(d.transform, mat4_rot_x(a));
+	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_rot_x(a));
 }
 
 void d_rot_y(float a) {
-	d.transform = mat4_mult(d.transform, mat4_rot_y(a));
+	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_rot_y(a));
 }
 
 void d_rot_z(float a) {
-	d.transform = mat4_mult(d.transform, mat4_rot_z(a));
+	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_rot_z(a));
 }
 
