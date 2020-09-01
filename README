@@ -1,7 +1,6 @@
 OVERVIEW
 
-  'DIRTY' is a toolkit for making games
-  it also provides a lua interface for easy scripting
+  'DIRTY' is a cross-platform toolkit for making games / interactive experiences.
   https://dirty.enemyspy.xyz/
 
 BUILD
