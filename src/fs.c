@@ -1,8 +1,9 @@
 // wengwengweng
 
+#include <stdlib.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
-#include <SDL2/SDL.h>
 
 #ifdef __APPLE__
 #import <Foundation/Foundation.h>

@@ -1,12 +1,12 @@
 // wengwengweng
 
+#include <string.h>
 #include <lua/lua.h>
 #include <lua/lualib.h>
 #include <lua/lauxlib.h>
 
-#include <OpenGL/gl.h>
-#include "d/app.h"
-#include "d/fs.h"
+#include "app.h"
+#include "fs.h"
 
 typedef struct {
 	lua_State* lua;
@@ -248,7 +248,7 @@ int run(const char* path) {
 	luaL_unref(L, LUA_REGISTRYINDEX, l.run_ref);
 	lua_close(L);
 
-	return EXIT_SUCCESS;
+	return 0;
 
 }
 
@@ -274,7 +274,7 @@ int main(int argc, char** argv) {
 
 	}
 
-	return EXIT_SUCCESS;
+	return 0;
 
 }
 

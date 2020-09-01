@@ -3,6 +3,7 @@
 #ifndef D_GFX_H
 #define D_GFX_H
 
+#include "gl.h"
 #include "math.h"
 
 static const char* d_vert_default =

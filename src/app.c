@@ -1,8 +1,9 @@
 // wengwengweng
 
-#include <OpenGL/gl.h>
+#include <stdio.h>
 
 #include "app.h"
+#include "gl.h"
 
 d_ctx d;
 
