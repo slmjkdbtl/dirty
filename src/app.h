@@ -58,6 +58,7 @@ int d_width();
 int d_height();
 vec2 d_mouse_pos();
 vec2 d_mouse_dpos();
+bool d_mouse_moved();
 
 #endif
 

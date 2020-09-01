@@ -183,6 +183,11 @@ static int l_mouse_down(lua_State* L) {
 	return 1;
 }
 
+static int l_mouse_moved(lua_State* L) {
+	lua_pushboolean(L, d_mouse_moved());
+	return 1;
+}
+
 static int l_width(lua_State* L) {
 	lua_pushnumber(L, d_width());
 	return 1;
@@ -232,6 +237,7 @@ int run(const char* path) {
 		{ "d_mouse_pressed", l_mouse_pressed, },
 		{ "d_mouse_released", l_mouse_released, },
 		{ "d_mouse_down", l_mouse_down, },
+		{ "d_mouse_moved", l_mouse_moved, },
 		{ "d_fread", l_fread, },
 		{ "d_fexists", l_fexists, },
 		{ "d_clear", l_clear, },

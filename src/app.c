@@ -206,16 +206,10 @@ void d_run(void (*f)(void)) {
 		SDL_GetWindowSize(d.window, &d.width, &d.height);
 		SDL_GetMouseState(&mx, &my);
 
-		mx = (float)mx;
-		my = (float)my;
-
-		if (d.mouse_pos.x != 0.0 || d.mouse_pos.y != 0.0) {
-			d.mouse_dpos.x = mx - d.mouse_pos.x;
-			d.mouse_dpos.y = mx - d.mouse_pos.y;
-		}
-
-		d.mouse_pos.x = mx;
-		d.mouse_pos.y = my;
+		d.mouse_pos.x = (float)mx;
+		d.mouse_pos.y = (float)my;
+		d.mouse_dpos.x = 0.0;
+		d.mouse_dpos.y = 0.0;
 		d.transform = make_mat4();
 
 		while (SDL_PollEvent(&event)) {
@@ -239,6 +233,13 @@ void d_run(void (*f)(void)) {
 				case SDL_MOUSEBUTTONUP:
 					d.mouse_states[mouse] = D_BTN_RELEASED;
 					break;
+				case SDL_MOUSEWHEEL:
+					break;
+				case SDL_MOUSEMOTION: {
+					d.mouse_dpos.x = event.motion.xrel;
+					d.mouse_dpos.y = event.motion.yrel;
+					break;
+				}
 			}
 
 		}
@@ -306,5 +307,9 @@ vec2 d_mouse_pos() {
 
 vec2 d_mouse_dpos() {
 	return d.mouse_dpos;
+}
+
+bool d_mouse_moved() {
+	return d.mouse_dpos.x != 0.0 || d.mouse_dpos.y != 0.0;
 }
 
