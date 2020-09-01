@@ -6,18 +6,6 @@
 #include "gl.h"
 #include "math.h"
 
-static const char* d_vert_default =
-"vec4 vert() {"
-	"return default_pos();"
-"}"
-;
-
-static const char* d_frag_default =
-"vec4 frag() {"
-	"return default_color();"
-"}"
-;
-
 typedef struct {
 	mat4 view;
 	mat4 proj;
@@ -76,12 +64,20 @@ void d_gfx_frame_start();
 void d_gfx_frame_end();
 
 d_mesh d_make_mesh(const d_vertex*, size_t, const unsigned int*, size_t);
-d_tex2d d_make_tex(const d_img*);
+void d_free_mesh(const d_mesh*);
+
 d_img d_parse_img(const unsigned char*, size_t);
 d_img d_make_img(const unsigned char*, int, int);
 void d_free_img(d_img*);
-d_program d_make_program(const char*, const char*);
+
+d_tex2d d_make_tex(const d_img*);
+void d_free_tex(const d_tex2d*);
+
 d_font d_make_font(d_tex2d);
+void d_free_font(const d_font*);
+
+d_program d_make_program(const char*, const char*);
+void d_free_program(const d_program*);
 
 void d_draw(d_mesh*, d_program*);
 

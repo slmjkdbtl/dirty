@@ -4,6 +4,7 @@
 
 #include "app.h"
 #include "gfx.h"
+#include "audio.h"
 
 d_app_t d_app;
 
@@ -135,6 +136,7 @@ void d_init(const char* title, int width, int height) {
 	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 
 	d_gfx_init();
+	d_audio_init();
 
 }
 
@@ -223,6 +225,7 @@ void d_run(void (*f)(void)) {
 
 	SDL_GL_DeleteContext(d_app.gl);
 	SDL_DestroyWindow(d_app.window);
+	d_audio_destroy();
 	SDL_Quit();
 
 }

@@ -57,6 +57,18 @@ static const char* frag_template =
 "}"
 ;
 
+static const char* vert_default =
+"vec4 vert() {"
+	"return default_pos();"
+"}"
+;
+
+static const char* frag_default =
+"vec4 frag() {"
+	"return default_color();"
+"}"
+;
+
 d_gfx_t d_gfx;
 
 void d_gfx_init() {
@@ -90,7 +102,7 @@ void d_gfx_init() {
 	d_gfx.tri_mesh = d_make_mesh(verts, sizeof(verts), indices, sizeof(indices));
 
 	// init default program
-	d_gfx.default_prog = d_make_program(d_vert_default, d_frag_default);
+	d_gfx.default_prog = d_make_program(NULL, NULL);
 	d_gfx.cur_prog = &d_gfx.default_prog;
 
 	// init default tex
@@ -143,6 +155,11 @@ d_mesh d_make_mesh(const d_vertex* verts, size_t verts_size, const unsigned int*
 		.count = indices_size / sizeof(unsigned int),
 	};
 
+}
+
+void d_free_mesh(const d_mesh* m) {
+	glDeleteBuffers(1, &m->vbuf);
+	glDeleteBuffers(1, &m->ibuf);
 }
 
 d_img d_make_img(const unsigned char* data, int w, int h) {
@@ -208,10 +225,18 @@ d_tex2d d_make_tex(const d_img* img) {
 
 }
 
+void d_free_tex(const d_tex2d* t) {
+	glDeleteTextures(1, &t->id);
+}
+
 d_font d_make_font(d_tex2d tex) {
 	return (d_font) {
 		.tex = tex,
 	};
+}
+
+void d_free_font(const d_font* f) {
+	d_free_tex(&f->tex);
 }
 
 char* strsub(const char* str, const char* old, const char* new) {
@@ -248,6 +273,14 @@ char* strsub(const char* str, const char* old, const char* new) {
 }
 
 d_program d_make_program(const char* vs_src, const char* fs_src) {
+
+	if (vs_src == NULL) {
+		vs_src = vert_default;
+	}
+
+	if (fs_src == NULL) {
+		fs_src = frag_default;
+	}
 
 	const char* vs_code = strsub(vert_template, "{{user}}", vs_src);
 	const char* fs_code = strsub(frag_template, "{{user}}", fs_src);
@@ -294,6 +327,10 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 		.id = program,
 	};
 
+}
+
+void d_free_program(const d_program* p) {
+	glDeleteProgram(p->id);
 }
 
 void d_send_f(const char* name, float v) {
