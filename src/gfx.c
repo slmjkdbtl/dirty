@@ -1,13 +1,17 @@
 // wengwengweng
 
+#include <SDL2/SDL.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
+#include "math.h"
+#include "gl.h"
 #include "gfx.h"
+#include "event.h"
 #include "app.h"
 #include "res/unscii.png.h"
 
@@ -72,6 +76,18 @@ static const char* frag_default =
 d_gfx_t d_gfx;
 
 void d_gfx_init() {
+
+	// init gl
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LEQUAL);
+	glStencilFunc(GL_EQUAL, 1, 0xff);
+	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+// 	const GLubyte* gl_ver = glGetString(GL_VERSION);
+// 	printf("%s\n", gl_ver);
 
 	// test mesh
 	d_vertex verts[] = {
@@ -233,33 +249,34 @@ void d_free_tex(const d_tex2d* t) {
 
 d_font d_make_font(d_tex2d tex, int gw, int gh, const char* chars) {
 
+	d_font f = {};
+
 	int cols = tex.width / gw;
 	int rows = tex.height / gh;
-	float qw = 1.0 / cols;
-	float qh = 1.0 / rows;
 	int count = cols * rows;
 
-	vec2* map = malloc(count * sizeof(vec2));
+	f.qw = 1.0 / cols;
+	f.qh = 1.0 / rows;
+	f.tex = tex;
+
+	if (count != strlen(chars)) {
+		fprintf(stderr, "invalid font");
+		d_quit();
+	}
 
 	for (int i = 0; i < count; i++) {
-		map[i] = (vec2) {
-			.x = (i % cols) * qw,
-			.y = (i / cols) * qh,
+		f.map[(int)chars[i]] = (vec2) {
+			.x = (i % cols) * f.qw,
+			.y = (i / cols) * f.qh,
 		};
 	}
 
-	return (d_font) {
-		.tex = tex,
-		.map = map,
-		.qw = qw,
-		.qh = qh,
-	};
+	return f;
 
 }
 
 void d_free_font(const d_font* f) {
 	d_free_tex(&f->tex);
-	free(f->map);
 }
 
 char* strsub(const char* str, const char* old, const char* new) {
@@ -415,6 +432,46 @@ void d_draw(d_mesh* mesh, d_program* program) {
 
 void d_clear() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+}
+
+void d_clear_color() {
+	glClear(GL_COLOR_BUFFER_BIT);
+}
+
+void d_clear_depth() {
+	glClear(GL_DEPTH_BUFFER_BIT);
+}
+
+void d_clear_stencil() {
+	glClear(GL_STENCIL_BUFFER_BIT);
+}
+
+void d_depth_write(bool b) {
+	glDepthMask(b);
+}
+
+void d_depth_test(bool b) {
+	if (b) {
+		glEnable(GL_DEPTH_TEST);
+	} else {
+		glDisable(GL_DEPTH_TEST);
+	}
+}
+
+void d_stencil_write(bool b) {
+	if (b) {
+		glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+	} else {
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+	}
+}
+
+void d_stencil_test(bool b) {
+	if (b) {
+		glEnable(GL_STENCIL_TEST);
+	} else {
+		glDisable(GL_STENCIL_TEST);
+	}
 }
 
 void d_push() {

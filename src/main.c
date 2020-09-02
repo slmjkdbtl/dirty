@@ -1,10 +1,16 @@
 // wengwengweng
 
+#include <SDL2/SDL.h>
+#include <stdbool.h>
 #include <string.h>
 #include <lua/lua.h>
 #include <lua/lualib.h>
 #include <lua/lauxlib.h>
 
+#include "math.h"
+#include "event.h"
+#include "gl.h"
+#include "gfx.h"
 #include "app.h"
 #include "fs.h"
 
@@ -217,6 +223,73 @@ static int l_clear(lua_State* L) {
 	return 0;
 }
 
+static int l_clear_color(lua_State* L) {
+	d_clear_color();
+	return 0;
+}
+
+static int l_clear_depth(lua_State* L) {
+	d_clear_depth();
+	return 0;
+}
+
+static int l_clear_stencil(lua_State* L) {
+	d_clear_stencil();
+	return 0;
+}
+
+static int l_depth_write(lua_State* L) {
+	check_arg(L, 1, LUA_TBOOLEAN);
+	d_depth_write(lua_tostring(L, 1));
+	return 0;
+}
+
+static int l_depth_test(lua_State* L) {
+	check_arg(L, 1, LUA_TBOOLEAN);
+	d_depth_test(lua_tostring(L, 1));
+	return 0;
+}
+
+static int l_stencil_write(lua_State* L) {
+	check_arg(L, 1, LUA_TBOOLEAN);
+	d_stencil_write(lua_tostring(L, 1));
+	return 0;
+}
+
+static int l_stencil_test(lua_State* L) {
+	check_arg(L, 1, LUA_TBOOLEAN);
+	d_stencil_test(lua_tostring(L, 1));
+	return 0;
+}
+
+static int l_push(lua_State* L) {
+	d_push();
+	return 0;
+}
+
+static int l_pop(lua_State* L) {
+	d_pop();
+	return 0;
+}
+
+static int l_rot_x(lua_State* L) {
+	check_arg(L, 1, LUA_TNUMBER);
+	d_rot_x(lua_tonumber(L, 1));
+	return 0;
+}
+
+static int l_rot_y(lua_State* L) {
+	check_arg(L, 1, LUA_TNUMBER);
+	d_rot_y(lua_tonumber(L, 1));
+	return 0;
+}
+
+static int l_rot_z(lua_State* L) {
+	check_arg(L, 1, LUA_TNUMBER);
+	d_rot_z(lua_tonumber(L, 1));
+	return 0;
+}
+
 int run(const char* path) {
 
 	lua_State* L = luaL_newstate();
@@ -224,6 +297,7 @@ int run(const char* path) {
 	luaL_openlibs(L);
 
 	luaL_Reg reg[] = {
+		// app
 		{ "d_init", l_init, },
 		{ "d_run", l_run, },
 		{ "d_quit", l_quit, },
@@ -238,9 +312,25 @@ int run(const char* path) {
 		{ "d_mouse_released", l_mouse_released, },
 		{ "d_mouse_down", l_mouse_down, },
 		{ "d_mouse_moved", l_mouse_moved, },
+		// fs
 		{ "d_fread", l_fread, },
 		{ "d_fexists", l_fexists, },
+		// gfx
 		{ "d_clear", l_clear, },
+		{ "d_clear_color", l_clear_color, },
+		{ "d_clear_depth", l_clear_depth, },
+		{ "d_clear_stencil", l_clear_stencil, },
+		{ "d_depth_write", l_depth_write, },
+		{ "d_depth_test", l_depth_test, },
+		{ "d_stencil_write", l_stencil_write, },
+		{ "d_stencil_test", l_stencil_test, },
+		{ "d_push", l_push, },
+		{ "d_pop", l_pop, },
+		{ "d_rot_x", l_rot_x, },
+		{ "d_rot_y", l_rot_y, },
+		{ "d_rot_z", l_rot_z, },
+		// audio
+		// end
 		{ NULL, NULL, }
 	};
 

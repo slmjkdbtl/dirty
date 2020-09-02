@@ -44,6 +44,8 @@ LIB_TARGET := build/lib/dirty.a
 BIN_TARGET := build/bin/dirty
 
 C_FLAGS += -I $(EXT_INC_PATH)
+# C_FLAGS += -Wall
+C_FLAGS += -std=c99
 
 ifeq ($(TARGET),MacOS)
 C_FLAGS += -ObjC

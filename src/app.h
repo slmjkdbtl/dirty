@@ -1,15 +1,5 @@
 // wengwengweng
 
-#ifndef D_APP_H
-#define D_APP_H
-
-#include <stdbool.h>
-#include <SDL2/SDL.h>
-
-#include "math.h"
-#include "event.h"
-#include "gfx.h"
-
 typedef enum {
 	D_BTN_IDLE = 0,
 	D_BTN_PRESSED,
@@ -49,6 +39,4 @@ int d_height();
 vec2 d_mouse_pos();
 vec2 d_mouse_dpos();
 bool d_mouse_moved();
-
-#endif
 

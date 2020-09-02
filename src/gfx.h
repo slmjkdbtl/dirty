@@ -1,11 +1,5 @@
 // wengwengweng
 
-#ifndef D_GFX_H
-#define D_GFX_H
-
-#include "gl.h"
-#include "math.h"
-
 typedef struct {
 	mat4 view;
 	mat4 proj;
@@ -31,7 +25,7 @@ typedef struct {
 	d_tex2d tex;
 	float qw;
 	float qh;
-	vec2* map;
+	vec2 map[128];
 } d_font;
 
 typedef struct {
@@ -93,6 +87,14 @@ void d_send_color(const char*, color);
 void d_send_mat4(const char*, mat4);
 
 void d_clear();
+void d_clear_color();
+void d_clear_depth();
+void d_clear_stencil();
+void d_depth_write(bool);
+void d_depth_test(bool);
+void d_stencil_write(bool);
+void d_stencil_test(bool);
+
 void d_push();
 void d_pop();
 void d_move(vec3);
@@ -100,6 +102,4 @@ void d_scale(vec3);
 void d_rot_x(float);
 void d_rot_y(float);
 void d_rot_z(float);
-
-#endif
 

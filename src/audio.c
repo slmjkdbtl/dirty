@@ -1,6 +1,8 @@
 // wengwengweng
 
+#include <SDL2/SDL.h>
 #include <math.h>
+
 #include "audio.h"
 
 #define FREQ 44100

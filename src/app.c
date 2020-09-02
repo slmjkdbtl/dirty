@@ -1,7 +1,12 @@
 // wengwengweng
 
 #include <stdio.h>
+#include <stdbool.h>
+#include <SDL2/SDL.h>
 
+#include "math.h"
+#include "event.h"
+#include "gl.h"
 #include "app.h"
 #include "gfx.h"
 #include "audio.h"
@@ -15,7 +20,6 @@ static d_mouse sdl_mouse_to_d(int btn) {
 		case SDL_BUTTON_MIDDLE: return D_MOUSE_MIDDLE;
 		default: return D_MOUSE_NONE;
 	}
-	return D_MOUSE_NONE;
 }
 
 static d_key sdl_key_to_d(SDL_Scancode code) {
@@ -100,8 +104,6 @@ static d_key sdl_key_to_d(SDL_Scancode code) {
 		default: return D_KEY_NONE;
 	}
 
-	return D_KEY_NONE;
-
 }
 
 void d_init(const char* title, int width, int height) {
@@ -120,17 +122,6 @@ void d_init(const char* title, int width, int height) {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	d_app.gl = SDL_GL_CreateContext(d_app.window);
-
-	// init gl
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LEQUAL);
-	glClearColor(0.0, 0.0, 0.0, 1.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-// 	const GLubyte* gl_ver = glGetString(GL_VERSION);
-// 	printf("%s\n", gl_ver);
 
 	SDL_GL_SwapWindow(d_app.window);
 	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
