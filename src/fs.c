@@ -13,6 +13,10 @@
 
 char* d_fread(const char* path, size_t* o_size) {
 
+	if (!path) {
+		return NULL;
+	}
+
 	char* rpath = d_rpath(path);
 	FILE* file = fopen(rpath, "r");
 
@@ -47,6 +51,10 @@ char* d_fread(const char* path, size_t* o_size) {
 
 unsigned char* d_fread_b(const char* path, size_t* o_size) {
 
+	if (!path) {
+		return NULL;
+	}
+
 	char* rpath = d_rpath(path);
 	FILE* file = fopen(rpath, "rb");
 
@@ -79,6 +87,10 @@ unsigned char* d_fread_b(const char* path, size_t* o_size) {
 
 bool d_fexists(const char* path) {
 
+	if (!path) {
+		return NULL;
+	}
+
 	char* rpath = d_rpath(path);
 	bool exists = access(rpath, F_OK) != -1;
 	free(rpath);
@@ -88,6 +100,10 @@ bool d_fexists(const char* path) {
 }
 
 char* d_rpath(const char* path) {
+
+	if (!path) {
+		return NULL;
+	}
 
 	if (access(path, F_OK) != -1) {
 		char* cpath = malloc(sizeof(char) * strlen(path));

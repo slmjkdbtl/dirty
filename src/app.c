@@ -116,16 +116,24 @@ void d_init(const char* title, int width, int height) {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	d_app.gl = SDL_GL_CreateContext(d_app.window);
+
 	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 
 	d_gfx_init();
 	d_audio_init();
 
-	SDL_GL_SwapWindow(d_app.window);
-
 }
 
 void d_run(void (*f)(void)) {
+
+	if (!f) {
+		fprintf(stderr, "invalid run func");
+		return d_quit();
+	}
+
+	d_gfx_frame_start();
+	f();
+	SDL_GL_SwapWindow(d_app.window);
 
 	SDL_Event event;
 
@@ -162,8 +170,6 @@ void d_run(void (*f)(void)) {
 		d_app.mouse_dpos.x = 0.0;
 		d_app.mouse_dpos.y = 0.0;
 
-		d_gfx_frame_start();
-
 		while (SDL_PollEvent(&event)) {
 
 			d_key key = sdl_key_to_d(event.key.keysym.scancode);
@@ -196,13 +202,8 @@ void d_run(void (*f)(void)) {
 
 		}
 
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-		d_draw(&d_gfx.tri_mesh, &d_gfx.default_prog);
-
-		if (f) {
-			f();
-		}
-
+		d_gfx_frame_start();
+		f();
 		SDL_GL_SwapWindow(d_app.window);
 
 	}

@@ -142,6 +142,8 @@ void d_gfx_init() {
 
 void d_gfx_frame_start() {
 	d_gfx.transform = make_mat4();
+	d_clear();
+	d_draw(&d_gfx.tri_mesh, &d_gfx.default_prog);
 }
 
 d_mesh d_make_mesh(const d_vertex* verts, size_t verts_size, const unsigned int* indices, size_t indices_size) {

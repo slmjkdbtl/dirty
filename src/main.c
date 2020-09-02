@@ -384,29 +384,29 @@ int run(const char* path) {
 
 int main(int argc, char** argv) {
 
-	if (argc <= 1) {
+	char* path = d_rpath("main.lua");
 
-		char* path = d_rpath("main.lua");
+	if (path) {
 
-		if (d_fexists(path)) {
-			return run(path);
-		} else {
-			fprintf(stderr, "no\n");
-		}
-
-		free(path);
+		return run(path);
 
 	} else {
 
-		const char* action = argv[1];
+		if (argc >= 1) {
 
-		if (d_fexists(action)) {
-			return run(action);
-		} else {
-			fprintf(stderr, "no\n");
+			const char* action = argv[1];
+
+			if (d_fexists(action)) {
+				return run(action);
+			} else {
+				fprintf(stderr, "no\n");
+			}
+
 		}
 
 	}
+
+	free(path);
 
 	return 0;
 
