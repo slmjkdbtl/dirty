@@ -18,16 +18,24 @@ char* d_fread(const char* path, size_t* o_size) {
 	}
 
 	fseek(file, 0, SEEK_END);
-	long size = ftell(file);
+	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	char* buffer = malloc(size);
-	fread(buffer, 1, size, file);
+	char* buffer = malloc(size + 1);
+	size_t r_size = fread(buffer, 1, size, file);
 
-	fclose(file);
+	buffer[size] = '\0';
+
+	if (r_size != size) {
+		free(buffer);
+		return NULL;
+	}
+
 	if (o_size) {
 		*o_size = size;
 	}
+
+	fclose(file);
 
 	return buffer;
 
@@ -42,16 +50,22 @@ unsigned char* d_fread_b(const char* path, size_t* o_size) {
 	}
 
 	fseek(file, 0, SEEK_END);
-	long size = ftell(file);
+	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
 	unsigned char* buffer = malloc(size);
-	fread(buffer, 1, size, file);
+	size_t r_size = fread(buffer, 1, size, file);
 
-	fclose(file);
+	if (r_size != size) {
+		free(buffer);
+		return NULL;
+	}
+
 	if (o_size) {
 		*o_size = size;
 	}
+
+	fclose(file);
 
 	return buffer;
 

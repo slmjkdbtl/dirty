@@ -173,9 +173,11 @@ d_mesh d_make_mesh(const d_vertex* verts, size_t verts_size, const unsigned int*
 
 }
 
-void d_free_mesh(const d_mesh* m) {
+void d_free_mesh(d_mesh* m) {
 	glDeleteBuffers(1, &m->vbuf);
 	glDeleteBuffers(1, &m->ibuf);
+	m->vbuf = 0;
+	m->ibuf = 0;
 }
 
 d_img d_make_img(const unsigned char* data, int w, int h) {
@@ -206,6 +208,7 @@ d_img d_parse_img(const unsigned char* bytes, size_t len) {
 
 void d_free_img(d_img* img) {
 	free(img->data);
+	img->data = 0;
 }
 
 d_tex2d d_make_tex(const d_img* img) {
@@ -243,8 +246,9 @@ d_tex2d d_make_tex(const d_img* img) {
 
 }
 
-void d_free_tex(const d_tex2d* t) {
+void d_free_tex(d_tex2d* t) {
 	glDeleteTextures(1, &t->id);
+	t->id = 0;
 }
 
 d_font d_make_font(d_tex2d tex, int gw, int gh, const char* chars) {
@@ -275,7 +279,7 @@ d_font d_make_font(d_tex2d tex, int gw, int gh, const char* chars) {
 
 }
 
-void d_free_font(const d_font* f) {
+void d_free_font(d_font* f) {
 	d_free_tex(&f->tex);
 }
 
@@ -324,7 +328,9 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 
 	const char* vs_code = strsub(vert_template, "##USER##", vs_src);
 	const char* fs_code = strsub(frag_template, "##USER##", fs_src);
-	char info_log[512];
+
+	GLchar info_log[512];
+	GLint success = 0;
 
 	// vertex shader
 	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
@@ -332,8 +338,13 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	glShaderSource(vs, 1, &vs_code, 0);
 	glCompileShader(vs);
 
-	glGetShaderInfoLog(vs, 512, NULL, info_log);
-	fprintf(stderr, "%s", info_log);
+	glGetShaderiv(vs, GL_COMPILE_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		glGetShaderInfoLog(vs, 512, NULL, info_log);
+		fprintf(stderr, "%s", info_log);
+		d_quit();
+	}
 
 	// fragment shader
 	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
@@ -341,8 +352,13 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	glShaderSource(fs, 1, &fs_code, 0);
 	glCompileShader(fs);
 
-	glGetShaderInfoLog(vs, 512, NULL, info_log);
-	fprintf(stderr, "%s", info_log);
+	glGetShaderiv(fs, GL_COMPILE_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		glGetShaderInfoLog(fs, 512, NULL, info_log);
+		fprintf(stderr, "%s", info_log);
+		d_quit();
+	}
 
 	// program
 	GLuint program = glCreateProgram();
@@ -357,8 +373,18 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 
 	glLinkProgram(program);
 
-	glGetProgramInfoLog(program, 512, NULL, info_log);
-	fprintf(stderr, "%s", info_log);
+	glDetachShader(program, vs);
+	glDetachShader(program, fs);
+	glDeleteShader(vs);
+	glDeleteShader(fs);
+
+	glGetProgramiv(program, GL_COMPILE_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		glGetProgramInfoLog(program, 512, NULL, info_log);
+		fprintf(stderr, "%s", info_log);
+		d_quit();
+	}
 
 	free((void*)vs_code);
 	free((void*)fs_code);
@@ -369,8 +395,9 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 
 }
 
-void d_free_program(const d_program* p) {
+void d_free_program(d_program* p) {
 	glDeleteProgram(p->id);
+	p->id = 0;
 }
 
 void d_send_f(const char* name, float v) {
@@ -422,10 +449,12 @@ void d_draw(d_mesh* mesh, d_program* program) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
 	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
+
 	glUseProgram(0);
 
 }

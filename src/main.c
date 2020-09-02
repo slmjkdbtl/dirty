@@ -290,6 +290,38 @@ static int l_rot_z(lua_State* L) {
 	return 0;
 }
 
+static int l_make_program(lua_State* L) {
+	check_arg(L, 1, LUA_TSTRING);
+	check_arg(L, 2, LUA_TSTRING);
+	d_program p = d_make_program(lua_tostring(L, 1), lua_tostring(L, 2));
+	d_program* lp = lua_newuserdata(L, sizeof(d_program));
+	luaL_setmetatable(L, "d_program");
+	memcpy(lp, &p, sizeof(d_program));
+	return 1;
+}
+
+static int l_free_program(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	d_free_program(lua_touserdata(L, 1));
+	return 0;
+}
+
+static int l_program__index(lua_State* L) {
+
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TSTRING);
+	d_program* p = lua_touserdata(L, 1);
+	const char* arg = lua_tostring(L, 2);
+
+	if (strcmp(arg, "free") == 0) {
+		lua_pushcfunction(L, l_free_program);
+		return 1;
+	}
+
+	return 0;
+
+}
+
 int run(const char* path) {
 
 	lua_State* L = luaL_newstate();
@@ -329,6 +361,8 @@ int run(const char* path) {
 		{ "d_rot_x", l_rot_x, },
 		{ "d_rot_y", l_rot_y, },
 		{ "d_rot_z", l_rot_z, },
+		{ "d_make_program", l_make_program, },
+		{ "d_free_program", l_free_program, },
 		// audio
 		// end
 		{ NULL, NULL, }
@@ -337,6 +371,10 @@ int run(const char* path) {
 	for (int i = 0; reg[i].name != NULL; i++) {
 		lua_register(L, reg[i].name, reg[i].func);
 	}
+
+	luaL_newmetatable(L, "d_program");
+	lua_pushcfunction(L, l_program__index);
+	lua_setfield(L, -2, "__index");
 
 	if (luaL_dofile(L, path) != LUA_OK) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
