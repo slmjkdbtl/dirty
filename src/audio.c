@@ -1,9 +1,8 @@
 // wengwengweng
 
-#include <SDL2/SDL.h>
 #include <math.h>
 
-#include "audio.h"
+#include "dirty.h"
 
 #define FREQ 44100
 #define CHANNELS 1

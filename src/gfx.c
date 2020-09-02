@@ -1,18 +1,15 @@
 // wengwengweng
 
-#include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
+#include <SDL2/SDL.h>
 
-#include "math.h"
-#include "gl.h"
-#include "gfx.h"
-#include "event.h"
-#include "app.h"
+#include "dirty.h"
 #include "res/unscii.png.h"
 
 static const char* vert_template =
@@ -297,7 +294,7 @@ char* strsub(const char* str, const char* old, const char* new) {
 		}
 	}
 
-	char* res = (char*)malloc(i + cnt * (new_len - old_len) + 1);
+	char* res = malloc(i + cnt * (new_len - old_len) + 1);
 	i = 0;
 
 	while (*str) {

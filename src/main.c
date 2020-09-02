@@ -1,18 +1,13 @@
 // wengwengweng
 
-#include <SDL2/SDL.h>
 #include <stdbool.h>
 #include <string.h>
+
 #include <lua/lua.h>
 #include <lua/lualib.h>
 #include <lua/lauxlib.h>
 
-#include "math.h"
-#include "event.h"
-#include "gl.h"
-#include "gfx.h"
-#include "app.h"
-#include "fs.h"
+#include "dirty.h"
 
 typedef struct {
 	lua_State* lua;
@@ -391,11 +386,15 @@ int main(int argc, char** argv) {
 
 	if (argc <= 1) {
 
-		if (d_fexists("main.lua")) {
-			return run("main.lua");
+		char* path = d_rpath("main.lua");
+
+		if (d_fexists(path)) {
+			return run(path);
 		} else {
 			fprintf(stderr, "no\n");
 		}
+
+		free(path);
 
 	} else {
 

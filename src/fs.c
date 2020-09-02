@@ -5,13 +5,16 @@
 #include <stdbool.h>
 #include <unistd.h>
 
+#include "fs.h"
+
 #ifdef __APPLE__
 #import <Foundation/Foundation.h>
 #endif
 
 char* d_fread(const char* path, size_t* o_size) {
 
-	FILE* file = fopen(path, "r");
+	char* rpath = d_rpath(path);
+	FILE* file = fopen(rpath, "r");
 
 	if (!file) {
 		return NULL;
@@ -36,6 +39,7 @@ char* d_fread(const char* path, size_t* o_size) {
 	}
 
 	fclose(file);
+	free(rpath);
 
 	return buffer;
 
@@ -43,7 +47,8 @@ char* d_fread(const char* path, size_t* o_size) {
 
 unsigned char* d_fread_b(const char* path, size_t* o_size) {
 
-	FILE* file = fopen(path, "rb");
+	char* rpath = d_rpath(path);
+	FILE* file = fopen(rpath, "rb");
 
 	if (!file) {
 		return NULL;
@@ -66,25 +71,46 @@ unsigned char* d_fread_b(const char* path, size_t* o_size) {
 	}
 
 	fclose(file);
+	free(rpath);
 
 	return buffer;
 
 }
 
 bool d_fexists(const char* path) {
-	return access(path, F_OK) != -1;
+
+	char* rpath = d_rpath(path);
+	bool exists = access(rpath, F_OK) != -1;
+	free(rpath);
+
+	return exists;
+
 }
 
-// TODO: validate_path
-static const char* res_path() {
+char* d_rpath(const char* path) {
+
+	if (access(path, F_OK) != -1) {
+		char* cpath = malloc(sizeof(char) * strlen(path));
+		strcpy(cpath, path);
+		return cpath;
+	}
+
 #ifdef __APPLE__
-// 	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-	NSBundle* bundle = [NSBundle mainBundle];
-	NSString* path = [bundle resourcePath];
-// 	[pool drain];
-	return [ path UTF8String ];
-#else
-	return "";
+	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
+	const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
+	char* cpath = malloc(sizeof(char) * (strlen(res_path) + 1 + strlen(path)));
+	sprintf(cpath, "%s/%s", res_path, path);
+	[pool drain];
+
+	if (access(cpath, F_OK) != -1) {
+		return cpath;
+	} else {
+		free(cpath);
+		return NULL;
+	}
 #endif
+
+	return NULL;
+
 }
 

@@ -1,15 +1,9 @@
 // wengwengweng
 
 #include <stdio.h>
-#include <stdbool.h>
-#include <SDL2/SDL.h>
 
-#include "math.h"
-#include "event.h"
+#include "dirty.h"
 #include "gl.h"
-#include "app.h"
-#include "gfx.h"
-#include "audio.h"
 
 d_app_t d_app;
 
@@ -122,21 +116,16 @@ void d_init(const char* title, int width, int height) {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	d_app.gl = SDL_GL_CreateContext(d_app.window);
-
-	SDL_GL_SwapWindow(d_app.window);
 	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 
 	d_gfx_init();
 	d_audio_init();
 
+	SDL_GL_SwapWindow(d_app.window);
+
 }
 
 void d_run(void (*f)(void)) {
-
-	if (!f) {
-		fprintf(stderr, "invalid run func");
-		return d_quit();
-	}
 
 	SDL_Event event;
 
@@ -209,7 +198,11 @@ void d_run(void (*f)(void)) {
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 		d_draw(&d_gfx.tri_mesh, &d_gfx.default_prog);
-		f();
+
+		if (f) {
+			f();
+		}
+
 		SDL_GL_SwapWindow(d_app.window);
 
 	}
