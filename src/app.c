@@ -2,8 +2,7 @@
 
 #include <stdio.h>
 
-#include "dirty.h"
-#include "gl.h"
+#include <dirty/dirty.h>
 
 void d_gfx_init();
 void d_gfx_frame_start();
@@ -135,6 +134,7 @@ void d_init(const char* title, int width, int height) {
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+	SDL_GL_SetSwapInterval(1);
 	d_app.gl = SDL_GL_CreateContext(d_app.window);
 
 	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
@@ -233,6 +233,14 @@ void d_run(void (*f)(void)) {
 	d_audio_destroy();
 	SDL_Quit();
 
+}
+
+void d_vsync(bool b) {
+	if (b) {
+		SDL_GL_SetSwapInterval(1);
+	} else {
+		SDL_GL_SetSwapInterval(0);
+	}
 }
 
 void d_quit() {

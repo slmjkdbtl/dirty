@@ -103,6 +103,7 @@ typedef enum {
 
 void d_init(const char*, int, int);
 void d_run(void (*)(void));
+void d_vsync(bool);
 void d_quit();
 float d_time();
 float d_dt();

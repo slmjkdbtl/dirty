@@ -58,13 +58,13 @@ void d_free_img(d_img*);
 d_tex2d d_make_tex(const d_img*);
 void d_free_tex(d_tex2d*);
 
-d_font d_make_font(d_tex2d tex, int gw, int gh, const char* chars);
+d_font d_make_font(d_tex2d, int, int, const char*);
 void d_free_font(d_font*);
 
 d_program d_make_program(const char*, const char*);
 void d_free_program(d_program*);
 
-void d_draw(d_mesh*, d_program*);
+void d_draw(const d_mesh*, const d_program*);
 
 void d_send_f(const char*, float);
 void d_send_vec2(const char*, vec2);

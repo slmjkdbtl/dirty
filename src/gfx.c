@@ -9,7 +9,7 @@
 #include <stb/stb_image.h>
 #include <SDL2/SDL.h>
 
-#include "dirty.h"
+#include <dirty/dirty.h>
 #include "res/unscii.png.h"
 
 static const char* vert_template =
@@ -434,7 +434,7 @@ void d_send_mat4(const char* name, mat4 m) {
 	glUniformMatrix4fv(glGetUniformLocation(d_gfx.cur_prog->id, name), 1, GL_FALSE, &m.m[0]);
 }
 
-void d_draw(d_mesh* mesh, d_program* program) {
+void d_draw(const d_mesh* mesh, const d_program* program) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbuf);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibuf);

@@ -22,11 +22,13 @@ RES_PATH := src/res
 OBJ_PATH := build/obj
 BIN_PATH := build/bin
 LIB_PATH := build/lib
+INC_PATH := include
 EXAMPLE_PATH := examples
-EXT_INC_PATH := ext/inc
+EXT_INC_PATH := ext/include
 EXT_LIB_PATH := ext/lib
 LIB_TARGET := $(LIB_PATH)/libdirty.a
 
+C_FLAGS += -I $(INC_PATH)
 C_FLAGS += -I $(EXT_INC_PATH)
 C_FLAGS += -Wall
 # C_FLAGS += -Wextra
@@ -80,7 +82,7 @@ run: $(BIN_PATH)/$(EXAMPLE)
 
 $(BIN_PATH)/%: $(EXAMPLE_PATH)/%.c $(LIB_TARGET)
 	@mkdir -p $(BIN_PATH)
-	$(CC) $^ -I src -L $(LIB_PATH) -ldirty $(LD_FLAGS) -o $@
+	$(CC) $(C_FLAGS) -L $(LIB_PATH) -ldirty $(LD_FLAGS) -o $@ $^
 
 $(LIB_TARGET): $(OBJ_FILES)
 	@mkdir -p $(LIB_PATH)
@@ -105,7 +107,7 @@ sdl2:
 		curl https://www.libsdl.org/release/SDL2-$(SDL2_VERSION).zip > SDL2-$(SDL2_VERSION).zip; \
 		unzip -o SDL2-$(SDL2_VERSION).zip
 	cd ext/SDL2-$(SDL2_VERSION); \
-		cp include/*.h ../inc/SDL2/; \
+		cp include/*.h ../include/SDL2/; \
 		./configure; \
 		$(MAKE)
 	cp -r ext/SDL2-$(SDL2_VERSION)/build/.libs/libSDL2.a $(EXT_LIB_PATH)/libSDL2.a

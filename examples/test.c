@@ -1,6 +1,6 @@
 // wengwengweng
 
-#include <dirty.h>
+#include <dirty/dirty.h>
 
 static void frame() {
 
@@ -17,6 +17,7 @@ static void frame() {
 int main() {
 
 	d_init("test", 640, 480);
+	d_vsync(true);
 	d_run(frame);
 
 }

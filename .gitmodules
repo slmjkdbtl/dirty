@@ -1,15 +1,15 @@
-[submodule "ext/inc/cgltf"]
-	path = ext/inc/cgltf
+[submodule "ext/include/cgltf"]
+	path = ext/include/cgltf
 	url = https://github.com/jkuhlmann/cgltf
-[submodule "ext/inc/sokol"]
-	path = ext/inc/sokol
+[submodule "ext/include/sokol"]
+	path = ext/include/sokol
 	url = https://github.com/floooh/sokol
-[submodule "ext/inc/stb"]
-	path = ext/inc/stb
+[submodule "ext/include/stb"]
+	path = ext/include/stb
 	url = https://github.com/nothings/stb
-[submodule "ext/inc/cimgui"]
-	path = ext/inc/cimgui
+[submodule "ext/include/cimgui"]
+	path = ext/include/cimgui
 	url = https://github.com/cimgui/cimgui/
-[submodule "ext/inc/json.h"]
-	path = ext/inc/json.h
+[submodule "ext/include/json.h"]
+	path = ext/include/json.h
 	url = https://github.com/sheredom/json.h

@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <math.h>
 
-#include "math.h"
+#include <dirty/math.h>
 
 vec2 make_vec2(float x, float y) {
 	return (vec2) {

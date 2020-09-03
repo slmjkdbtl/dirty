@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#include "fs.h"
+#include <dirty/fs.h>
 
 #ifdef __APPLE__
 #import <Foundation/Foundation.h>
