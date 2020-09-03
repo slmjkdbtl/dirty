@@ -101,22 +101,6 @@ typedef enum {
 	D_MOUSE_MIDDLE,
 } d_mouse;
 
-typedef struct {
-	SDL_GLContext gl;
-	SDL_Window* window;
-	bool quit;
-	float time;
-	float dt;
-	int width;
-	int height;
-	vec2 mouse_pos;
-	vec2 mouse_dpos;
-	d_btn_state key_states[128];
-	d_btn_state mouse_states[4];
-} d_app_t;
-
-extern d_app_t d_app;
-
 void d_init(const char*, int, int);
 void d_run(void (*)(void));
 void d_quit();

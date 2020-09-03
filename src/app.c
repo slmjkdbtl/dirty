@@ -5,7 +5,27 @@
 #include "dirty.h"
 #include "gl.h"
 
-d_app_t d_app;
+void d_gfx_init();
+void d_gfx_frame_start();
+void d_gfx_frame_end();
+void d_audio_init();
+void d_audio_destroy();
+
+typedef struct {
+	SDL_GLContext gl;
+	SDL_Window* window;
+	bool quit;
+	float time;
+	float dt;
+	int width;
+	int height;
+	vec2 mouse_pos;
+	vec2 mouse_dpos;
+	d_btn_state key_states[128];
+	d_btn_state mouse_states[4];
+} d_app_t;
+
+static d_app_t d_app;
 
 static d_mouse sdl_mouse_to_d(int btn) {
 	switch (btn) {

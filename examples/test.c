@@ -3,7 +3,15 @@
 #include <dirty.h>
 
 static void frame() {
-	// ...
+
+	if (d_key_pressed(D_KEY_ESC)) {
+		d_quit();
+	}
+
+	if (d_mouse_down(D_MOUSE_LEFT)) {
+		printf("%f\n", d_time());
+	}
+
 }
 
 int main() {

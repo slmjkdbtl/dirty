@@ -70,7 +70,22 @@ static const char* frag_default =
 "}"
 ;
 
-d_gfx_t d_gfx;
+typedef struct {
+	d_tex2d default_tex;
+	d_tex2d* tex_slots[4];
+	d_font default_font;
+	d_font* cur_font;
+	d_mesh tri_mesh;
+	d_program default_prog;
+	d_program* cur_prog;
+	mat4 transform;
+	d_cam default_cam;
+	d_cam* cur_cam;
+	mat4 t_stack[8];
+	int t_stack_cnt;
+} d_gfx_t;
+
+static d_gfx_t d_gfx;
 
 void d_gfx_init() {
 
@@ -132,7 +147,7 @@ void d_gfx_init() {
 
 	// init default cam
 	d_gfx.default_cam.view = make_mat4();
-	d_gfx.default_cam.proj = mat4_ortho(d_app.width, d_app.height, -1024.0, 1024.0);
+	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
 	d_gfx.cur_cam = &d_gfx.default_cam;
 
 	// init transform

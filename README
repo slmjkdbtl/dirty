@@ -1,6 +1,6 @@
 OVERVIEW
 
-  'DIRTY' is a minimal toolkit for making games / interactive experiences.
+  'dirty' is a minimal toolkit for making games / interactive experiences.
   https://dirty.enemyspy.xyz/
 
 BUILD
@@ -16,9 +16,15 @@ BUILD
 
 USAGE
 
-  // create window
-  void d_init(const char* title, int width, int height)
+  see
 
-  // run main loop
-  void d_run(void (*f)(void))
+    - src/app.h
+    - src/gfx.h
+    - src/audio.h
+    - src/fs.h
+    - src/math.h
+
+FACTS
+
+  'dirty' is short for 'Dangerous Ichthyopolist Reincarnates Tropical Yeti'
 

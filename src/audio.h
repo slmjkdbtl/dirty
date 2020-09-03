@@ -11,8 +11,5 @@ typedef struct {
 
 extern d_audio_t d_audio;
 
-void d_audio_init();
-void d_audio_destroy();
-
 #endif
 

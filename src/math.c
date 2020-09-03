@@ -134,12 +134,16 @@ void vec3_print(vec3 p) {
 	printf("vec3(%.8g, %.8g, %.8g)\n", p.x, p.y, p.z);
 }
 
+static float clamp(float v, float low, float hi) {
+	return fmax(low, fmin(v, hi));
+}
+
 color make_color(float r, float g, float b, float a) {
 	return (color) {
-		.r = r,
-		.g = g,
-		.b = b,
-		.a = a,
+		.r = clamp(r, 0.0, 1.0),
+		.g = clamp(r, 0.0, 1.0),
+		.b = clamp(r, 0.0, 1.0),
+		.a = clamp(r, 0.0, 1.0),
 	};
 }
 

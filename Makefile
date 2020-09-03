@@ -29,6 +29,7 @@ LIB_TARGET := $(LIB_PATH)/libdirty.a
 
 C_FLAGS += -I $(EXT_INC_PATH)
 C_FLAGS += -Wall
+# C_FLAGS += -Wextra
 C_FLAGS += -std=c99
 
 ifeq ($(TARGET),MacOS)
@@ -75,7 +76,7 @@ res: $(RES_H_FILES)
 .PHONY: run
 run: $(BIN_PATH)/$(EXAMPLE)
 	cd $(BIN_PATH); \
-		./$(EXAMPLE)
+		./$(EXAMPLE) $(ARGS)
 
 $(BIN_PATH)/%: $(EXAMPLE_PATH)/%.c $(LIB_TARGET)
 	@mkdir -p $(BIN_PATH)

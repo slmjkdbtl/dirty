@@ -48,27 +48,6 @@ typedef struct {
 	color color;
 } d_vertex;
 
-typedef struct {
-	d_tex2d default_tex;
-	d_tex2d* tex_slots[4];
-	d_font default_font;
-	d_font* cur_font;
-	d_mesh tri_mesh;
-	d_program default_prog;
-	d_program* cur_prog;
-	mat4 transform;
-	d_cam default_cam;
-	d_cam* cur_cam;
-	mat4 t_stack[8];
-	int t_stack_cnt;
-} d_gfx_t;
-
-d_gfx_t d_gfx;
-
-void d_gfx_init();
-void d_gfx_frame_start();
-void d_gfx_frame_end();
-
 d_mesh d_make_mesh(const d_vertex*, int, const unsigned int*, int);
 void d_free_mesh(d_mesh*);
 
