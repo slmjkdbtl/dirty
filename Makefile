@@ -81,8 +81,6 @@ RES_H_FILES := $(patsubst $(RES_PATH)/%, $(RES_PATH)/%.h, $(RES_FILES))
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))
 
-#  EXTLIBS := $(addprefix ext/lib/,libSDL2.a liblua.a)
-
 SDL2_VERSION := 2.0.12
 LUA_VERSION := 5.4.0
 

@@ -9,11 +9,10 @@
 
 #include "dirty.h"
 
-#define l_push_udata(L, T, V) \
+#define pushudata(L, T, V) \
 	T* lv = lua_newuserdata(L, sizeof(T)); \
 	luaL_setmetatable(L, #T); \
-	T v = V; \
-	memcpy(lv, &v, sizeof(T)); \
+	memcpy(lv, V, sizeof(T)); \
 
 typedef struct {
 	lua_State* lua;
@@ -186,17 +185,20 @@ static int l_mouse_released(lua_State* L) {
 
 static int l_mouse_down(lua_State* L) {
 	check_arg(L, 1, LUA_TSTRING);
-	lua_pushboolean(L, d_mouse_down(str_to_d_mouse(lua_tostring(L, 1))));
+	const char* key = lua_tostring(L, 1);
+	lua_pushboolean(L, d_mouse_down(str_to_d_mouse(key)));
 	return 1;
 }
 
 static int l_mouse_pos(lua_State* L) {
-	l_push_udata(L, vec2, d_mouse_pos());
+	vec2 mpos = d_mouse_pos();
+	pushudata(L, vec2, &mpos);
 	return 1;
 }
 
 static int l_mouse_dpos(lua_State* L) {
-	l_push_udata(L, vec2, d_mouse_dpos());
+	vec2 dpos = d_mouse_dpos();
+	pushudata(L, vec2, &dpos);
 	return 1;
 }
 
@@ -285,14 +287,14 @@ static int l_pop(lua_State* L) {
 
 static int l_move(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
-	vec3* p = (vec3*)luaL_checkudata(L, 1, "vec3");
+	vec3* p = luaL_checkudata(L, 1, "vec3");
 	d_move(*p);
 	return 0;
 }
 
 static int l_scale(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
-	vec3* p = (vec3*)luaL_checkudata(L, 1, "vec3");
+	vec3* p = luaL_checkudata(L, 1, "vec3");
 	d_scale(*p);
 	return 0;
 }
@@ -325,7 +327,7 @@ static int l_send_f(lua_State* L) {
 static int l_send_vec2(lua_State* L) {
 	check_arg(L, 1, LUA_TSTRING);
 	check_arg(L, 2, LUA_TUSERDATA);
-	vec2* p = (vec2*)luaL_checkudata(L, 2, "vec2");
+	vec2* p = luaL_checkudata(L, 2, "vec2");
 	d_send_vec2(lua_tostring(L, 1), *p);
 	return 0;
 }
@@ -333,7 +335,7 @@ static int l_send_vec2(lua_State* L) {
 static int l_send_vec3(lua_State* L) {
 	check_arg(L, 1, LUA_TSTRING);
 	check_arg(L, 2, LUA_TUSERDATA);
-	vec3* p = (vec3*)luaL_checkudata(L, 2, "vec3");
+	vec3* p = luaL_checkudata(L, 2, "vec3");
 	d_send_vec3(lua_tostring(L, 1), *p);
 	return 0;
 }
@@ -349,29 +351,33 @@ static int l_send_color(lua_State* L) {
 static int l_make_vec2(lua_State* L) {
 	check_arg(L, 1, LUA_TNUMBER);
 	check_arg(L, 2, LUA_TNUMBER);
-	l_push_udata(L, vec2, make_vec2(lua_tonumber(L, 1), lua_tonumber(L, 2)));
+	lua_Number x = lua_tonumber(L, 1);
+	lua_Number y = lua_tonumber(L, 2);
+	vec2 p = make_vec2(x, y);
+	pushudata(L, vec2, &p);
 	return 1;
 }
 
 static int l_vec2_len(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
-	vec2* p = (vec2*)luaL_checkudata(L, 1, "vec2");
+	vec2* p = luaL_checkudata(L, 1, "vec2");
 	lua_pushnumber(L, vec2_len(*p));
 	return 1;
 }
 
 static int l_vec2_unit(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
-	vec2* p = (vec2*)luaL_checkudata(L, 1, "vec2");
-	l_push_udata(L, vec2, vec2_unit(*p));
+	vec2* p = luaL_checkudata(L, 1, "vec2");
+	vec2 unit = vec2_unit(*p);
+	pushudata(L, vec2, &unit);
 	return 1;
 }
 
 static int l_vec2_dist(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
 	check_arg(L, 2, LUA_TUSERDATA);
-	vec2* p1 = (vec2*)luaL_checkudata(L, 1, "vec2");
-	vec2* p2 = (vec2*)luaL_checkudata(L, 2, "vec2");
+	vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	vec2* p2 = luaL_checkudata(L, 2, "vec2");
 	lua_pushnumber(L, vec2_dist(*p1, *p2));
 	return 1;
 }
@@ -379,8 +385,8 @@ static int l_vec2_dist(lua_State* L) {
 static int l_vec2_dot(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
 	check_arg(L, 2, LUA_TUSERDATA);
-	vec2* p1 = (vec2*)luaL_checkudata(L, 1, "vec2");
-	vec2* p2 = (vec2*)luaL_checkudata(L, 2, "vec2");
+	vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	vec2* p2 = luaL_checkudata(L, 2, "vec2");
 	lua_pushnumber(L, vec2_dot(*p1, *p2));
 	return 1;
 }
@@ -454,7 +460,8 @@ static int l_vec2__add(lua_State* L) {
 	check_arg(L, 2, LUA_TUSERDATA);
 	vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	vec2* p2 = luaL_checkudata(L, 2, "vec2");
-	l_push_udata(L, vec2, vec2_add(*p1, *p2));
+	vec2 p = vec2_add(*p1, *p2);
+	pushudata(L, vec2, &p);
 	return 1;
 }
 
@@ -463,7 +470,8 @@ static int l_vec2__sub(lua_State* L) {
 	check_arg(L, 2, LUA_TUSERDATA);
 	vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	vec2* p2 = luaL_checkudata(L, 2, "vec2");
-	l_push_udata(L, vec2, vec2_sub(*p1, *p2));
+	vec2 p = vec2_sub(*p1, *p2);
+	pushudata(L, vec2, &p);
 	return 1;
 }
 
@@ -472,7 +480,8 @@ static int l_vec2__mul(lua_State* L) {
 	check_arg(L, 2, LUA_TNUMBER);
 	vec2* p = luaL_checkudata(L, 1, "vec2");
 	float s = lua_tonumber(L, 2);
-	l_push_udata(L, vec2, vec2_scale(*p, s));
+	vec2 sp = vec2_scale(*p, s);
+	pushudata(L, vec2, &sp);
 	return 1;
 }
 
@@ -481,7 +490,8 @@ static int l_vec2__div(lua_State* L) {
 	check_arg(L, 2, LUA_TNUMBER);
 	vec2* p = luaL_checkudata(L, 1, "vec2");
 	float s = lua_tonumber(L, 2);
-	l_push_udata(L, vec2, vec2_scale(*p, 1.0 / s));
+	vec2 sp = vec2_scale(*p, 1.0 / s);
+	pushudata(L, vec2, &sp);
 	return 1;
 }
 
@@ -498,29 +508,34 @@ static int l_make_vec3(lua_State* L) {
 	check_arg(L, 1, LUA_TNUMBER);
 	check_arg(L, 2, LUA_TNUMBER);
 	check_arg(L, 3, LUA_TNUMBER);
-	l_push_udata(L, vec3, make_vec3(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3)));
+	lua_Number x = lua_tonumber(L, 1);
+	lua_Number y = lua_tonumber(L, 2);
+	lua_Number z = lua_tonumber(L, 3);
+	vec3 p = make_vec3(x, y, z);
+	pushudata(L, vec3, &p);
 	return 1;
 }
 
 static int l_vec3_len(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
-	vec3* p = (vec3*)luaL_checkudata(L, 1, "vec3");
+	vec3* p = luaL_checkudata(L, 1, "vec3");
 	lua_pushnumber(L, vec3_len(*p));
 	return 1;
 }
 
 static int l_vec3_unit(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
-	vec3* p = (vec3*)luaL_checkudata(L, 1, "vec3");
-	l_push_udata(L, vec3, vec3_unit(*p));
+	vec3* p = luaL_checkudata(L, 1, "vec3");
+	vec3 unit = vec3_unit(*p);
+	pushudata(L, vec3, &unit);
 	return 1;
 }
 
 static int l_vec3_dist(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
 	check_arg(L, 2, LUA_TUSERDATA);
-	vec3* p1 = (vec3*)luaL_checkudata(L, 1, "vec3");
-	vec3* p2 = (vec3*)luaL_checkudata(L, 2, "vec3");
+	vec3* p1 = luaL_checkudata(L, 1, "vec3");
+	vec3* p2 = luaL_checkudata(L, 2, "vec3");
 	lua_pushnumber(L, vec3_dist(*p1, *p2));
 	return 1;
 }
@@ -614,7 +629,8 @@ static int l_vec3__add(lua_State* L) {
 	check_arg(L, 2, LUA_TUSERDATA);
 	vec3* p1 = luaL_checkudata(L, 1, "vec3");
 	vec3* p2 = luaL_checkudata(L, 2, "vec3");
-	l_push_udata(L, vec3, vec3_add(*p1, *p2));
+	vec3 p = vec3_add(*p1, *p2);
+	pushudata(L, vec3, &p);
 	return 1;
 }
 
@@ -623,7 +639,8 @@ static int l_vec3__sub(lua_State* L) {
 	check_arg(L, 2, LUA_TUSERDATA);
 	vec3* p1 = luaL_checkudata(L, 1, "vec3");
 	vec3* p2 = luaL_checkudata(L, 2, "vec3");
-	l_push_udata(L, vec3, vec3_sub(*p1, *p2));
+	vec3 p = vec3_sub(*p1, *p2);
+	pushudata(L, vec3, &p);
 	return 1;
 }
 
@@ -632,7 +649,8 @@ static int l_vec3__mul(lua_State* L) {
 	check_arg(L, 2, LUA_TNUMBER);
 	vec3* p = luaL_checkudata(L, 1, "vec3");
 	float s = lua_tonumber(L, 2);
-	l_push_udata(L, vec3, vec3_scale(*p, s));
+	vec3 sp = vec3_scale(*p, s);
+	pushudata(L, vec3, &sp);
 	return 1;
 }
 
@@ -641,7 +659,8 @@ static int l_vec3__div(lua_State* L) {
 	check_arg(L, 2, LUA_TNUMBER);
 	vec3* p = luaL_checkudata(L, 1, "vec3");
 	float s = lua_tonumber(L, 2);
-	l_push_udata(L, vec3, vec3_scale(*p, 1.0 / s));
+	vec3 sp = vec3_scale(*p, 1.0 / s);
+	pushudata(L, vec3, &sp);
 	return 1;
 }
 
@@ -657,7 +676,12 @@ static int l_vec3__eq(lua_State* L) {
 static int l_make_color(lua_State* L) {
 	check_arg(L, 1, LUA_TNUMBER);
 	check_arg(L, 2, LUA_TNUMBER);
-	l_push_udata(L, color, make_color(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4)));
+	lua_Number r = lua_tonumber(L, 1);
+	lua_Number g = lua_tonumber(L, 2);
+	lua_Number b = lua_tonumber(L, 3);
+	lua_Number a = lua_tonumber(L, 4);
+	color c = make_color(r, g, b, a);
+	pushudata(L, color, &c);
 	return 1;
 }
 
@@ -727,17 +751,29 @@ static int l_color__newindex(lua_State* L) {
 
 }
 
+static int l_color__eq(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	color* c1 = luaL_checkudata(L, 1, "color");
+	color* c2 = luaL_checkudata(L, 2, "color");
+	lua_pushboolean(L, color_eq(*c1, *c2));
+	return 1;
+}
+
 static int l_make_program(lua_State* L) {
 	check_arg(L, 1, LUA_TSTRING);
 	check_arg(L, 2, LUA_TSTRING);
-	d_program p = d_make_program(lua_tostring(L, 1), lua_tostring(L, 2));
-	l_push_udata(L, d_program, p);
+	const char* vs = lua_tostring(L, 1);
+	const char* fs = lua_tostring(L, 2);
+	d_program p = d_make_program(vs, fs);
+	pushudata(L, d_program, &p);
 	return 1;
 }
 
 static int l_free_program(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
-	d_free_program(luaL_checkudata(L, 1, "d_program"));
+	d_program* p = luaL_checkudata(L, 1, "d_program");
+	d_free_program(p);
 	return 0;
 }
 
@@ -858,9 +894,10 @@ int run(const char* path) {
 	luaL_newmetatable(L, "color");
 	lua_pushcfunction(L, l_color__index);
 	lua_setfield(L, -2, "__index");
-// 	lua_pushcfunction(L, l_color__newindex);
-// 	lua_setfield(L, -2, "__newindex");
-// 	lua_pushcfunction(L, l_color__add);
+	lua_pushcfunction(L, l_color__newindex);
+	lua_setfield(L, -2, "__newindex");
+	lua_pushcfunction(L, l_color__eq);
+	lua_setfield(L, -2, "__eq");
 
 	if (luaL_dofile(L, path) != LUA_OK) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));

@@ -1,5 +1,6 @@
 // wengwengweng
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
@@ -27,10 +28,10 @@ vec2 vec2_sub(vec2 p1, vec2 p2) {
 	};
 }
 
-vec2 vec2_scale(vec2 v, float s) {
+vec2 vec2_scale(vec2 p, float s) {
 	return (vec2) {
-		.x = v.x * s,
-		.y = v.y * s,
+		.x = p.x * s,
+		.y = p.y * s,
 	};
 }
 
@@ -61,8 +62,8 @@ bool vec2_eq(vec2 p1, vec2 p2) {
 	return p1.x == p2.x && p1.y == p2.y;
 }
 
-void vec2_print(vec2 v) {
-	printf("vec2(%.2f, %.2f)\n", v.x, v.y);
+void vec2_print(vec2 p) {
+	printf("vec2(%.8g, %.8g)\n", p.x, p.y);
 }
 
 vec3 make_vec3(float x, float y, float z) {
@@ -89,11 +90,11 @@ vec3 vec3_sub(vec3 p1, vec3 p2) {
 	};
 }
 
-vec3 vec3_scale(vec3 v, float s) {
+vec3 vec3_scale(vec3 p, float s) {
 	return (vec3) {
-		.x = v.x * s,
-		.y = v.y * s,
-		.z = v.z * s,
+		.x = p.x * s,
+		.y = p.y * s,
+		.z = p.z * s,
 	};
 }
 
@@ -129,8 +130,8 @@ bool vec3_eq(vec3 p1, vec3 p2) {
 	return p1.x == p2.x && p1.y == p2.y && p1.z == p2.z;
 }
 
-void vec3_print(vec3 v) {
-	printf("vec3(%.2f, %.2f, %.2f)\n", v.x, v.y, v.z);
+void vec3_print(vec3 p) {
+	printf("vec3(%.8g, %.8g, %.8g)\n", p.x, p.y, p.z);
 }
 
 color make_color(float r, float g, float b, float a) {
@@ -140,6 +141,14 @@ color make_color(float r, float g, float b, float a) {
 		.b = b,
 		.a = a,
 	};
+}
+
+bool color_eq(color c1, color c2) {
+	return c1.r == c2.r && c1.g == c2.g && c1.b == c2.b && c1.a == c2.a;
+}
+
+void color_print(color c) {
+	printf("color(%.8g, %.8g, %.8g, %.8g)\n", c.r, c.g, c.b, c.a);
 }
 
 mat4 make_mat4() {
@@ -266,10 +275,10 @@ mat4 mat4_view(vec3 pos, vec3 dir, vec3 up) {
 
 void mat4_print(mat4 m) {
 	printf(
-		"mat4(%.2f, %.2f, %.2f, %.2f,\n"
-		"     %.2f, %.2f, %.2f, %.2f,\n"
-		"     %.2f, %.2f, %.2f, %.2f,\n"
-		"     %.2f, %.2f, %.2f, %.2f)\n",
+		"mat4(%.8g, %.8g, %.8g, %.8g,\n"
+		"     %.8g, %.8g, %.8g, %.8g,\n"
+		"     %.8g, %.8g, %.8g, %.8g,\n"
+		"     %.8g, %.8g, %.8g, %.8g)\n",
 		m.m[0], m.m[1], m.m[2], m.m[3],
 		m.m[4], m.m[5], m.m[6], m.m[7],
 		m.m[8], m.m[9], m.m[10], m.m[11],

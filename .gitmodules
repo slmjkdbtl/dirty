@@ -10,3 +10,6 @@
 [submodule "ext/inc/cimgui"]
 	path = ext/inc/cimgui
 	url = https://github.com/cimgui/cimgui/
+[submodule "ext/inc/json.h"]
+	path = ext/inc/json.h
+	url = https://github.com/sheredom/json.h

@@ -47,6 +47,8 @@ bool vec3_eq(vec3, vec3);
 void vec3_print(vec3);
 
 color make_color(float, float, float, float);
+bool color_eq(color, color);
+void color_print(color);
 
 mat4 make_mat4();
 mat4 mat4_mult(mat4, mat4);
