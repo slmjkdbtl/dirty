@@ -9,6 +9,12 @@
 
 #include "dirty.h"
 
+#define l_push_udata(L, T, V) \
+	T* lv = lua_newuserdata(L, sizeof(T)); \
+	luaL_setmetatable(L, #T); \
+	T v = V; \
+	memcpy(lv, &v, sizeof(T)); \
+
 typedef struct {
 	lua_State* lua;
 	int run_ref;
@@ -184,6 +190,16 @@ static int l_mouse_down(lua_State* L) {
 	return 1;
 }
 
+static int l_mouse_pos(lua_State* L) {
+	l_push_udata(L, vec2, d_mouse_pos());
+	return 1;
+}
+
+static int l_mouse_dpos(lua_State* L) {
+	l_push_udata(L, vec2, d_mouse_dpos());
+	return 1;
+}
+
 static int l_mouse_moved(lua_State* L) {
 	lua_pushboolean(L, d_mouse_moved());
 	return 1;
@@ -299,16 +315,41 @@ static int l_rot_z(lua_State* L) {
 	return 0;
 }
 
-static void l_push_vec2(lua_State* L, vec2 p) {
-	vec2* lp = lua_newuserdata(L, sizeof(vec2));
-	luaL_setmetatable(L, "vec2");
-	memcpy(lp, &p, sizeof(vec2));
+static int l_send_f(lua_State* L) {
+	check_arg(L, 1, LUA_TSTRING);
+	check_arg(L, 2, LUA_TNUMBER);
+	d_send_f(lua_tostring(L, 1), lua_tonumber(L, 2));
+	return 0;
+}
+
+static int l_send_vec2(lua_State* L) {
+	check_arg(L, 1, LUA_TSTRING);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec2* p = (vec2*)luaL_checkudata(L, 2, "vec2");
+	d_send_vec2(lua_tostring(L, 1), *p);
+	return 0;
+}
+
+static int l_send_vec3(lua_State* L) {
+	check_arg(L, 1, LUA_TSTRING);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec3* p = (vec3*)luaL_checkudata(L, 2, "vec3");
+	d_send_vec3(lua_tostring(L, 1), *p);
+	return 0;
+}
+
+static int l_send_color(lua_State* L) {
+	check_arg(L, 1, LUA_TSTRING);
+	check_arg(L, 2, LUA_TUSERDATA);
+	color* c = (color*)luaL_checkudata(L, 2, "color");
+	d_send_color(lua_tostring(L, 1), *c);
+	return 0;
 }
 
 static int l_make_vec2(lua_State* L) {
 	check_arg(L, 1, LUA_TNUMBER);
 	check_arg(L, 2, LUA_TNUMBER);
-	l_push_vec2(L, make_vec2(lua_tonumber(L, 1), lua_tonumber(L, 2)));
+	l_push_udata(L, vec2, make_vec2(lua_tonumber(L, 1), lua_tonumber(L, 2)));
 	return 1;
 }
 
@@ -322,7 +363,7 @@ static int l_vec2_len(lua_State* L) {
 static int l_vec2_unit(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
 	vec2* p = (vec2*)luaL_checkudata(L, 1, "vec2");
-	l_push_vec2(L, vec2_unit(*p));
+	l_push_udata(L, vec2, vec2_unit(*p));
 	return 1;
 }
 
@@ -413,7 +454,7 @@ static int l_vec2__add(lua_State* L) {
 	check_arg(L, 2, LUA_TUSERDATA);
 	vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	vec2* p2 = luaL_checkudata(L, 2, "vec2");
-	l_push_vec2(L, vec2_add(*p1, *p2));
+	l_push_udata(L, vec2, vec2_add(*p1, *p2));
 	return 1;
 }
 
@@ -422,7 +463,7 @@ static int l_vec2__sub(lua_State* L) {
 	check_arg(L, 2, LUA_TUSERDATA);
 	vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	vec2* p2 = luaL_checkudata(L, 2, "vec2");
-	l_push_vec2(L, vec2_sub(*p1, *p2));
+	l_push_udata(L, vec2, vec2_sub(*p1, *p2));
 	return 1;
 }
 
@@ -431,7 +472,7 @@ static int l_vec2__mul(lua_State* L) {
 	check_arg(L, 2, LUA_TNUMBER);
 	vec2* p = luaL_checkudata(L, 1, "vec2");
 	float s = lua_tonumber(L, 2);
-	l_push_vec2(L, vec2_scale(*p, s));
+	l_push_udata(L, vec2, vec2_scale(*p, s));
 	return 1;
 }
 
@@ -440,7 +481,7 @@ static int l_vec2__div(lua_State* L) {
 	check_arg(L, 2, LUA_TNUMBER);
 	vec2* p = luaL_checkudata(L, 1, "vec2");
 	float s = lua_tonumber(L, 2);
-	l_push_vec2(L, vec2_scale(*p, 1.0 / s));
+	l_push_udata(L, vec2, vec2_scale(*p, 1.0 / s));
 	return 1;
 }
 
@@ -453,17 +494,43 @@ static int l_vec2__eq(lua_State* L) {
 	return 1;
 }
 
-static void l_push_vec3(lua_State* L, vec3 p) {
-	vec3* lp = lua_newuserdata(L, sizeof(vec3));
-	luaL_setmetatable(L, "vec3");
-	memcpy(lp, &p, sizeof(vec3));
-}
-
 static int l_make_vec3(lua_State* L) {
 	check_arg(L, 1, LUA_TNUMBER);
 	check_arg(L, 2, LUA_TNUMBER);
 	check_arg(L, 3, LUA_TNUMBER);
-	l_push_vec3(L, make_vec3(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3)));
+	l_push_udata(L, vec3, make_vec3(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3)));
+	return 1;
+}
+
+static int l_vec3_len(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	vec3* p = (vec3*)luaL_checkudata(L, 1, "vec3");
+	lua_pushnumber(L, vec3_len(*p));
+	return 1;
+}
+
+static int l_vec3_unit(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	vec3* p = (vec3*)luaL_checkudata(L, 1, "vec3");
+	l_push_udata(L, vec3, vec3_unit(*p));
+	return 1;
+}
+
+static int l_vec3_dist(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec3* p1 = (vec3*)luaL_checkudata(L, 1, "vec3");
+	vec3* p2 = (vec3*)luaL_checkudata(L, 2, "vec3");
+	lua_pushnumber(L, vec3_dist(*p1, *p2));
+	return 1;
+}
+
+static int l_vec3_dot(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec3* p1 = (vec3*)luaL_checkudata(L, 1, "vec3");
+	vec3* p2 = (vec3*)luaL_checkudata(L, 2, "vec3");
+	lua_pushnumber(L, vec3_dot(*p1, *p2));
 	return 1;
 }
 
@@ -489,25 +556,25 @@ static int l_vec3__index(lua_State* L) {
 		return 1;
 	}
 
-// 	if (strcmp(arg, "len") == 0) {
-// 		lua_pushcfunction(L, l_vec3_len);
-// 		return 1;
-// 	}
+	if (strcmp(arg, "len") == 0) {
+		lua_pushcfunction(L, l_vec3_len);
+		return 1;
+	}
 
-// 	if (strcmp(arg, "unit") == 0) {
-// 		lua_pushcfunction(L, l_vec3_unit);
-// 		return 1;
-// 	}
+	if (strcmp(arg, "unit") == 0) {
+		lua_pushcfunction(L, l_vec3_unit);
+		return 1;
+	}
 
-// 	if (strcmp(arg, "dist") == 0) {
-// 		lua_pushcfunction(L, l_vec3_dist);
-// 		return 1;
-// 	}
+	if (strcmp(arg, "dist") == 0) {
+		lua_pushcfunction(L, l_vec3_dist);
+		return 1;
+	}
 
-// 	if (strcmp(arg, "dot") == 0) {
-// 		lua_pushcfunction(L, l_vec3_dot);
-// 		return 1;
-// 	}
+	if (strcmp(arg, "dot") == 0) {
+		lua_pushcfunction(L, l_vec3_dot);
+		return 1;
+	}
 
 	return 0;
 
@@ -547,7 +614,7 @@ static int l_vec3__add(lua_State* L) {
 	check_arg(L, 2, LUA_TUSERDATA);
 	vec3* p1 = luaL_checkudata(L, 1, "vec3");
 	vec3* p2 = luaL_checkudata(L, 2, "vec3");
-	l_push_vec3(L, vec3_add(*p1, *p2));
+	l_push_udata(L, vec3, vec3_add(*p1, *p2));
 	return 1;
 }
 
@@ -556,7 +623,7 @@ static int l_vec3__sub(lua_State* L) {
 	check_arg(L, 2, LUA_TUSERDATA);
 	vec3* p1 = luaL_checkudata(L, 1, "vec3");
 	vec3* p2 = luaL_checkudata(L, 2, "vec3");
-	l_push_vec3(L, vec3_sub(*p1, *p2));
+	l_push_udata(L, vec3, vec3_sub(*p1, *p2));
 	return 1;
 }
 
@@ -565,7 +632,7 @@ static int l_vec3__mul(lua_State* L) {
 	check_arg(L, 2, LUA_TNUMBER);
 	vec3* p = luaL_checkudata(L, 1, "vec3");
 	float s = lua_tonumber(L, 2);
-	l_push_vec3(L, vec3_scale(*p, s));
+	l_push_udata(L, vec3, vec3_scale(*p, s));
 	return 1;
 }
 
@@ -574,7 +641,7 @@ static int l_vec3__div(lua_State* L) {
 	check_arg(L, 2, LUA_TNUMBER);
 	vec3* p = luaL_checkudata(L, 1, "vec3");
 	float s = lua_tonumber(L, 2);
-	l_push_vec3(L, vec3_scale(*p, 1.0 / s));
+	l_push_udata(L, vec3, vec3_scale(*p, 1.0 / s));
 	return 1;
 }
 
@@ -587,13 +654,84 @@ static int l_vec3__eq(lua_State* L) {
 	return 1;
 }
 
+static int l_make_color(lua_State* L) {
+	check_arg(L, 1, LUA_TNUMBER);
+	check_arg(L, 2, LUA_TNUMBER);
+	l_push_udata(L, color, make_color(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3), lua_tonumber(L, 4)));
+	return 1;
+}
+
+static int l_color__index(lua_State* L) {
+
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TSTRING);
+	color* c = luaL_checkudata(L, 1, "color");
+	const char* arg = lua_tostring(L, 2);
+
+	if (strcmp(arg, "r") == 0) {
+		lua_pushnumber(L, c->r);
+		return 1;
+	}
+
+	if (strcmp(arg, "g") == 0) {
+		lua_pushnumber(L, c->g);
+		return 1;
+	}
+
+	if (strcmp(arg, "b") == 0) {
+		lua_pushnumber(L, c->b);
+		return 1;
+	}
+
+	if (strcmp(arg, "a") == 0) {
+		lua_pushnumber(L, c->a);
+		return 1;
+	}
+
+	return 0;
+
+}
+
+static int l_color__newindex(lua_State* L) {
+
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TSTRING);
+	color* c = luaL_checkudata(L, 1, "color");
+	const char* arg = lua_tostring(L, 2);
+
+	if (strcmp(arg, "r") == 0) {
+		check_arg(L, 3, LUA_TNUMBER);
+		c->r = lua_tonumber(L, 3);
+		return 0;
+	}
+
+	if (strcmp(arg, "g") == 0) {
+		check_arg(L, 3, LUA_TNUMBER);
+		c->g = lua_tonumber(L, 3);
+		return 0;
+	}
+
+	if (strcmp(arg, "b") == 0) {
+		check_arg(L, 3, LUA_TNUMBER);
+		c->b = lua_tonumber(L, 3);
+		return 0;
+	}
+
+	if (strcmp(arg, "a") == 0) {
+		check_arg(L, 3, LUA_TNUMBER);
+		c->a = lua_tonumber(L, 3);
+		return 0;
+	}
+
+	return 0;
+
+}
+
 static int l_make_program(lua_State* L) {
 	check_arg(L, 1, LUA_TSTRING);
 	check_arg(L, 2, LUA_TSTRING);
 	d_program p = d_make_program(lua_tostring(L, 1), lua_tostring(L, 2));
-	d_program* lp = lua_newuserdata(L, sizeof(d_program));
-	luaL_setmetatable(L, "d_program");
-	memcpy(lp, &p, sizeof(d_program));
+	l_push_udata(L, d_program, p);
 	return 1;
 }
 
@@ -640,6 +778,8 @@ int run(const char* path) {
 		{ "d_mouse_pressed", l_mouse_pressed, },
 		{ "d_mouse_released", l_mouse_released, },
 		{ "d_mouse_down", l_mouse_down, },
+		{ "d_mouse_pos", l_mouse_pos, },
+		{ "d_mouse_dpos", l_mouse_dpos, },
 		{ "d_mouse_moved", l_mouse_moved, },
 		// gfx
 		{ "d_clear", l_clear, },
@@ -657,6 +797,10 @@ int run(const char* path) {
 		{ "d_rot_x", l_rot_x, },
 		{ "d_rot_y", l_rot_y, },
 		{ "d_rot_z", l_rot_z, },
+		{ "d_send_f", l_send_f, },
+		{ "d_send_vec2", l_send_vec2, },
+		{ "d_send_vec3", l_send_vec3, },
+		{ "d_send_color", l_send_color, },
 		{ "d_make_program", l_make_program, },
 		{ "d_free_program", l_free_program, },
 		// audio
@@ -666,6 +810,7 @@ int run(const char* path) {
 		// math
 		{ "vec2", l_make_vec2, },
 		{ "vec3", l_make_vec3, },
+		{ "color", l_make_color, },
 		// end
 		{ NULL, NULL, }
 	};
@@ -709,6 +854,13 @@ int run(const char* path) {
 	lua_setfield(L, -2, "__div");
 	lua_pushcfunction(L, l_vec3__eq);
 	lua_setfield(L, -2, "__eq");
+
+	luaL_newmetatable(L, "color");
+	lua_pushcfunction(L, l_color__index);
+	lua_setfield(L, -2, "__index");
+// 	lua_pushcfunction(L, l_color__newindex);
+// 	lua_setfield(L, -2, "__newindex");
+// 	lua_pushcfunction(L, l_color__add);
 
 	if (luaL_dofile(L, path) != LUA_OK) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
