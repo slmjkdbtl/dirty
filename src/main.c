@@ -267,6 +267,20 @@ static int l_pop(lua_State* L) {
 	return 0;
 }
 
+static int l_move(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	vec3* p = (vec3*)luaL_checkudata(L, 1, "vec3");
+	d_move(*p);
+	return 0;
+}
+
+static int l_scale(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	vec3* p = (vec3*)luaL_checkudata(L, 1, "vec3");
+	d_scale(*p);
+	return 0;
+}
+
 static int l_rot_x(lua_State* L) {
 	check_arg(L, 1, LUA_TNUMBER);
 	d_rot_x(lua_tonumber(L, 1));
@@ -285,6 +299,294 @@ static int l_rot_z(lua_State* L) {
 	return 0;
 }
 
+static void l_push_vec2(lua_State* L, vec2 p) {
+	vec2* lp = lua_newuserdata(L, sizeof(vec2));
+	luaL_setmetatable(L, "vec2");
+	memcpy(lp, &p, sizeof(vec2));
+}
+
+static int l_make_vec2(lua_State* L) {
+	check_arg(L, 1, LUA_TNUMBER);
+	check_arg(L, 2, LUA_TNUMBER);
+	l_push_vec2(L, make_vec2(lua_tonumber(L, 1), lua_tonumber(L, 2)));
+	return 1;
+}
+
+static int l_vec2_len(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	vec2* p = (vec2*)luaL_checkudata(L, 1, "vec2");
+	lua_pushnumber(L, vec2_len(*p));
+	return 1;
+}
+
+static int l_vec2_unit(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	vec2* p = (vec2*)luaL_checkudata(L, 1, "vec2");
+	l_push_vec2(L, vec2_unit(*p));
+	return 1;
+}
+
+static int l_vec2_dist(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec2* p1 = (vec2*)luaL_checkudata(L, 1, "vec2");
+	vec2* p2 = (vec2*)luaL_checkudata(L, 2, "vec2");
+	lua_pushnumber(L, vec2_dist(*p1, *p2));
+	return 1;
+}
+
+static int l_vec2_dot(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec2* p1 = (vec2*)luaL_checkudata(L, 1, "vec2");
+	vec2* p2 = (vec2*)luaL_checkudata(L, 2, "vec2");
+	lua_pushnumber(L, vec2_dot(*p1, *p2));
+	return 1;
+}
+
+static int l_vec2__index(lua_State* L) {
+
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TSTRING);
+	vec2* p = luaL_checkudata(L, 1, "vec2");
+	const char* arg = lua_tostring(L, 2);
+
+	if (strcmp(arg, "x") == 0) {
+		lua_pushnumber(L, p->x);
+		return 1;
+	}
+
+	if (strcmp(arg, "y") == 0) {
+		lua_pushnumber(L, p->y);
+		return 1;
+	}
+
+	if (strcmp(arg, "len") == 0) {
+		lua_pushcfunction(L, l_vec2_len);
+		return 1;
+	}
+
+	if (strcmp(arg, "unit") == 0) {
+		lua_pushcfunction(L, l_vec2_unit);
+		return 1;
+	}
+
+	if (strcmp(arg, "dist") == 0) {
+		lua_pushcfunction(L, l_vec2_dist);
+		return 1;
+	}
+
+	if (strcmp(arg, "dot") == 0) {
+		lua_pushcfunction(L, l_vec2_dot);
+		return 1;
+	}
+
+	return 0;
+
+}
+
+static int l_vec2__newindex(lua_State* L) {
+
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TSTRING);
+	vec2* p = luaL_checkudata(L, 1, "vec2");
+	const char* arg = lua_tostring(L, 2);
+
+	if (strcmp(arg, "x") == 0) {
+		check_arg(L, 3, LUA_TNUMBER);
+		p->x = lua_tonumber(L, 3);
+		return 0;
+	}
+
+	if (strcmp(arg, "y") == 0) {
+		check_arg(L, 3, LUA_TNUMBER);
+		p->y = lua_tonumber(L, 3);
+		return 0;
+	}
+
+	return 0;
+
+}
+
+static int l_vec2__add(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	l_push_vec2(L, vec2_add(*p1, *p2));
+	return 1;
+}
+
+static int l_vec2__sub(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	l_push_vec2(L, vec2_sub(*p1, *p2));
+	return 1;
+}
+
+static int l_vec2__mul(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TNUMBER);
+	vec2* p = luaL_checkudata(L, 1, "vec2");
+	float s = lua_tonumber(L, 2);
+	l_push_vec2(L, vec2_scale(*p, s));
+	return 1;
+}
+
+static int l_vec2__div(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TNUMBER);
+	vec2* p = luaL_checkudata(L, 1, "vec2");
+	float s = lua_tonumber(L, 2);
+	l_push_vec2(L, vec2_scale(*p, 1.0 / s));
+	return 1;
+}
+
+static int l_vec2__eq(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	lua_pushboolean(L, vec2_eq(*p1, *p2));
+	return 1;
+}
+
+static void l_push_vec3(lua_State* L, vec3 p) {
+	vec3* lp = lua_newuserdata(L, sizeof(vec3));
+	luaL_setmetatable(L, "vec3");
+	memcpy(lp, &p, sizeof(vec3));
+}
+
+static int l_make_vec3(lua_State* L) {
+	check_arg(L, 1, LUA_TNUMBER);
+	check_arg(L, 2, LUA_TNUMBER);
+	check_arg(L, 3, LUA_TNUMBER);
+	l_push_vec3(L, make_vec3(lua_tonumber(L, 1), lua_tonumber(L, 2), lua_tonumber(L, 3)));
+	return 1;
+}
+
+static int l_vec3__index(lua_State* L) {
+
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TSTRING);
+	vec3* p = luaL_checkudata(L, 1, "vec3");
+	const char* arg = lua_tostring(L, 2);
+
+	if (strcmp(arg, "x") == 0) {
+		lua_pushnumber(L, p->x);
+		return 1;
+	}
+
+	if (strcmp(arg, "y") == 0) {
+		lua_pushnumber(L, p->y);
+		return 1;
+	}
+
+	if (strcmp(arg, "z") == 0) {
+		lua_pushnumber(L, p->z);
+		return 1;
+	}
+
+// 	if (strcmp(arg, "len") == 0) {
+// 		lua_pushcfunction(L, l_vec3_len);
+// 		return 1;
+// 	}
+
+// 	if (strcmp(arg, "unit") == 0) {
+// 		lua_pushcfunction(L, l_vec3_unit);
+// 		return 1;
+// 	}
+
+// 	if (strcmp(arg, "dist") == 0) {
+// 		lua_pushcfunction(L, l_vec3_dist);
+// 		return 1;
+// 	}
+
+// 	if (strcmp(arg, "dot") == 0) {
+// 		lua_pushcfunction(L, l_vec3_dot);
+// 		return 1;
+// 	}
+
+	return 0;
+
+}
+
+static int l_vec3__newindex(lua_State* L) {
+
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TSTRING);
+	vec3* p = luaL_checkudata(L, 1, "vec3");
+	const char* arg = lua_tostring(L, 2);
+
+	if (strcmp(arg, "x") == 0) {
+		check_arg(L, 3, LUA_TNUMBER);
+		p->x = lua_tonumber(L, 3);
+		return 0;
+	}
+
+	if (strcmp(arg, "y") == 0) {
+		check_arg(L, 3, LUA_TNUMBER);
+		p->y = lua_tonumber(L, 3);
+		return 0;
+	}
+
+	if (strcmp(arg, "z") == 0) {
+		check_arg(L, 3, LUA_TNUMBER);
+		p->z = lua_tonumber(L, 3);
+		return 0;
+	}
+
+	return 0;
+
+}
+
+static int l_vec3__add(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec3* p1 = luaL_checkudata(L, 1, "vec3");
+	vec3* p2 = luaL_checkudata(L, 2, "vec3");
+	l_push_vec3(L, vec3_add(*p1, *p2));
+	return 1;
+}
+
+static int l_vec3__sub(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec3* p1 = luaL_checkudata(L, 1, "vec3");
+	vec3* p2 = luaL_checkudata(L, 2, "vec3");
+	l_push_vec3(L, vec3_sub(*p1, *p2));
+	return 1;
+}
+
+static int l_vec3__mul(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TNUMBER);
+	vec3* p = luaL_checkudata(L, 1, "vec3");
+	float s = lua_tonumber(L, 2);
+	l_push_vec3(L, vec3_scale(*p, s));
+	return 1;
+}
+
+static int l_vec3__div(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TNUMBER);
+	vec3* p = luaL_checkudata(L, 1, "vec3");
+	float s = lua_tonumber(L, 2);
+	l_push_vec3(L, vec3_scale(*p, 1.0 / s));
+	return 1;
+}
+
+static int l_vec3__eq(lua_State* L) {
+	check_arg(L, 1, LUA_TUSERDATA);
+	check_arg(L, 2, LUA_TUSERDATA);
+	vec3* p1 = luaL_checkudata(L, 1, "vec3");
+	vec3* p2 = luaL_checkudata(L, 2, "vec3");
+	lua_pushboolean(L, vec3_eq(*p1, *p2));
+	return 1;
+}
+
 static int l_make_program(lua_State* L) {
 	check_arg(L, 1, LUA_TSTRING);
 	check_arg(L, 2, LUA_TSTRING);
@@ -297,7 +599,7 @@ static int l_make_program(lua_State* L) {
 
 static int l_free_program(lua_State* L) {
 	check_arg(L, 1, LUA_TUSERDATA);
-	d_free_program(lua_touserdata(L, 1));
+	d_free_program(luaL_checkudata(L, 1, "d_program"));
 	return 0;
 }
 
@@ -305,7 +607,7 @@ static int l_program__index(lua_State* L) {
 
 	check_arg(L, 1, LUA_TUSERDATA);
 	check_arg(L, 2, LUA_TSTRING);
-	d_program* p = lua_touserdata(L, 1);
+	d_program* p = luaL_checkudata(L, 1, "d_program");
 	const char* arg = lua_tostring(L, 2);
 
 	if (strcmp(arg, "free") == 0) {
@@ -339,9 +641,6 @@ int run(const char* path) {
 		{ "d_mouse_released", l_mouse_released, },
 		{ "d_mouse_down", l_mouse_down, },
 		{ "d_mouse_moved", l_mouse_moved, },
-		// fs
-		{ "d_fread", l_fread, },
-		{ "d_fexists", l_fexists, },
 		// gfx
 		{ "d_clear", l_clear, },
 		{ "d_clear_color", l_clear_color, },
@@ -353,12 +652,20 @@ int run(const char* path) {
 		{ "d_stencil_test", l_stencil_test, },
 		{ "d_push", l_push, },
 		{ "d_pop", l_pop, },
+		{ "d_move", l_move, },
+		{ "d_scale", l_scale, },
 		{ "d_rot_x", l_rot_x, },
 		{ "d_rot_y", l_rot_y, },
 		{ "d_rot_z", l_rot_z, },
 		{ "d_make_program", l_make_program, },
 		{ "d_free_program", l_free_program, },
 		// audio
+		// fs
+		{ "d_fread", l_fread, },
+		{ "d_fexists", l_fexists, },
+		// math
+		{ "vec2", l_make_vec2, },
+		{ "vec3", l_make_vec3, },
 		// end
 		{ NULL, NULL, }
 	};
@@ -370,6 +677,38 @@ int run(const char* path) {
 	luaL_newmetatable(L, "d_program");
 	lua_pushcfunction(L, l_program__index);
 	lua_setfield(L, -2, "__index");
+
+	luaL_newmetatable(L, "vec2");
+	lua_pushcfunction(L, l_vec2__index);
+	lua_setfield(L, -2, "__index");
+	lua_pushcfunction(L, l_vec2__newindex);
+	lua_setfield(L, -2, "__newindex");
+	lua_pushcfunction(L, l_vec2__add);
+	lua_setfield(L, -2, "__add");
+	lua_pushcfunction(L, l_vec2__sub);
+	lua_setfield(L, -2, "__sub");
+	lua_pushcfunction(L, l_vec2__mul);
+	lua_setfield(L, -2, "__mul");
+	lua_pushcfunction(L, l_vec2__div);
+	lua_setfield(L, -2, "__div");
+	lua_pushcfunction(L, l_vec2__eq);
+	lua_setfield(L, -2, "__eq");
+
+	luaL_newmetatable(L, "vec3");
+	lua_pushcfunction(L, l_vec3__index);
+	lua_setfield(L, -2, "__index");
+	lua_pushcfunction(L, l_vec3__newindex);
+	lua_setfield(L, -2, "__newindex");
+	lua_pushcfunction(L, l_vec3__add);
+	lua_setfield(L, -2, "__add");
+	lua_pushcfunction(L, l_vec3__sub);
+	lua_setfield(L, -2, "__sub");
+	lua_pushcfunction(L, l_vec3__mul);
+	lua_setfield(L, -2, "__mul");
+	lua_pushcfunction(L, l_vec3__div);
+	lua_setfield(L, -2, "__div");
+	lua_pushcfunction(L, l_vec3__eq);
+	lua_setfield(L, -2, "__eq");
 
 	if (luaL_dofile(L, path) != LUA_OK) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
@@ -384,7 +723,7 @@ int run(const char* path) {
 
 int main(int argc, char** argv) {
 
-	char* path = d_rpath("main.lua");
+	char* path = d_validate_path("main.lua");
 
 	if (path) {
 

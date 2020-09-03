@@ -13,11 +13,12 @@
 
 char* d_fread(const char* path, size_t* o_size) {
 
-	if (!path) {
+	char* rpath = d_validate_path(path);
+
+	if (!rpath) {
 		return NULL;
 	}
 
-	char* rpath = d_rpath(path);
 	FILE* file = fopen(rpath, "r");
 
 	if (!file) {
@@ -51,11 +52,12 @@ char* d_fread(const char* path, size_t* o_size) {
 
 unsigned char* d_fread_b(const char* path, size_t* o_size) {
 
-	if (!path) {
+	char* rpath = d_validate_path(path);
+
+	if (!rpath) {
 		return NULL;
 	}
 
-	char* rpath = d_rpath(path);
 	FILE* file = fopen(rpath, "rb");
 
 	if (!file) {
@@ -87,19 +89,15 @@ unsigned char* d_fread_b(const char* path, size_t* o_size) {
 
 bool d_fexists(const char* path) {
 
-	if (!path) {
-		return NULL;
-	}
-
-	char* rpath = d_rpath(path);
-	bool exists = access(rpath, F_OK) != -1;
+	char* rpath = d_validate_path(path);
+	bool exists = rpath != NULL;
 	free(rpath);
 
 	return exists;
 
 }
 
-char* d_rpath(const char* path) {
+char* d_validate_path(const char* path) {
 
 	if (!path) {
 		return NULL;

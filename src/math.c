@@ -1,9 +1,17 @@
 // wengwengweng
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <math.h>
 
 #include "math.h"
+
+vec2 make_vec2(float x, float y) {
+	return (vec2) {
+		.x = x,
+		.y = y,
+	};
+}
 
 vec2 vec2_add(vec2 p1, vec2 p2) {
 	return (vec2) {
@@ -26,8 +34,43 @@ vec2 vec2_scale(vec2 v, float s) {
 	};
 }
 
+float vec2_dist(vec2 p1, vec2 p2) {
+	return sqrt(
+		(p1.x - p2.x) * (p1.x - p2.x) +
+		(p1.y - p2.y) * (p1.y - p2.y)
+	);
+}
+
+float vec2_len(vec2 p) {
+	return vec2_dist(p, make_vec2(0.0, 0.0));
+}
+
+vec2 vec2_unit(vec2 p) {
+	return vec2_scale(p, 1.0 / vec2_len(p));
+}
+
+vec3 vec2_cross(vec2 p1, vec2 p2) {
+	return vec3_cross(make_vec3(p1.x, p1.y, 0.0), make_vec3(p2.x, p2.y, 0.0));
+}
+
+float vec2_dot(vec2 p1, vec2 p2) {
+	return p1.x * p2.x + p1.y * p2.y;
+}
+
+bool vec2_eq(vec2 p1, vec2 p2) {
+	return p1.x == p2.x && p1.y == p2.y;
+}
+
 void vec2_print(vec2 v) {
 	printf("vec2(%.2f, %.2f)\n", v.x, v.y);
+}
+
+vec3 make_vec3(float x, float y, float z) {
+	return (vec3) {
+		.x = x,
+		.y = y,
+		.z = z,
+	};
 }
 
 vec3 vec3_add(vec3 p1, vec3 p2) {
@@ -82,8 +125,21 @@ float vec3_dot(vec3 p1, vec3 p2) {
 	return p1.x * p2.x + p1.y * p2.y + p1.z * p2.z;
 }
 
+bool vec3_eq(vec3 p1, vec3 p2) {
+	return p1.x == p2.x && p1.y == p2.y && p1.z == p2.z;
+}
+
 void vec3_print(vec3 v) {
 	printf("vec3(%.2f, %.2f, %.2f)\n", v.x, v.y, v.z);
+}
+
+color make_color(float r, float g, float b, float a) {
+	return (color) {
+		.r = r,
+		.g = g,
+		.b = b,
+		.a = a,
+	};
 }
 
 mat4 make_mat4() {

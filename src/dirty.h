@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 #include <SDL2/SDL.h>
+
 #include "math.h"
 #include "event.h"
 #include "gl.h"
