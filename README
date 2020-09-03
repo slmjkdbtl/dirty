@@ -1,19 +1,24 @@
 OVERVIEW
 
-  'DIRTY' is a cross-platform toolkit for making games / interactive experiences.
+  'DIRTY' is a minimal toolkit for making games / interactive experiences.
   https://dirty.enemyspy.xyz/
 
 BUILD
 
-  'DIRTY' can be built as a binary tool for running lua scripts, or a static lib for C usage.
+  $ make lib
 
-    $ make bin
-    $ make lib
+  will create `libdirty.a` under `build/lib/`
 
-  the built artifacts will be under build/ directory
+  $ make examples
+
+  will build all examples under `examples` to `build/bin/`
+
 
 USAGE
 
-  (the C API and the Lua API are identical)
-  see examples/*.lua and src/*.h
+  // create window
+  void d_init(const char* title, int width, int height)
+
+  // run main loop
+  void d_run(void (*f)(void))
 
