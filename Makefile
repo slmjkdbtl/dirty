@@ -1,50 +1,34 @@
 # wengwengweng
 
 ifeq ($(OS),Windows_NT)
-HOST := Windows
+TARGET := Windows
 endif
 
 ifeq ($(shell uname -s),Darwin)
-HOST := MacOS
+TARGET := MacOS
 endif
 
 ifeq ($(shell uname -s),Linux)
-HOST := Linux
+TARGET := Linux
 endif
-
-TARGET := $(HOST)
 
 CC := cc
 AR := ar
 
-ifeq ($(TARGET),Web)
-CC := emcc
-AR := emar
-endif
-
-ifeq ($(HOST),MacOS)
-ifeq ($(TARGET),Windows)
-CC := x86_64-w64-mingw32-gcc
-AR := x86_64-w64-mingw32-ar
-endif
-ifeq ($(TARGET),Linux)
-CC := x86_64-unknown-linux-gnu-gcc
-AR := x86_64-unknown-linux-gnu-ar
-endif
-endif
+EXAMPLE := test
 
 SRC_PATH := src
 RES_PATH := src/res
 OBJ_PATH := build/obj
 BIN_PATH := build/bin
 LIB_PATH := build/lib
+EXAMPLE_PATH := examples
 EXT_INC_PATH := ext/inc
-EXT_LIB_PATH := ext/libs
-LIB_TARGET := build/lib/dirty.a
-BIN_TARGET := build/bin/dirty
+EXT_LIB_PATH := ext/lib
+LIB_TARGET := $(LIB_PATH)/libdirty.a
 
 C_FLAGS += -I $(EXT_INC_PATH)
-# C_FLAGS += -Wall
+C_FLAGS += -Wall
 C_FLAGS += -std=c99
 
 ifeq ($(TARGET),MacOS)
@@ -55,7 +39,6 @@ endif
 LD_FLAGS += -L $(EXT_LIB_PATH)
 LD_FLAGS += -l iconv
 LD_FLAGS += -l SDL2
-LD_FLAGS += -l lua
 
 ifeq ($(TARGET),MacOS)
 LD_FLAGS += -framework CoreFoundation
@@ -70,22 +53,18 @@ LD_FLAGS += -framework Metal
 LD_FLAGS += -framework ForceFeedback
 endif
 
-ifeq ($(TARGET),Web)
-LD_FLAGS += USE_SDL=2
-endif
-
 AR_FLAGS += -rc
 
 RES_FILES := $(wildcard $(RES_PATH)/*.png)
 RES_H_FILES := $(patsubst $(RES_PATH)/%, $(RES_PATH)/%.h, $(RES_FILES))
+
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))
 
-SDL2_VERSION := 2.0.12
-LUA_VERSION := 5.4.0
+EXAMPLE_FILES := $(wildcard $(EXAMPLE_PATH)/*.c)
+EXAMPLE_TARGETS := $(patsubst $(EXAMPLE_PATH)/%.c, $(BIN_PATH)/%, $(EXAMPLE_FILES))
 
-.PHONY: bin
-bin: $(BIN_TARGET)
+SDL2_VERSION := 2.0.12
 
 .PHONY: lib
 lib: $(LIB_TARGET)
@@ -93,9 +72,14 @@ lib: $(LIB_TARGET)
 .PHONY: res
 res: $(RES_H_FILES)
 
-$(BIN_TARGET): $(OBJ_FILES)
+.PHONY: run
+run: $(BIN_PATH)/$(EXAMPLE)
+	cd $(BIN_PATH); \
+		./$(EXAMPLE)
+
+$(BIN_PATH)/%: $(EXAMPLE_PATH)/%.c $(LIB_TARGET)
 	@mkdir -p $(BIN_PATH)
-	$(CC) $(LD_FLAGS) $^ -o $@
+	$(CC) $^ -I src -L $(LIB_PATH) -ldirty $(LD_FLAGS) -o $@
 
 $(LIB_TARGET): $(OBJ_FILES)
 	@mkdir -p $(LIB_PATH)
@@ -112,23 +96,6 @@ $(RES_PATH)/%.h: $(RES_PATH)/%
 .PHONY: clean
 clean:
 	rm -rf build
-
-.PHONY: run
-run: $(BIN_TARGET)
-	./$(BIN_TARGET) $(ARGS)
-
-.PHONY: lua
-lua:
-	mkdir -p $(EXT_INC_PATH)/lua
-	cd ext; \
-		curl http://www.lua.org/ftp/lua-$(LUA_VERSION).tar.gz > lua-$(LUA_VERSION).tar.gz; \
-		tar zxf lua-$(LUA_VERSION).tar.gz
-	cd ext/lua-$(LUA_VERSION); \
-		cp src/*.h ../inc/lua/; \
-		$(MAKE)
-	cp -r ext/lua-$(LUA_VERSION)/src/liblua.a $(EXT_LIB_PATH)/liblua.a
-	rm -rf ext/lua-$(LUA_VERSION)
-	rm -rf ext/lua-$(LUA_VERSION).tar.gz
 
 .PHONY: sdl2
 sdl2:

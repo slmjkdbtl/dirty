@@ -16,7 +16,7 @@ static void stream(void* udata, Uint8* buf, int len) {
 	static float t = 0.0;
 
 	for (int i = 0; i < SAMPLES; i++) {
-		float frame = sin(t);
+// 		float frame = sin(t);
 // 		fbuf[i] = frame;
 		fbuf[i] = 0.0;
 		t += 0.05;

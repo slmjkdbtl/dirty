@@ -146,7 +146,7 @@ void d_gfx_frame_start() {
 	d_draw(&d_gfx.tri_mesh, &d_gfx.default_prog);
 }
 
-d_mesh d_make_mesh(const d_vertex* verts, size_t verts_size, const unsigned int* indices, size_t indices_size) {
+d_mesh d_make_mesh(const d_vertex* verts, int verts_size, const unsigned int* indices, int indices_size) {
 
 	// vertex buffer
 	GLuint vbuf;
@@ -181,7 +181,7 @@ void d_free_mesh(d_mesh* m) {
 
 d_img d_make_img(const unsigned char* data, int w, int h) {
 
-	size_t size = w * h * 4;
+	int size = w * h * 4;
 	unsigned char* mdata = malloc(size);
 	memcpy(mdata, data, size);
 
@@ -192,7 +192,7 @@ d_img d_make_img(const unsigned char* data, int w, int h) {
 	};
 }
 
-d_img d_parse_img(const unsigned char* bytes, size_t len) {
+d_img d_parse_img(const unsigned char* bytes, int len) {
 
 	int w, h;
 	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, len, &w, &h, NULL, 0);

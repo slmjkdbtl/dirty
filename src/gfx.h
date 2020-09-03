@@ -1,5 +1,12 @@
 // wengwengweng
 
+#ifndef D_GFX_H
+#define D_GFX_H
+
+#include <stdbool.h>
+#include "math.h"
+#include "gl.h"
+
 typedef struct {
 	mat4 view;
 	mat4 proj;
@@ -31,7 +38,7 @@ typedef struct {
 typedef struct {
 	GLuint vbuf;
 	GLuint ibuf;
-	size_t count;
+	int count;
 } d_mesh;
 
 typedef struct {
@@ -53,7 +60,7 @@ typedef struct {
 	d_cam default_cam;
 	d_cam* cur_cam;
 	mat4 t_stack[8];
-	size_t t_stack_cnt;
+	int t_stack_cnt;
 } d_gfx_t;
 
 d_gfx_t d_gfx;
@@ -62,10 +69,10 @@ void d_gfx_init();
 void d_gfx_frame_start();
 void d_gfx_frame_end();
 
-d_mesh d_make_mesh(const d_vertex*, size_t, const unsigned int*, size_t);
+d_mesh d_make_mesh(const d_vertex*, int, const unsigned int*, int);
 void d_free_mesh(d_mesh*);
 
-d_img d_parse_img(const unsigned char*, size_t);
+d_img d_parse_img(const unsigned char*, int);
 d_img d_make_img(const unsigned char*, int, int);
 void d_free_img(d_img*);
 
@@ -102,4 +109,6 @@ void d_scale(vec3);
 void d_rot_x(float);
 void d_rot_y(float);
 void d_rot_z(float);
+
+#endif
 

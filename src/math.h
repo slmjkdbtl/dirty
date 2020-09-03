@@ -1,5 +1,10 @@
 // wengwengweng
 
+#ifndef D_MATH_H
+#define D_MATH_H
+
+#include <stdbool.h>
+
 typedef struct {
 	float x;
 	float y;
@@ -61,4 +66,6 @@ mat4 mat4_rot_x(float);
 mat4 mat4_rot_y(float);
 mat4 mat4_rot_z(float);
 void mat4_print(mat4);
+
+#endif
 

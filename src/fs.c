@@ -11,7 +11,7 @@
 #import <Foundation/Foundation.h>
 #endif
 
-char* d_fread(const char* path, size_t* o_size) {
+char* d_fread(const char* path, int* o_size) {
 
 	char* rpath = d_validate_path(path);
 
@@ -50,7 +50,7 @@ char* d_fread(const char* path, size_t* o_size) {
 
 }
 
-unsigned char* d_fread_b(const char* path, size_t* o_size) {
+unsigned char* d_fread_b(const char* path, int* o_size) {
 
 	char* rpath = d_validate_path(path);
 
