@@ -1,6 +1,6 @@
 OVERVIEW
 
-  'dirty' is a minimal toolkit for making games / interactive experiences.
+  'dirty' (Dangerous Ichthyologist Reincarnates Tropical Yeti) is a minimal toolkit for making games / interactive experiences.
   https://dirty.enemyspy.xyz/
 
 BUILD
@@ -24,8 +24,4 @@ USAGE
     - include/audio.h
     - include/math.h
     - include/fs.h
-
-FACTS
-
-  'dirty' is short for 'Dangerous Ichthyopolist Reincarnates Tropical Yeti'
 
