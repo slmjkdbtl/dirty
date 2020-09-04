@@ -1,14 +1,19 @@
 // wengwengweng
 
-#include <stdio.h>
-
-#include <dirty/dirty.h>
+#include "dirty/dirty.h"
 
 void d_gfx_init();
 void d_gfx_frame_start();
 void d_gfx_frame_end();
 void d_audio_init();
 void d_audio_destroy();
+
+typedef enum {
+	D_BTN_IDLE = 0,
+	D_BTN_PRESSED,
+	D_BTN_RELEASED,
+	D_BTN_DOWN,
+} d_btn_state;
 
 typedef struct {
 	SDL_GLContext gl;
@@ -22,6 +27,7 @@ typedef struct {
 	vec2 mouse_dpos;
 	d_btn_state key_states[128];
 	d_btn_state mouse_states[4];
+	bool resized;
 } d_app_t;
 
 static d_app_t d_app;
@@ -129,7 +135,7 @@ void d_init(const char* title, int width, int height) {
 		SDL_WINDOWPOS_CENTERED,
 		width,
 		height,
-		SDL_WINDOW_SHOWN
+		SDL_WINDOW_OPENGL
 	);
 
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
@@ -137,33 +143,53 @@ void d_init(const char* title, int width, int height) {
 	SDL_GL_SetSwapInterval(1);
 	d_app.gl = SDL_GL_CreateContext(d_app.window);
 
-	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
-
 	d_gfx_init();
 	d_audio_init();
 
 }
 
-void d_run(void (*f)(void)) {
+static void d_frame(void (*f)()) {
+
+	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
+
+	int mx, my;
+
+	SDL_GetMouseState(&mx, &my);
+
+	d_app.mouse_pos.x = (float)mx - d_app.width / 2.0;
+	d_app.mouse_pos.y = d_app.height / 2.0 - (float)my;
+
+	d_gfx_frame_start();
+
+	if (f) {
+		f();
+	}
+
+	SDL_GL_SwapWindow(d_app.window);
+
+}
+
+void d_run(void (*f)()) {
 
 	if (!f) {
 		fprintf(stderr, "invalid run func");
-		return d_quit();
+		return d_quit(EXIT_FAILURE);
 	}
 
-	d_gfx_frame_start();
-	f();
-	SDL_GL_SwapWindow(d_app.window);
+	// draw at first frame
+	d_frame(f);
 
 	SDL_Event event;
 
-	while (!d_app.quit) {
+	while (true) {
 
+		// time
 		int time = SDL_GetTicks();
 
 		d_app.dt = time / 1000.0 - d_app.time;
 		d_app.time = time / 1000.0;
 
+		// reset input states
 		for (int i = 0; i < 128; i++) {
 			if (d_app.key_states[i] == D_BTN_PRESSED) {
 				d_app.key_states[i] = D_BTN_DOWN;
@@ -180,16 +206,11 @@ void d_run(void (*f)(void)) {
 			}
 		}
 
-		int mx, my;
-
-		SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
-		SDL_GetMouseState(&mx, &my);
-
-		d_app.mouse_pos.x = (float)mx - d_app.width / 2.0;
-		d_app.mouse_pos.y = d_app.height / 2.0 - (float)my;
 		d_app.mouse_dpos.x = 0.0;
 		d_app.mouse_dpos.y = 0.0;
+		d_app.resized = false;
 
+		// deal with inputs
 		while (SDL_PollEvent(&event)) {
 
 			d_key key = sdl_key_to_d(event.key.keysym.scancode);
@@ -197,7 +218,7 @@ void d_run(void (*f)(void)) {
 
 			switch (event.type) {
 				case SDL_QUIT:
-					d_app.quit = true;
+					d_quit(EXIT_SUCCESS);
 					break;
 				case SDL_KEYDOWN:
 					d_app.key_states[key] = D_BTN_PRESSED;
@@ -211,27 +232,37 @@ void d_run(void (*f)(void)) {
 				case SDL_MOUSEBUTTONUP:
 					d_app.mouse_states[mouse] = D_BTN_RELEASED;
 					break;
-				case SDL_MOUSEWHEEL:
-					break;
-				case SDL_MOUSEMOTION: {
+				case SDL_MOUSEMOTION:
 					d_app.mouse_dpos.x = event.motion.xrel;
 					d_app.mouse_dpos.y = -event.motion.yrel;
 					break;
-				}
+				case SDL_MOUSEWHEEL:
+					break;
+				case SDL_TEXTINPUT:
+					break;
+				case SDL_FINGERDOWN:
+					break;
+				case SDL_FINGERUP:
+					break;
+				case SDL_FINGERMOTION:
+					break;
+				case SDL_WINDOWEVENT:
+					switch (event.window.event) {
+						case SDL_WINDOWEVENT_RESIZED:
+							d_app.resized = true;
+							break;
+					}
+					break;
 			}
 
 		}
 
-		d_gfx_frame_start();
-		f();
-		SDL_GL_SwapWindow(d_app.window);
+		// process frame
+		d_frame(f);
 
 	}
 
-	SDL_GL_DeleteContext(d_app.gl);
-	SDL_DestroyWindow(d_app.window);
-	d_audio_destroy();
-	SDL_Quit();
+	d_quit(EXIT_SUCCESS);
 
 }
 
@@ -243,8 +274,49 @@ void d_vsync(bool b) {
 	}
 }
 
-void d_quit() {
-	d_app.quit = true;
+void d_set_fullscreen(bool b) {
+	if (b) {
+		SDL_SetWindowFullscreen(d_app.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+	} else {
+		SDL_SetWindowFullscreen(d_app.window, 0);
+	}
+}
+
+bool d_fullscreen() {
+	int flags = SDL_GetWindowFlags(d_app.window);
+	return flags & SDL_WINDOW_FULLSCREEN;
+}
+
+void d_set_mouse_relative(bool b) {
+	SDL_SetRelativeMouseMode(b);
+}
+
+bool d_mouse_relative() {
+	return SDL_GetRelativeMouseMode();
+}
+
+void d_set_mouse_hidden(bool b) {
+	SDL_ShowCursor(b);
+}
+
+bool d_mouse_hidden() {
+	return SDL_ShowCursor(SDL_QUERY);
+}
+
+void d_set_title(const char* title) {
+	SDL_SetWindowTitle(d_app.window, title);
+}
+
+const char* d_title() {
+	return SDL_GetWindowTitle(d_app.window);
+}
+
+void d_quit(int i) {
+	SDL_GL_DeleteContext(d_app.gl);
+	SDL_DestroyWindow(d_app.window);
+	d_audio_destroy();
+	SDL_Quit();
+	exit(i);
 }
 
 float d_time() {
@@ -297,5 +369,9 @@ vec2 d_mouse_dpos() {
 
 bool d_mouse_moved() {
 	return d_app.mouse_dpos.x != 0.0 || d_app.mouse_dpos.y != 0.0;
+}
+
+bool d_resized() {
+	return d_app.resized;
 }
 

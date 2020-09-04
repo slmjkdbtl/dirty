@@ -1,11 +1,6 @@
 // wengwengweng
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <unistd.h>
-
-#include <dirty/fs.h>
+#include "dirty/dirty.h"
 
 #ifdef __APPLE__
 #import <Foundation/Foundation.h>
@@ -13,7 +8,7 @@
 
 char* d_fread(const char* path, int* o_size) {
 
-	char* rpath = d_validate_path(path);
+	char* rpath = d_rpath(path);
 
 	if (!rpath) {
 		return NULL;
@@ -52,7 +47,7 @@ char* d_fread(const char* path, int* o_size) {
 
 unsigned char* d_fread_b(const char* path, int* o_size) {
 
-	char* rpath = d_validate_path(path);
+	char* rpath = d_rpath(path);
 
 	if (!rpath) {
 		return NULL;
@@ -89,7 +84,7 @@ unsigned char* d_fread_b(const char* path, int* o_size) {
 
 bool d_fexists(const char* path) {
 
-	char* rpath = d_validate_path(path);
+	char* rpath = d_rpath(path);
 	bool exists = rpath != NULL;
 	free(rpath);
 
@@ -97,7 +92,7 @@ bool d_fexists(const char* path) {
 
 }
 
-char* d_validate_path(const char* path) {
+char* d_rpath(const char* path) {
 
 	if (!path) {
 		return NULL;

@@ -1,15 +1,9 @@
 // wengwengweng
 
-#include <stdbool.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
-
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
-#include <SDL2/SDL.h>
+#include "stb/stb_image.h"
 
-#include <dirty/dirty.h>
+#include "dirty/dirty.h"
 #include "res/unscii.png.h"
 
 static const char* vert_template =
@@ -157,6 +151,7 @@ void d_gfx_init() {
 
 void d_gfx_frame_start() {
 	d_gfx.transform = make_mat4();
+	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
 	d_clear();
 	d_draw(&d_gfx.tri_mesh, &d_gfx.default_prog);
 }
@@ -279,7 +274,7 @@ d_font d_make_font(d_tex2d tex, int gw, int gh, const char* chars) {
 
 	if (count != strlen(chars)) {
 		fprintf(stderr, "invalid font");
-		d_quit();
+		d_quit(EXIT_FAILURE);
 	}
 
 	for (int i = 0; i < count; i++) {
@@ -357,7 +352,7 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	if (success == GL_FALSE) {
 		glGetShaderInfoLog(vs, 512, NULL, info_log);
 		fprintf(stderr, "%s", info_log);
-		d_quit();
+		d_quit(EXIT_FAILURE);
 	}
 
 	// fragment shader
@@ -371,7 +366,7 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	if (success == GL_FALSE) {
 		glGetShaderInfoLog(fs, 512, NULL, info_log);
 		fprintf(stderr, "%s", info_log);
-		d_quit();
+		d_quit(EXIT_FAILURE);
 	}
 
 	// program
@@ -397,7 +392,7 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	if (success == GL_FALSE) {
 		glGetProgramInfoLog(program, 512, NULL, info_log);
 		fprintf(stderr, "%s", info_log);
-		d_quit();
+		d_quit(EXIT_FAILURE);
 	}
 
 	free((void*)vs_code);
@@ -521,7 +516,7 @@ void d_push() {
 
 	if (d_gfx.t_stack_cnt >= 16) {
 		fprintf(stderr, "transform stack overflow");
-		return d_quit();
+		d_quit(EXIT_FAILURE);
 	}
 
 	d_gfx.t_stack[d_gfx.t_stack_cnt] = d_gfx.transform;
@@ -533,7 +528,7 @@ void d_pop() {
 
 	if (d_gfx.t_stack_cnt <= 0) {
 		fprintf(stderr, "transform stack underflow");
-		return d_quit();
+		d_quit(EXIT_FAILURE);
 	}
 
 	d_gfx.t_stack_cnt--;

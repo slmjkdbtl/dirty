@@ -4,12 +4,12 @@
 
 static void frame() {
 
-	if (d_key_pressed(D_KEY_ESC)) {
-		d_quit();
+	if (d_key_pressed(D_KEY_F)) {
+		d_set_fullscreen(!d_fullscreen());
 	}
 
-	if (d_mouse_down(D_MOUSE_LEFT)) {
-		printf("%f\n", d_time());
+	if (d_key_pressed(D_KEY_ESC)) {
+		d_quit(EXIT_SUCCESS);
 	}
 
 }
@@ -17,7 +17,6 @@ static void frame() {
 int main() {
 
 	d_init("test", 640, 480);
-	d_vsync(true);
 	d_run(frame);
 
 }

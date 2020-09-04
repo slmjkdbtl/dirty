@@ -8,13 +8,6 @@
 #include "math.h"
 
 typedef enum {
-	D_BTN_IDLE = 0,
-	D_BTN_PRESSED,
-	D_BTN_RELEASED,
-	D_BTN_DOWN,
-} d_btn_state;
-
-typedef enum {
 	D_KEY_NONE = 0,
 	D_KEY_Q,
 	D_KEY_W,
@@ -102,9 +95,17 @@ typedef enum {
 } d_mouse;
 
 void d_init(const char*, int, int);
-void d_run(void (*)(void));
-void d_vsync(bool);
-void d_quit();
+void d_run(void (*)());
+void d_set_vsync(bool);
+void d_set_fullscreen(bool);
+bool d_fullscreen();
+void d_set_mouse_relative(bool);
+bool d_mouse_relative();
+void d_set_mouse_hidden(bool);
+bool d_mouse_hidden();
+void d_set_title(const char*);
+const char* d_title();
+void d_quit(int);
 float d_time();
 float d_dt();
 bool d_key_pressed(d_key);
@@ -118,6 +119,7 @@ int d_height();
 vec2 d_mouse_pos();
 vec2 d_mouse_dpos();
 bool d_mouse_moved();
+bool d_resized();
 
 #endif
 
