@@ -15,13 +15,15 @@ BUILD
 
 USAGE
 
+  check out 'examples/'
+
   see
 
     - include/app.h
     - include/gfx.h
     - include/audio.h
-    - include/fs.h
     - include/math.h
+    - include/fs.h
 
 FACTS
 

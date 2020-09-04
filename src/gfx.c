@@ -66,8 +66,8 @@ static const char* frag_default =
 ;
 
 typedef struct {
-	d_tex2d default_tex;
-	d_tex2d* tex_slots[4];
+	d_tex default_tex;
+	const d_tex* tex_slots[4];
 	d_font default_font;
 	const d_font* cur_font;
 	d_shader default_shader;
@@ -75,6 +75,7 @@ typedef struct {
 	mat4 transform;
 	d_cam default_cam;
 	const d_cam* cur_cam;
+	const d_canvas* cur_canvas;
 	mat4 t_stack[8];
 	int t_stack_cnt;
 	d_batch batch;
@@ -122,6 +123,17 @@ void d_gfx_init() {
 	// init transform
 	d_gfx.transform = mat4u();
 
+}
+
+void d_gfx_frame_start() {
+	d_gfx.transform = mat4u();
+	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
+	d_gfx.cur_cam = &d_gfx.default_cam;
+	d_clear();
+}
+
+void d_gfx_frame_end() {
+	d_batch_flush(&d_gfx.batch);
 }
 
 d_mesh d_make_mesh(
@@ -201,7 +213,10 @@ void d_batch_flush(d_batch* m) {
 	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, m->icount * sizeof(d_index), &m->iqueue);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
+	d_push();
+	d_gfx.transform = mat4u();
 	d_draw(m->vbuf, m->ibuf, m->icount);
+	d_pop();
 
 	m->vcount = 0;
 	m->icount = 0;
@@ -252,6 +267,8 @@ d_img d_make_img(const unsigned char* data, int w, int h) {
 d_img d_parse_img(const unsigned char* bytes, int len) {
 
 	int w, h;
+	// TODO: seg fault if set?
+// 	stbi_set_flip_vertically_on_load(true);
 	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, len, &w, &h, NULL, 0);
 
 	return (d_img) {
@@ -267,7 +284,14 @@ void d_free_img(d_img* img) {
 	img->data = 0;
 }
 
-d_tex2d d_make_tex(const d_img* img) {
+d_tex d_make_tex(const d_img* img) {
+	return d_make_tex_ex(img, (d_tex_conf) {
+		.filter = D_NEAREST,
+		.wrap = D_CLAMP_TO_BORDER,
+	});
+}
+
+d_tex d_make_tex_ex(const d_img* img, d_tex_conf conf) {
 
 	GLuint tex;
 
@@ -287,14 +311,14 @@ d_tex2d d_make_tex(const d_img* img) {
 		img->data
 	);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, conf.filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, conf.filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, conf.wrap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, conf.wrap);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	return (d_tex2d) {
+	return (d_tex) {
 		.id = tex,
 		.width = img->width,
 		.height = img->height,
@@ -302,12 +326,12 @@ d_tex2d d_make_tex(const d_img* img) {
 
 }
 
-void d_free_tex(d_tex2d* t) {
+void d_free_tex(d_tex* t) {
 	glDeleteTextures(1, &t->id);
 	t->id = 0;
 }
 
-d_font d_make_font(d_tex2d tex, int gw, int gh, const char* chars) {
+d_font d_make_font(d_tex tex, int gw, int gh, const char* chars) {
 
 	d_font f = {};
 
@@ -456,6 +480,81 @@ void d_free_shader(d_shader* p) {
 	p->id = 0;
 }
 
+d_canvas d_make_canvas(int w, int h) {
+
+	GLuint ctex;
+	glGenTextures(1, &ctex);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, ctex);
+
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_RGBA,
+		w,
+		h,
+		0,
+		GL_RGBA,
+		GL_UNSIGNED_BYTE,
+		NULL
+	);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	GLuint dstex;
+	glGenTextures(1, &dstex);
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, ctex);
+
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_DEPTH24_STENCIL8,
+		w,
+		h,
+		0,
+		GL_DEPTH_STENCIL,
+		GL_UNSIGNED_INT_24_8,
+		NULL
+	);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	GLuint fbuf;
+	glGenFramebuffers(1, &fbuf);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, fbuf);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ctex, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, dstex, 0);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	return (d_canvas) {
+		.fbuf = fbuf,
+		.ctex = ctex,
+		.dstex = dstex,
+	};
+
+}
+
+void d_free_canvas(d_canvas* c) {
+	glDeleteFramebuffers(1, &c->fbuf);
+	c->fbuf = 0;
+}
+
 void d_send_f(const char* name, float v) {
 	glUniform1f(glGetUniformLocation(d_gfx.cur_shader->id, name), v);
 }
@@ -573,6 +672,7 @@ void d_use_cam(const d_cam* cam) {
 }
 
 void d_use_shader(const d_shader* shader) {
+	d_batch_flush(&d_gfx.batch);
 	if (shader) {
 		d_gfx.cur_shader = shader;
 	} else {
@@ -586,6 +686,11 @@ void d_use_font(const d_font* font) {
 	} else {
 		d_gfx.cur_font = &d_gfx.default_font;
 	}
+}
+
+void d_use_canvas(const d_canvas* canvas) {
+	d_batch_flush(&d_gfx.batch);
+	d_gfx.cur_canvas = canvas;
 }
 
 void d_draw(GLuint vbuf, GLuint ibuf, int count) {
@@ -627,27 +732,90 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 
 }
 
-void d_draw_mesh(const d_mesh* mesh) {
-	d_draw(mesh->vbuf, mesh->ibuf, mesh->count);
-}
-
 void d_draw_raw(
 	const d_vertex* verts,
 	int vcount,
 	const d_index* indices,
 	int icount
 ) {
-	d_batch_push(&d_gfx.batch, verts, vcount, indices, icount);
+
+	d_vertex tverts[vcount];
+	memcpy(&tverts, verts, vcount * sizeof(d_vertex));
+
+	for (int i = 0; i < vcount; i++) {
+		tverts[i].pos = mat4_mult_vec3(d_gfx.transform, verts[i].pos);
+	}
+
+	d_batch_push(&d_gfx.batch, tverts, vcount, indices, icount);
+
 }
 
-void d_gfx_frame_start() {
-	d_gfx.transform = mat4u();
-	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
-	d_gfx.cur_cam = &d_gfx.default_cam;
-	d_clear();
+void d_draw_mesh(const d_mesh* mesh) {
+	d_draw(mesh->vbuf, mesh->ibuf, mesh->count);
 }
 
-void d_gfx_frame_end() {
-	d_batch_flush(&d_gfx.batch);
+void d_set_tex(const d_tex* t) {
+	if (t) {
+		if (t->id != d_gfx.tex_slots[0]->id) {
+			d_batch_flush(&d_gfx.batch);
+			d_gfx.tex_slots[0] = t;
+		}
+	} else {
+		if (d_gfx.tex_slots[0]->id != d_gfx.default_tex.id) {
+			d_batch_flush(&d_gfx.batch);
+		}
+		d_gfx.tex_slots[0] = &d_gfx.default_tex;
+	}
+}
+
+void d_draw_tex(const d_tex* t) {
+
+	// TODO: flip uv before flip image is implemented
+
+	d_push();
+	d_scale(vec3f(t->width, t->height, 1.0));
+
+	d_vertex verts[] = {
+		{
+			.pos = vec3f(-0.5, -0.5, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+// 			.uv = vec2f(0.0, 0.0),
+			.uv = vec2f(0.0, 1.0),
+			.color = coloru()
+		},
+		{
+			.pos = vec3f(-0.5, 0.5, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+// 			.uv = vec2f(0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = coloru()
+		},
+		{
+			.pos = vec3f(0.5, 0.5, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+// 			.uv = vec2f(1.0, 1.0),
+			.uv = vec2f(1.0, 0.0),
+			.color = coloru()
+		},
+		{
+			.pos = vec3f(0.5, -0.5, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+// 			.uv = vec2f(1.0, 0.0),
+			.uv = vec2f(1.0, 1.0),
+			.color = coloru()
+		},
+	};
+
+	d_index indices[] = {
+		0, 1, 2,
+		0, 2, 3,
+	};
+
+	d_set_tex(t);
+	d_draw_raw(verts, 4, indices, 6);
+	d_set_tex(NULL);
+
+	d_pop();
+
 }
 

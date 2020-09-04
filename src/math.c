@@ -137,6 +137,19 @@ void vec3_print(vec3 p) {
 	printf("vec3(%.8g, %.8g, %.8g)\n", p.x, p.y, p.z);
 }
 
+vec4 vec4f(float x, float y, float z, float w) {
+	return (vec4) {
+		.x = x,
+		.y = y,
+		.z = z,
+		.w = w,
+	};
+}
+
+vec4 vec4u() {
+	return vec4f(0.0, 0.0, 0.0, 1.0);
+}
+
 color colorf(float r, float g, float b, float a) {
 	return (color) {
 		.r = r,
@@ -223,6 +236,24 @@ mat4 mat4_mult(mat4 m1, mat4 m2) {
 
 	return res;
 
+}
+
+vec4 mat4_mult_vec4(mat4 m, vec4 p) {
+	return (vec4) {
+		.x = p.x * m.m[0] + p.y * m.m[4] + p.z * m.m[8] + p.w * m.m[12],
+		.y = p.x * m.m[1] + p.y * m.m[5] + p.z * m.m[9] + p.w * m.m[13],
+		.z = p.x * m.m[2] + p.y * m.m[6] + p.z * m.m[10] + p.w * m.m[14],
+		.w = p.x * m.m[3] + p.y * m.m[7] + p.z * m.m[11] + p.w * m.m[15]
+	};
+}
+
+vec3 mat4_mult_vec3(mat4 m, vec3 p) {
+	vec4 p4 = mat4_mult_vec4(m, vec4f(p.x, p.y, p.z, 1.0));
+	return vec3f(p4.x, p4.y, p4.z);
+}
+vec2 mat4_mult_vec2(mat4 m, vec2 p) {
+	vec3 p3 = mat4_mult_vec3(m, vec3f(p.x, p.y, 0.0));
+	return vec2f(p3.x, p3.y);
 }
 
 mat4 mat4_scale(vec3 s) {
@@ -340,7 +371,7 @@ quat quatf(float x, float y, float z, float w) {
 	};
 }
 
-quat quat_unit() {
+quat quatu() {
 	return quatf(0.0, 0.0, 0.0, 1.0);
 }
 

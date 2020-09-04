@@ -76,6 +76,7 @@ res: $(RES_H_FILES)
 
 .PHONY: run
 run: $(BIN_PATH)/$(EXAMPLE)
+	cp -r $(EXAMPLE_PATH)/res $(BIN_PATH)/
 	cd $(BIN_PATH); \
 		./$(EXAMPLE) $(ARGS)
 

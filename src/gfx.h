@@ -20,6 +20,9 @@ void d_gfx_frame_start();
 void d_gfx_frame_end();
 void d_draw(GLuint, GLuint, int);
 d_batch d_make_batch();
+void d_batch_push(d_batch*, const d_vertex*, int, const d_index*, int);
+void d_batch_flush(d_batch*);
+void d_free_batch(d_batch*);
 
 #endif
 

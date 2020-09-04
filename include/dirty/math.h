@@ -17,6 +17,13 @@ typedef struct {
 } vec3;
 
 typedef struct {
+	float x;
+	float y;
+	float z;
+	float w;
+} vec4;
+
+typedef struct {
 	float r;
 	float g;
 	float b;
@@ -60,6 +67,9 @@ float vec3_dot(vec3, vec3);
 bool vec3_eq(vec3, vec3);
 void vec3_print(vec3);
 
+vec4 vec4f(float, float, float, float);
+vec4 vec4u();
+
 color colorf(float, float, float, float);
 color colori(int, float);
 color coloru();
@@ -71,6 +81,9 @@ void color_print(color);
 mat4 mat4f(float[16]);
 mat4 mat4u();
 mat4 mat4_mult(mat4, mat4);
+vec4 mat4_mult_vec4(mat4, vec4);
+vec3 mat4_mult_vec3(mat4, vec3);
+vec2 mat4_mult_vec2(mat4, vec2);
 mat4 mat4_scale(vec3);
 mat4 mat4_translate(vec3);
 mat4 mat4_ortho(float, float, float, float);
@@ -82,7 +95,7 @@ mat4 mat4_rot_z(float);
 void mat4_print(mat4);
 
 quat quatf(float, float, float, float);
-quat quat_unit();
+quat quatu();
 
 float degrees(float);
 float radians(float);

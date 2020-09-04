@@ -8,7 +8,7 @@
 #include "math.h"
 
 typedef enum {
-	D_KEY_NONE = 0,
+	D_KEY_NONE,
 	D_KEY_Q,
 	D_KEY_W,
 	D_KEY_E,
@@ -88,14 +88,18 @@ typedef enum {
 } d_key;
 
 typedef enum {
-	D_MOUSE_NONE = 0,
+	D_MOUSE_NONE,
 	D_MOUSE_LEFT,
 	D_MOUSE_RIGHT,
 	D_MOUSE_MIDDLE,
 } d_mouse;
 
+// lifecycle
 void d_init(const char*, int, int);
 void d_run(void (*)());
+void d_quit(int);
+
+// settings / query
 void d_set_vsync(bool);
 void d_set_fullscreen(bool);
 bool d_fullscreen();
@@ -105,22 +109,25 @@ void d_set_mouse_hidden(bool);
 bool d_mouse_hidden();
 void d_set_title(const char*);
 const char* d_title();
-void d_quit(int);
+int d_width();
+int d_height();
+
+// time
 float d_time();
 float d_dt();
+
+// input
 bool d_key_pressed(d_key);
 bool d_key_released(d_key);
 bool d_key_down(d_key);
 bool d_mouse_pressed(d_mouse);
 bool d_mouse_released(d_mouse);
 bool d_mouse_down(d_mouse);
-int d_width();
-int d_height();
+bool d_mouse_moved();
 vec2 d_mouse_pos();
 vec2 d_mouse_dpos();
-bool d_mouse_moved();
-vec2 d_wheel();
 bool d_scrolled();
+vec2 d_wheel();
 bool d_resized();
 
 #endif

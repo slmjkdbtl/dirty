@@ -3,6 +3,8 @@
 #include <dirty/dirty.h>
 
 d_mesh tri_mesh;
+d_img img;
+d_tex tex;
 
 static void frame() {
 
@@ -35,11 +37,13 @@ static void frame() {
 		},
 	};
 
-	unsigned int indices[] = {
+	d_index indices[] = {
 		0, 1, 2,
 	};
 
-	d_draw_raw(verts, 3, indices, 3);
+	d_scale(vec3f(2.0, 2.0, 1.0));
+// 	d_draw_raw(verts, 3, indices, 3);
+	d_draw_tex(&tex);
 // 	d_draw_mesh(&tri_mesh);
 
 }
@@ -69,11 +73,16 @@ int main() {
 		},
 	};
 
-	unsigned int indices[] = {
+	d_index indices[] = {
 		0, 1, 2,
 	};
 
 	tri_mesh = d_make_mesh(verts, 3, indices, 3);
+	int size;
+	unsigned char* content = d_fread_b("res/acid2.png", &size);
+	img = d_parse_img(content, size);
+	tex = d_make_tex(&img);
+	d_free_img(&img);
 
 	d_run(frame);
 

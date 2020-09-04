@@ -6,7 +6,11 @@
 #define CHANNELS 1
 #define SAMPLES 1024
 
-d_audio_t d_audio;
+typedef struct {
+	SDL_AudioDeviceID dev;
+} d_audio_t;
+
+static d_audio_t d_audio;
 
 static void stream(void* udata, Uint8* buf, int len) {
 

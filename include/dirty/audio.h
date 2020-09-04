@@ -5,11 +5,5 @@
 
 #include <SDL2/SDL.h>
 
-typedef struct {
-	SDL_AudioDeviceID dev;
-} d_audio_t;
-
-extern d_audio_t d_audio;
-
 #endif
 
