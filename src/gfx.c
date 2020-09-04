@@ -3,7 +3,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-#include "dirty/dirty.h"
+#include <dirty/dirty.h>
 #include "res/unscii.png.h"
 
 static const char* vert_template =
@@ -98,22 +98,22 @@ void d_gfx_init() {
 	// test mesh
 	d_vertex verts[] = {
 		{
-			.pos = { 0.0, 120.0, 0.0, },
-			.normal = { 0.0, 0.0, 1.0 },
-			.uv = { 0.0, 0.0, },
-			.color = { 1.0, 0.0, 0.0, 1.0, }
+			.pos = vec3f(0.0, 120.0, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = colorf(1.0, 0.0, 0.0, 1.0)
 		},
 		{
-			.pos = { -160.0, -120.0, 0.0, },
-			.normal = { 0.0, 0.0, 1.0 },
-			.uv = { 0.0, 0.0, },
-			.color = { 0.0, 1.0, 0.0, 1.0, }
+			.pos = vec3f(-160.0, -120.0, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = colorf(0.0, 1.0, 0.0, 1.0)
 		},
 		{
-			.pos = { 160.0, -120.0, 0.0, },
-			.normal = { 0.0, 0.0, 1.0 },
-			.uv = { 0.0, 0.0, },
-			.color = { 0.0, 0.0, 1.0, 1.0, }
+			.pos = vec3f(160.0, -120.0, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = colorf(0.0, 0.0, 1.0, 1.0)
 		},
 	};
 
@@ -140,17 +140,17 @@ void d_gfx_init() {
 	d_gfx.cur_font = &d_gfx.default_font;
 
 	// init default cam
-	d_gfx.default_cam.view = make_mat4();
+	d_gfx.default_cam.view = mat4_unit();
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
 	d_gfx.cur_cam = &d_gfx.default_cam;
 
 	// init transform
-	d_gfx.transform = make_mat4();
+	d_gfx.transform = mat4_unit();
 
 }
 
 void d_gfx_frame_start() {
-	d_gfx.transform = make_mat4();
+	d_gfx.transform = mat4_unit();
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
 	d_clear();
 	d_draw(&d_gfx.tri_mesh, &d_gfx.default_prog);

@@ -1,8 +1,8 @@
 // wengwengweng
 
-#include "dirty/dirty.h"
+#include <dirty/dirty.h>
 
-vec2 make_vec2(float x, float y) {
+vec2 vec2f(float x, float y) {
 	return (vec2) {
 		.x = x,
 		.y = y,
@@ -38,7 +38,7 @@ float vec2_dist(vec2 p1, vec2 p2) {
 }
 
 float vec2_len(vec2 p) {
-	return vec2_dist(p, make_vec2(0.0, 0.0));
+	return vec2_dist(p, vec2f(0.0, 0.0));
 }
 
 vec2 vec2_unit(vec2 p) {
@@ -46,7 +46,7 @@ vec2 vec2_unit(vec2 p) {
 }
 
 vec3 vec2_cross(vec2 p1, vec2 p2) {
-	return vec3_cross(make_vec3(p1.x, p1.y, 0.0), make_vec3(p2.x, p2.y, 0.0));
+	return vec3_cross(vec3f(p1.x, p1.y, 0.0), vec3f(p2.x, p2.y, 0.0));
 }
 
 float vec2_dot(vec2 p1, vec2 p2) {
@@ -61,7 +61,7 @@ void vec2_print(vec2 p) {
 	printf("vec2(%.8g, %.8g)\n", p.x, p.y);
 }
 
-vec3 make_vec3(float x, float y, float z) {
+vec3 vec3f(float x, float y, float z) {
 	return (vec3) {
 		.x = x,
 		.y = y,
@@ -102,7 +102,7 @@ float vec3_dist(vec3 p1, vec3 p2) {
 }
 
 float vec3_len(vec3 p) {
-	return vec3_dist(p, (vec3) { 0.0, 0.0, 0.0, });
+	return vec3_dist(p, vec3f(0.0, 0.0, 0.0));
 }
 
 vec3 vec3_unit(vec3 p) {
@@ -129,16 +129,39 @@ void vec3_print(vec3 p) {
 	printf("vec3(%.8g, %.8g, %.8g)\n", p.x, p.y, p.z);
 }
 
-static float clamp(float v, float low, float hi) {
-	return fmax(low, fmin(v, hi));
+color colorf(float r, float g, float b, float a) {
+	return (color) {
+		.r = r,
+		.g = g,
+		.b = b,
+		.a = a,
+	};
 }
 
-color make_color(float r, float g, float b, float a) {
+color colori(int hex, float a) {
 	return (color) {
-		.r = clamp(r, 0.0, 1.0),
-		.g = clamp(r, 0.0, 1.0),
-		.b = clamp(r, 0.0, 1.0),
-		.a = clamp(r, 0.0, 1.0),
+		.r = ((hex >> 16) & 0xff) / 255.0,
+		.g = ((hex >> 8) & 0xff) / 255.0,
+		.b = ((hex) & 0xff) / 255.0,
+		.a = a,
+	};
+}
+
+color color_invert(color c) {
+	return (color) {
+		.r = 1.0 - c.r,
+		.g = 1.0 - c.g,
+		.b = 1.0 - c.b,
+		.a = c.a,
+	};
+}
+
+color color_darken(color c, float a) {
+	return (color) {
+		.r = c.r - a,
+		.g = c.g - a,
+		.b = c.b - a,
+		.a = c.a,
 	};
 }
 
@@ -150,7 +173,18 @@ void color_print(color c) {
 	printf("color(%.8g, %.8g, %.8g, %.8g)\n", c.r, c.g, c.b, c.a);
 }
 
-mat4 make_mat4() {
+mat4 mat4f(float m[16]) {
+	return (mat4) {
+		.m = {
+			m[0], m[1], m[2], m[3],
+			m[4], m[5], m[6], m[7],
+			m[8], m[9], m[10], m[11],
+			m[12], m[13], m[14], m[15]
+		},
+	};
+}
+
+mat4 mat4_unit() {
 	return (mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
@@ -163,7 +197,7 @@ mat4 make_mat4() {
 
 mat4 mat4_mult(mat4 m1, mat4 m2) {
 
-	mat4 res = make_mat4();
+	mat4 res = mat4_unit();
 
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
@@ -283,5 +317,38 @@ void mat4_print(mat4 m) {
 		m.m[8], m.m[9], m.m[10], m.m[11],
 		m.m[12], m.m[13], m.m[14], m.m[15]
 	);
+}
+
+quat quatf(float x, float y, float z, float w) {
+	return (quat) {
+		.x = x,
+		.y = y,
+		.z = z,
+		.w = w,
+	};
+}
+
+quat quat_unit() {
+	return quatf(0.0, 0.0, 0.0, 1.0);
+}
+
+float degrees(float r) {
+    return r * (180.0 / M_PI);
+}
+
+float radians(float d) {
+    return d / (180.0 / M_PI);
+}
+
+float clamp(float v, float low, float hi) {
+	return fmax(low, fmin(v, hi));
+}
+
+float randf() {
+	return (float)rand() / (float)RAND_MAX;
+}
+
+float randfi(float low, float hi) {
+	return low + randf() * (hi - low);
 }
 

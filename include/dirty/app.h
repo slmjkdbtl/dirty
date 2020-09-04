@@ -119,6 +119,8 @@ int d_height();
 vec2 d_mouse_pos();
 vec2 d_mouse_dpos();
 bool d_mouse_moved();
+vec2 d_wheel();
+bool d_scrolled();
 bool d_resized();
 
 #endif

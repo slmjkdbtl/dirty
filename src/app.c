@@ -1,12 +1,9 @@
 // wengwengweng
 
-#include "dirty/dirty.h"
+#include <dirty/dirty.h>
 
-void d_gfx_init();
-void d_gfx_frame_start();
-void d_gfx_frame_end();
-void d_audio_init();
-void d_audio_destroy();
+#include "gfx.h"
+#include "audio.h"
 
 typedef enum {
 	D_BTN_IDLE = 0,
@@ -25,6 +22,7 @@ typedef struct {
 	int height;
 	vec2 mouse_pos;
 	vec2 mouse_dpos;
+	vec2 wheel;
 	d_btn_state key_states[128];
 	d_btn_state mouse_states[4];
 	bool resized;
@@ -152,12 +150,15 @@ static void d_frame(void (*f)()) {
 
 	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 
-	int mx, my;
+	int mx, my, dx, dy;
 
 	SDL_GetMouseState(&mx, &my);
+	SDL_GetRelativeMouseState(&dx, &dy);
 
 	d_app.mouse_pos.x = (float)mx - d_app.width / 2.0;
 	d_app.mouse_pos.y = d_app.height / 2.0 - (float)my;
+	d_app.mouse_dpos.x = (float)dx;
+	d_app.mouse_dpos.y = -(float)dy;
 
 	d_gfx_frame_start();
 
@@ -206,8 +207,8 @@ void d_run(void (*f)()) {
 			}
 		}
 
-		d_app.mouse_dpos.x = 0.0;
-		d_app.mouse_dpos.y = 0.0;
+		d_app.wheel.x = 0.0;
+		d_app.wheel.y = 0.0;
 		d_app.resized = false;
 
 		// deal with inputs
@@ -233,10 +234,10 @@ void d_run(void (*f)()) {
 					d_app.mouse_states[mouse] = D_BTN_RELEASED;
 					break;
 				case SDL_MOUSEMOTION:
-					d_app.mouse_dpos.x = event.motion.xrel;
-					d_app.mouse_dpos.y = -event.motion.yrel;
 					break;
 				case SDL_MOUSEWHEEL:
+					d_app.wheel.x = -event.wheel.x;
+					d_app.wheel.y = -event.wheel.y;
 					break;
 				case SDL_TEXTINPUT:
 					break;
@@ -373,5 +374,13 @@ bool d_mouse_moved() {
 
 bool d_resized() {
 	return d_app.resized;
+}
+
+bool d_scrolled() {
+	return d_app.wheel.x != 0.0 || d_app.wheel.y != 0.0;
+}
+
+vec2 d_wheel() {
+	return d_app.wheel;
 }
 

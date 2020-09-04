@@ -1,6 +1,6 @@
 // wengwengweng
 
-#include "dirty/dirty.h"
+#include <dirty/dirty.h>
 
 #define FREQ 44100
 #define CHANNELS 1

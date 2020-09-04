@@ -27,7 +27,14 @@ typedef struct {
 	float m[16];
 } mat4;
 
-vec2 make_vec2(float, float);
+typedef struct {
+	float x;
+	float y;
+	float z;
+	float w;
+} quat;
+
+vec2 vec2f(float, float);
 vec2 vec2_add(vec2, vec2);
 vec2 vec2_sub(vec2, vec2);
 vec2 vec2_scale(vec2, float);
@@ -39,7 +46,7 @@ float vec2_dot(vec2, vec2);
 bool vec2_eq(vec2, vec2);
 void vec2_print(vec2);
 
-vec3 make_vec3(float, float, float);
+vec3 vec3f(float, float, float);
 vec3 vec3_add(vec3, vec3);
 vec3 vec3_sub(vec3, vec3);
 vec3 vec3_scale(vec3, float);
@@ -51,11 +58,15 @@ float vec3_dot(vec3, vec3);
 bool vec3_eq(vec3, vec3);
 void vec3_print(vec3);
 
-color make_color(float, float, float, float);
+color colorf(float, float, float, float);
+color colori(int, float);
+color color_invert(color);
+color color_darken(color c, float a);
 bool color_eq(color, color);
 void color_print(color);
 
-mat4 make_mat4();
+mat4 mat4f(float[16]);
+mat4 mat4_unit();
 mat4 mat4_mult(mat4, mat4);
 mat4 mat4_scale(vec3);
 mat4 mat4_translate(vec3);
@@ -66,6 +77,15 @@ mat4 mat4_rot_x(float);
 mat4 mat4_rot_y(float);
 mat4 mat4_rot_z(float);
 void mat4_print(mat4);
+
+quat quatf(float, float, float, float);
+quat quat_unit();
+
+float degrees(float);
+float radians(float);
+float clamp(float, float, float);
+float randf();
+float randfi(float, float);
 
 #endif
 
