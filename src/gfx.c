@@ -191,8 +191,8 @@ d_batch d_make_batch() {
 	return (d_batch) {
 		.vbuf = vbuf,
 		.ibuf = ibuf,
-		.vqueue = {},
-		.iqueue = {},
+		.vqueue = {0},
+		.iqueue = {0},
 		.vcount = 0,
 		.icount = 0,
 	};
@@ -317,7 +317,7 @@ void d_free_tex(d_tex* t) {
 
 d_font d_make_font(d_tex tex, int gw, int gh, const char* chars) {
 
-	d_font f = {};
+	d_font f = {0};
 
 	int cols = tex.width / gw;
 	int rows = tex.height / gh;
@@ -492,10 +492,10 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 		NULL
 	);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, conf.filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, conf.filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, conf.wrap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, conf.wrap);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -503,9 +503,14 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 	glGenFramebuffers(1, &fbuf);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fbuf);
-
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ctex.id, 0);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, dstex, 0);
+	d_clear();
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		fprintf(stderr, "failed to create framebuffer\n");
+		d_quit(EXIT_FAILURE);
+	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -515,6 +520,12 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 		.dstex = dstex,
 	};
 
+}
+
+// TODO
+void d_canvas_capture(const d_canvas* c) {
+	unsigned char* buf = calloc(c->ctex.width * c->ctex.height * 4, sizeof(unsigned char));
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
 }
 
 void d_free_canvas(d_canvas* c) {
@@ -758,15 +769,10 @@ void d_draw_tex(const d_tex* t, quad q) {
 	d_push();
 	d_scale(vec3f(t->width * q.w, t->height * q.h, 1.0));
 
-	// TODO: flip uv before flip image is implemented
-// 	vec2 uv0 = vec2f(q.x, q.y);
-// 	vec2 uv1 = vec2f(q.x, q.y + q.h);
-// 	vec2 uv2 = vec2f(q.x + q.w, q.y + q.h);
-// 	vec2 uv3 = vec2f(q.x + q.w, q.y);
-	vec2 uv0 = vec2f(q.x, q.y + q.h);
-	vec2 uv1 = vec2f(q.x, q.y);
-	vec2 uv2 = vec2f(q.x + q.w, q.y);
-	vec2 uv3 = vec2f(q.x + q.w, q.y + q.h);
+	vec2 uv0 = vec2f(q.x, q.y);
+	vec2 uv1 = vec2f(q.x, q.y + q.h);
+	vec2 uv2 = vec2f(q.x + q.w, q.y + q.h);
+	vec2 uv3 = vec2f(q.x + q.w, q.y);
 
 	d_vertex verts[] = {
 		{
@@ -840,7 +846,6 @@ void d_draw_text(const char* text, float size) {
 
 }
 
-// TODO: not drawing anything
 void d_draw_canvas(const d_canvas* c) {
 	d_draw_tex(&c->ctex, quadu());
 }

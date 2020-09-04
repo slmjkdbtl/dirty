@@ -12,7 +12,7 @@ ifeq ($(shell uname -s),Linux)
 TARGET := Linux
 endif
 
-CC := cc
+CC := clang
 AR := ar
 
 EXAMPLE := test

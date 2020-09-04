@@ -90,6 +90,7 @@ void d_free_shader(d_shader*);
 // canvas
 d_canvas d_make_canvas(int, int);
 d_canvas d_make_canvas_ex(int, int, d_tex_conf);
+void d_canvas_capture(const d_canvas*);
 void d_free_canvas(d_canvas*);
 
 // uniforms

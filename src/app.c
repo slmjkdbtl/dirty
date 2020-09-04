@@ -139,6 +139,7 @@ void d_init(const char* title, int width, int height) {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	SDL_GL_SetSwapInterval(1);
+	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 	d_app.gl = SDL_GL_CreateContext(d_app.window);
 
 	d_gfx_init();
