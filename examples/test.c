@@ -3,8 +3,8 @@
 #include <dirty/dirty.h>
 
 d_mesh tri_mesh;
-d_img img;
 d_tex tex;
+d_canvas canvas;
 
 static void frame() {
 
@@ -41,10 +41,12 @@ static void frame() {
 		0, 1, 2,
 	};
 
-	d_scale(vec3f(2.0, 2.0, 1.0));
+// 	d_scale(vec3f(2.0, 2.0, 1.0));
 // 	d_draw_raw(verts, 3, indices, 3);
 // 	d_draw_tex(&tex, quadu());
-	d_draw_text("oh hi", 12.0);
+	d_draw_text("hihi", 120.0);
+// 	d_draw_text("1234567890123456789012345678901234567890123456789012345678901234567890123456790", 8.0);
+// 	d_draw_canvas(&canvas);
 // 	d_draw_mesh(&tri_mesh);
 
 }
@@ -81,9 +83,12 @@ int main() {
 	tri_mesh = d_make_mesh(verts, 3, indices, 3);
 	int size;
 	unsigned char* content = d_fread_b("res/acid2.png", &size);
-	img = d_parse_img(content, size);
-	tex = d_make_tex(&img);
-	d_free_img(&img);
+	tex = d_parse_tex(content, size);
+	canvas = d_make_canvas(d_width(), d_height());
+
+	d_use_canvas(&canvas);
+	d_draw_mesh(&tri_mesh);
+	d_use_canvas(NULL);
 
 	d_run(frame);
 

@@ -35,12 +35,6 @@ typedef struct {
 } d_tex;
 
 typedef struct {
-	unsigned char* data;
-	int width;
-	int height;
-} d_img;
-
-typedef struct {
 	d_tex tex;
 	float qw;
 	float qh;
@@ -55,7 +49,7 @@ typedef struct {
 
 typedef struct {
 	GLuint fbuf;
-	GLuint ctex;
+	d_tex ctex;
 	GLuint dstex;
 } d_canvas;
 
@@ -77,15 +71,13 @@ typedef unsigned int d_index;
 d_mesh d_make_mesh(const d_vertex*, int, const d_index*, int);
 void d_free_mesh(d_mesh*);
 
-// img
-d_img d_parse_img(const unsigned char*, int);
-d_img d_make_img(const unsigned char*, int, int);
-void d_free_img(d_img*);
-
 // tex
-d_tex d_make_tex(const d_img*);
-d_tex d_make_tex_ex(const d_img*, d_tex_conf);
+d_tex d_make_tex(const unsigned char*, int, int);
+d_tex d_make_tex_ex(const unsigned char*, int, int, d_tex_conf);
+d_tex d_parse_tex(const unsigned char*, int);
+d_tex d_parse_tex_ex(const unsigned char*, int, d_tex_conf);
 void d_free_tex(d_tex*);
+d_tex_conf d_default_tex_conf();
 
 // font
 d_font d_make_font(d_tex, int, int, const char*);
@@ -140,6 +132,7 @@ void d_draw_raw(const d_vertex*, int, const d_index*, int);
 void d_draw_mesh(const d_mesh*);
 void d_draw_tex(const d_tex*, quad);
 void d_draw_text(const char*, float);
+void d_draw_canvas(const d_canvas*);
 
 #endif
 
