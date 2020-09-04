@@ -42,7 +42,7 @@ static void frame() {
 		0, 1, 2,
 	};
 
-// 	d_scale(vec3f(2.0, 2.0, 1.0));
+	d_scale_xy(vec2f(2.0, 2.0));
 // 	d_draw_raw(verts, 3, indices, 3);
 	d_draw_tex(&tex, quadu());
 // 	d_draw_text("hihi", 120.0);

@@ -117,7 +117,15 @@ void d_stencil_test(bool);
 void d_push();
 void d_pop();
 void d_move(vec3);
+void d_move_x(float);
+void d_move_y(float);
+void d_move_z(float);
+void d_move_xy(vec2);
 void d_scale(vec3);
+void d_scale_x(float);
+void d_scale_y(float);
+void d_scale_z(float);
+void d_scale_xy(vec2);
 void d_rot_x(float);
 void d_rot_y(float);
 void d_rot_z(float);
@@ -134,6 +142,7 @@ void d_draw_mesh(const d_mesh*);
 void d_draw_tex(const d_tex*, quad);
 void d_draw_text(const char*, float);
 void d_draw_canvas(const d_canvas*);
+void d_draw_rect(vec2 p1, vec2 p2);
 
 #endif
 

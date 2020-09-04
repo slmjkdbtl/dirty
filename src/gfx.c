@@ -636,8 +636,40 @@ void d_move(vec3 p) {
 	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_translate(p));
 }
 
+void d_move_x(float x) {
+	d_move(vec3f(x, 0.0, 0.0));
+}
+
+void d_move_y(float y) {
+	d_move(vec3f(0.0, y, 0.0));
+}
+
+void d_move_z(float z) {
+	d_move(vec3f(0.0, 0.0, z));
+}
+
+void d_move_xy(vec2 p) {
+	d_move(vec3f(p.x, p.y, 0.0));
+}
+
 void d_scale(vec3 s) {
 	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_scale(s));
+}
+
+void d_scale_x(float x) {
+	d_scale(vec3f(x, 1.0, 1.0));
+}
+
+void d_scale_y(float y) {
+	d_scale(vec3f(1.0, y, 1.0));
+}
+
+void d_scale_z(float z) {
+	d_scale(vec3f(1.0, 1.0, z));
+}
+
+void d_scale_xy(vec2 p) {
+	d_scale(vec3f(p.x, p.y, 1.0));
 }
 
 void d_rot_x(float a) {
@@ -831,8 +863,8 @@ void d_draw_text(const char* text, float size) {
 	float tw = gw * len;
 	float scale = size / gh;
 
-	d_scale(vec3f(scale, scale, 1.0));
-	d_move(vec3f(-tw / 2.0, 0.0, 0.0));
+	d_scale_xy(vec2f(scale, scale));
+	d_move_xy(vec2f(-tw / 2.0, 0.0));
 
 	for (int i = 0; i < len; i++) {
 
@@ -840,7 +872,7 @@ void d_draw_text(const char* text, float size) {
 		quad q = quadf(pos.x, pos.y, qw, qh);
 
 		d_draw_tex(tex, q);
-		d_move(vec3f(gw, 0.0, 0.0));
+		d_move_xy(vec2f(gw, 0.0));
 
 	}
 

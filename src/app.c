@@ -363,6 +363,40 @@ int d_height() {
 	return d_app.height;
 }
 
+vec2 d_coord(d_origin o) {
+	vec2 p = vec2u();
+	switch (o) {
+		case D_TOP_LEFT:
+			p = vec2f(-0.5, 0.5);
+			break;
+		case D_TOP:
+			p = vec2f(0, 0.5);
+			break;
+		case D_TOP_RIGHT:
+			p = vec2f(0.5, 0.5);
+			break;
+		case D_LEFT:
+			p = vec2f(-0.5, 0);
+			break;
+		case D_CENTER:
+			p = vec2f(0, 0);
+			break;
+		case D_RIGHT:
+			p = vec2f(0.5, 0);
+			break;
+		case D_BOT_LEFT:
+			p = vec2f(-0.5, -0.5);
+			break;
+		case D_BOT:
+			p = vec2f(0, -0.5);
+			break;
+		case D_BOT_RIGHT:
+			p = vec2f(0.5, -0.5);
+			break;
+	}
+	return vec2f(p.x * d_width(), p.y * d_height());
+}
+
 vec2 d_mouse_pos() {
 	return d_app.mouse_pos;
 }
