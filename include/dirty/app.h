@@ -4,7 +4,6 @@
 #define D_APP_H
 
 #include <stdbool.h>
-#include <SDL2/SDL.h>
 #include "math.h"
 
 typedef enum {

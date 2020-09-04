@@ -1,5 +1,8 @@
 // wengwengweng
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 #include <dirty/dirty.h>
 
 vec2 vec2f(float x, float y) {

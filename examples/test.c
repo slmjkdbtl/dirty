@@ -1,5 +1,6 @@
 // wengwengweng
 
+#include <stdlib.h>
 #include <dirty/dirty.h>
 
 d_mesh tri_mesh;

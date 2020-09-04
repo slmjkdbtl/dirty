@@ -1,5 +1,6 @@
 // wengwengweng
 
+#include <SDl2/SDL.h>
 #include <dirty/dirty.h>
 
 #include "gfx.h"
