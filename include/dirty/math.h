@@ -35,6 +35,7 @@ typedef struct {
 } quat;
 
 vec2 vec2f(float, float);
+vec2 vec2u();
 vec2 vec2_add(vec2, vec2);
 vec2 vec2_sub(vec2, vec2);
 vec2 vec2_scale(vec2, float);
@@ -47,6 +48,7 @@ bool vec2_eq(vec2, vec2);
 void vec2_print(vec2);
 
 vec3 vec3f(float, float, float);
+vec3 vec3u();
 vec3 vec3_add(vec3, vec3);
 vec3 vec3_sub(vec3, vec3);
 vec3 vec3_scale(vec3, float);
@@ -60,13 +62,14 @@ void vec3_print(vec3);
 
 color colorf(float, float, float, float);
 color colori(int, float);
+color coloru();
 color color_invert(color);
 color color_darken(color c, float a);
 bool color_eq(color, color);
 void color_print(color);
 
 mat4 mat4f(float[16]);
-mat4 mat4_unit();
+mat4 mat4u();
 mat4 mat4_mult(mat4, mat4);
 mat4 mat4_scale(vec3);
 mat4 mat4_translate(vec3);

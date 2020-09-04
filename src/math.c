@@ -9,6 +9,10 @@ vec2 vec2f(float x, float y) {
 	};
 }
 
+vec2 vec2u() {
+	return vec2f(0.0, 0.0);
+}
+
 vec2 vec2_add(vec2 p1, vec2 p2) {
 	return (vec2) {
 		.x = p1.x + p2.x,
@@ -67,6 +71,10 @@ vec3 vec3f(float x, float y, float z) {
 		.y = y,
 		.z = z,
 	};
+}
+
+vec3 vec3u() {
+	return vec3f(0.0, 0.0, 0.0);
 }
 
 vec3 vec3_add(vec3 p1, vec3 p2) {
@@ -147,6 +155,10 @@ color colori(int hex, float a) {
 	};
 }
 
+color coloru() {
+	return colorf(1.0, 1.0, 1.0, 1.0);
+}
+
 color color_invert(color c) {
 	return (color) {
 		.r = 1.0 - c.r,
@@ -184,7 +196,7 @@ mat4 mat4f(float m[16]) {
 	};
 }
 
-mat4 mat4_unit() {
+mat4 mat4u() {
 	return (mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
@@ -197,7 +209,7 @@ mat4 mat4_unit() {
 
 mat4 mat4_mult(mat4 m1, mat4 m2) {
 
-	mat4 res = mat4_unit();
+	mat4 res = mat4u();
 
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {

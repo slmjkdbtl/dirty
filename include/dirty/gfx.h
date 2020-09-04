@@ -14,7 +14,7 @@ typedef struct {
 
 typedef struct {
 	GLuint id;
-} d_program;
+} d_shader;
 
 typedef struct {
 	GLuint id;
@@ -61,10 +61,10 @@ void d_free_tex(d_tex2d*);
 d_font d_make_font(d_tex2d, int, int, const char*);
 void d_free_font(d_font*);
 
-d_program d_make_program(const char*, const char*);
-void d_free_program(d_program*);
+d_shader d_make_shader(const char*, const char*);
+void d_free_shader(d_shader*);
 
-void d_draw(const d_mesh*, const d_program*);
+void d_draw(const d_mesh* mesh);
 
 void d_send_f(const char*, float);
 void d_send_vec2(const char*, vec2);
@@ -88,6 +88,9 @@ void d_scale(vec3);
 void d_rot_x(float);
 void d_rot_y(float);
 void d_rot_z(float);
+
+void d_use_cam(const d_cam*);
+void d_use_shader(const d_shader*);
 
 #endif
 

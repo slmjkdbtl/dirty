@@ -68,13 +68,12 @@ typedef struct {
 	d_tex2d default_tex;
 	d_tex2d* tex_slots[4];
 	d_font default_font;
-	d_font* cur_font;
-	d_mesh tri_mesh;
-	d_program default_prog;
-	d_program* cur_prog;
+	const d_font* cur_font;
+	d_shader default_shader;
+	const d_shader* cur_shader;
 	mat4 transform;
 	d_cam default_cam;
-	d_cam* cur_cam;
+	const d_cam* cur_cam;
 	mat4 t_stack[8];
 	int t_stack_cnt;
 } d_gfx_t;
@@ -95,37 +94,9 @@ void d_gfx_init() {
 // 	const GLubyte* gl_ver = glGetString(GL_VERSION);
 // 	printf("%s\n", gl_ver);
 
-	// test mesh
-	d_vertex verts[] = {
-		{
-			.pos = vec3f(0.0, 120.0, 0.0),
-			.normal = vec3f(0.0, 0.0, 1.0),
-			.uv = vec2f(0.0, 0.0),
-			.color = colorf(1.0, 0.0, 0.0, 1.0)
-		},
-		{
-			.pos = vec3f(-160.0, -120.0, 0.0),
-			.normal = vec3f(0.0, 0.0, 1.0),
-			.uv = vec2f(0.0, 0.0),
-			.color = colorf(0.0, 1.0, 0.0, 1.0)
-		},
-		{
-			.pos = vec3f(160.0, -120.0, 0.0),
-			.normal = vec3f(0.0, 0.0, 1.0),
-			.uv = vec2f(0.0, 0.0),
-			.color = colorf(0.0, 0.0, 1.0, 1.0)
-		},
-	};
-
-	unsigned int indices[] = {
-		0, 1, 2,
-	};
-
-	d_gfx.tri_mesh = d_make_mesh(verts, sizeof(verts), indices, sizeof(indices));
-
-	// init default program
-	d_gfx.default_prog = d_make_program(NULL, NULL);
-	d_gfx.cur_prog = &d_gfx.default_prog;
+	// init default shader
+	d_gfx.default_shader = d_make_shader(NULL, NULL);
+	d_gfx.cur_shader = &d_gfx.default_shader;
 
 	// init default tex
 	d_img default_img = d_make_img((unsigned char[]){255, 255, 255, 255}, 1, 1);
@@ -140,20 +111,20 @@ void d_gfx_init() {
 	d_gfx.cur_font = &d_gfx.default_font;
 
 	// init default cam
-	d_gfx.default_cam.view = mat4_unit();
+	d_gfx.default_cam.view = mat4u();
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
 	d_gfx.cur_cam = &d_gfx.default_cam;
 
 	// init transform
-	d_gfx.transform = mat4_unit();
+	d_gfx.transform = mat4u();
 
 }
 
 void d_gfx_frame_start() {
-	d_gfx.transform = mat4_unit();
+	d_gfx.transform = mat4u();
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
+	d_gfx.cur_cam = &d_gfx.default_cam;
 	d_clear();
-	d_draw(&d_gfx.tri_mesh, &d_gfx.default_prog);
 }
 
 d_mesh d_make_mesh(const d_vertex* verts, int verts_size, const unsigned int* indices, int indices_size) {
@@ -325,7 +296,7 @@ char* strsub(const char* str, const char* old, const char* new) {
 
 }
 
-d_program d_make_program(const char* vs_src, const char* fs_src) {
+d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 
 	if (vs_src == NULL) {
 		vs_src = vert_default;
@@ -398,42 +369,42 @@ d_program d_make_program(const char* vs_src, const char* fs_src) {
 	free((void*)vs_code);
 	free((void*)fs_code);
 
-	return (d_program) {
+	return (d_shader) {
 		.id = program,
 	};
 
 }
 
-void d_free_program(d_program* p) {
+void d_free_shader(d_shader* p) {
 	glDeleteProgram(p->id);
 	p->id = 0;
 }
 
 void d_send_f(const char* name, float v) {
-	glUniform1f(glGetUniformLocation(d_gfx.cur_prog->id, name), v);
+	glUniform1f(glGetUniformLocation(d_gfx.cur_shader->id, name), v);
 }
 
 void d_send_vec2(const char* name, vec2 v) {
-	glUniform2f(glGetUniformLocation(d_gfx.cur_prog->id, name), v.x, v.y);
+	glUniform2f(glGetUniformLocation(d_gfx.cur_shader->id, name), v.x, v.y);
 }
 
 void d_send_vec3(const char* name, vec3 v) {
-	glUniform3f(glGetUniformLocation(d_gfx.cur_prog->id, name), v.x, v.y, v.z);
+	glUniform3f(glGetUniformLocation(d_gfx.cur_shader->id, name), v.x, v.y, v.z);
 }
 
 void d_send_color(const char* name, color c) {
-	glUniform4f(glGetUniformLocation(d_gfx.cur_prog->id, name), c.r, c.g, c.b, c.a);
+	glUniform4f(glGetUniformLocation(d_gfx.cur_shader->id, name), c.r, c.g, c.b, c.a);
 }
 
 void d_send_mat4(const char* name, mat4 m) {
-	glUniformMatrix4fv(glGetUniformLocation(d_gfx.cur_prog->id, name), 1, GL_FALSE, &m.m[0]);
+	glUniformMatrix4fv(glGetUniformLocation(d_gfx.cur_shader->id, name), 1, GL_FALSE, &m.m[0]);
 }
 
-void d_draw(const d_mesh* mesh, const d_program* program) {
+void d_draw(const d_mesh* mesh) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbuf);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibuf);
-	glUseProgram(program->id);
+	glUseProgram(d_gfx.cur_shader->id);
 
 	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
 		glActiveTexture(GL_TEXTURE0 + i);
@@ -554,5 +525,29 @@ void d_rot_y(float a) {
 
 void d_rot_z(float a) {
 	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_rot_z(a));
+}
+
+void d_use_cam(const d_cam* cam) {
+	if (cam) {
+		d_gfx.cur_cam = cam;
+	} else {
+		d_gfx.cur_cam = &d_gfx.default_cam;
+	}
+}
+
+void d_use_shader(const d_shader* shader) {
+	if (shader) {
+		d_gfx.cur_shader = shader;
+	} else {
+		d_gfx.cur_shader = &d_gfx.default_shader;
+	}
+}
+
+void d_use_font(const d_font* font) {
+	if (font) {
+		d_gfx.cur_font = font;
+	} else {
+		d_gfx.cur_font = &d_gfx.default_font;
+	}
 }
 
