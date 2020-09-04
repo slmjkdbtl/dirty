@@ -106,6 +106,7 @@ void d_send_vec2(const char*, vec2);
 void d_send_vec3(const char*, vec3);
 void d_send_color(const char*, color);
 void d_send_mat4(const char*, mat4);
+void d_send_tex(const char*, int, const d_tex*);
 
 // clear
 void d_clear();
@@ -137,7 +138,7 @@ void d_use_canvas(const d_canvas*);
 // draw
 void d_draw_raw(const d_vertex*, int, const d_index*, int);
 void d_draw_mesh(const d_mesh*);
-void d_draw_tex(const d_tex*);
+void d_draw_tex(const d_tex*, quad);
 
 #endif
 

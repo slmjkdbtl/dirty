@@ -375,6 +375,19 @@ quat quatu() {
 	return quatf(0.0, 0.0, 0.0, 1.0);
 }
 
+quad quadf(float x, float y, float w, float h) {
+	return (quad) {
+		.x = x,
+		.y = y,
+		.w = w,
+		.h = h,
+	};
+}
+
+quad quadu() {
+	return quadf(0.0, 0.0, 1.0, 1.0);
+}
+
 float degrees(float r) {
     return r * (180.0 / M_PI);
 }

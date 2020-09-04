@@ -575,6 +575,13 @@ void d_send_mat4(const char* name, mat4 m) {
 	glUniformMatrix4fv(glGetUniformLocation(d_gfx.cur_shader->id, name), 1, GL_FALSE, &m.m[0]);
 }
 
+void d_send_tex(const char* name, int idx, const d_tex* tex) {
+	if (tex) {
+		glUniform1i(glGetUniformLocation(d_gfx.cur_shader->id, name), idx + 1);
+	}
+	d_gfx.tex_slots[idx + 1] = tex;
+}
+
 void d_clear() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
@@ -768,40 +775,44 @@ void d_set_tex(const d_tex* t) {
 	}
 }
 
-void d_draw_tex(const d_tex* t) {
-
-	// TODO: flip uv before flip image is implemented
+void d_draw_tex(const d_tex* t, quad q) {
 
 	d_push();
-	d_scale(vec3f(t->width, t->height, 1.0));
+	d_scale(vec3f(t->width * q.w, t->height * q.h, 1.0));
+
+	// TODO: flip uv before flip image is implemented
+// 	vec2 uv0 = vec2f(q.x, q.y);
+// 	vec2 uv1 = vec2f(q.x, q.y + q.h);
+// 	vec2 uv2 = vec2f(q.x + q.w, q.y + q.h);
+// 	vec2 uv3 = vec2f(q.x + q.w, q.y);
+	vec2 uv0 = vec2f(q.x, q.y + q.h);
+	vec2 uv1 = vec2f(q.x, q.y);
+	vec2 uv2 = vec2f(q.x + q.w, q.y);
+	vec2 uv3 = vec2f(q.x + q.w, q.y + q.h);
 
 	d_vertex verts[] = {
 		{
 			.pos = vec3f(-0.5, -0.5, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
-// 			.uv = vec2f(0.0, 0.0),
-			.uv = vec2f(0.0, 1.0),
+			.uv = uv0,
 			.color = coloru()
 		},
 		{
 			.pos = vec3f(-0.5, 0.5, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
-// 			.uv = vec2f(0.0, 1.0),
-			.uv = vec2f(0.0, 0.0),
+			.uv = uv1,
 			.color = coloru()
 		},
 		{
 			.pos = vec3f(0.5, 0.5, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
-// 			.uv = vec2f(1.0, 1.0),
-			.uv = vec2f(1.0, 0.0),
+			.uv = uv2,
 			.color = coloru()
 		},
 		{
 			.pos = vec3f(0.5, -0.5, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
-// 			.uv = vec2f(1.0, 0.0),
-			.uv = vec2f(1.0, 1.0),
+			.uv = uv3,
 			.color = coloru()
 		},
 	};

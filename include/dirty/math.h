@@ -41,6 +41,13 @@ typedef struct {
 	float w;
 } quat;
 
+typedef struct {
+	float x;
+	float y;
+	float w;
+	float h;
+} quad;
+
 vec2 vec2f(float, float);
 vec2 vec2u();
 vec2 vec2_add(vec2, vec2);
@@ -96,6 +103,9 @@ void mat4_print(mat4);
 
 quat quatf(float, float, float, float);
 quat quatu();
+
+quad quadf(float, float, float, float);
+quad quadu();
 
 float degrees(float);
 float radians(float);
