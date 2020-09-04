@@ -830,3 +830,36 @@ void d_draw_tex(const d_tex* t, quad q) {
 
 }
 
+// TODO: format text
+void d_draw_text(const char* text, float size) {
+
+	d_push();
+
+	int len = strlen(text);
+	float qw = d_gfx.cur_font->qw;
+	float qh = d_gfx.cur_font->qh;
+	const d_tex* tex = &d_gfx.cur_font->tex;
+	float gw = qw * tex->width;
+	float gh = qh * tex->height;
+	float tw = gw * len;
+	float scale = size / gh;
+
+	d_move(vec3f(-tw / 2.0, 0.0, 0.0));
+	d_scale(vec3f(scale, scale, 1.0));
+
+	for (int i = 0; i < len; i++) {
+
+		char c = text[i];
+		int idx = (int)c;
+		vec2 pos = d_gfx.cur_font->map[idx];
+		quad q = quadf(pos.x, pos.y, qw, qh);
+
+		d_draw_tex(tex, q);
+		d_move(vec3f(gw, 0.0, 0.0));
+
+	}
+
+	d_pop();
+
+}
+

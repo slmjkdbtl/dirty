@@ -139,6 +139,7 @@ void d_use_canvas(const d_canvas*);
 void d_draw_raw(const d_vertex*, int, const d_index*, int);
 void d_draw_mesh(const d_mesh*);
 void d_draw_tex(const d_tex*, quad);
+void d_draw_text(const char*, float);
 
 #endif
 

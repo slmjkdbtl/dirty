@@ -43,7 +43,8 @@ static void frame() {
 
 	d_scale(vec3f(2.0, 2.0, 1.0));
 // 	d_draw_raw(verts, 3, indices, 3);
-	d_draw_tex(&tex, quadu());
+// 	d_draw_tex(&tex, quadu());
+	d_draw_text("oh hi", 12.0);
 // 	d_draw_mesh(&tri_mesh);
 
 }
