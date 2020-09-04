@@ -43,10 +43,10 @@ static void frame() {
 
 // 	d_scale(vec3f(2.0, 2.0, 1.0));
 // 	d_draw_raw(verts, 3, indices, 3);
-// 	d_draw_tex(&tex, quadu());
+	d_draw_tex(&tex, quadu());
 // 	d_draw_text("hihi", 120.0);
 // 	d_draw_text("1234567890123456789012345678901234567890123456789012345678901234567890123456790", 8.0);
-	d_draw_canvas(&canvas);
+// 	d_draw_canvas(&canvas);
 // 	d_draw_mesh(&tri_mesh);
 
 }

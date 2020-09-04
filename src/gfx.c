@@ -296,9 +296,8 @@ d_tex d_make_tex(const unsigned char* data, int w, int h) {
 d_tex d_parse_tex_ex(const unsigned char* bytes, int len, d_tex_conf conf) {
 
 	int w, h;
-	// TODO: seg fault if set?
-// 	stbi_set_flip_vertically_on_load(true);
-	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, len, &w, &h, NULL, 0);
+	stbi_set_flip_vertically_on_load(true);
+	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, len, &w, &h, NULL, 4);
 	d_tex tex = d_make_tex_ex(data, w, h, conf);
 	stbi_image_free(data);
 
