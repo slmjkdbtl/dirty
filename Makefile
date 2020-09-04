@@ -64,6 +64,7 @@ SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))
 
 EXAMPLE_FILES := $(wildcard $(EXAMPLE_PATH)/*.c)
+EXAMPLES := $(patsubst $(EXAMPLE_PATH)/%.c, %, $(EXAMPLE_FILES))
 EXAMPLE_TARGETS := $(patsubst $(EXAMPLE_PATH)/%.c, $(BIN_PATH)/%, $(EXAMPLE_FILES))
 
 SDL2_VERSION := 2.0.12
@@ -73,6 +74,10 @@ lib: $(LIB_TARGET)
 
 .PHONY: res
 res: $(RES_H_FILES)
+
+.PHONY: examples
+examples: $(EXAMPLE_TARGETS)
+	cp -r $(EXAMPLE_PATH)/res $(BIN_PATH)/
 
 .PHONY: run
 run: $(BIN_PATH)/$(EXAMPLE)

@@ -2,6 +2,8 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
+#define STB_TRUETYPE_IMPLEMENTATION
+#include <stb/stb_truetype.h>
 
 #include <dirty/dirty.h>
 #include "gfx.h"
@@ -675,6 +677,7 @@ void d_use_font(const d_font* font) {
 	}
 }
 
+// TODO: set cam / glViewport
 void d_use_canvas(const d_canvas* canvas) {
 
 	d_batch_flush(&d_gfx.batch);

@@ -3,6 +3,8 @@ OVERVIEW
   'dirty' (Dangerous Ichthyologist Reincarnates Tropical Yeti) is a minimal toolkit for making games / interactive experiences.
   https://dirty.enemyspy.xyz/
 
+  written in C99, based on SDL2 and OpenGL
+
 BUILD
 
   $ make lib
@@ -15,8 +17,6 @@ BUILD
 
 USAGE
 
-  check out 'examples/'
-
   see
 
     - include/app.h
@@ -24,4 +24,6 @@ USAGE
     - include/audio.h
     - include/math.h
     - include/fs.h
+
+  check out 'examples/'
 
