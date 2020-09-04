@@ -48,7 +48,9 @@ typedef struct {
 	color color;
 } d_vertex;
 
-d_mesh d_make_mesh(const d_vertex*, int, const unsigned int*, int);
+typedef unsigned int d_index;
+
+d_mesh d_make_mesh(const d_vertex*, int, const d_index*, int);
 void d_free_mesh(d_mesh*);
 
 d_img d_parse_img(const unsigned char*, int);
@@ -63,8 +65,6 @@ void d_free_font(d_font*);
 
 d_shader d_make_shader(const char*, const char*);
 void d_free_shader(d_shader*);
-
-void d_draw(const d_mesh* mesh);
 
 void d_send_f(const char*, float);
 void d_send_vec2(const char*, vec2);
@@ -91,6 +91,10 @@ void d_rot_z(float);
 
 void d_use_cam(const d_cam*);
 void d_use_shader(const d_shader*);
+void d_use_font(const d_font*);
+
+void d_draw_mesh(const d_mesh*);
+void d_draw_raw(const d_vertex*, int, const d_index*, int);
 
 #endif
 

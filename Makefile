@@ -36,7 +36,6 @@ C_FLAGS += -std=c99
 
 ifeq ($(TARGET),MacOS)
 C_FLAGS += -ObjC
-C_FLAGS += -D GL_SILENCE_DEPRECATION
 endif
 
 LD_FLAGS += -L $(EXT_LIB_PATH)

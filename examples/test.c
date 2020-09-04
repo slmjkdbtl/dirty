@@ -14,7 +14,33 @@ static void frame() {
 		d_quit(EXIT_SUCCESS);
 	}
 
-	d_draw(&tri_mesh);
+	d_vertex verts[] = {
+		{
+			.pos = vec3f(0.0, 120.0, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = colorf(1.0, 0.0, 0.0, 1.0)
+		},
+		{
+			.pos = vec3f(-160.0, -120.0, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = colorf(0.0, 1.0, 0.0, 1.0)
+		},
+		{
+			.pos = vec3f(160.0, -120.0, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = colorf(0.0, 0.0, 1.0, 1.0)
+		},
+	};
+
+	unsigned int indices[] = {
+		0, 1, 2,
+	};
+
+	d_draw_raw(verts, 3, indices, 3);
+// 	d_draw_mesh(&tri_mesh);
 
 }
 
@@ -47,7 +73,7 @@ int main() {
 		0, 1, 2,
 	};
 
-	tri_mesh = d_make_mesh(verts, sizeof(verts), indices, sizeof(indices));
+	tri_mesh = d_make_mesh(verts, 3, indices, 3);
 
 	d_run(frame);
 

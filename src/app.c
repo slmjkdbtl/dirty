@@ -166,6 +166,7 @@ static void d_frame(void (*f)()) {
 		f();
 	}
 
+	d_gfx_frame_end();
 	SDL_GL_SwapWindow(d_app.window);
 
 }

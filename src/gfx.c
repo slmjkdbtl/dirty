@@ -1,9 +1,10 @@
 // wengwengweng
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "stb/stb_image.h"
+#include <stb/stb_image.h>
 
 #include <dirty/dirty.h>
+#include "gfx.h"
 #include "res/unscii.png.h"
 
 static const char* vert_template =
@@ -76,6 +77,7 @@ typedef struct {
 	const d_cam* cur_cam;
 	mat4 t_stack[8];
 	int t_stack_cnt;
+	d_batch batch;
 } d_gfx_t;
 
 static d_gfx_t d_gfx;
@@ -115,26 +117,26 @@ void d_gfx_init() {
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
 	d_gfx.cur_cam = &d_gfx.default_cam;
 
+	d_gfx.batch = d_make_batch();
+
 	// init transform
 	d_gfx.transform = mat4u();
 
 }
 
-void d_gfx_frame_start() {
-	d_gfx.transform = mat4u();
-	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
-	d_gfx.cur_cam = &d_gfx.default_cam;
-	d_clear();
-}
-
-d_mesh d_make_mesh(const d_vertex* verts, int verts_size, const unsigned int* indices, int indices_size) {
+d_mesh d_make_mesh(
+	const d_vertex* verts,
+	int vcount,
+	const d_index* indices,
+	int icount
+) {
 
 	// vertex buffer
 	GLuint vbuf;
 
 	glGenBuffers(1, &vbuf);
 	glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-	glBufferData(GL_ARRAY_BUFFER, verts_size, verts, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, vcount * sizeof(d_vertex), verts, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// index buffer
@@ -142,18 +144,92 @@ d_mesh d_make_mesh(const d_vertex* verts, int verts_size, const unsigned int* in
 
 	glGenBuffers(1, &ibuf);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices_size, indices, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, icount * sizeof(d_index), indices, GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	return (d_mesh) {
 		.vbuf = vbuf,
 		.ibuf = ibuf,
-		.count = indices_size / sizeof(unsigned int),
+		.count = icount,
 	};
 
 }
 
 void d_free_mesh(d_mesh* m) {
+	glDeleteBuffers(1, &m->vbuf);
+	glDeleteBuffers(1, &m->ibuf);
+	m->vbuf = 0;
+	m->ibuf = 0;
+}
+
+d_batch d_make_batch() {
+
+	// vertex buffer
+	GLuint vbuf;
+
+	glGenBuffers(1, &vbuf);
+	glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+	glBufferData(GL_ARRAY_BUFFER, BATCH_VERT_COUNT * sizeof(d_vertex), NULL, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// index buffer
+	GLuint ibuf;
+
+	glGenBuffers(1, &ibuf);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, BATCH_INDEX_COUNT * sizeof(d_index), NULL, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	return (d_batch) {
+		.vbuf = vbuf,
+		.ibuf = ibuf,
+		.vqueue = {},
+		.iqueue = {},
+		.vcount = 0,
+		.icount = 0,
+	};
+
+}
+
+void d_batch_flush(d_batch* m) {
+
+	glBindBuffer(GL_ARRAY_BUFFER, m->vbuf);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, m->vcount * sizeof(d_vertex), &m->vqueue);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m->ibuf);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, m->icount * sizeof(d_index), &m->iqueue);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	d_draw(m->vbuf, m->ibuf, m->icount);
+
+	m->vcount = 0;
+	m->icount = 0;
+	memset(m->vqueue, 0, sizeof(m->vqueue));
+	memset(m->iqueue, 0, sizeof(m->iqueue));
+
+}
+
+void d_batch_push(
+	d_batch* m,
+	const d_vertex* verts,
+	int vcount,
+	const d_index* indices,
+	int icount
+) {
+
+	if (m->vcount + vcount >= BATCH_VERT_COUNT || m->icount + icount >= BATCH_INDEX_COUNT) {
+		d_batch_flush(m);
+	}
+
+	memcpy(&m->vqueue[m->vcount], verts, vcount * sizeof(d_vertex));
+	memcpy(&m->iqueue[m->vcount], indices, icount * sizeof(d_index));
+	m->vcount += vcount;
+	m->icount += icount;
+
+}
+
+void d_free_batch(d_batch* m) {
 	glDeleteBuffers(1, &m->vbuf);
 	glDeleteBuffers(1, &m->ibuf);
 	m->vbuf = 0;
@@ -400,45 +476,6 @@ void d_send_mat4(const char* name, mat4 m) {
 	glUniformMatrix4fv(glGetUniformLocation(d_gfx.cur_shader->id, name), 1, GL_FALSE, &m.m[0]);
 }
 
-void d_draw(const d_mesh* mesh) {
-
-	glBindBuffer(GL_ARRAY_BUFFER, mesh->vbuf);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->ibuf);
-	glUseProgram(d_gfx.cur_shader->id);
-
-	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
-		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(GL_TEXTURE_2D, d_gfx.tex_slots[i]->id);
-	}
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 48, (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 48, (void*)12);
-	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 48, (void*)24);
-	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 48, (void*)32);
-	glEnableVertexAttribArray(3);
-
-	d_send_mat4("u_model", d_gfx.transform);
-	d_send_mat4("u_view", d_gfx.cur_cam->view);
-	d_send_mat4("u_proj", d_gfx.cur_cam->proj);
-	d_send_color("u_color", (color) { 1.0, 1.0, 1.0, 1.0, });
-
-	glDrawElements(GL_TRIANGLES, mesh->count, GL_UNSIGNED_INT, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
-		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(GL_TEXTURE_2D, 0);
-	}
-
-	glUseProgram(0);
-
-}
-
 void d_clear() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
@@ -549,5 +586,68 @@ void d_use_font(const d_font* font) {
 	} else {
 		d_gfx.cur_font = &d_gfx.default_font;
 	}
+}
+
+void d_draw(GLuint vbuf, GLuint ibuf, int count) {
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbuf);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
+	glUseProgram(d_gfx.cur_shader->id);
+
+	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_2D, d_gfx.tex_slots[i]->id);
+	}
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 48, (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 48, (void*)12);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 48, (void*)24);
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 48, (void*)32);
+	glEnableVertexAttribArray(3);
+
+	d_send_mat4("u_model", d_gfx.transform);
+	d_send_mat4("u_view", d_gfx.cur_cam->view);
+	d_send_mat4("u_proj", d_gfx.cur_cam->proj);
+	d_send_color("u_color", coloru());
+
+	glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
+		glActiveTexture(GL_TEXTURE0 + i);
+		glBindTexture(GL_TEXTURE_2D, 0);
+	}
+
+	glUseProgram(0);
+
+}
+
+void d_draw_mesh(const d_mesh* mesh) {
+	d_draw(mesh->vbuf, mesh->ibuf, mesh->count);
+}
+
+void d_draw_raw(
+	const d_vertex* verts,
+	int vcount,
+	const d_index* indices,
+	int icount
+) {
+	d_batch_push(&d_gfx.batch, verts, vcount, indices, icount);
+}
+
+void d_gfx_frame_start() {
+	d_gfx.transform = mat4u();
+	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
+	d_gfx.cur_cam = &d_gfx.default_cam;
+	d_clear();
+}
+
+void d_gfx_frame_end() {
+	d_batch_flush(&d_gfx.batch);
 }
 
