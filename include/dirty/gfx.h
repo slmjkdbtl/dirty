@@ -29,6 +29,12 @@ typedef struct {
 } d_shader;
 
 typedef struct {
+	unsigned char* data;
+	int width;
+	int height;
+} d_img;
+
+typedef struct {
 	GLuint id;
 	int width;
 	int height;
@@ -51,6 +57,8 @@ typedef struct {
 	GLuint fbuf;
 	d_tex ctex;
 	GLuint dstex;
+	int width;
+	int height;
 } d_canvas;
 
 typedef struct {
@@ -71,7 +79,14 @@ typedef unsigned int d_index;
 d_mesh d_make_mesh(const d_vertex*, int, const d_index*, int);
 void d_free_mesh(d_mesh*);
 
+// img
+d_img d_parse_img(const unsigned char*, int);
+d_img d_load_img(const char*);
+void d_free_img(d_img*);
+
 // tex
+d_tex d_img_tex(const d_img*);
+d_tex d_img_tex_ex(const d_img*, d_tex_conf);
 d_tex d_make_tex(const unsigned char*, int, int);
 d_tex d_make_tex_ex(const unsigned char*, int, int, d_tex_conf);
 d_tex d_parse_tex(const unsigned char*, int);

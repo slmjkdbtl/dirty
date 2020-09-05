@@ -305,6 +305,36 @@ d_tex_conf d_default_tex_conf() {
 	};
 }
 
+d_img d_parse_img(const unsigned char* bytes, int size) {
+
+	int w, h;
+	// TODO: stand alone img doesn't need this
+	stbi_set_flip_vertically_on_load(true);
+	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, size, &w, &h, NULL, 4);
+
+	return (d_img) {
+		.data = data,
+		.width = w,
+		.height = h,
+	};
+
+}
+
+d_img d_load_img(const char* path) {
+
+	int size;
+	unsigned char* bytes = d_fread_b(path, &size);
+	d_img img = d_parse_img(bytes, size);
+	free(bytes);
+
+	return img;
+}
+
+void d_free_img(d_img* img) {
+	free(img->data);
+	img->data = NULL;
+}
+
 d_tex d_make_tex_ex(const unsigned char* data, int w, int h, d_tex_conf conf) {
 
 	GLuint tex;
@@ -344,13 +374,19 @@ d_tex d_make_tex(const unsigned char* data, int w, int h) {
 	return d_make_tex_ex(data, w, h, d_default_tex_conf());
 }
 
+d_tex d_img_tex_ex(const d_img* img, d_tex_conf conf) {
+	return d_make_tex_ex(img->data, img->width, img->height, conf);
+}
+
+d_tex d_img_tex(const d_img* img) {
+	return d_img_tex_ex(img, d_default_tex_conf());
+}
+
 d_tex d_parse_tex_ex(const unsigned char* bytes, int size, d_tex_conf conf) {
 
-	int w, h;
-	stbi_set_flip_vertically_on_load(true);
-	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, size, &w, &h, NULL, 4);
-	d_tex tex = d_make_tex_ex(data, w, h, conf);
-	stbi_image_free(data);
+	d_img img = d_parse_img(bytes, size);
+	d_tex tex = d_img_tex_ex(&img, conf);
+	d_free_img(&img);
 
 	return tex;
 
@@ -362,10 +398,9 @@ d_tex d_parse_tex(const unsigned char* bytes, int size) {
 
 d_tex d_load_tex_ex(const char* path, d_tex_conf conf) {
 
-	int size;
-	unsigned char* content = d_fread_b(path, &size);
-	d_tex tex = d_parse_tex_ex(content, size, conf);
-	free(content);
+	d_img img = d_load_img(path);
+	d_tex tex = d_img_tex_ex(&img, conf);
+	d_free_img(&img);
 
 	return tex;
 }
@@ -582,6 +617,8 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 		.fbuf = fbuf,
 		.ctex = ctex,
 		.dstex = dstex,
+		.width = w,
+		.height = h,
 	};
 
 }
@@ -773,9 +810,9 @@ void d_use_font(const d_font* font) {
 }
 
 // TODO: set cam / glViewport
-void d_use_canvas(const d_canvas* canvas) {
+void d_use_canvas(const d_canvas* c) {
 	d_batch_flush(&d_gfx.batch);
-	d_gfx.cur_canvas = canvas;
+	d_gfx.cur_canvas = c;
 }
 
 void d_draw(GLuint vbuf, GLuint ibuf, int count) {

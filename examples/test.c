@@ -35,7 +35,7 @@ static void frame() {
 	d_pop();
 // 	d_draw_rect(vec2f(12.0, 12.0), vec2f(-12.0, -12.0));
 	d_draw_line(vec2f(-100.0, -100.0), vec2f(100.0, 100.0), 3.0);
-// 	d_draw_canvas(&canvas);
+	d_draw_canvas(&canvas);
 	d_draw_mesh(&tri_mesh);
 
 }
@@ -71,10 +71,9 @@ int main() {
 
 	tri_mesh = d_make_mesh(verts, 3, indices, 3);
 	tex = d_load_tex("res/acid2.png");
-	canvas = d_make_canvas(d_width(), d_height());
-// 	canvas = d_make_canvas(320, 120);
+	canvas = d_make_canvas(320, 320);
 	snd = d_load_sound("res/shoot.ogg");
-	track = d_load_sound("res/yo.ogg");
+// 	track = d_load_sound("res/yo.ogg");
 
 	d_use_canvas(&canvas);
 	d_draw_mesh(&tri_mesh);
