@@ -19,6 +19,8 @@
 #include <GL/gl.h>
 #elif defined(D_WEB)
 #include <GLES2/gl2.h>
+#else
+#error platform not supported.
 #endif
 
 #define STR(str) #str

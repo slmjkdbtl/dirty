@@ -378,7 +378,7 @@ d_font d_make_font(d_tex tex, int gw, int gh, const char* chars) {
 	f.tex = tex;
 
 	if (count != strlen(chars)) {
-		fprintf(stderr, "invalid font");
+		fprintf(stderr, "invalid font\n");
 		d_quit(EXIT_FAILURE);
 	}
 
@@ -660,7 +660,7 @@ void d_stencil_test(bool b) {
 void d_push() {
 
 	if (d_gfx.t_stack_cnt >= 16) {
-		fprintf(stderr, "transform stack overflow");
+		fprintf(stderr, "transform stack overflow\n");
 		d_quit(EXIT_FAILURE);
 	}
 
@@ -672,7 +672,7 @@ void d_push() {
 void d_pop() {
 
 	if (d_gfx.t_stack_cnt <= 0) {
-		fprintf(stderr, "transform stack underflow");
+		fprintf(stderr, "transform stack underflow\n");
 		d_quit(EXIT_FAILURE);
 	}
 
@@ -894,8 +894,7 @@ void d_draw_tex(const d_tex* t, quad q) {
 
 }
 
-// TODO: format text
-// TODO: it looks like it's rendering one more white space at end
+// TODO: more formatting
 void d_draw_text(const char* text, float size) {
 
 	d_push();
@@ -910,7 +909,7 @@ void d_draw_text(const char* text, float size) {
 	float scale = size / gh;
 
 	d_scale_xy(vec2f(scale, scale));
-	d_move_xy(vec2f(-tw / 2.0, 0.0));
+	d_move_xy(vec2f((gw - tw) / 2.0, 0.0));
 
 	for (int i = 0; i < len; i++) {
 

@@ -176,8 +176,8 @@ static void d_frame(void (*f)()) {
 void d_run(void (*f)()) {
 
 	if (!f) {
-		fprintf(stderr, "invalid run func");
-		d_quit(EXIT_FAILURE);
+		fprintf(stderr, "invalid run func\n");
+		d_quit();
 	}
 
 	// draw at first frame
@@ -185,7 +185,7 @@ void d_run(void (*f)()) {
 
 	SDL_Event event;
 
-	while (true) {
+	while (!d_app.quit) {
 
 		// time
 		int time = SDL_GetTicks();
@@ -222,7 +222,7 @@ void d_run(void (*f)()) {
 
 			switch (event.type) {
 				case SDL_QUIT:
-					d_quit(EXIT_SUCCESS);
+					d_quit();
 					break;
 				case SDL_KEYDOWN:
 					d_app.key_states[key] = D_BTN_PRESSED;
@@ -266,8 +266,23 @@ void d_run(void (*f)()) {
 
 	}
 
-	d_quit(EXIT_SUCCESS);
+	d_audio_destroy();
+	SDL_GL_DeleteContext(d_app.gl);
+	SDL_DestroyWindow(d_app.window);
+	SDL_Quit();
 
+}
+
+void d_quit() {
+	d_app.quit = true;
+}
+
+float d_time() {
+	return d_app.time;
+}
+
+float d_dt() {
+	return d_app.dt;
 }
 
 void d_vsync(bool b) {
@@ -313,22 +328,6 @@ void d_set_title(const char* title) {
 
 const char* d_title() {
 	return SDL_GetWindowTitle(d_app.window);
-}
-
-void d_quit(int i) {
-	SDL_GL_DeleteContext(d_app.gl);
-	SDL_DestroyWindow(d_app.window);
-	d_audio_destroy();
-	SDL_Quit();
-	exit(i);
-}
-
-float d_time() {
-	return d_app.time;
-}
-
-float d_dt() {
-	return d_app.dt;
 }
 
 bool d_key_pressed(d_key k) {

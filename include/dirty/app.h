@@ -108,7 +108,7 @@ typedef enum {
 // lifecycle
 void d_init(const char*, int, int);
 void d_run(void (*)());
-void d_quit(int);
+void d_quit();
 
 // settings / query
 void d_set_vsync(bool);

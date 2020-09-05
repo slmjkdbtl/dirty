@@ -17,15 +17,14 @@ static void frame() {
 	}
 
 	if (d_key_pressed(D_KEY_ESC)) {
-		d_quit(EXIT_SUCCESS);
+		d_quit();
 	}
 
 // 	d_scale_xy(vec2f(2.0, 2.0));
+	d_move_xy(d_mouse_pos());
 // 	d_draw_raw(verts, 3, indices, 3);
 // 	d_draw_tex(&tex, quadu());
-	d_move_xy(d_mouse_pos());
 	d_draw_text("hihi", 120.0);
-// 	d_draw_text("1234567890123456789012345678901234567890123456789012345678901234567890123456790", 8.0);
 // 	d_draw_canvas(&canvas);
 // 	d_draw_mesh(&tri_mesh);
 
