@@ -32,6 +32,7 @@ C_FLAGS += -I $(INC_PATH)
 C_FLAGS += -I $(EXT_INC_PATH)
 C_FLAGS += -Wall
 # C_FLAGS += -Wextra
+# C_FLAGS += -O3
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
 C_FLAGS += -D DEBUG
@@ -120,6 +121,10 @@ sdl2:
 	cp -r ext/SDL2-$(SDL2_VERSION)/build/.libs/libSDL2.a $(EXT_LIB_PATH)/libSDL2.a
 	rm -rf ext/SDL2-$(SDL2_VERSION)
 	rm -rf ext/SDL2-$(SDL2_VERSION).zip
+
+.PHONY: init
+init:
+	git submodule update --init --recursive
 
 .PHONY: update
 update:

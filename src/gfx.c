@@ -344,11 +344,11 @@ d_tex d_make_tex(const unsigned char* data, int w, int h) {
 	return d_make_tex_ex(data, w, h, d_default_tex_conf());
 }
 
-d_tex d_parse_tex_ex(const unsigned char* bytes, int len, d_tex_conf conf) {
+d_tex d_parse_tex_ex(const unsigned char* bytes, int size, d_tex_conf conf) {
 
 	int w, h;
 	stbi_set_flip_vertically_on_load(true);
-	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, len, &w, &h, NULL, 4);
+	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, size, &w, &h, NULL, 4);
 	d_tex tex = d_make_tex_ex(data, w, h, conf);
 	stbi_image_free(data);
 
@@ -356,8 +356,8 @@ d_tex d_parse_tex_ex(const unsigned char* bytes, int len, d_tex_conf conf) {
 
 }
 
-d_tex d_parse_tex(const unsigned char* bytes, int len) {
-	return d_parse_tex_ex(bytes, len, d_default_tex_conf());
+d_tex d_parse_tex(const unsigned char* bytes, int size) {
+	return d_parse_tex_ex(bytes, size, d_default_tex_conf());
 }
 
 d_tex d_load_tex_ex(const char* path, d_tex_conf conf) {
@@ -841,6 +841,7 @@ void d_draw_raw(
 }
 
 void d_draw_mesh(const d_mesh* mesh) {
+	d_batch_flush(&d_gfx.batch);
 	d_draw(mesh->vbuf, mesh->ibuf, mesh->count);
 }
 

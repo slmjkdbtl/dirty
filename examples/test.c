@@ -6,6 +6,7 @@
 d_mesh tri_mesh;
 d_tex tex;
 d_sound snd;
+d_sound track;
 d_canvas canvas;
 
 d_vertex verts[3];
@@ -35,7 +36,7 @@ static void frame() {
 // 	d_draw_rect(vec2f(12.0, 12.0), vec2f(-12.0, -12.0));
 	d_draw_line(vec2f(-100.0, -100.0), vec2f(100.0, 100.0), 3.0);
 // 	d_draw_canvas(&canvas);
-// 	d_draw_mesh(&tri_mesh);
+	d_draw_mesh(&tri_mesh);
 
 }
 
@@ -73,6 +74,7 @@ int main() {
 	canvas = d_make_canvas(d_width(), d_height());
 // 	canvas = d_make_canvas(320, 120);
 	snd = d_load_sound("res/shoot.ogg");
+	track = d_load_sound("res/yo.ogg");
 
 	d_use_canvas(&canvas);
 	d_draw_mesh(&tri_mesh);

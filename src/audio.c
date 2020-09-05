@@ -8,20 +8,12 @@
 #define FREQ 44100
 #define CHANNELS 1
 #define SAMPLES 1024
-#define MAX_SOURCES 256
-
-typedef struct {
-	const short* samples;
-	int channels;
-	int sample_rate;
-	int pos;
-	int len;
-} d_playback;
+#define MAX_TRACKS 256
 
 typedef struct {
 	SDL_AudioDeviceID dev;
-	d_playback pbs[MAX_SOURCES];
-	int pb_count;
+	d_play tracks[MAX_TRACKS];
+	int ntracks;
 } d_audio_t;
 
 static d_audio_t d_audio;
@@ -34,23 +26,36 @@ static void stream(void* udata, Uint8* buf, int len) {
 
 		float frame = 0.0;
 
-		for (int j = 0; j < d_audio.pb_count; j++) {
+		for (int j = 0; j < d_audio.ntracks; j++) {
 
-			d_playback* pb = &d_audio.pbs[j];
+			d_play* p = &d_audio.tracks[j];
 
-			if (pb->pos + pb->channels >= pb->len) {
-				// TODO: remove
+			if (p->paused || p->done) {
 				continue;
+			}
+
+			if (p->src->samples == NULL) {
+				p->done = true;
+				continue;
+			}
+
+			if (p->pos + p->src->channels >= p->src->len) {
+				if (p->loop) {
+					p->pos = 0;
+				} else {
+					p->done = true;
+					continue;
+				}
 			}
 
 			float f = 0.0;
 
-			for (int k = 0; k < pb->channels; k++) {
-				f += (float)pb->samples[pb->pos] / (float)SHRT_MAX;
-				pb->pos++;
+			for (int k = 0; k < p->src->channels; k++) {
+				f += (float)p->src->samples[p->pos] / (float)SHRT_MAX;
+				p->pos++;
 			}
 
-			frame += f / (float)pb->channels;
+			frame += (f / (float)p->src->channels) * p->volume;
 
 		}
 
@@ -112,20 +117,68 @@ d_sound d_load_sound(const char* path) {
 
 }
 
-void d_sound_play(const d_sound* snd) {
-	d_playback pb = (d_playback) {
-		.samples = snd->samples,
+d_play* d_sound_play(const d_sound* snd) {
+
+	d_play src = (d_play) {
+		.src = snd,
 		.pos = 0,
-		.len = snd->len,
-		.channels = snd->channels,
-		.sample_rate = snd->sample_rate,
+		.loop = false,
+		.paused = false,
+		.volume = 1.0,
+		.done = false,
 	};
-	d_audio.pbs[d_audio.pb_count] = pb;
-	d_audio.pb_count++;
+
+	for (int i = 0; i < d_audio.ntracks; i++) {
+		if (d_audio.tracks[i].done) {
+			d_audio.tracks[i] = src;
+			return &d_audio.tracks[i];
+		}
+	}
+
+	d_audio.tracks[d_audio.ntracks] = src;
+
+	return &d_audio.tracks[d_audio.ntracks++];
+
 }
 
 void d_free_sound(d_sound* snd) {
 	free(snd->samples);
 	snd->samples = NULL;
+}
+
+d_track d_parse_track(const unsigned char* bytes, int size) {
+
+	stb_vorbis* decoder = stb_vorbis_open_memory(bytes, size, NULL, NULL);
+
+	if (!decoder) {
+		fprintf(stderr, "failed to decode audio\n");
+		d_quit();
+	}
+
+	return (d_track) {
+		.decoder = decoder,
+	};
+
+}
+
+d_track d_load_track(const char* path) {
+
+	int size;
+	unsigned char* content = d_fread_b(path, &size);
+	d_track track = d_parse_track(content, size);
+	free(content);
+
+	return track;
+
+}
+
+// TODO
+void d_track_play(const d_track* t) {
+	// ...
+}
+
+void d_free_track(d_track* t) {
+	stb_vorbis_close(t->decoder);
+	t->decoder = NULL;
 }
 

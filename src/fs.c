@@ -1,5 +1,9 @@
 // wengwengweng
 
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <dirty/dirty.h>
 
 #ifdef __APPLE__
