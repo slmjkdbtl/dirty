@@ -32,7 +32,9 @@ C_FLAGS += -I $(INC_PATH)
 C_FLAGS += -I $(EXT_INC_PATH)
 C_FLAGS += -Wall
 # C_FLAGS += -Wextra
+C_FLAGS += -pedantic
 C_FLAGS += -std=c99
+C_FLAGS += -D DEBUG
 
 ifeq ($(TARGET),MacOS)
 C_FLAGS += -ObjC

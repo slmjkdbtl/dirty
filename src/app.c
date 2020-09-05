@@ -1,6 +1,6 @@
 // wengwengweng
 
-#include <SDl2/SDL.h>
+#include <SDL2/SDL.h>
 #include <dirty/dirty.h>
 
 #include "gfx.h"
@@ -177,7 +177,7 @@ void d_run(void (*f)()) {
 
 	if (!f) {
 		fprintf(stderr, "invalid run func");
-		return d_quit(EXIT_FAILURE);
+		d_quit(EXIT_FAILURE);
 	}
 
 	// draw at first frame

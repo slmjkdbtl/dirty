@@ -9,63 +9,109 @@
 #include "gfx.h"
 #include "res/unscii.png.h"
 
-static const char* vert_template =
-"#version 120\n"
-"attribute vec3 a_pos;"
-"attribute vec3 a_normal;"
-"attribute vec2 a_uv;"
-"attribute vec4 a_color;"
-"varying vec3 v_pos;"
-"varying vec3 v_normal;"
-"varying vec2 v_uv;"
-"varying vec4 v_color;"
-"uniform mat4 u_model;"
-"uniform mat4 u_view;"
-"uniform mat4 u_proj;"
-"vec4 default_pos() {"
-	"return u_proj * u_view * u_model * vec4(v_pos, 1.0);"
-"}"
-"##USER##"
-"void main() {"
-	"v_pos = a_pos;"
-	"v_uv = a_uv;"
-	"v_color = a_color;"
-	"v_normal = normalize(a_normal);"
-	"gl_Position = vert();"
-"}"
-;
+static const char* vert_template = GLSL(
 
-static const char* frag_template =
-"#version 120\n"
-"varying vec3 v_pos;"
-"varying vec3 v_normal;"
-"varying vec2 v_uv;"
-"varying vec4 v_color;"
-"uniform sampler2D u_tex;"
-"uniform vec4 u_color;"
-"vec4 default_color() {"
-	"return v_color * u_color * texture2D(u_tex, v_uv);"
-"}"
-"##USER##"
-"void main() {"
-	"gl_FragColor = frag();"
-	"if (gl_FragColor.a == 0.0) {"
-		"discard;"
-	"}"
-"}"
-;
+	attribute vec3 a_pos;
+	attribute vec3 a_normal;
+	attribute vec2 a_uv;
+	attribute vec4 a_color;
 
-static const char* vert_default =
-"vec4 vert() {"
-	"return default_pos();"
-"}"
-;
+	varying vec3 v_pos;
+	varying vec3 v_normal;
+	varying vec2 v_uv;
+	varying vec4 v_color;
 
-static const char* frag_default =
-"vec4 frag() {"
-	"return default_color();"
-"}"
-;
+	uniform mat4 u_model;
+	uniform mat4 u_view;
+	uniform mat4 u_proj;
+
+	vec4 default_pos() {
+		return u_proj * u_view * u_model * vec4(v_pos, 1.0);
+	}
+
+	##USER##
+
+	void main() {
+		v_pos = a_pos;
+		v_uv = a_uv;
+		v_color = a_color;
+		v_normal = normalize(a_normal);
+		gl_Position = vert();
+	}
+
+);
+
+static const char* frag_template = GLSL(
+
+	varying vec3 v_pos;
+	varying vec3 v_normal;
+	varying vec2 v_uv;
+	varying vec4 v_color;
+	uniform sampler2D u_tex;
+	uniform vec4 u_color;
+
+	vec4 default_color() {
+		return v_color * u_color * texture2D(u_tex, v_uv);
+	}
+
+	##USER##
+
+	void main() {
+		gl_FragColor = frag();
+		if (gl_FragColor.a == 0.0) {
+			discard;
+		}
+	}
+
+);
+
+static const char* vert_default = STR(
+	vec4 vert() {
+		return default_pos();
+	}
+);
+
+static const char* frag_default = STR(
+	vec4 frag() {
+		return default_color();
+	}
+);
+
+static void gl_check_errors() {
+
+	GLuint err = glGetError();
+
+	while (err != GL_NO_ERROR) {
+
+		switch (err) {
+			case GL_INVALID_ENUM:
+				printf("gl invalid enum\n");
+				break;
+			case GL_INVALID_VALUE:
+				printf("gl invalid value\n");
+				break;
+			case GL_INVALID_OPERATION:
+				printf("gl invalid operation\n");
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				printf("gl invalid framebuffer operation\n");
+				break;
+			case GL_OUT_OF_MEMORY:
+				printf("gl out of memory\n");
+				break;
+			case GL_STACK_UNDERFLOW:
+				printf("gl stack underflow\n");
+				break;
+			case GL_STACK_OVERFLOW:
+				printf("gl stack overflow\n");
+				break;
+		}
+
+		err = glGetError();
+
+	}
+
+}
 
 typedef struct {
 	d_tex default_tex;
@@ -132,6 +178,9 @@ void d_gfx_frame_start() {
 
 void d_gfx_frame_end() {
 	d_batch_flush(&d_gfx.batch);
+#ifdef DEBUG
+	gl_check_errors();
+#endif
 }
 
 d_mesh d_make_mesh(
@@ -443,7 +492,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 	glDeleteShader(vs);
 	glDeleteShader(fs);
 
-	glGetProgramiv(program, GL_COMPILE_STATUS, &success);
+	glGetProgramiv(program, GL_LINK_STATUS, &success);
 
 	if (success == GL_FALSE) {
 		glGetProgramInfoLog(program, 512, NULL, info_log);
@@ -711,16 +760,8 @@ void d_use_font(const d_font* font) {
 
 // TODO: set cam / glViewport
 void d_use_canvas(const d_canvas* canvas) {
-
 	d_batch_flush(&d_gfx.batch);
 	d_gfx.cur_canvas = canvas;
-
-	if (canvas) {
-		glBindFramebuffer(GL_FRAMEBUFFER, canvas->fbuf);
-	} else {
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
-
 }
 
 void d_draw(GLuint vbuf, GLuint ibuf, int count) {
@@ -748,8 +789,13 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 	d_send_mat4("u_proj", d_gfx.cur_cam->proj);
 	d_send_color("u_color", coloru());
 
+	if (d_gfx.cur_canvas) {
+		glBindFramebuffer(GL_FRAMEBUFFER, d_gfx.cur_canvas->fbuf);
+	}
+
 	glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
 
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
