@@ -1,6 +1,6 @@
 OVERVIEW
 
-  'dirty' (Dangerous Ichthyologist Reincarnates Tropical Yeti) is a minimal toolkit for making games / interactive experiences.
+  'dirty' is a minimal toolkit for making games / interactive experiences.
   https://dirty.enemyspy.xyz/
 
   written in C99, based on SDL2 and OpenGL
@@ -26,4 +26,8 @@ USAGE
     - include/fs.h
 
   check out 'examples/'
+
+FACTS
+
+  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
 
