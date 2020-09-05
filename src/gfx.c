@@ -360,6 +360,20 @@ d_tex d_parse_tex(const unsigned char* bytes, int len) {
 	return d_parse_tex_ex(bytes, len, d_default_tex_conf());
 }
 
+d_tex d_load_tex_ex(const char* path, d_tex_conf conf) {
+
+	int size;
+	unsigned char* content = d_fread_b(path, &size);
+	d_tex tex = d_parse_tex_ex(content, size, conf);
+	free(content);
+
+	return tex;
+}
+
+d_tex d_load_tex(const char* path) {
+	return d_load_tex_ex(path, d_default_tex_conf());
+}
+
 void d_free_tex(d_tex* t) {
 	glDeleteTextures(1, &t->id);
 	t->id = 0;

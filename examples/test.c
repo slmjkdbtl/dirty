@@ -5,6 +5,7 @@
 
 d_mesh tri_mesh;
 d_tex tex;
+d_sound snd;
 d_canvas canvas;
 
 d_vertex verts[3];
@@ -18,6 +19,10 @@ static void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
 		d_quit();
+	}
+
+	if (d_key_pressed(D_KEY_SPACE)) {
+		d_sound_play(&snd);
 	}
 
 // 	d_scale_xy(vec2f(2.0, 2.0));
@@ -64,12 +69,10 @@ int main() {
 	indices[2] = 2;
 
 	tri_mesh = d_make_mesh(verts, 3, indices, 3);
-	int size;
-	unsigned char* content = d_fread_b("res/acid2.png", &size);
-	tex = d_parse_tex(content, size);
-	free(content);
-// 	canvas = d_make_canvas(d_width(), d_height());
-	canvas = d_make_canvas(320, 120);
+	tex = d_load_tex("res/acid2.png");
+	canvas = d_make_canvas(d_width(), d_height());
+// 	canvas = d_make_canvas(320, 120);
+	snd = d_load_sound("res/shoot.ogg");
 
 	d_use_canvas(&canvas);
 	d_draw_mesh(&tri_mesh);

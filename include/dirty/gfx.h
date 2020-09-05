@@ -76,6 +76,8 @@ d_tex d_make_tex(const unsigned char*, int, int);
 d_tex d_make_tex_ex(const unsigned char*, int, int, d_tex_conf);
 d_tex d_parse_tex(const unsigned char*, int);
 d_tex d_parse_tex_ex(const unsigned char*, int, d_tex_conf);
+d_tex d_load_tex(const char*);
+d_tex d_load_tex_ex(const char*, d_tex_conf);
 void d_free_tex(d_tex*);
 d_tex_conf d_default_tex_conf();
 
