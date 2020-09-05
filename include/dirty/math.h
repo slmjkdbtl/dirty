@@ -58,6 +58,11 @@ float vec2_len(vec2);
 vec2 vec2_unit(vec2);
 vec3 vec2_cross(vec2, vec2);
 float vec2_dot(vec2, vec2);
+vec2 vec2_normal(vec2);
+float vec2_angle(vec2, vec2);
+vec2 vec2_min(vec2, vec2);
+vec2 vec2_max(vec2, vec2);
+vec2 vec2_clamp(vec2, vec2, vec2);
 bool vec2_eq(vec2, vec2);
 void vec2_print(vec2);
 
@@ -110,6 +115,8 @@ quad quadu();
 float degrees(float);
 float radians(float);
 float clamp(float, float, float);
+float min(float, float);
+float max(float, float);
 float randf();
 float randfi(float, float);
 

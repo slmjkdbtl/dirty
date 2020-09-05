@@ -60,6 +60,35 @@ float vec2_dot(vec2 p1, vec2 p2) {
 	return p1.x * p2.x + p1.y * p2.y;
 }
 
+vec2 vec2_normal(vec2 p) {
+	return vec2f(p.y, -p.x);
+}
+
+float vec2_angle(vec2 p1, vec2 p2) {
+	return atan2(p1.y - p2.y, p1.x - p2.x);
+}
+
+vec2 vec2_min(vec2 a, vec2 b) {
+	return (vec2) {
+		.x = min(a.x, b.x),
+		.y = min(a.y, b.y),
+	};
+}
+
+vec2 vec2_max(vec2 a, vec2 b) {
+	return (vec2) {
+		.x = max(a.x, b.x),
+		.y = max(a.y, b.y),
+	};
+}
+
+vec2 vec2_clamp(vec2 p, vec2 low, vec2 hi) {
+	return (vec2) {
+		.x = clamp(p.x, low.x, hi.x),
+		.y = clamp(p.x, low.y, hi.y),
+	};
+}
+
 bool vec2_eq(vec2 p1, vec2 p2) {
 	return p1.x == p2.x && p1.y == p2.y;
 }
@@ -401,6 +430,14 @@ float radians(float d) {
 
 float clamp(float v, float low, float hi) {
 	return fmax(low, fmin(v, hi));
+}
+
+float min(float a, float b) {
+	return a < b ? a : b;
+}
+
+float max(float a, float b) {
+	return a > b ? a : b;
 }
 
 float randf() {

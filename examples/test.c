@@ -21,10 +21,14 @@ static void frame() {
 	}
 
 // 	d_scale_xy(vec2f(2.0, 2.0));
+	d_push();
 	d_move_xy(d_mouse_pos());
 // 	d_draw_raw(verts, 3, indices, 3);
-// 	d_draw_tex(&tex, quadu());
+	d_draw_tex(&tex, quadu());
 	d_draw_text("hihi", 120.0);
+	d_pop();
+// 	d_draw_rect(vec2f(12.0, 12.0), vec2f(-12.0, -12.0));
+	d_draw_line(vec2f(-100.0, -100.0), vec2f(100.0, 100.0), 3.0);
 // 	d_draw_canvas(&canvas);
 // 	d_draw_mesh(&tri_mesh);
 

@@ -929,3 +929,96 @@ void d_draw_canvas(const d_canvas* c) {
 	d_draw_tex(&c->ctex, quadu());
 }
 
+void d_draw_rect(vec2 p1, vec2 p2) {
+
+	vec2 pp1 = vec2_min(p1, p2);
+	vec2 pp2 = vec2_max(p1, p2);
+
+	d_vertex verts[] = {
+		{
+			.pos = vec3f(pp1.x, pp1.y, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = coloru()
+		},
+		{
+			.pos = vec3f(pp1.x, pp2.y, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 1.0),
+			.color = coloru()
+		},
+		{
+			.pos = vec3f(pp2.x, pp2.y, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(1.0, 1.0),
+			.color = coloru()
+		},
+		{
+			.pos = vec3f(pp2.x, pp1.y, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(1.0, 0.0),
+			.color = coloru()
+		},
+	};
+
+	d_index indices[] = {
+		0, 1, 2,
+		0, 2, 3,
+	};
+
+	d_draw_raw(verts, 4, indices, 6);
+
+}
+
+void d_draw_line(vec2 p1, vec2 p2, float width) {
+
+	vec2 pp1 = vec2_min(p1, p2);
+	vec2 pp2 = vec2_max(p1, p2);
+	vec2 dpos1 = vec2_scale(vec2_unit(vec2_normal(vec2_sub(pp2, pp1))), width / 2.0);
+	vec2 dpos2 = vec2_scale(vec2_unit(vec2_normal(vec2_sub(pp1, pp2))), width / 2.0);
+	vec2 cp1 = vec2_sub(pp1, dpos1);
+	vec2 cp2 = vec2_add(pp1, dpos1);
+	vec2 cp3 = vec2_sub(pp2, dpos2);
+	vec2 cp4 = vec2_add(pp2, dpos2);
+
+	d_vertex verts[] = {
+		{
+			.pos = vec3f(cp1.x, cp1.y, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = coloru()
+		},
+		{
+			.pos = vec3f(cp2.x, cp2.y, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = coloru()
+		},
+		{
+			.pos = vec3f(cp3.x, cp3.y, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = coloru()
+		},
+		{
+			.pos = vec3f(cp4.x, cp4.y, 0.0),
+			.normal = vec3f(0.0, 0.0, 1.0),
+			.uv = vec2f(0.0, 0.0),
+			.color = coloru()
+		},
+	};
+
+	d_index indices[] = {
+		0, 1, 2,
+		0, 2, 3,
+	};
+
+	d_draw_raw(verts, 4, indices, 6);
+
+}
+
+// TODO
+void d_draw_circle(vec2 p, float r) {
+	// ...
+}
+
