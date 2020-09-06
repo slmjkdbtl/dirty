@@ -12,7 +12,7 @@
 
 typedef struct {
 	SDL_AudioDeviceID dev;
-	d_play tracks[MAX_TRACKS];
+	d_sound_pb tracks[MAX_TRACKS];
 	int ntracks;
 } d_audio_t;
 
@@ -28,7 +28,7 @@ static void stream(void* udata, Uint8* buf, int len) {
 
 		for (int j = 0; j < d_audio.ntracks; j++) {
 
-			d_play* p = &d_audio.tracks[j];
+			d_sound_pb* p = &d_audio.tracks[j];
 
 			if (p->paused || p->done) {
 				continue;
@@ -117,9 +117,9 @@ d_sound d_load_sound(const char* path) {
 
 }
 
-d_play* d_sound_play(const d_sound* snd) {
+d_sound_pb* d_play(const d_sound* snd) {
 
-	d_play src = (d_play) {
+	d_sound_pb src = (d_sound_pb) {
 		.src = snd,
 		.pos = 0,
 		.loop = false,
@@ -146,39 +146,37 @@ void d_free_sound(d_sound* snd) {
 	snd->samples = NULL;
 }
 
-d_track d_parse_track(const unsigned char* bytes, int size) {
+// d_track d_parse_track(const unsigned char* bytes, int size) {
 
-	stb_vorbis* decoder = stb_vorbis_open_memory(bytes, size, NULL, NULL);
+// 	stb_vorbis* decoder = stb_vorbis_open_memory(bytes, size, NULL, NULL);
 
-	if (!decoder) {
-		fprintf(stderr, "failed to decode audio\n");
-		d_quit();
-	}
+// 	if (!decoder) {
+// 		fprintf(stderr, "failed to decode audio\n");
+// 		d_quit();
+// 	}
 
-	return (d_track) {
-		.decoder = decoder,
-	};
+// 	return (d_track) {
+// 		.decoder = decoder,
+// 	};
 
-}
+// }
 
-d_track d_load_track(const char* path) {
+// d_track d_load_track(const char* path) {
 
-	int size;
-	unsigned char* bytes = d_fread_b(path, &size);
-	d_track track = d_parse_track(bytes, size);
-	free(bytes);
+// 	int size;
+// 	unsigned char* bytes = d_fread_b(path, &size);
+// 	d_track track = d_parse_track(bytes, size);
+// 	free(bytes);
 
-	return track;
+// 	return track;
 
-}
+// }
 
-// TODO
-void d_track_play(const d_track* t) {
-	// ...
-}
+// void d_track_play(const d_track* t) {
+// }
 
-void d_free_track(d_track* t) {
-	stb_vorbis_close(t->decoder);
-	t->decoder = NULL;
-}
+// void d_free_track(d_track* t) {
+// 	stb_vorbis_close(t->decoder);
+// 	t->decoder = NULL;
+// }
 

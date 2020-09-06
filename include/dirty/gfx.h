@@ -160,6 +160,7 @@ void d_draw_tex(const d_tex*, quad);
 void d_draw_text(const char*, float);
 void d_draw_canvas(const d_canvas*);
 void d_draw_rect(vec2, vec2);
+void d_draw_lrect(vec2, vec2, float);
 void d_draw_line(vec2, vec2, float);
 void d_draw_circle(vec2, float);
 

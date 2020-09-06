@@ -9,6 +9,11 @@
 #include "gfx.h"
 #include "res/unscii.png.h"
 
+#define T_STACKS 8
+#define TEX_SLOTS 4
+#define NEAR -1024.0
+#define FAR 1024.0
+
 static const char* vert_template = GLSL(
 
 	attribute vec3 a_pos;
@@ -115,7 +120,7 @@ static void gl_check_errors() {
 
 typedef struct {
 	d_tex default_tex;
-	const d_tex* tex_slots[4];
+	const d_tex* tex_slots[TEX_SLOTS];
 	d_font default_font;
 	const d_font* cur_font;
 	d_shader default_shader;
@@ -124,7 +129,7 @@ typedef struct {
 	d_cam default_cam;
 	const d_cam* cur_cam;
 	const d_canvas* cur_canvas;
-	mat4 t_stack[8];
+	mat4 t_stack[T_STACKS];
 	int t_stack_cnt;
 	d_batch batch;
 } d_gfx_t;
@@ -285,7 +290,12 @@ void d_batch_push(
 	}
 
 	memcpy(&m->vqueue[m->vcount], verts, vcount * sizeof(d_vertex));
-	memcpy(&m->iqueue[m->vcount], indices, icount * sizeof(d_index));
+	memcpy(&m->iqueue[m->icount], indices, icount * sizeof(d_index));
+
+	for (int i = 0; i < icount; i++) {
+		m->iqueue[m->icount + i] += m->vcount;
+	}
+
 	m->vcount += vcount;
 	m->icount += icount;
 
@@ -428,7 +438,7 @@ d_font d_make_font(d_tex tex, int gw, int gh, const char* chars) {
 
 	if (count != strlen(chars)) {
 		fprintf(stderr, "invalid font\n");
-		d_quit(EXIT_FAILURE);
+		d_quit();
 	}
 
 	for (int i = 0; i < count; i++) {
@@ -506,7 +516,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 	if (success == GL_FALSE) {
 		glGetShaderInfoLog(vs, 512, NULL, info_log);
 		fprintf(stderr, "%s", info_log);
-		d_quit(EXIT_FAILURE);
+		d_quit();
 	}
 
 	// fragment shader
@@ -520,7 +530,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 	if (success == GL_FALSE) {
 		glGetShaderInfoLog(fs, 512, NULL, info_log);
 		fprintf(stderr, "%s", info_log);
-		d_quit(EXIT_FAILURE);
+		d_quit();
 	}
 
 	// program
@@ -546,7 +556,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 	if (success == GL_FALSE) {
 		glGetProgramInfoLog(program, 512, NULL, info_log);
 		fprintf(stderr, "%s", info_log);
-		d_quit(EXIT_FAILURE);
+		d_quit();
 	}
 
 	free((void*)vs_code);
@@ -608,7 +618,7 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		fprintf(stderr, "failed to create framebuffer\n");
-		d_quit(EXIT_FAILURE);
+		d_quit();
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -710,9 +720,9 @@ void d_stencil_test(bool b) {
 
 void d_push() {
 
-	if (d_gfx.t_stack_cnt >= 16) {
+	if (d_gfx.t_stack_cnt >= T_STACKS) {
 		fprintf(stderr, "transform stack overflow\n");
-		d_quit(EXIT_FAILURE);
+		return d_quit();
 	}
 
 	d_gfx.t_stack[d_gfx.t_stack_cnt] = d_gfx.transform;
@@ -724,7 +734,7 @@ void d_pop() {
 
 	if (d_gfx.t_stack_cnt <= 0) {
 		fprintf(stderr, "transform stack underflow\n");
-		d_quit(EXIT_FAILURE);
+		return d_quit();
 	}
 
 	d_gfx.t_stack_cnt--;
@@ -1067,6 +1077,15 @@ void d_draw_line(vec2 p1, vec2 p2, float width) {
 
 	d_draw_raw(verts, 4, indices, 6);
 
+}
+
+void d_draw_lrect(vec2 p1, vec2 p3, float w) {
+	vec2 p2 = vec2f(p1.x, p3.y);
+	vec2 p4 = vec2f(p3.x, p1.y);
+	d_draw_line(p1, p2, w);
+	d_draw_line(p2, p3, w);
+	d_draw_line(p3, p4, w);
+	d_draw_line(p4, p1, w);
 }
 
 // TODO
