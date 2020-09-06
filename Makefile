@@ -15,7 +15,7 @@ endif
 CC := clang
 AR := ar
 
-EXAMPLE := test
+EXAMPLE := tri
 
 SRC_PATH := src
 RES_PATH := src/res

@@ -722,7 +722,8 @@ void d_push() {
 
 	if (d_gfx.t_stack_cnt >= T_STACKS) {
 		fprintf(stderr, "transform stack overflow\n");
-		return d_quit();
+		d_quit();
+		return;
 	}
 
 	d_gfx.t_stack[d_gfx.t_stack_cnt] = d_gfx.transform;
@@ -734,7 +735,8 @@ void d_pop() {
 
 	if (d_gfx.t_stack_cnt <= 0) {
 		fprintf(stderr, "transform stack underflow\n");
-		return d_quit();
+		d_quit();
+		return;
 	}
 
 	d_gfx.t_stack_cnt--;
