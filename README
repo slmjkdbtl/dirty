@@ -25,9 +25,12 @@ USAGE
     - include/math.h
     - include/fs.h
 
-  check out 'examples/'
+  check out 'examples/*.c'
 
 FACTS
 
   'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
 
+CONTRIBUTION
+
+  no

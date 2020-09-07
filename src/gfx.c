@@ -437,7 +437,7 @@ d_font d_make_font(d_tex tex, int gw, int gh, const char* chars) {
 
 	if (count != strlen(chars)) {
 		fprintf(stderr, "invalid font\n");
-		d_quit();
+		d_fail();
 	}
 
 	for (int i = 0; i < count; i++) {
@@ -482,7 +482,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 	if (success == GL_FALSE) {
 		glGetShaderInfoLog(vs, 512, NULL, info_log);
 		fprintf(stderr, "%s", info_log);
-		d_quit();
+		d_fail();
 	}
 
 	// fragment shader
@@ -496,7 +496,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 	if (success == GL_FALSE) {
 		glGetShaderInfoLog(fs, 512, NULL, info_log);
 		fprintf(stderr, "%s", info_log);
-		d_quit();
+		d_fail();
 	}
 
 	// program
@@ -522,7 +522,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 	if (success == GL_FALSE) {
 		glGetProgramInfoLog(program, 512, NULL, info_log);
 		fprintf(stderr, "%s", info_log);
-		d_quit();
+		d_fail();
 	}
 
 	free((void*)vs_code);
@@ -584,7 +584,7 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
 		fprintf(stderr, "failed to create framebuffer\n");
-		d_quit();
+		d_fail();
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -688,8 +688,7 @@ void d_push() {
 
 	if (d_gfx.t_stack_cnt >= T_STACKS) {
 		fprintf(stderr, "transform stack overflow\n");
-		d_quit();
-		return;
+		d_fail();
 	}
 
 	d_gfx.t_stack[d_gfx.t_stack_cnt] = d_gfx.transform;
@@ -701,8 +700,7 @@ void d_pop() {
 
 	if (d_gfx.t_stack_cnt <= 0) {
 		fprintf(stderr, "transform stack underflow\n");
-		d_quit();
-		return;
+		d_fail();
 	}
 
 	d_gfx.t_stack_cnt--;
@@ -817,6 +815,10 @@ mat4 d_transform() {
 	return d_gfx.transform;
 }
 
+vec2 d_mouse_pos_t() {
+	return mat4_mult_vec2(mat4_invert(d_transform()), d_mouse_pos());
+}
+
 void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbuf);
@@ -861,6 +863,7 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 
 }
 
+// TODO
 static void d_set_tex(const d_tex* t) {
 	if (t) {
 		if (t->id != d_gfx.tex_slots[0]->id) {

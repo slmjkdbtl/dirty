@@ -97,6 +97,7 @@ typedef enum {
 void d_init(const char*, int, int);
 void d_run(void (*)());
 void d_quit();
+void d_fail();
 
 // settings / query
 void d_set_vsync(bool);
@@ -128,6 +129,7 @@ vec2 d_mouse_dpos();
 bool d_scrolled();
 vec2 d_wheel();
 bool d_resized();
+const char* d_tinput();
 
 #endif
 

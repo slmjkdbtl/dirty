@@ -94,7 +94,7 @@ d_sound d_parse_sound(const unsigned char* bytes, int size) {
 
 	if (len <= 0) {
 		fprintf(stderr, "failed to decode audio\n");
-		d_quit();
+		d_fail();
 	}
 
 	return (d_sound) {

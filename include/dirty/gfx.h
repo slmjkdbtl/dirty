@@ -151,6 +151,7 @@ void d_stencil_test(bool);
 // query
 vec2 d_coord(d_origin);
 mat4 d_transform();
+vec2 d_mouse_pos_t();
 
 // transform
 void d_push();

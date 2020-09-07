@@ -11,8 +11,6 @@
 #define WIDGET_SLOTS 64
 #define WINDOW_SLOTS 16
 
-typedef unsigned long d_ui_id;
-
 typedef struct {
 	d_ui_id id;
 	void* data;
@@ -35,7 +33,7 @@ typedef struct {
 typedef struct {
 	d_ui_window windows[WINDOW_SLOTS];
 	int window_cnt;
-	d_ui_theme theme;
+	d_ui_theme_t theme;
 	d_ui_window* cur_window;
 	d_ui_window_drag window_drag;
 } d_ui_t;
@@ -44,7 +42,7 @@ static d_ui_t d_ui;
 
 void d_ui_init() {
 
-	d_ui.theme = (d_ui_theme) {
+	d_ui.theme = (d_ui_theme_t) {
 		.line_width = 3.0,
 		.text_size = 12.0,
 		.padding_x = 9.0,
@@ -53,8 +51,12 @@ void d_ui_init() {
 
 }
 
-void d_ui_set_theme(d_ui_theme theme) {
+void d_ui_set_theme(d_ui_theme_t theme) {
 	d_ui.theme = theme;
+}
+
+const d_ui_theme_t* d_ui_theme() {
+	return &d_ui.theme;
 }
 
 static d_ui_window* d_ui_get_window(const char* label, vec2 pos, float w, float h) {
@@ -81,11 +83,11 @@ void d_ui_window_begin(const char* label, vec2 pos, float w, float h) {
 
 	if (d_ui.cur_window) {
 		fprintf(stderr, "cannot create window inside window\n");
-		d_quit();
+		d_fail();
 	}
 
 	d_ui_window* win = d_ui_get_window(label, pos, w, h);
-	d_ui_theme* t = &d_ui.theme;
+	const d_ui_theme_t* t = d_ui_theme();
 	vec2 mpos = d_mouse_pos();
 	float bar_height = t->padding_y * 2.0 + t->text_size;
 
@@ -130,18 +132,34 @@ void d_ui_window_end() {
 	d_pop();
 }
 
-static d_widget* d_ui_get_widget(d_ui_window* win, const char* type, const char* label) {
-	d_ui_id id = hash(type) + hash(label);
-	for (int i = 0; i < win->widget_cnt; i++) {
-		if (id == win->widgets[i].id) {
-			return &win->widgets[i];
+void* d_ui_widget_data(d_ui_id id, int size, void* init_data) {
+
+	if (!d_ui.cur_window) {
+		fprintf(stderr, "cannot use ui widgets without a ui window\n");
+		d_fail();
+	}
+
+	for (int i = 0; i < d_ui.cur_window->widget_cnt; i++) {
+		if (id == d_ui.cur_window->widgets[i].id) {
+			return d_ui.cur_window->widgets[i].data;
 		}
 	}
-	win->widgets[win->widget_cnt++] = (d_widget) {
+
+	d_ui.cur_window->widgets[d_ui.cur_window->widget_cnt++] = (d_widget) {
 		.id = id,
-		.data = NULL,
+		.data = malloc(size),
 	};
-	return &win->widgets[win->widget_cnt - 1];
+
+	void* data = d_ui.cur_window->widgets[d_ui.cur_window->widget_cnt - 1].data;
+
+	memcpy(data, init_data, size);
+
+	return data;
+
+}
+
+float d_ui_content_width() {
+	return d_ui.cur_window->width - d_ui.theme.padding_x * 2.0;
 }
 
 typedef struct {
@@ -149,35 +167,24 @@ typedef struct {
 	bool draggin;
 } d_ui_sliderf_t;
 
-// TODO: cleaning
 float d_ui_sliderf(const char* label, float start, float min, float max) {
 
-	if (!d_ui.cur_window) {
-		fprintf(stderr, "cannot use ui widgets without a window\n");
-		d_quit();
-	}
+	d_ui_id id = hash("sliderf") + hash(label);
+	const d_ui_theme_t* t = d_ui_theme();
+	float cw = d_ui_content_width();
 
-	d_ui_theme* t = &d_ui.theme;
-	d_ui_window* win = d_ui.cur_window;
-	d_widget* w = d_ui_get_widget(d_ui.cur_window, "sliderf", label);
-
-	if (!w->data) {
-		w->data = malloc(sizeof(d_ui_sliderf_t));
-		d_ui_sliderf_t* data = w->data;
-		data->val = start;
-		data->draggin = false;
-	}
-
-	d_ui_sliderf_t* data = w->data;
+	d_ui_sliderf_t* data = d_ui_widget_data(id, sizeof(d_ui_sliderf_t), &(d_ui_sliderf_t) {
+		.val = start,
+		.draggin = false,
+	});
 
 	float sw = 12.0;
 	float bh = t->text_size;
-	float cw = win->width - t->padding_x * 2.0;
 
 	d_draw_text(label, t->text_size, D_TOP_LEFT, coloru());
 	d_move_y(-t->text_size - t->padding_y);
 
-	vec2 mpos = mat4_mult_vec2(mat4_invert(d_transform()), d_mouse_pos());
+	vec2 mpos = d_mouse_pos_t();
 	vec2 b1 = vec2f(0.0, 0.0);
 	vec2 b2 = vec2f(cw, -bh);
 	float r = (data->val - min) / (max - min);
@@ -205,8 +212,8 @@ float d_ui_sliderf(const char* label, float start, float min, float max) {
 	vec2 s1 = vec2f((cw - sw) * r, 0.0);
 	vec2 s2 = vec2f(s1.x + sw, -bh);
 
-	d_draw_lrect(b1, b2, t->line_width, coloru());
-	d_draw_rect(s1, s2, colorf(1.0, 1.0, 1.0, 1.0));
+	d_draw_lrect(b1, b2, t->line_width, WHITE);
+	d_draw_rect(s1, s2, WHITE);
 
 	d_move_y(-t->text_size - t->padding_y);
 
@@ -216,12 +223,7 @@ float d_ui_sliderf(const char* label, float start, float min, float max) {
 
 void d_ui_text(const char* txt) {
 
-	if (!d_ui.cur_window) {
-		fprintf(stderr, "cannot use ui widgets without a window\n");
-		d_quit();
-	}
-
-	d_ui_theme* t = &d_ui.theme;
+	const d_ui_theme_t* t = d_ui_theme();
 	d_draw_text(txt, t->text_size, D_TOP_LEFT, coloru());
 	d_move_y(-t->text_size - t->padding_y);
 
@@ -233,34 +235,25 @@ typedef struct {
 
 bool d_ui_button(const char* label) {
 
-	if (!d_ui.cur_window) {
-		fprintf(stderr, "cannot use ui widgets without a window\n");
-		d_quit();
-	}
+	d_ui_id id = hash("button") + hash(label);
+	const d_ui_theme_t* t = d_ui_theme();
 
-	d_widget* w = d_ui_get_widget(d_ui.cur_window, "button", label);
+	d_ui_button_t* data = d_ui_widget_data(id, sizeof(d_ui_button_t), &(d_ui_button_t) {
+		.pressed = false,
+	});
 
-	if (!w->data) {
-		w->data = malloc(sizeof(d_ui_button_t));
-		d_ui_button_t* data = w->data;
-		data->pressed = false;
-	}
-
-	d_ui_button_t* data = w->data;
-
-	d_ui_theme* t = &d_ui.theme;
-	vec2 mpos = mat4_mult_vec2(mat4_invert(d_transform()), d_mouse_pos());
+	vec2 mpos = d_mouse_pos_t();
 	vec2 p1 = vec2f(0.0, 0.0);
 	vec2 p2 = vec2f(p1.x + strlen(label) * t->text_size + t->padding_x * 2.0, p1.y - t->text_size - t->padding_y * 2.0);
 
-	bool in = pt_rect(mpos, p1, p2);
+	bool hover = pt_rect(mpos, p1, p2);
 
 	if (data->pressed) {
 		if (d_mouse_released(D_MOUSE_LEFT)) {
 			data->pressed = false;
 		}
 	} else {
-		data->pressed = in && d_mouse_pressed(D_MOUSE_LEFT);
+		data->pressed = hover && d_mouse_pressed(D_MOUSE_LEFT);
 	}
 
 	d_draw_lrect(p1, p2, t->line_width, coloru());
@@ -279,7 +272,64 @@ bool d_ui_button(const char* label) {
 
 	d_move_y(p2.y - t->padding_y);
 
-	return in && d_mouse_pressed(D_MOUSE_LEFT);
+	return hover && d_mouse_pressed(D_MOUSE_LEFT);
+
+}
+
+typedef struct {
+	char buf[256];
+	bool focused;
+} d_ui_input_t;
+
+const char* d_ui_input(const char* label) {
+
+	d_ui_id id = hash("button") + hash(label);
+	const d_ui_theme_t* t = d_ui_theme();
+
+	d_ui_input_t* data = d_ui_widget_data(id, sizeof(d_ui_input_t), &(d_ui_input_t) {
+		.buf = "",
+		.focused = false,
+	});
+
+	d_draw_text(label, t->text_size, D_TOP_LEFT, WHITE);
+	d_move_y(-t->padding_y - t->text_size);
+
+	vec2 mpos = d_mouse_pos_t();
+	float cw = d_ui_content_width();
+	float bh = t->text_size + t->padding_y * 2.0;
+	vec2 b1 = vec2f(0.0, 0.0);
+	vec2 b2 = vec2f(cw, -bh);
+
+	if (d_mouse_pressed(D_MOUSE_LEFT)) {
+		data->focused = pt_rect(mpos, b1, b2);
+	}
+
+	if (data->focused) {
+
+		const char* tinput = d_tinput();
+
+		if (strlen(tinput) > 0) {
+			strcat(data->buf, tinput);
+		}
+
+		if (d_key_pressed(D_KEY_BACKSPACE)) {
+			// ...
+		}
+
+		d_draw_rect(b1, b2, colorf(1.0, 1.0, 1.0, 0.3));
+
+	}
+
+	d_draw_lrect(b1, b2, t->line_width, WHITE);
+
+	d_push();
+	d_move_xy(vec2f(t->padding_x, -t->padding_y));
+	d_draw_text(data->buf, t->text_size, D_TOP_LEFT, WHITE);
+	d_pop();
+
+	d_move_y(b2.y - t->padding_y);
+
+	return data->buf;
 
 }
 

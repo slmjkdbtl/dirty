@@ -13,8 +13,8 @@ static void frame() {
 	d_ui_sliderf("age", 0.0, 0.0, 10.0);
 	d_ui_sliderf("age2", 5.0, 0.0, 10.0);
 	d_ui_text("hi");
-	d_ui_button("hi");
-	d_ui_text("hi");
+	d_ui_button("click me");
+	d_ui_input("name");
 
 	d_ui_window_end();
 

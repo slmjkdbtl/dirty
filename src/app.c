@@ -29,6 +29,7 @@ typedef struct {
 	d_btn_state key_states[128];
 	d_btn_state mouse_states[4];
 	bool resized;
+	char tinput[32];
 } d_app_t;
 
 static d_app_t d_app;
@@ -176,11 +177,19 @@ static void d_frame(void (*f)()) {
 
 }
 
+static void d_destroy() {
+	d_quit();
+	d_audio_destroy();
+	SDL_GL_DeleteContext(d_app.gl);
+	SDL_DestroyWindow(d_app.window);
+	SDL_Quit();
+}
+
 void d_run(void (*f)()) {
 
 	if (!f) {
 		fprintf(stderr, "invalid run func\n");
-		d_quit();
+		d_fail();
 	}
 
 	// draw at first frame
@@ -216,6 +225,7 @@ void d_run(void (*f)()) {
 		d_app.wheel.x = 0.0;
 		d_app.wheel.y = 0.0;
 		d_app.resized = false;
+		memset(d_app.tinput, 0, sizeof(d_app.tinput));
 
 		// deal with inputs
 		while (SDL_PollEvent(&event)) {
@@ -246,6 +256,7 @@ void d_run(void (*f)()) {
 					d_app.wheel.y = -event.wheel.y;
 					break;
 				case SDL_TEXTINPUT:
+					memcpy(&d_app.tinput, event.text.text, sizeof(event.text.text));
 					break;
 				case SDL_FINGERDOWN:
 					break;
@@ -269,11 +280,13 @@ void d_run(void (*f)()) {
 
 	}
 
-	d_audio_destroy();
-	SDL_GL_DeleteContext(d_app.gl);
-	SDL_DestroyWindow(d_app.window);
-	SDL_Quit();
+	d_destroy();
 
+}
+
+void d_fail() {
+	d_destroy();
+	exit(EXIT_FAILURE);
 }
 
 void d_quit() {
@@ -387,5 +400,9 @@ bool d_scrolled() {
 
 vec2 d_wheel() {
 	return d_app.wheel;
+}
+
+const char* d_tinput() {
+	return (const char*)&d_app.tinput;
 }
 

@@ -98,8 +98,8 @@ vec2 vec2_lerp(vec2 from, vec2 to, float t) {
 
 vec2 vec2_rand(vec2 p1, vec2 p2) {
 	return (vec2) {
-		.x = randfi(p1.x, p2.x),
-		.y = randfi(p1.y, p2.y),
+		.x = randf_in(p1.x, p2.x),
+		.y = randf_in(p1.y, p2.y),
 	};
 }
 
@@ -216,9 +216,9 @@ vec3 vec3_lerp(vec3 from, vec3 to, float t) {
 
 vec3 vec3_rand(vec3 p1, vec3 p2) {
 	return (vec3) {
-		.x = randfi(p1.x, p2.x),
-		.y = randfi(p1.y, p2.y),
-		.z = randfi(p1.z, p2.z),
+		.x = randf_in(p1.x, p2.x),
+		.y = randf_in(p1.y, p2.y),
+		.z = randf_in(p1.z, p2.z),
 	};
 }
 
@@ -570,7 +570,7 @@ float randf() {
 	return (float)rand() / (float)RAND_MAX;
 }
 
-float randfi(float low, float hi) {
+float randf_in(float low, float hi) {
 	return low + randf() * (hi - low);
 }
 

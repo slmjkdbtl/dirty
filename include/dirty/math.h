@@ -5,6 +5,15 @@
 
 #include <stdbool.h>
 
+#define WHITE colorf(1.0, 1.0, 1.0, 1.0)
+#define BLACK colorf(0.0, 0.0, 0.0, 1.0)
+#define RED colorf(1.0, 0.0, 0.0, 1.0)
+#define GREEN colorf(0.0, 1.0, 0.0, 1.0)
+#define BLUE colorf(0.0, 0.0, 1.0, 1.0)
+#define CYAN colorf(0.0, 1.0, 1.0, 1.0)
+#define YELLOW colorf(1.0, 1.0, 0.0, 1.0)
+#define MAGENTA colorf(1.0, 0.0, 1.0, 1.0)
+
 typedef struct {
 	float x;
 	float y;
@@ -127,7 +136,7 @@ float radf(float);
 float clampf(float, float, float);
 float lerpf(float, float, float);
 float randf();
-float randfi(float, float);
+float randf_in(float, float);
 
 bool pt_rect(vec2, vec2, vec2);
 
