@@ -63,6 +63,7 @@ vec2 vec2_normal(vec2);
 float vec2_angle(vec2, vec2);
 vec2 vec2_min(vec2, vec2);
 vec2 vec2_max(vec2, vec2);
+vec2 vec2_lerp(vec2, vec2, float);
 vec2 vec2_clamp(vec2, vec2, vec2);
 bool vec2_eq(vec2, vec2);
 void vec2_print(vec2);
@@ -98,6 +99,7 @@ mat4 mat4_mult(mat4, mat4);
 vec4 mat4_mult_vec4(mat4, vec4);
 vec3 mat4_mult_vec3(mat4, vec3);
 vec2 mat4_mult_vec2(mat4, vec2);
+mat4 mat4_invert(mat4);
 mat4 mat4_scale(vec3);
 mat4 mat4_translate(vec3);
 mat4 mat4_ortho(float, float, float, float);
@@ -114,13 +116,14 @@ quat quatu();
 quad quadf(float, float, float, float);
 quad quadu();
 
-float degrees(float);
-float radians(float);
-float clamp(float, float, float);
-float min(float, float);
-float max(float, float);
+float degf(float);
+float radf(float);
+float clampf(float, float, float);
+float lerpf(float, float, float);
 float randf();
 float randfi(float, float);
+
+bool pt_rect(vec2, vec2, vec2);
 
 #endif
 

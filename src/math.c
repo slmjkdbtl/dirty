@@ -77,22 +77,29 @@ float vec2_angle(vec2 p1, vec2 p2) {
 
 vec2 vec2_min(vec2 a, vec2 b) {
 	return (vec2) {
-		.x = min(a.x, b.x),
-		.y = min(a.y, b.y),
+		.x = fminf(a.x, b.x),
+		.y = fminf(a.y, b.y),
 	};
 }
 
 vec2 vec2_max(vec2 a, vec2 b) {
 	return (vec2) {
-		.x = max(a.x, b.x),
-		.y = max(a.y, b.y),
+		.x = fmaxf(a.x, b.x),
+		.y = fmaxf(a.y, b.y),
+	};
+}
+
+vec2 vec2_lerp(vec2 from, vec2 to, float t) {
+	return (vec2) {
+		.x = lerpf(from.x, to.x, t),
+		.y = lerpf(from.y, to.y, t),
 	};
 }
 
 vec2 vec2_clamp(vec2 p, vec2 low, vec2 hi) {
 	return (vec2) {
-		.x = clamp(p.x, low.x, hi.x),
-		.y = clamp(p.x, low.y, hi.y),
+		.x = clampf(p.x, low.x, hi.x),
+		.y = clampf(p.x, low.y, hi.y),
 	};
 }
 
@@ -269,11 +276,11 @@ mat4 mat4u() {
 
 mat4 mat4_mult(mat4 m1, mat4 m2) {
 
-	mat4 res = mat4u();
+	mat4 out = mat4u();
 
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
-			res.m[i * 4 + j] =
+			out.m[i * 4 + j] =
 				m1.m[0 * 4 + j] * m2.m[i * 4 + 0] +
 				m1.m[1 * 4 + j] * m2.m[i * 4 + 1] +
 				m1.m[2 * 4 + j] * m2.m[i * 4 + 2] +
@@ -281,7 +288,7 @@ mat4 mat4_mult(mat4 m1, mat4 m2) {
 		}
 	}
 
-	return res;
+	return out;
 
 }
 
@@ -301,6 +308,66 @@ vec3 mat4_mult_vec3(mat4 m, vec3 p) {
 vec2 mat4_mult_vec2(mat4 m, vec2 p) {
 	vec3 p3 = mat4_mult_vec3(m, vec3f(p.x, p.y, 0.0));
 	return vec2f(p3.x, p3.y);
+}
+
+mat4 mat4_invert(mat4 m) {
+
+	mat4 out = mat4u();
+
+	float f00 = m.m[10] * m.m[15] - m.m[14] * m.m[11];
+	float f01 = m.m[9] * m.m[15] - m.m[13] * m.m[11];
+	float f02 = m.m[9] * m.m[14] - m.m[13] * m.m[10];
+	float f03 = m.m[8] * m.m[15] - m.m[12] * m.m[11];
+	float f04 = m.m[8] * m.m[14] - m.m[12] * m.m[10];
+	float f05 = m.m[8] * m.m[13] - m.m[12] * m.m[9];
+	float f06 = m.m[6] * m.m[15] - m.m[14] * m.m[7];
+	float f07 = m.m[5] * m.m[15] - m.m[13] * m.m[7];
+	float f08 = m.m[5] * m.m[14] - m.m[13] * m.m[6];
+	float f09 = m.m[4] * m.m[15] - m.m[12] * m.m[7];
+	float f10 = m.m[4] * m.m[14] - m.m[12] * m.m[6];
+	float f11 = m.m[5] * m.m[15] - m.m[13] * m.m[7];
+	float f12 = m.m[4] * m.m[13] - m.m[12] * m.m[5];
+	float f13 = m.m[6] * m.m[11] - m.m[10] * m.m[7];
+	float f14 = m.m[5] * m.m[11] - m.m[9] * m.m[7];
+	float f15 = m.m[5] * m.m[10] - m.m[9] * m.m[6];
+	float f16 = m.m[4] * m.m[11] - m.m[8] * m.m[7];
+	float f17 = m.m[4] * m.m[10] - m.m[8] * m.m[6];
+	float f18 = m.m[4] * m.m[9] - m.m[8] * m.m[5];
+
+	out.m[0] = m.m[5] * f00 - m.m[6] * f01 + m.m[7] * f02;
+	out.m[4] = -(m.m[4] * f00 - m.m[6] * f03 + m.m[7] * f04);
+	out.m[8] = m.m[4] * f01 - m.m[5] * f03 + m.m[7] * f05;
+	out.m[12] = -(m.m[4] * f02 - m.m[5] * f04 + m.m[6] * f05);
+
+	out.m[1] = -(m.m[1] * f00 - m.m[2] * f01 + m.m[3] * f02);
+	out.m[5] = m.m[0] * f00 - m.m[2] * f03 + m.m[3] * f04;
+	out.m[9] = -(m.m[0] * f01 - m.m[1] * f03 + m.m[3] * f05);
+	out.m[13] = m.m[0] * f02 - m.m[1] * f04 + m.m[2] * f05;
+
+	out.m[2] = m.m[1] * f06 - m.m[2] * f07 + m.m[3] * f08;
+	out.m[6] = -(m.m[0] * f06 - m.m[2] * f09 + m.m[3] * f10);
+	out.m[10] = m.m[0] * f11 - m.m[1] * f09 + m.m[3] * f12;
+	out.m[14] = -(m.m[0] * f08 - m.m[1] * f10 + m.m[2] * f12);
+
+	out.m[3] = -(m.m[1] * f13 - m.m[2] * f14 + m.m[3] * f15);
+	out.m[7] = m.m[0] * f13 - m.m[2] * f16 + m.m[3] * f17;
+	out.m[11] = -(m.m[0] * f14 - m.m[1] * f16 + m.m[3] * f18);
+	out.m[15] = m.m[0] * f15 - m.m[1] * f17 + m.m[2] * f18;
+
+	float det =
+		m.m[0] * out.m[0] +
+		m.m[1] * out.m[4] +
+		m.m[2] * out.m[8] +
+		m.m[3] * out.m[12];
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			out.m[i * 4 + j] *= (1.0 / det);
+		}
+	}
+
+	return out;
+
 }
 
 mat4 mat4_scale(vec3 s) {
@@ -435,24 +502,20 @@ quad quadu() {
 	return quadf(0.0, 0.0, 1.0, 1.0);
 }
 
-float degrees(float r) {
+float degf(float r) {
     return r * (180.0 / M_PI);
 }
 
-float radians(float d) {
+float radf(float d) {
     return d / (180.0 / M_PI);
 }
 
-float clamp(float v, float low, float hi) {
-	return fmax(low, fmin(v, hi));
+float clampf(float v, float low, float hi) {
+	return fmaxf(low, fmin(v, hi));
 }
 
-float min(float a, float b) {
-	return a < b ? a : b;
-}
-
-float max(float a, float b) {
-	return a > b ? a : b;
+float lerpf(float a, float b, float t) {
+    return a + (b - a) * t;
 }
 
 float randf() {
@@ -461,5 +524,11 @@ float randf() {
 
 float randfi(float low, float hi) {
 	return low + randf() * (hi - low);
+}
+
+bool pt_rect(vec2 pt, vec2 p1, vec2 p2) {
+	vec2 pp1 = vec2_min(p1, p2);
+	vec2 pp2 = vec2_max(p1, p2);
+	return pt.x >= pp1.x && pt.x <= pp2.x && pt.y >= pp1.y && pt.y <= pp2.y;
 }
 
