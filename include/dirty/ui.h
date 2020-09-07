@@ -14,7 +14,7 @@ typedef struct {
 
 void d_ui_set_theme(d_ui_theme);
 
-void d_ui_window_start(const char* title, vec2 pos, float w, float h);
+void d_ui_window_begin(const char* title, vec2 pos, float w, float h);
 void d_ui_window_end();
 
 float d_ui_sliderf(const char*, float, float, float);

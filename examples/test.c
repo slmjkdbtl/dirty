@@ -20,9 +20,9 @@ static void frame() {
 		d_quit();
 	}
 
-	d_draw_raw(verts, 3, indices, 3);
-	d_draw_lrect(vec2f(-200.0, -200.0), vec2f(200.0, 200.0), 5.0);
-	d_draw_text("hihi", 64.0);
+	d_draw_raw(verts, 3, indices, 3, NULL);
+	d_draw_lrect(vec2f(-200.0, -200.0), vec2f(200.0, 200.0), 5.0, coloru());
+	d_draw_text("hihi", 64.0, D_CENTER, coloru());
 
 }
 

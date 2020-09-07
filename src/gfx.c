@@ -175,7 +175,7 @@ void d_gfx_init() {
 
 }
 
-void d_gfx_frame_start() {
+void d_gfx_frame_begin() {
 	d_gfx.transform = mat4u();
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
 	d_gfx.cur_cam = &d_gfx.default_cam;
@@ -184,9 +184,7 @@ void d_gfx_frame_start() {
 
 void d_gfx_frame_end() {
 	d_batch_flush(&d_gfx.batch);
-#ifdef DEBUG
 	gl_check_errors();
-#endif
 }
 
 d_mesh d_make_mesh(
@@ -863,30 +861,7 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 
 }
 
-void d_draw_raw(
-	const d_vertex* verts,
-	int vcount,
-	const d_index* indices,
-	int icount
-) {
-
-	d_vertex tverts[vcount];
-	memcpy(&tverts, verts, vcount * sizeof(d_vertex));
-
-	for (int i = 0; i < vcount; i++) {
-		tverts[i].pos = mat4_mult_vec3(d_gfx.transform, verts[i].pos);
-	}
-
-	d_batch_push(&d_gfx.batch, tverts, vcount, indices, icount);
-
-}
-
-void d_draw_mesh(const d_mesh* mesh) {
-	d_batch_flush(&d_gfx.batch);
-	d_draw(mesh->vbuf, mesh->ibuf, mesh->count);
-}
-
-void d_set_tex(const d_tex* t) {
+static void d_set_tex(const d_tex* t) {
 	if (t) {
 		if (t->id != d_gfx.tex_slots[0]->id) {
 			d_batch_flush(&d_gfx.batch);
@@ -900,7 +875,32 @@ void d_set_tex(const d_tex* t) {
 	}
 }
 
-void d_draw_tex(const d_tex* t, quad q) {
+void d_draw_raw(
+	const d_vertex* verts,
+	int vcount,
+	const d_index* indices,
+	int icount,
+	const d_tex* tex
+) {
+
+	d_vertex tverts[vcount];
+	memcpy(&tverts, verts, vcount * sizeof(d_vertex));
+
+	for (int i = 0; i < vcount; i++) {
+		tverts[i].pos = mat4_mult_vec3(d_gfx.transform, verts[i].pos);
+	}
+
+	d_set_tex(tex);
+	d_batch_push(&d_gfx.batch, tverts, vcount, indices, icount);
+
+}
+
+void d_draw_mesh(const d_mesh* mesh) {
+	d_batch_flush(&d_gfx.batch);
+	d_draw(mesh->vbuf, mesh->ibuf, mesh->count);
+}
+
+void d_draw_tex(const d_tex* t, quad q, color c) {
 
 	d_push();
 	d_scale(vec3f(t->width * q.w, t->height * q.h, 1.0));
@@ -915,25 +915,25 @@ void d_draw_tex(const d_tex* t, quad q) {
 			.pos = vec3f(-0.5, -0.5, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = uv0,
-			.color = coloru()
+			.color = c
 		},
 		{
 			.pos = vec3f(-0.5, 0.5, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = uv1,
-			.color = coloru()
+			.color = c
 		},
 		{
 			.pos = vec3f(0.5, 0.5, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = uv2,
-			.color = coloru()
+			.color = c
 		},
 		{
 			.pos = vec3f(0.5, -0.5, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = uv3,
-			.color = coloru()
+			.color = c
 		},
 	};
 
@@ -942,16 +942,14 @@ void d_draw_tex(const d_tex* t, quad q) {
 		0, 2, 3,
 	};
 
-	d_set_tex(t);
-	d_draw_raw(verts, 4, indices, 6);
-	d_set_tex(NULL);
+	d_draw_raw(verts, 4, indices, 6, t);
 
 	d_pop();
 
 }
 
 // TODO: more formatting
-void d_draw_text(const char* text, float size, d_origin origin) {
+void d_draw_text(const char* text, float size, d_origin origin, color c) {
 
 	d_push();
 
@@ -973,7 +971,7 @@ void d_draw_text(const char* text, float size, d_origin origin) {
 		vec2 pos = d_gfx.cur_font->map[(int)text[i]];
 		quad q = quadf(pos.x, pos.y, qw, qh);
 
-		d_draw_tex(tex, q);
+		d_draw_tex(tex, q, c);
 		d_move_xy(vec2f(gw, 0.0));
 
 	}
@@ -982,11 +980,11 @@ void d_draw_text(const char* text, float size, d_origin origin) {
 
 }
 
-void d_draw_canvas(const d_canvas* c) {
-	d_draw_tex(&c->ctex, quadu());
+void d_draw_canvas(const d_canvas* canvas, color c) {
+	d_draw_tex(&canvas->ctex, quadu(), c);
 }
 
-void d_draw_rect(vec2 p1, vec2 p2) {
+void d_draw_rect(vec2 p1, vec2 p2, color c) {
 
 	vec2 pp1 = vec2_min(p1, p2);
 	vec2 pp2 = vec2_max(p1, p2);
@@ -996,25 +994,25 @@ void d_draw_rect(vec2 p1, vec2 p2) {
 			.pos = vec3f(pp1.x, pp1.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(0.0, 0.0),
-			.color = coloru()
+			.color = c
 		},
 		{
 			.pos = vec3f(pp1.x, pp2.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(0.0, 1.0),
-			.color = coloru()
+			.color = c
 		},
 		{
 			.pos = vec3f(pp2.x, pp2.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(1.0, 1.0),
-			.color = coloru()
+			.color = c
 		},
 		{
 			.pos = vec3f(pp2.x, pp1.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(1.0, 0.0),
-			.color = coloru()
+			.color = c
 		},
 	};
 
@@ -1023,11 +1021,11 @@ void d_draw_rect(vec2 p1, vec2 p2) {
 		0, 2, 3,
 	};
 
-	d_draw_raw(verts, 4, indices, 6);
+	d_draw_raw(verts, 4, indices, 6, NULL);
 
 }
 
-void d_draw_line(vec2 p1, vec2 p2, float width) {
+void d_draw_line(vec2 p1, vec2 p2, float width, color c) {
 
 	vec2 pp1 = vec2_min(p1, p2);
 	vec2 pp2 = vec2_max(p1, p2);
@@ -1043,25 +1041,25 @@ void d_draw_line(vec2 p1, vec2 p2, float width) {
 			.pos = vec3f(cp1.x, cp1.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(0.0, 0.0),
-			.color = coloru()
+			.color = c
 		},
 		{
 			.pos = vec3f(cp2.x, cp2.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(0.0, 0.0),
-			.color = coloru()
+			.color = c
 		},
 		{
 			.pos = vec3f(cp3.x, cp3.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(0.0, 0.0),
-			.color = coloru()
+			.color = c
 		},
 		{
 			.pos = vec3f(cp4.x, cp4.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(0.0, 0.0),
-			.color = coloru()
+			.color = c
 		},
 	};
 
@@ -1070,21 +1068,21 @@ void d_draw_line(vec2 p1, vec2 p2, float width) {
 		0, 2, 3,
 	};
 
-	d_draw_raw(verts, 4, indices, 6);
+	d_draw_raw(verts, 4, indices, 6, NULL);
 
 }
 
-void d_draw_lrect(vec2 p1, vec2 p3, float w) {
+void d_draw_lrect(vec2 p1, vec2 p3, float w, color c) {
 	vec2 p2 = vec2f(p1.x, p3.y);
 	vec2 p4 = vec2f(p3.x, p1.y);
-	d_draw_line(p1, p2, w);
-	d_draw_line(p2, p3, w);
-	d_draw_line(p3, p4, w);
-	d_draw_line(p4, p1, w);
+	d_draw_line(p1, p2, w, c);
+	d_draw_line(p2, p3, w, c);
+	d_draw_line(p3, p4, w, c);
+	d_draw_line(p4, p1, w, c);
 }
 
 // TODO
-void d_draw_circle(vec2 p, float r) {
+void d_draw_circle(vec2 p, float r, color c) {
 	// ...
 }
 

@@ -31,11 +31,12 @@ LIB_TARGET := $(LIB_PATH)/libdirty.a
 C_FLAGS += -I $(INC_PATH)
 C_FLAGS += -I $(EXT_INC_PATH)
 C_FLAGS += -Wall
-# C_FLAGS += -Wextra
-# C_FLAGS += -O3
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
-C_FLAGS += -D DEBUG
+
+ifeq ($(MODE),release)
+C_FLAGS += -O3
+endif
 
 ifeq ($(TARGET),MacOS)
 C_FLAGS += -ObjC

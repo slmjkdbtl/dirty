@@ -86,6 +86,11 @@ typedef struct {
 	color color;
 } d_vertex;
 
+typedef struct {
+	float width;
+	float height;
+} d_text_fmt;
+
 typedef unsigned int d_index;
 
 // mesh
@@ -171,15 +176,18 @@ void d_use_font(const d_font*);
 void d_use_canvas(const d_canvas*);
 
 // draw
-void d_draw_raw(const d_vertex*, int, const d_index*, int);
+void d_draw_raw(const d_vertex*, int, const d_index*, int, const d_tex*);
 void d_draw_mesh(const d_mesh*);
-void d_draw_tex(const d_tex*, quad);
-void d_draw_text(const char*, float, d_origin);
-void d_draw_canvas(const d_canvas*);
-void d_draw_rect(vec2, vec2);
-void d_draw_lrect(vec2, vec2, float);
-void d_draw_line(vec2, vec2, float);
-void d_draw_circle(vec2, float);
+void d_draw_tex(const d_tex*, quad, color);
+void d_draw_text(const char*, float, d_origin, color);
+void d_draw_canvas(const d_canvas*, color);
+void d_draw_rect(vec2, vec2, color);
+void d_draw_lrect(vec2, vec2, float, color);
+void d_draw_line(vec2, vec2, float, color);
+void d_draw_circle(vec2, float, color);
+
+// misc
+d_text_fmt d_fmt_text(const char*, float);
 
 #endif
 

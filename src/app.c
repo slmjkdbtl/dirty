@@ -165,7 +165,7 @@ static void d_frame(void (*f)()) {
 	d_app.mouse_dpos.x = (float)dx;
 	d_app.mouse_dpos.y = -(float)dy;
 
-	d_gfx_frame_start();
+	d_gfx_frame_begin();
 
 	if (f) {
 		f();

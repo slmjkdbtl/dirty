@@ -1,5 +1,6 @@
 // wengwengweng
 
+#include <stdlib.h>
 #include <dirty/dirty.h>
 
 d_vertex verts[3];
@@ -11,7 +12,7 @@ static void frame() {
 		d_quit();
 	}
 
-	d_draw_raw(verts, 3, indices, 3);
+	d_draw_raw(verts, 3, indices, 3, NULL);
 
 }
 

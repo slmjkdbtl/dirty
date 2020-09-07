@@ -96,6 +96,13 @@ vec2 vec2_lerp(vec2 from, vec2 to, float t) {
 	};
 }
 
+vec2 vec2_rand(vec2 p1, vec2 p2) {
+	return (vec2) {
+		.x = randfi(p1.x, p2.x),
+		.y = randfi(p1.y, p2.y),
+	};
+}
+
 vec2 vec2_clamp(vec2 p, vec2 low, vec2 hi) {
 	return (vec2) {
 		.x = clampf(p.x, low.x, hi.x),
@@ -181,6 +188,46 @@ vec3 vec3_cross(vec3 p1, vec3 p2) {
 
 float vec3_dot(vec3 p1, vec3 p2) {
 	return p1.x * p2.x + p1.y * p2.y + p1.z * p2.z;
+}
+
+vec3 vec3_min(vec3 a, vec3 b) {
+	return (vec3) {
+		.x = fminf(a.x, b.x),
+		.y = fminf(a.y, b.y),
+		.z = fminf(a.z, b.z),
+	};
+}
+
+vec3 vec3_max(vec3 a, vec3 b) {
+	return (vec3) {
+		.x = fmaxf(a.x, b.x),
+		.y = fmaxf(a.y, b.y),
+		.z = fmaxf(a.z, b.z),
+	};
+}
+
+vec3 vec3_lerp(vec3 from, vec3 to, float t) {
+	return (vec3) {
+		.x = lerpf(from.x, to.x, t),
+		.y = lerpf(from.y, to.y, t),
+		.z = lerpf(from.z, to.z, t),
+	};
+}
+
+vec3 vec3_rand(vec3 p1, vec3 p2) {
+	return (vec3) {
+		.x = randfi(p1.x, p2.x),
+		.y = randfi(p1.y, p2.y),
+		.z = randfi(p1.z, p2.z),
+	};
+}
+
+vec3 vec3_clamp(vec3 p, vec3 low, vec3 hi) {
+	return (vec3) {
+		.x = clampf(p.x, low.x, hi.x),
+		.y = clampf(p.x, low.y, hi.y),
+		.z = clampf(p.x, low.z, hi.z),
+	};
 }
 
 bool vec3_eq(vec3 p1, vec3 p2) {
@@ -305,6 +352,7 @@ vec3 mat4_mult_vec3(mat4 m, vec3 p) {
 	vec4 p4 = mat4_mult_vec4(m, vec4f(p.x, p.y, p.z, 1.0));
 	return vec3f(p4.x, p4.y, p4.z);
 }
+
 vec2 mat4_mult_vec2(mat4 m, vec2 p) {
 	vec3 p3 = mat4_mult_vec3(m, vec3f(p.x, p.y, 0.0));
 	return vec2f(p3.x, p3.y);

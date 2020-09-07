@@ -21,9 +21,9 @@ static void frame() {
 	}
 
 	if (track_pb->paused) {
-		d_draw_text("paused", 24.0);
+		d_draw_text("paused", 24.0, D_CENTER, coloru());
 	} else {
-		d_draw_text("playing", 24.0);
+		d_draw_text("playing", 24.0, D_CENTER, coloru());
 	}
 
 }
