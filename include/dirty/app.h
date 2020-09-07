@@ -93,18 +93,6 @@ typedef enum {
 	D_MOUSE_MIDDLE,
 } d_mouse;
 
-typedef enum {
-	D_TOP_LEFT,
-	D_TOP,
-	D_TOP_RIGHT,
-	D_LEFT,
-	D_CENTER,
-	D_RIGHT,
-	D_BOT_LEFT,
-	D_BOT,
-	D_BOT_RIGHT,
-} d_origin;
-
 // lifecycle
 void d_init(const char*, int, int);
 void d_run(void (*)());
@@ -122,7 +110,6 @@ void d_set_title(const char*);
 const char* d_title();
 int d_width();
 int d_height();
-vec2 d_coord(d_origin);
 
 // time
 float d_time();

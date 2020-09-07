@@ -7,9 +7,10 @@
 
 #include <dirty/dirty.h>
 #include "gfx.h"
+#include "utils.h"
 #include "res/unscii.png.h"
 
-#define T_STACKS 8
+#define T_STACKS 16
 #define TEX_SLOTS 4
 #define NEAR -1024.0
 #define FAR 1024.0
@@ -456,39 +457,6 @@ void d_free_font(d_font* f) {
 	d_free_tex(&f->tex);
 }
 
-char* strsub(const char* str, const char* old, const char* new) {
-
-	int old_len = strlen(old);
-	int new_len = strlen(new);
-	int i = 0;
-	int cnt = 0;
-
-	for (i = 0; str[i] != '\0'; i++) {
-		if (strstr(&str[i], old) == &str[i]) {
-			cnt++;
-			i += old_len - 1;
-		}
-	}
-
-	char* res = malloc(i + cnt * (new_len - old_len) + 1);
-	i = 0;
-
-	while (*str) {
-		if (strstr(str, old) == str) {
-			strcpy(&res[i], new);
-			i += new_len;
-			str += old_len;
-		} else {
-			res[i++] = *str++;
-		}
-	}
-
-	res[i] = '\0';
-
-	return res;
-
-}
-
 d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 
 	if (vs_src == NULL) {
@@ -827,6 +795,30 @@ void d_use_canvas(const d_canvas* c) {
 	d_gfx.cur_canvas = c;
 }
 
+vec2 d_origin_to_pt(d_origin o) {
+	switch (o) {
+		case D_TOP_LEFT: return vec2f(-0.5, 0.5);
+		case D_TOP: return vec2f(0, 0.5);
+		case D_TOP_RIGHT: return vec2f(0.5, 0.5);
+		case D_LEFT: return vec2f(-0.5, 0);
+		case D_CENTER: return vec2f(0, 0);
+		case D_RIGHT: return vec2f(0.5, 0);
+		case D_BOT_LEFT: return vec2f(-0.5, -0.5);
+		case D_BOT: return vec2f(0, -0.5);
+		case D_BOT_RIGHT: return vec2f(0.5, -0.5);
+	}
+	return vec2f(0.0, 0.0);
+}
+
+vec2 d_coord(d_origin o) {
+	vec2 p = d_origin_to_pt(o);
+	return vec2f(p.x * d_width(), p.y * d_height());
+}
+
+mat4 d_transform() {
+	return d_gfx.transform;
+}
+
 void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbuf);
@@ -959,7 +951,7 @@ void d_draw_tex(const d_tex* t, quad q) {
 }
 
 // TODO: more formatting
-void d_draw_text(const char* text, float size) {
+void d_draw_text(const char* text, float size, d_origin origin) {
 
 	d_push();
 
@@ -971,9 +963,10 @@ void d_draw_text(const char* text, float size) {
 	float gh = qh * tex->height;
 	float tw = gw * len;
 	float scale = size / gh;
+	vec2 offset = vec2_mult(d_origin_to_pt(origin), vec2f(tw, gh));
 
 	d_scale_xy(vec2f(scale, scale));
-	d_move_xy(vec2f((gw - tw) / 2.0, 0.0));
+	d_move_xy(vec2_sub(vec2f((gw - tw) / 2.0, 0.0), offset));
 
 	for (int i = 0; i < len; i++) {
 

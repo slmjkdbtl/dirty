@@ -37,6 +37,13 @@ vec2 vec2_scale(vec2 p, float s) {
 	};
 }
 
+vec2 vec2_mult(vec2 p1, vec2 p2) {
+	return (vec2) {
+		.x = p1.x * p2.x,
+		.y = p1.y * p2.y,
+	};
+}
+
 float vec2_dist(vec2 p1, vec2 p2) {
 	return sqrt(
 		(p1.x - p2.x) * (p1.x - p2.x) +
@@ -130,6 +137,14 @@ vec3 vec3_scale(vec3 p, float s) {
 		.x = p.x * s,
 		.y = p.y * s,
 		.z = p.z * s,
+	};
+}
+
+vec3 vec3_mult(vec3 p1, vec3 p2) {
+	return (vec3) {
+		.x = p1.x * p2.x,
+		.y = p1.y * p2.y,
+		.z = p1.z * p2.z,
 	};
 }
 

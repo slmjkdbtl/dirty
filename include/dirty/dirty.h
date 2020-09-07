@@ -10,6 +10,7 @@
 #include "app.h"
 #include "audio.h"
 #include "fs.h"
+#include "ui.h"
 
 #endif
 

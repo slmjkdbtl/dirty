@@ -4,8 +4,21 @@
 #define D_GFX_H
 
 #include <stdbool.h>
+#include "app.h"
 #include "math.h"
 #include "gl.h"
+
+typedef enum {
+	D_TOP_LEFT,
+	D_TOP,
+	D_TOP_RIGHT,
+	D_LEFT,
+	D_CENTER,
+	D_RIGHT,
+	D_BOT_LEFT,
+	D_BOT,
+	D_BOT_RIGHT,
+} d_origin;
 
 typedef enum {
 	D_NEAREST = GL_NEAREST,
@@ -130,6 +143,10 @@ void d_depth_test(bool);
 void d_stencil_write(bool);
 void d_stencil_test(bool);
 
+// query
+vec2 d_coord(d_origin);
+mat4 d_transform();
+
 // transform
 void d_push();
 void d_pop();
@@ -157,7 +174,7 @@ void d_use_canvas(const d_canvas*);
 void d_draw_raw(const d_vertex*, int, const d_index*, int);
 void d_draw_mesh(const d_mesh*);
 void d_draw_tex(const d_tex*, quad);
-void d_draw_text(const char*, float);
+void d_draw_text(const char*, float, d_origin);
 void d_draw_canvas(const d_canvas*);
 void d_draw_rect(vec2, vec2);
 void d_draw_lrect(vec2, vec2, float);
