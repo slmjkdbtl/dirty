@@ -1,10 +1,13 @@
 // wengwengweng
 
+#include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
 #define HASH_INIT 2048
 #define HASH_LIMIT 65536
+#define FMT_BUFSIZE 256
 
 char* strsub(const char* str, const char* old, const char* new) {
 
@@ -39,7 +42,7 @@ char* strsub(const char* str, const char* old, const char* new) {
 
 }
 
-unsigned long hash(const char* str) {
+unsigned long d_hash(const char* str) {
 
 	unsigned long  hash = 0;
 	int i = strlen(str);
@@ -50,6 +53,19 @@ unsigned long hash(const char* str) {
 	}
 
 	return hash;
+
+}
+
+const char* d_fmt(const char* fmt, ...) {
+
+	static char buf[FMT_BUFSIZE];
+	va_list args;
+
+	va_start(args, fmt);
+	vsnprintf(buf, FMT_BUFSIZE, fmt, args);
+	va_end(args);
+
+	return buf;
 
 }
 

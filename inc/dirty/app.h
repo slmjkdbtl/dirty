@@ -84,6 +84,7 @@ typedef enum {
 	D_KEY_RMETA,
 	D_KEY_LCTRL,
 	D_KEY_RCTRL,
+	_D_NUM_KEYS,
 } d_key;
 
 typedef enum {
@@ -91,13 +92,14 @@ typedef enum {
 	D_MOUSE_LEFT,
 	D_MOUSE_RIGHT,
 	D_MOUSE_MIDDLE,
+	_D_NUM_MOUSE,
 } d_mouse;
 
 // lifecycle
 void d_init(const char*, int, int);
 void d_run(void (*)());
 void d_quit();
-void d_fail();
+void d_fail(const char*, ...);
 
 // settings / query
 void d_set_vsync(bool);
@@ -118,6 +120,7 @@ float d_dt();
 
 // input
 bool d_key_pressed(d_key);
+bool d_key_rpressed(d_key);
 bool d_key_released(d_key);
 bool d_key_down(d_key);
 bool d_mouse_pressed(d_mouse);

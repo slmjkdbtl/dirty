@@ -139,6 +139,9 @@ static d_gfx_t d_gfx;
 
 void d_gfx_init() {
 
+// 	const GLubyte* gl_ver = glGetString(GL_VERSION);
+// 	printf("%s\n", gl_ver);
+
 	// init gl
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -147,9 +150,6 @@ void d_gfx_init() {
 	glStencilFunc(GL_EQUAL, 1, 0xff);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-// 	const GLubyte* gl_ver = glGetString(GL_VERSION);
-// 	printf("%s\n", gl_ver);
 
 	// init default shader
 	d_gfx.default_shader = d_make_shader(NULL, NULL);
@@ -165,9 +165,10 @@ void d_gfx_init() {
 
 	// init default cam
 	d_gfx.default_cam.view = mat4u();
-	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
+	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), NEAR, FAR);
 	d_gfx.cur_cam = &d_gfx.default_cam;
 
+	// init batched renderer
 	d_gfx.batch = d_make_batch();
 
 	// init transform
@@ -177,7 +178,7 @@ void d_gfx_init() {
 
 void d_gfx_frame_begin() {
 	d_gfx.transform = mat4u();
-	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), -1024.0, 1024.0);
+	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), NEAR, FAR);
 	d_gfx.cur_cam = &d_gfx.default_cam;
 	d_clear();
 }
@@ -436,8 +437,7 @@ d_font d_make_font(d_tex tex, int gw, int gh, const char* chars) {
 	f.tex = tex;
 
 	if (count != strlen(chars)) {
-		fprintf(stderr, "invalid font\n");
-		d_fail();
+		d_fail("invalid font\n");
 	}
 
 	for (int i = 0; i < count; i++) {
@@ -481,8 +481,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 
 	if (success == GL_FALSE) {
 		glGetShaderInfoLog(vs, 512, NULL, info_log);
-		fprintf(stderr, "%s", info_log);
-		d_fail();
+		d_fail("%s", info_log);
 	}
 
 	// fragment shader
@@ -495,8 +494,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 
 	if (success == GL_FALSE) {
 		glGetShaderInfoLog(fs, 512, NULL, info_log);
-		fprintf(stderr, "%s", info_log);
-		d_fail();
+		d_fail("%s", info_log);
 	}
 
 	// program
@@ -521,8 +519,7 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 
 	if (success == GL_FALSE) {
 		glGetProgramInfoLog(program, 512, NULL, info_log);
-		fprintf(stderr, "%s", info_log);
-		d_fail();
+		d_fail("%s", info_log);
 	}
 
 	free((void*)vs_code);
@@ -583,8 +580,7 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 	d_clear();
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		fprintf(stderr, "failed to create framebuffer\n");
-		d_fail();
+		d_fail("failed to create framebuffer\n");
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -687,8 +683,7 @@ void d_stencil_test(bool b) {
 void d_push() {
 
 	if (d_gfx.t_stack_cnt >= T_STACKS) {
-		fprintf(stderr, "transform stack overflow\n");
-		d_fail();
+		d_fail("transform stack overflow\n");
 	}
 
 	d_gfx.t_stack[d_gfx.t_stack_cnt] = d_gfx.transform;
@@ -699,8 +694,7 @@ void d_push() {
 void d_pop() {
 
 	if (d_gfx.t_stack_cnt <= 0) {
-		fprintf(stderr, "transform stack underflow\n");
-		d_fail();
+		d_fail("transform stack underflow\n");
 	}
 
 	d_gfx.t_stack_cnt--;
@@ -908,10 +902,10 @@ void d_draw_tex(const d_tex* t, quad q, color c) {
 	d_push();
 	d_scale(vec3f(t->width * q.w, t->height * q.h, 1.0));
 
-	vec2 uv0 = vec2f(q.x, q.y);
-	vec2 uv1 = vec2f(q.x, q.y + q.h);
-	vec2 uv2 = vec2f(q.x + q.w, q.y + q.h);
-	vec2 uv3 = vec2f(q.x + q.w, q.y);
+	vec2 uv0 = vec2f(q.x, 1.0 - q.y - q.h);
+	vec2 uv1 = vec2f(q.x, 1.0 - q.y);
+	vec2 uv2 = vec2f(q.x + q.w, 1.0 - q.y);
+	vec2 uv3 = vec2f(q.x + q.w, 1.0 - q.y - q.h);
 
 	d_vertex verts[] = {
 		{

@@ -11,6 +11,7 @@
 #include "audio.h"
 #include "fs.h"
 #include "ui.h"
+#include "utils.h"
 
 #endif
 

@@ -15,16 +15,16 @@ endif
 CC := clang
 AR := ar
 
-EXAMPLE := tri
+DEMO := tri
 
 SRC_PATH := src
 RES_PATH := src/res
 OBJ_PATH := build/obj
 BIN_PATH := build/bin
 LIB_PATH := build/lib
-INC_PATH := include
-EXAMPLE_PATH := examples
-EXT_INC_PATH := ext/include
+INC_PATH := inc
+DEMO_PATH := demos
+EXT_INC_PATH := ext/inc
 EXT_LIB_PATH := ext/lib
 LIB_TARGET := $(LIB_PATH)/libdirty.a
 
@@ -67,9 +67,9 @@ RES_H_FILES := $(patsubst $(RES_PATH)/%, $(RES_PATH)/%.h, $(RES_FILES))
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))
 
-EXAMPLE_FILES := $(wildcard $(EXAMPLE_PATH)/*.c)
-EXAMPLES := $(patsubst $(EXAMPLE_PATH)/%.c, %, $(EXAMPLE_FILES))
-EXAMPLE_TARGETS := $(patsubst $(EXAMPLE_PATH)/%.c, $(BIN_PATH)/%, $(EXAMPLE_FILES))
+DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
+DEMOS := $(patsubst $(DEMO_PATH)/%.c, %, $(DEMO_FILES))
+DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(BIN_PATH)/%, $(DEMO_FILES))
 
 SDL2_VERSION := 2.0.12
 
@@ -79,17 +79,17 @@ lib: $(LIB_TARGET)
 .PHONY: res
 res: $(RES_H_FILES)
 
-.PHONY: examples
-examples: $(EXAMPLE_TARGETS)
-	cp -r $(EXAMPLE_PATH)/res $(BIN_PATH)/
+.PHONY: demos
+demos: $(DEMO_TARGETS)
+	cp -r $(DEMO_PATH)/res $(BIN_PATH)/
 
 .PHONY: run
-run: $(BIN_PATH)/$(EXAMPLE)
-	cp -r $(EXAMPLE_PATH)/res $(BIN_PATH)/
+run: $(BIN_PATH)/$(DEMO)
+	cp -r $(DEMO_PATH)/res $(BIN_PATH)/
 	cd $(BIN_PATH); \
-		./$(EXAMPLE) $(ARGS)
+		./$(DEMO) $(ARGS)
 
-$(BIN_PATH)/%: $(EXAMPLE_PATH)/%.c $(LIB_TARGET)
+$(BIN_PATH)/%: $(DEMO_PATH)/%.c $(LIB_TARGET)
 	@mkdir -p $(BIN_PATH)
 	$(CC) $(C_FLAGS) -L $(LIB_PATH) -ldirty $(LD_FLAGS) -o $@ $^
 
@@ -116,7 +116,7 @@ sdl2:
 		curl https://www.libsdl.org/release/SDL2-$(SDL2_VERSION).zip > SDL2-$(SDL2_VERSION).zip; \
 		unzip -o SDL2-$(SDL2_VERSION).zip
 	cd ext/SDL2-$(SDL2_VERSION); \
-		cp include/*.h ../include/SDL2/; \
+		cp inc/*.h ../inc/SDL2/; \
 		./configure; \
 		$(MAKE)
 	cp -r ext/SDL2-$(SDL2_VERSION)/build/.libs/libSDL2.a $(EXT_LIB_PATH)/libSDL2.a

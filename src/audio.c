@@ -93,8 +93,7 @@ d_sound d_parse_sound(const unsigned char* bytes, int size) {
 	int len = stb_vorbis_decode_memory(bytes, size, &channels, &sample_rate, &samples);
 
 	if (len <= 0) {
-		fprintf(stderr, "failed to decode audio\n");
-		d_fail();
+		d_fail("failed to decode audio\n");
 	}
 
 	return (d_sound) {

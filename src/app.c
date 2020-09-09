@@ -26,8 +26,8 @@ typedef struct {
 	vec2 mouse_pos;
 	vec2 mouse_dpos;
 	vec2 wheel;
-	d_btn_state key_states[128];
-	d_btn_state mouse_states[4];
+	d_btn_state key_states[_D_NUM_KEYS];
+	d_btn_state mouse_states[_D_NUM_MOUSE];
 	bool resized;
 	char tinput[32];
 } d_app_t;
@@ -177,19 +177,10 @@ static void d_frame(void (*f)()) {
 
 }
 
-static void d_destroy() {
-	d_quit();
-	d_audio_destroy();
-	SDL_GL_DeleteContext(d_app.gl);
-	SDL_DestroyWindow(d_app.window);
-	SDL_Quit();
-}
-
 void d_run(void (*f)()) {
 
 	if (!f) {
-		fprintf(stderr, "invalid run func\n");
-		d_fail();
+		d_fail("invalid run func\n");
 	}
 
 	// draw at first frame
@@ -280,17 +271,24 @@ void d_run(void (*f)()) {
 
 	}
 
-	d_destroy();
+	d_audio_destroy();
+	SDL_GL_DeleteContext(d_app.gl);
+	SDL_DestroyWindow(d_app.window);
+	SDL_Quit();
 
-}
-
-void d_fail() {
-	d_destroy();
-	exit(EXIT_FAILURE);
 }
 
 void d_quit() {
 	d_app.quit = true;
+}
+
+void d_fail(const char* fmt, ...) {
+	d_quit();
+	va_list args;
+	va_start(args, fmt);
+	vfprintf(stderr, fmt, args);
+	va_end(args);
+	exit(EXIT_FAILURE);
 }
 
 float d_time() {
@@ -346,7 +344,12 @@ const char* d_title() {
 	return SDL_GetWindowTitle(d_app.window);
 }
 
+// TODO
 bool d_key_pressed(d_key k) {
+	return d_app.key_states[k] == D_BTN_PRESSED;
+}
+
+bool d_key_rpressed(d_key k) {
 	return d_app.key_states[k] == D_BTN_PRESSED;
 }
 

@@ -12,6 +12,10 @@ typedef struct {
 	float text_size;
 	float padding_x;
 	float padding_y;
+	color line_color;
+	color bar_color;
+	color back_color;
+	color text_color;
 } d_ui_theme_t;
 
 void d_ui_set_theme(d_ui_theme_t);

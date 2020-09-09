@@ -9,23 +9,31 @@ BUILD
 
   $ make lib
 
-  will create `libdirty.a` under `build/lib/`
+  will create 'libdirty.a' under 'build/lib/'
 
-  $ make examples
+  $ make demos
 
-  will build all examples under `examples` to `build/bin/`
+  will build all 'demos/*.c' to 'build/bin/'
 
 USAGE
 
-  see
+  1. have SDL2 available for linking
+  2. build and copy 'libdirty.a' to your link dir
+  3. copy 'inc/dirty' to your include dir and
 
-    - include/app.h
-    - include/gfx.h
-    - include/audio.h
-    - include/math.h
-    - include/fs.h
+    #include <dirty/dirty.h>
 
-  check out 'examples/*.c'
+  check out 'demos/*.c' for actual use
+
+DOC
+
+  see 'inc/dirty/'
+
+    - app.h
+    - gfx.h
+    - audio.h
+    - math.h
+    - fs.h
 
 FACTS
 
@@ -34,3 +42,4 @@ FACTS
 CONTRIBUTION
 
   no
+

@@ -10,8 +10,8 @@ static void frame() {
 		d_quit();
 	}
 
-	d_rot_x(radians(-45.0));
-	d_rot_y(radians(-45.0));
+	d_rot_x(radf(-45.0));
+	d_rot_y(radf(-45.0));
 	d_scale(vec3f(90.0, 90.0, 90.0));
 	d_draw_mesh(&cube);
 

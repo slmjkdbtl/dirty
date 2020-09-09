@@ -5,7 +5,6 @@
 #include <stdio.h>
 
 #include <dirty/dirty.h>
-#include "utils.h"
 #include "ui.h"
 
 #define WIDGET_SLOTS 64
@@ -47,6 +46,10 @@ void d_ui_init() {
 		.text_size = 12.0,
 		.padding_x = 9.0,
 		.padding_y = 6.0,
+		.line_color = WHITE,
+		.bar_color = BLACK,
+		.back_color = BLACK,
+		.text_color = WHITE,
 	};
 
 }
@@ -82,8 +85,7 @@ static d_ui_window* d_ui_get_window(const char* label, vec2 pos, float w, float 
 void d_ui_window_begin(const char* label, vec2 pos, float w, float h) {
 
 	if (d_ui.cur_window) {
-		fprintf(stderr, "cannot create window inside window\n");
-		d_fail();
+		d_fail("cannot create window inside window\n");
 	}
 
 	d_ui_window* win = d_ui_get_window(label, pos, w, h);
@@ -113,12 +115,14 @@ void d_ui_window_begin(const char* label, vec2 pos, float w, float h) {
 	d_push();
 	d_move_xy(win->pos);
 
-	d_draw_lrect(vec2f(0.0, 0.0), vec2f(win->width, -win->height), t->line_width, coloru());
-	d_draw_lrect(vec2f(0.0, 0.0), vec2f(win->width, -bar_height), t->line_width, coloru());
+	d_draw_rect(vec2f(0.0, 0.0), vec2f(win->width, -win->height), t->back_color);
+	d_draw_rect(vec2f(0.0, 0.0), vec2f(win->width, -bar_height), t->bar_color);
+	d_draw_lrect(vec2f(0.0, 0.0), vec2f(win->width, -win->height), t->line_width, t->line_color);
+	d_draw_lrect(vec2f(0.0, 0.0), vec2f(win->width, -bar_height), t->line_width, t->line_color);
 
 	d_push();
 	d_move_xy(vec2f(t->padding_x, -t->padding_y));
-	d_draw_text(win->label, t->text_size, D_TOP_LEFT, coloru());
+	d_draw_text(win->label, t->text_size, D_TOP_LEFT, t->text_color);
 	d_pop();
 
 	d_move_xy(vec2f(t->padding_x, -bar_height - t->padding_y));
@@ -135,8 +139,7 @@ void d_ui_window_end() {
 void* d_ui_widget_data(d_ui_id id, int size, void* init_data) {
 
 	if (!d_ui.cur_window) {
-		fprintf(stderr, "cannot use ui widgets without a ui window\n");
-		d_fail();
+		d_fail("cannot use ui widgets without a ui window\n");
 	}
 
 	for (int i = 0; i < d_ui.cur_window->widget_cnt; i++) {
@@ -169,7 +172,7 @@ typedef struct {
 
 float d_ui_sliderf(const char* label, float start, float min, float max) {
 
-	d_ui_id id = hash("sliderf") + hash(label);
+	d_ui_id id = d_hash("sliderf") + d_hash(label);
 	const d_ui_theme_t* t = d_ui_theme();
 	float cw = d_ui_content_width();
 
@@ -181,7 +184,7 @@ float d_ui_sliderf(const char* label, float start, float min, float max) {
 	float sw = 12.0;
 	float bh = t->text_size;
 
-	d_draw_text(label, t->text_size, D_TOP_LEFT, coloru());
+	d_draw_text(label, t->text_size, D_TOP_LEFT, t->text_color);
 	d_move_y(-t->text_size - t->padding_y);
 
 	vec2 mpos = d_mouse_pos_t();
@@ -212,8 +215,8 @@ float d_ui_sliderf(const char* label, float start, float min, float max) {
 	vec2 s1 = vec2f((cw - sw) * r, 0.0);
 	vec2 s2 = vec2f(s1.x + sw, -bh);
 
-	d_draw_lrect(b1, b2, t->line_width, WHITE);
-	d_draw_rect(s1, s2, WHITE);
+	d_draw_lrect(b1, b2, t->line_width, t->line_color);
+	d_draw_rect(s1, s2, t->text_color);
 
 	d_move_y(-t->text_size - t->padding_y);
 
@@ -224,7 +227,7 @@ float d_ui_sliderf(const char* label, float start, float min, float max) {
 void d_ui_text(const char* txt) {
 
 	const d_ui_theme_t* t = d_ui_theme();
-	d_draw_text(txt, t->text_size, D_TOP_LEFT, coloru());
+	d_draw_text(txt, t->text_size, D_TOP_LEFT, t->text_color);
 	d_move_y(-t->text_size - t->padding_y);
 
 }
@@ -235,7 +238,7 @@ typedef struct {
 
 bool d_ui_button(const char* label) {
 
-	d_ui_id id = hash("button") + hash(label);
+	d_ui_id id = d_hash("button") + d_hash(label);
 	const d_ui_theme_t* t = d_ui_theme();
 
 	d_ui_button_t* data = d_ui_widget_data(id, sizeof(d_ui_button_t), &(d_ui_button_t) {
@@ -244,7 +247,7 @@ bool d_ui_button(const char* label) {
 
 	vec2 mpos = d_mouse_pos_t();
 	vec2 p1 = vec2f(0.0, 0.0);
-	vec2 p2 = vec2f(p1.x + strlen(label) * t->text_size + t->padding_x * 2.0, p1.y - t->text_size - t->padding_y * 2.0);
+	vec2 p2 = vec2f(p1.x + strlen(label) * t->text_size + t->padding_y * 2.0, p1.y - t->text_size - t->padding_y * 2.0);
 
 	bool hover = pt_rect(mpos, p1, p2);
 
@@ -256,17 +259,17 @@ bool d_ui_button(const char* label) {
 		data->pressed = hover && d_mouse_pressed(D_MOUSE_LEFT);
 	}
 
-	d_draw_lrect(p1, p2, t->line_width, coloru());
+	d_draw_lrect(p1, p2, t->line_width, t->line_color);
 
-	color tcol = colorf(1.0, 1.0, 1.0, 1.0);
+	color tcol = t->text_color;
 
 	if (data->pressed) {
-		d_draw_rect(p1, p2, coloru());
+		d_draw_rect(p1, p2, t->text_color);
 		tcol = colorf(0.0, 0.0, 0.0, 1.0);
 	}
 
 	d_push();
-	d_move_xy(vec2f(t->padding_x, -t->padding_y));
+	d_move_xy(vec2f(t->padding_y, -t->padding_y));
 	d_draw_text(label, t->text_size, D_TOP_LEFT, tcol);
 	d_pop();
 
@@ -283,7 +286,7 @@ typedef struct {
 
 const char* d_ui_input(const char* label) {
 
-	d_ui_id id = hash("button") + hash(label);
+	d_ui_id id = d_hash("button") + d_hash(label);
 	const d_ui_theme_t* t = d_ui_theme();
 
 	d_ui_input_t* data = d_ui_widget_data(id, sizeof(d_ui_input_t), &(d_ui_input_t) {
@@ -291,7 +294,7 @@ const char* d_ui_input(const char* label) {
 		.focused = false,
 	});
 
-	d_draw_text(label, t->text_size, D_TOP_LEFT, WHITE);
+	d_draw_text(label, t->text_size, D_TOP_LEFT, t->text_color);
 	d_move_y(-t->padding_y - t->text_size);
 
 	vec2 mpos = d_mouse_pos_t();
@@ -312,19 +315,15 @@ const char* d_ui_input(const char* label) {
 			strcat(data->buf, tinput);
 		}
 
-		if (d_key_pressed(D_KEY_BACKSPACE)) {
-			// ...
-		}
-
 		d_draw_rect(b1, b2, colorf(1.0, 1.0, 1.0, 0.3));
 
 	}
 
-	d_draw_lrect(b1, b2, t->line_width, WHITE);
+	d_draw_lrect(b1, b2, t->line_width, t->line_color);
 
 	d_push();
-	d_move_xy(vec2f(t->padding_x, -t->padding_y));
-	d_draw_text(data->buf, t->text_size, D_TOP_LEFT, WHITE);
+	d_move_xy(vec2f(t->padding_y, -t->padding_y));
+	d_draw_text(data->buf, t->text_size, D_TOP_LEFT, t->text_color);
 	d_pop();
 
 	d_move_y(b2.y - t->padding_y);
