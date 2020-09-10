@@ -13,7 +13,7 @@ BUILD
 
   $ make demos
 
-  will build all 'demos/*.c' to 'build/bin/'
+  will build all 'demo/*.c' to 'build/bin/'
 
 USAGE
 
@@ -23,7 +23,7 @@ USAGE
 
     #include <dirty/dirty.h>
 
-  check out 'demos/*.c' for actual use
+  check out 'demo/*.c' for actual use
 
 DOC
 

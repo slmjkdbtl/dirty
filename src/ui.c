@@ -22,6 +22,7 @@ typedef struct {
 	float height;
 	d_widget widgets[WIDGET_SLOTS];
 	int widget_cnt;
+	int flags;
 } d_ui_window;
 
 typedef struct {
@@ -35,6 +36,8 @@ typedef struct {
 	d_ui_theme_t theme;
 	d_ui_window* cur_window;
 	d_ui_window_drag window_drag;
+	bool wants_mouse;
+	bool wants_key;
 } d_ui_t;
 
 static d_ui_t d_ui;
@@ -62,7 +65,7 @@ const d_ui_theme_t* d_ui_theme() {
 	return &d_ui.theme;
 }
 
-static d_ui_window* d_ui_get_window(const char* label, vec2 pos, float w, float h) {
+static d_ui_window* d_ui_get_window(const char* label, vec2 pos, float w, float h, int flags) {
 
 	for (int i = 0; i < d_ui.window_cnt; i++) {
 		if (d_ui.windows[i].label == label) {
@@ -76,38 +79,43 @@ static d_ui_window* d_ui_get_window(const char* label, vec2 pos, float w, float 
 		.width = w,
 		.height = h,
 		.widgets = {0},
+		.flags = flags,
 	};
 
 	return &d_ui.windows[d_ui.window_cnt - 1];
 
 }
 
-void d_ui_window_begin(const char* label, vec2 pos, float w, float h) {
+void d_ui_begin(const char* label, vec2 pos, float w, float h, int flags) {
 
 	if (d_ui.cur_window) {
 		d_fail("cannot create window inside window\n");
 	}
 
-	d_ui_window* win = d_ui_get_window(label, pos, w, h);
+	d_ui_window* win = d_ui_get_window(label, pos, w, h, flags);
 	const d_ui_theme_t* t = d_ui_theme();
 	vec2 mpos = d_mouse_pos();
 	float bar_height = t->padding_y * 2.0 + t->text_size;
 
 	// check drag
-	if (d_ui.window_drag.win) {
-		if (d_mouse_released(D_MOUSE_LEFT)) {
-			d_ui.window_drag.win = NULL;
-			d_ui.window_drag.dpos = vec2f(0.0, 0.0);
-		} else {
-			if (d_ui.window_drag.win == win) {
-				win->pos = vec2_add(mpos, d_ui.window_drag.dpos);
+	if (win->flags & D_UI_MOVABLE) {
+		if (d_ui.window_drag.win) {
+			if (d_mouse_released(D_MOUSE_LEFT)) {
+				d_ui.wants_mouse = false;
+				d_ui.window_drag.win = NULL;
+				d_ui.window_drag.dpos = vec2f(0.0, 0.0);
+			} else {
+				if (d_ui.window_drag.win == win) {
+					win->pos = vec2_add(mpos, d_ui.window_drag.dpos);
+				}
 			}
-		}
-	} else {
-		if (d_mouse_pressed(D_MOUSE_LEFT)) {
-			if (pt_rect(mpos, win->pos, vec2_add(win->pos, vec2f(win->width, -bar_height)))) {
-				d_ui.window_drag.win = win;
-				d_ui.window_drag.dpos = vec2_sub(win->pos, mpos);
+		} else {
+			if (d_mouse_pressed(D_MOUSE_LEFT)) {
+				if (pt_rect(mpos, win->pos, vec2_add(win->pos, vec2f(win->width, -bar_height)))) {
+					d_ui.wants_mouse = true;
+					d_ui.window_drag.win = win;
+					d_ui.window_drag.dpos = vec2_sub(win->pos, mpos);
+				}
 			}
 		}
 	}
@@ -131,11 +139,12 @@ void d_ui_window_begin(const char* label, vec2 pos, float w, float h) {
 
 }
 
-void d_ui_window_end() {
+void d_ui_end() {
 	d_ui.cur_window = NULL;
 	d_pop();
 }
 
+// TODO: use actual hashmap
 void* d_ui_widget_data(d_ui_id id, int size, void* init_data) {
 
 	if (!d_ui.cur_window) {
@@ -194,6 +203,7 @@ float d_ui_sliderf(const char* label, float start, float min, float max) {
 
 	if (data->draggin) {
 		if (d_mouse_released(D_MOUSE_LEFT)) {
+			d_ui.wants_mouse = false;
 			data->draggin = false;
 		} else {
 			float dx = d_mouse_dpos().x;
@@ -206,6 +216,7 @@ float d_ui_sliderf(const char* label, float start, float min, float max) {
 	} else {
 		if (d_mouse_pressed(D_MOUSE_LEFT)) {
 			if (pt_rect(mpos, b1, b2)) {
+				d_ui.wants_mouse = true;
 				data->draggin = true;
 			}
 		}
@@ -254,9 +265,15 @@ bool d_ui_button(const char* label) {
 	if (data->pressed) {
 		if (d_mouse_released(D_MOUSE_LEFT)) {
 			data->pressed = false;
+			d_ui.wants_mouse = false;
 		}
 	} else {
-		data->pressed = hover && d_mouse_pressed(D_MOUSE_LEFT);
+		if (hover) {
+			if (d_mouse_pressed(D_MOUSE_LEFT)) {
+				data->pressed = true;
+				d_ui.wants_mouse = true;
+			}
+		}
 	}
 
 	d_draw_lrect(p1, p2, t->line_width, t->line_color);
@@ -284,6 +301,17 @@ typedef struct {
 	bool focused;
 } d_ui_input_t;
 
+void d_ui_sep() {
+	const d_ui_theme_t* t = d_ui_theme();
+	d_move_y(-t->padding_y);
+	d_draw_line(vec2f(0.0, 0.0), vec2f(d_ui_content_width(), 0.0), t->line_width, t->line_color);
+	d_move_y(-t->padding_y);
+}
+
+void d_ui_space(float y) {
+	d_move_y(-y);
+}
+
 const char* d_ui_input(const char* label) {
 
 	d_ui_id id = d_hash("button") + d_hash(label);
@@ -306,6 +334,8 @@ const char* d_ui_input(const char* label) {
 	if (d_mouse_pressed(D_MOUSE_LEFT)) {
 		data->focused = pt_rect(mpos, b1, b2);
 	}
+
+	d_ui.wants_key = data->focused;
 
 	if (data->focused) {
 
@@ -330,5 +360,13 @@ const char* d_ui_input(const char* label) {
 
 	return data->buf;
 
+}
+
+bool d_ui_wants_mouse() {
+	return d_ui.wants_mouse;
+}
+
+bool d_ui_wants_key() {
+	return d_ui.wants_key;
 }
 

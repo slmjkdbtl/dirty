@@ -57,6 +57,7 @@ typedef struct {
 	d_tex tex;
 	float qw;
 	float qh;
+	// TODO: support non-ASCII chars
 	vec2 map[128];
 } d_font;
 
@@ -87,9 +88,26 @@ typedef struct {
 } d_vertex;
 
 typedef struct {
+	char ch;
+	vec2 pos;
+	color color;
+	quad quad;
+} d_fchar;
+
+typedef struct {
 	float width;
 	float height;
-} d_text_fmt;
+	const d_tex* tex;
+	float scale;
+	int len;
+	d_fchar chars[128];
+} d_ftext;
+
+typedef struct {
+	const char* text;
+	color color;
+	vec2 offset;
+} d_textc;
 
 typedef unsigned int d_index;
 
@@ -120,6 +138,7 @@ void d_free_font(d_font*);
 
 // shader
 d_shader d_make_shader(const char*, const char*);
+d_shader d_load_shader(const char*, const char*);
 void d_free_shader(d_shader*);
 
 // canvas
@@ -181,6 +200,7 @@ void d_draw_raw(const d_vertex*, int, const d_index*, int, const d_tex*);
 void d_draw_mesh(const d_mesh*);
 void d_draw_tex(const d_tex*, quad, color);
 void d_draw_text(const char*, float, d_origin, color);
+void d_draw_ftext(const d_ftext*);
 void d_draw_canvas(const d_canvas*, color);
 void d_draw_rect(vec2, vec2, color);
 void d_draw_lrect(vec2, vec2, float, color);
@@ -188,7 +208,7 @@ void d_draw_line(vec2, vec2, float, color);
 void d_draw_circle(vec2, float, color);
 
 // misc
-d_text_fmt d_fmt_text(const char*, float);
+d_ftext d_fmt_text(const char*, float, d_origin, float, color);
 
 #endif
 

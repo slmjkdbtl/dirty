@@ -12,6 +12,8 @@ d_index indices[3];
 
 static void frame() {
 
+	d_set_cursor(D_CURSOR_SIZENESW);
+
 	if (d_key_pressed(D_KEY_F)) {
 		d_set_fullscreen(!d_fullscreen());
 	}
@@ -58,6 +60,8 @@ int main() {
 	tex = d_load_tex("res/acid2.png");
 	canvas = d_make_canvas(320, 320);
 	tri = d_make_mesh(verts, 3, indices, 3);
+
+	d_fmt_text("1234567890", 32.0, D_TOP_LEFT, 72.0, WHITE);
 
 	d_use_canvas(&canvas);
 	d_draw_mesh(&tri);

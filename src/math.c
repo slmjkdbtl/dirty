@@ -114,8 +114,8 @@ bool vec2_eq(vec2 p1, vec2 p2) {
 	return p1.x == p2.x && p1.y == p2.y;
 }
 
-void vec2_print(vec2 p) {
-	printf("vec2(%.8g, %.8g)\n", p.x, p.y);
+const char* vec2_fmt(vec2 p) {
+	return d_fmt("vec2(%.8g, %.8g)", p.x, p.y);
 }
 
 vec3 vec3f(float x, float y, float z) {
@@ -234,8 +234,8 @@ bool vec3_eq(vec3 p1, vec3 p2) {
 	return p1.x == p2.x && p1.y == p2.y && p1.z == p2.z;
 }
 
-void vec3_print(vec3 p) {
-	printf("vec3(%.8g, %.8g, %.8g)\n", p.x, p.y, p.z);
+const char* vec3_fmt(vec3 p) {
+	return d_fmt("vec3(%.8g, %.8g, %.8g)", p.x, p.y, p.z);
 }
 
 vec4 vec4f(float x, float y, float z, float w) {
@@ -295,8 +295,8 @@ bool color_eq(color c1, color c2) {
 	return c1.r == c2.r && c1.g == c2.g && c1.b == c2.b && c1.a == c2.a;
 }
 
-void color_print(color c) {
-	printf("color(%.8g, %.8g, %.8g, %.8g)\n", c.r, c.g, c.b, c.a);
+const char* color_fmt(color c) {
+	return d_fmt("color(%.8g, %.8g, %.8g, %.8g)", c.r, c.g, c.b, c.a);
 }
 
 mat4 mat4f(float m[16]) {
@@ -511,12 +511,12 @@ mat4 mat4_view(vec3 pos, vec3 dir, vec3 up) {
 
 }
 
-void mat4_print(mat4 m) {
-	printf(
+const char* mat4_fmt(mat4 m) {
+	return d_fmt(
 		"mat4(%.8g, %.8g, %.8g, %.8g,\n"
 		"     %.8g, %.8g, %.8g, %.8g,\n"
 		"     %.8g, %.8g, %.8g, %.8g,\n"
-		"     %.8g, %.8g, %.8g, %.8g)\n",
+		"     %.8g, %.8g, %.8g, %.8g)",
 		m.m[0], m.m[1], m.m[2], m.m[3],
 		m.m[4], m.m[5], m.m[6], m.m[7],
 		m.m[8], m.m[9], m.m[10], m.m[11],

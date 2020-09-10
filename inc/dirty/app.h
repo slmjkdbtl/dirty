@@ -95,6 +95,20 @@ typedef enum {
 	_D_NUM_MOUSE,
 } d_mouse;
 
+typedef enum {
+	D_CURSOR_ARROW,
+	D_CURSOR_EDIT,
+	D_CURSOR_WAIT,
+	D_CURSOR_HAND,
+	D_CURSOR_CROSSHAIR,
+	D_CURSOR_SIZEALL,
+	D_CURSOR_SIZENWSE,
+	D_CURSOR_SIZENESW,
+	D_CURSOR_SIZEWE,
+	D_CURSOR_SIZENS,
+	_D_NUM_CURSORS,
+} d_cursor;
+
 // lifecycle
 void d_init(const char*, int, int);
 void d_run(void (*)());
@@ -111,6 +125,7 @@ void d_set_mouse_hidden(bool);
 bool d_mouse_hidden();
 void d_set_title(const char*);
 const char* d_title();
+void d_set_cursor(d_cursor);
 int d_width();
 int d_height();
 

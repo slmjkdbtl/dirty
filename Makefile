@@ -23,7 +23,7 @@ OBJ_PATH := build/obj
 BIN_PATH := build/bin
 LIB_PATH := build/lib
 INC_PATH := inc
-DEMO_PATH := demos
+DEMO_PATH := demo
 EXT_INC_PATH := ext/inc
 EXT_LIB_PATH := ext/lib
 LIB_TARGET := $(LIB_PATH)/libdirty.a
@@ -81,11 +81,11 @@ res: $(RES_H_FILES)
 
 .PHONY: demos
 demos: $(DEMO_TARGETS)
-	cp -r $(DEMO_PATH)/res $(BIN_PATH)/
+	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
 
 .PHONY: run
 run: $(BIN_PATH)/$(DEMO)
-	cp -r $(DEMO_PATH)/res $(BIN_PATH)/
+	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
 	cd $(BIN_PATH); \
 		./$(DEMO) $(ARGS)
 

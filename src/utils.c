@@ -5,26 +5,30 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define HASH_INIT 2048
-#define HASH_LIMIT 65536
-#define FMT_BUFSIZE 256
+int strcnt(const char* str, const char* key) {
+
+	int len = strlen(key);
+	int i = 0;
+	int cnt = 0;
+
+	for (i = 0; str[i] != '\0'; i++) {
+		if (strstr(&str[i], key) == &str[i]) {
+			cnt++;
+			i += len - 1;
+		}
+	}
+
+	return i;
+
+}
 
 char* strsub(const char* str, const char* old, const char* new) {
 
 	int old_len = strlen(old);
 	int new_len = strlen(new);
+	int cnt = strcnt(str, old);
+	char* res = malloc(strlen(str) + cnt * (new_len - old_len) + 1);
 	int i = 0;
-	int cnt = 0;
-
-	for (i = 0; str[i] != '\0'; i++) {
-		if (strstr(&str[i], old) == &str[i]) {
-			cnt++;
-			i += old_len - 1;
-		}
-	}
-
-	char* res = malloc(i + cnt * (new_len - old_len) + 1);
-	i = 0;
 
 	while (*str) {
 		if (strstr(str, old) == str) {
@@ -44,17 +48,17 @@ char* strsub(const char* str, const char* old, const char* new) {
 
 unsigned long d_hash(const char* str) {
 
-	unsigned long  hash = 0;
-	int i = strlen(str);
+	unsigned int hash = 0;
 
-	while (i--) {
-		hash += (int)str[i] * HASH_INIT * (i + 1);
-		hash %= HASH_LIMIT;
+	while (*str) {
+		hash = (hash << 7) + (hash >> 25) + *str++;
 	}
 
-	return hash;
+	return hash + (hash >> 16);
 
 }
+
+#define FMT_BUFSIZE 256
 
 const char* d_fmt(const char* fmt, ...) {
 

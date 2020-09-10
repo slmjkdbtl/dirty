@@ -9,7 +9,7 @@
 #include "ui.h"
 
 typedef enum {
-	D_BTN_IDLE = 0,
+	D_BTN_IDLE,
 	D_BTN_PRESSED,
 	D_BTN_RELEASED,
 	D_BTN_DOWN,
@@ -30,6 +30,7 @@ typedef struct {
 	d_btn_state mouse_states[_D_NUM_MOUSE];
 	bool resized;
 	char tinput[32];
+	SDL_Cursor* cursors[_D_NUM_CURSORS];
 } d_app_t;
 
 static d_app_t d_app;
@@ -41,10 +42,28 @@ static d_mouse sdl_mouse_to_d(int btn) {
 		case SDL_BUTTON_MIDDLE: return D_MOUSE_MIDDLE;
 		default: return D_MOUSE_NONE;
 	}
+	return D_MOUSE_NONE;
+}
+
+static SDL_SystemCursor d_cursor_to_sdl(d_cursor c) {
+	switch (c) {
+		case D_CURSOR_ARROW: return SDL_SYSTEM_CURSOR_ARROW;
+		case D_CURSOR_EDIT: return SDL_SYSTEM_CURSOR_IBEAM;
+		// TODO
+		case D_CURSOR_WAIT: return SDL_SYSTEM_CURSOR_WAIT;
+		case D_CURSOR_HAND: return SDL_SYSTEM_CURSOR_HAND;
+		case D_CURSOR_CROSSHAIR: return SDL_SYSTEM_CURSOR_CROSSHAIR;
+		case D_CURSOR_SIZEALL: return SDL_SYSTEM_CURSOR_SIZEALL;
+		case D_CURSOR_SIZENWSE: return SDL_SYSTEM_CURSOR_SIZENWSE;
+		case D_CURSOR_SIZENESW: return SDL_SYSTEM_CURSOR_SIZENESW;
+		case D_CURSOR_SIZEWE: return SDL_SYSTEM_CURSOR_SIZEWE;
+		case D_CURSOR_SIZENS: return SDL_SYSTEM_CURSOR_SIZENS;
+		default: return SDL_SYSTEM_CURSOR_ARROW;
+	}
+	return 0;
 }
 
 static d_key sdl_key_to_d(SDL_Scancode code) {
-
 	switch (code) {
 		case SDL_SCANCODE_A: return D_KEY_A;
 		case SDL_SCANCODE_B: return D_KEY_B;
@@ -124,7 +143,7 @@ static d_key sdl_key_to_d(SDL_Scancode code) {
 		case SDL_SCANCODE_RSHIFT: return D_KEY_RSHIFT;
 		default: return D_KEY_NONE;
 	}
-
+	return D_KEY_NONE;
 }
 
 void d_init(const char* title, int width, int height) {
@@ -140,11 +159,19 @@ void d_init(const char* title, int width, int height) {
 		SDL_WINDOW_OPENGL
 	);
 
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	SDL_GL_SetSwapInterval(1);
 	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 	d_app.gl = SDL_GL_CreateContext(d_app.window);
+    SDL_GL_MakeCurrent(d_app.window, d_app.gl);
+
+	for (int i = 0; i < _D_NUM_CURSORS; i++) {
+		d_app.cursors[i] = SDL_CreateSystemCursor(d_cursor_to_sdl(i));
+	}
 
 	d_gfx_init();
 	d_audio_init();
@@ -165,6 +192,8 @@ static void d_frame(void (*f)()) {
 	d_app.mouse_pos.y = d_app.height / 2.0 - (float)my;
 	d_app.mouse_dpos.x = (float)dx;
 	d_app.mouse_dpos.y = -(float)dy;
+
+	d_set_cursor(D_CURSOR_ARROW);
 
 	d_gfx_frame_begin();
 
@@ -407,5 +436,9 @@ vec2 d_wheel() {
 
 const char* d_tinput() {
 	return (const char*)&d_app.tinput;
+}
+
+void d_set_cursor(d_cursor c) {
+	SDL_SetCursor(d_app.cursors[c]);
 }
 

@@ -2,8 +2,6 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
-#define STB_TRUETYPE_IMPLEMENTATION
-#include <stb/stb_truetype.h>
 
 #include <dirty/dirty.h>
 #include "gfx.h"
@@ -531,6 +529,20 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 
 }
 
+d_shader d_load_shader(const char* vs_path, const char* fs_path) {
+
+	const char* vs_src = d_fread(vs_path, NULL);
+	const char* fs_src = d_fread(fs_path, NULL);
+
+	d_shader s = d_make_shader(vs_src, fs_src);
+
+	free((void*)vs_src);
+	free((void*)fs_src);
+
+	return s;
+
+}
+
 void d_free_shader(d_shader* p) {
 	glDeleteProgram(p->id);
 	p->id = 0;
@@ -945,7 +957,19 @@ void d_draw_tex(const d_tex* t, quad q, color c) {
 
 }
 
-// TODO: more formatting
+void d_draw_ftext(const d_ftext* ftext) {
+
+	for (int i = 0; i < ftext->len; i++) {
+		d_fchar ch = ftext->chars[i];
+		d_push();
+		d_scale_xy(vec2f(ftext->scale, ftext->scale));
+		d_move_xy(ch.pos);
+		d_draw_tex(ftext->tex, ch.quad, ch.color);
+		d_pop();
+	}
+
+}
+
 void d_draw_text(const char* text, float size, d_origin origin, color c) {
 
 	d_push();
@@ -1081,5 +1105,61 @@ void d_draw_lrect(vec2 p1, vec2 p3, float w, color c) {
 // TODO
 void d_draw_circle(vec2 p, float r, color c) {
 	// ...
+}
+
+// TODO
+d_ftext d_fmt_text(const char* text, float size, d_origin orig, float wrap, color c) {
+
+	int len = strlen(text);
+	const d_tex* tex = &d_gfx.cur_font->tex;
+	float qw = d_gfx.cur_font->qw;
+	float qh = d_gfx.cur_font->qh;
+	float gh = qh * tex->height;
+	float scale = size / gh;
+	float gw = qw * tex->width * scale;
+	float tw = 0.0;
+	float th = size;
+	float x = 0.0;
+
+	d_ftext ftext = {0};
+
+	ftext.tex = tex;
+	ftext.scale = scale;
+	ftext.len = len;
+
+	for (int i = 0; i < len; i++) {
+
+		char ch = text[i];
+
+		if (ch == '\n' || (wrap != 0.0 && (x + gw) > wrap)) {
+			x = 0.0;
+			th += size;
+		}
+
+		if (ch == '\n') {
+			continue;
+		}
+
+		x += gw;
+
+		if (x > tw) {
+			tw = x;
+		}
+
+	}
+
+	vec2 offset = vec2_mult(d_origin_to_pt(orig), vec2f(tw, th));
+
+	printf("%s\n", vec2_fmt(offset));
+
+	for (int i = 0; i < len; i++) {
+		// ...
+	}
+
+	ftext.width = tw;
+	ftext.height = th;
+
+	return ftext;
+
 }
 
