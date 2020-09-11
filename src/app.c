@@ -226,7 +226,7 @@ void d_run(void (*f)()) {
 		d_app.time = time / 1000.0;
 
 		// reset input states
-		for (int i = 0; i < 128; i++) {
+		for (int i = 0; i < _D_NUM_KEYS; i++) {
 			if (d_app.key_states[i] == D_BTN_PRESSED) {
 				d_app.key_states[i] = D_BTN_DOWN;
 			} else if (d_app.key_states[i] == D_BTN_RELEASED) {
@@ -234,7 +234,7 @@ void d_run(void (*f)()) {
 			}
 		}
 
-		for (int i = 0; i < 4; i++) {
+		for (int i = 0; i < _D_NUM_MOUSE; i++) {
 			if (d_app.mouse_states[i] == D_BTN_PRESSED) {
 				d_app.mouse_states[i] = D_BTN_DOWN;
 			} else if (d_app.mouse_states[i] == D_BTN_RELEASED) {

@@ -34,7 +34,6 @@ static void stream(void* udata, Uint8* buf, int len) {
 				continue;
 			}
 
-			// TODO: seg fault, threading issue?
 			if (p->src->samples == NULL) {
 				p->done = true;
 				continue;
