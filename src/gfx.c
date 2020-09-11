@@ -13,7 +13,7 @@
 #define NEAR -1024.0
 #define FAR 1024.0
 
-static const char* vert_template = GLSL(
+static const char *vert_template = GLSL(
 
 	attribute vec3 a_pos;
 	attribute vec3 a_normal;
@@ -45,7 +45,7 @@ static const char* vert_template = GLSL(
 
 );
 
-static const char* frag_template = GLSL(
+static const char *frag_template = GLSL(
 
 	varying vec3 v_pos;
 	varying vec3 v_normal;
@@ -69,13 +69,13 @@ static const char* frag_template = GLSL(
 
 );
 
-static const char* vert_default = STR(
+static const char *vert_default = STR(
 	vec4 vert() {
 		return default_pos();
 	}
 );
 
-static const char* frag_default = STR(
+static const char *frag_default = STR(
 	vec4 frag() {
 		return default_color();
 	}
@@ -89,25 +89,25 @@ static void gl_check_errors() {
 
 		switch (err) {
 			case GL_INVALID_ENUM:
-				printf("gl invalid enum\n");
+				d_fail("gl invalid enum\n");
 				break;
 			case GL_INVALID_VALUE:
-				printf("gl invalid value\n");
+				d_fail("gl invalid value\n");
 				break;
 			case GL_INVALID_OPERATION:
-				printf("gl invalid operation\n");
+				d_fail("gl invalid operation\n");
 				break;
 			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				printf("gl invalid framebuffer operation\n");
+				d_fail("gl invalid framebuffer operation\n");
 				break;
 			case GL_OUT_OF_MEMORY:
-				printf("gl out of memory\n");
+				d_fail("gl out of memory\n");
 				break;
 			case GL_STACK_UNDERFLOW:
-				printf("gl stack underflow\n");
+				d_fail("gl stack underflow\n");
 				break;
 			case GL_STACK_OVERFLOW:
-				printf("gl stack overflow\n");
+				d_fail("gl stack overflow\n");
 				break;
 		}
 
@@ -119,15 +119,15 @@ static void gl_check_errors() {
 
 typedef struct {
 	d_tex default_tex;
-	const d_tex* tex_slots[TEX_SLOTS];
+	const d_tex *tex_slots[TEX_SLOTS];
 	d_font default_font;
-	const d_font* cur_font;
+	const d_font *cur_font;
 	d_shader default_shader;
-	const d_shader* cur_shader;
+	const d_shader *cur_shader;
 	mat4 transform;
 	d_cam default_cam;
-	const d_cam* cur_cam;
-	const d_canvas* cur_canvas;
+	const d_cam *cur_cam;
+	const d_canvas *cur_canvas;
 	mat4 t_stack[T_STACKS];
 	int t_stack_cnt;
 	d_batch batch;
@@ -137,7 +137,7 @@ static d_gfx_t d_gfx;
 
 void d_gfx_init() {
 
-// 	const GLubyte* gl_ver = glGetString(GL_VERSION);
+// 	const GLubyte *gl_ver = glGetString(GL_VERSION);
 // 	printf("%s\n", gl_ver);
 
 	// init gl
@@ -179,6 +179,7 @@ void d_gfx_frame_begin() {
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), NEAR, FAR);
 	d_gfx.cur_cam = &d_gfx.default_cam;
 	d_clear();
+	glViewport(0, 0, d_width(), d_height());
 }
 
 void d_gfx_frame_end() {
@@ -187,9 +188,9 @@ void d_gfx_frame_end() {
 }
 
 d_mesh d_make_mesh(
-	const d_vertex* verts,
+	const d_vertex *verts,
 	int vcount,
-	const d_index* indices,
+	const d_index *indices,
 	int icount
 ) {
 
@@ -217,7 +218,7 @@ d_mesh d_make_mesh(
 
 }
 
-void d_free_mesh(d_mesh* m) {
+void d_free_mesh(d_mesh *m) {
 	glDeleteBuffers(1, &m->vbuf);
 	glDeleteBuffers(1, &m->ibuf);
 	m->vbuf = 0;
@@ -253,7 +254,7 @@ d_batch d_make_batch() {
 
 }
 
-void d_batch_flush(d_batch* m) {
+void d_batch_flush(d_batch *m) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, m->vbuf);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, m->vcount * sizeof(d_vertex), &m->vqueue);
@@ -276,10 +277,10 @@ void d_batch_flush(d_batch* m) {
 }
 
 void d_batch_push(
-	d_batch* m,
-	const d_vertex* verts,
+	d_batch *m,
+	const d_vertex *verts,
 	int vcount,
-	const d_index* indices,
+	const d_index *indices,
 	int icount
 ) {
 
@@ -299,7 +300,7 @@ void d_batch_push(
 
 }
 
-void d_free_batch(d_batch* m) {
+void d_free_batch(d_batch *m) {
 	glDeleteBuffers(1, &m->vbuf);
 	glDeleteBuffers(1, &m->ibuf);
 	m->vbuf = 0;
@@ -313,7 +314,7 @@ d_tex_conf d_default_tex_conf() {
 	};
 }
 
-d_img d_parse_img(const unsigned char* bytes, int size) {
+d_img d_parse_img(const unsigned char *bytes, int size) {
 
 	int w, h;
 	// TODO: stand alone img doesn't need this
@@ -328,22 +329,22 @@ d_img d_parse_img(const unsigned char* bytes, int size) {
 
 }
 
-d_img d_load_img(const char* path) {
+d_img d_load_img(const char *path) {
 
 	int size;
-	unsigned char* bytes = d_fread_b(path, &size);
+	unsigned char *bytes = d_fread_b(path, &size);
 	d_img img = d_parse_img(bytes, size);
 	free(bytes);
 
 	return img;
 }
 
-void d_free_img(d_img* img) {
+void d_free_img(d_img *img) {
 	free(img->data);
 	img->data = NULL;
 }
 
-d_tex d_make_tex_ex(const unsigned char* data, int w, int h, d_tex_conf conf) {
+d_tex d_make_tex_ex(const unsigned char *data, int w, int h, d_tex_conf conf) {
 
 	GLuint tex;
 
@@ -378,19 +379,19 @@ d_tex d_make_tex_ex(const unsigned char* data, int w, int h, d_tex_conf conf) {
 
 }
 
-d_tex d_make_tex(const unsigned char* data, int w, int h) {
+d_tex d_make_tex(const unsigned char *data, int w, int h) {
 	return d_make_tex_ex(data, w, h, d_default_tex_conf());
 }
 
-d_tex d_img_tex_ex(const d_img* img, d_tex_conf conf) {
+d_tex d_img_tex_ex(const d_img *img, d_tex_conf conf) {
 	return d_make_tex_ex(img->data, img->width, img->height, conf);
 }
 
-d_tex d_img_tex(const d_img* img) {
+d_tex d_img_tex(const d_img *img) {
 	return d_img_tex_ex(img, d_default_tex_conf());
 }
 
-d_tex d_parse_tex_ex(const unsigned char* bytes, int size, d_tex_conf conf) {
+d_tex d_parse_tex_ex(const unsigned char *bytes, int size, d_tex_conf conf) {
 
 	d_img img = d_parse_img(bytes, size);
 	d_tex tex = d_img_tex_ex(&img, conf);
@@ -400,11 +401,11 @@ d_tex d_parse_tex_ex(const unsigned char* bytes, int size, d_tex_conf conf) {
 
 }
 
-d_tex d_parse_tex(const unsigned char* bytes, int size) {
+d_tex d_parse_tex(const unsigned char *bytes, int size) {
 	return d_parse_tex_ex(bytes, size, d_default_tex_conf());
 }
 
-d_tex d_load_tex_ex(const char* path, d_tex_conf conf) {
+d_tex d_load_tex_ex(const char *path, d_tex_conf conf) {
 
 	d_img img = d_load_img(path);
 	d_tex tex = d_img_tex_ex(&img, conf);
@@ -413,16 +414,16 @@ d_tex d_load_tex_ex(const char* path, d_tex_conf conf) {
 	return tex;
 }
 
-d_tex d_load_tex(const char* path) {
+d_tex d_load_tex(const char *path) {
 	return d_load_tex_ex(path, d_default_tex_conf());
 }
 
-void d_free_tex(d_tex* t) {
+void d_free_tex(d_tex *t) {
 	glDeleteTextures(1, &t->id);
 	t->id = 0;
 }
 
-d_font d_make_font(d_tex tex, int gw, int gh, const char* chars) {
+d_font d_make_font(d_tex tex, int gw, int gh, const char *chars) {
 
 	d_font f = {0};
 
@@ -449,11 +450,11 @@ d_font d_make_font(d_tex tex, int gw, int gh, const char* chars) {
 
 }
 
-void d_free_font(d_font* f) {
+void d_free_font(d_font *f) {
 	d_free_tex(&f->tex);
 }
 
-d_shader d_make_shader(const char* vs_src, const char* fs_src) {
+d_shader d_make_shader(const char *vs_src, const char *fs_src) {
 
 	if (vs_src == NULL) {
 		vs_src = vert_default;
@@ -463,8 +464,8 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 		fs_src = frag_default;
 	}
 
-	const char* vs_code = strsub(vert_template, "##USER##", vs_src);
-	const char* fs_code = strsub(frag_template, "##USER##", fs_src);
+	const char *vs_code = strsub(vert_template, "##USER##", vs_src);
+	const char *fs_code = strsub(frag_template, "##USER##", fs_src);
 
 	GLchar info_log[512];
 	GLint success = 0;
@@ -529,10 +530,10 @@ d_shader d_make_shader(const char* vs_src, const char* fs_src) {
 
 }
 
-d_shader d_load_shader(const char* vs_path, const char* fs_path) {
+d_shader d_load_shader(const char *vs_path, const char *fs_path) {
 
-	const char* vs_src = d_fread(vs_path, NULL);
-	const char* fs_src = d_fread(fs_path, NULL);
+	const char *vs_src = d_fread(vs_path, NULL);
+	const char *fs_src = d_fread(fs_path, NULL);
 
 	d_shader s = d_make_shader(vs_src, fs_src);
 
@@ -543,7 +544,7 @@ d_shader d_load_shader(const char* vs_path, const char* fs_path) {
 
 }
 
-void d_free_shader(d_shader* p) {
+void d_free_shader(d_shader *p) {
 	glDeleteProgram(p->id);
 	p->id = 0;
 }
@@ -554,7 +555,7 @@ d_canvas d_make_canvas(int w, int h) {
 
 d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 
-	unsigned char* buf = calloc(w * h * 4, sizeof(unsigned char));
+	unsigned char *buf = calloc(w * h * 4, sizeof(unsigned char));
 	d_tex ctex = d_make_tex_ex(buf, w, h, conf);
 	free(buf);
 
@@ -608,12 +609,12 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 }
 
 // TODO
-void d_canvas_capture(const d_canvas* c) {
-	unsigned char* buf = calloc(c->ctex.width * c->ctex.height * 4, sizeof(unsigned char));
+void d_canvas_capture(const d_canvas *c) {
+	unsigned char *buf = calloc(c->ctex.width * c->ctex.height * 4, sizeof(unsigned char));
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
 }
 
-void d_free_canvas(d_canvas* c) {
+void d_free_canvas(d_canvas *c) {
 	glDeleteFramebuffers(1, &c->fbuf);
 	glDeleteTextures(1, &c->dstex);
 	c->fbuf = 0;
@@ -621,27 +622,27 @@ void d_free_canvas(d_canvas* c) {
 	d_free_tex(&c->ctex);
 }
 
-void d_send_f(const char* name, float v) {
+void d_send_f(const char *name, float v) {
 	glUniform1f(glGetUniformLocation(d_gfx.cur_shader->id, name), v);
 }
 
-void d_send_vec2(const char* name, vec2 v) {
+void d_send_vec2(const char *name, vec2 v) {
 	glUniform2f(glGetUniformLocation(d_gfx.cur_shader->id, name), v.x, v.y);
 }
 
-void d_send_vec3(const char* name, vec3 v) {
+void d_send_vec3(const char *name, vec3 v) {
 	glUniform3f(glGetUniformLocation(d_gfx.cur_shader->id, name), v.x, v.y, v.z);
 }
 
-void d_send_color(const char* name, color c) {
+void d_send_color(const char *name, color c) {
 	glUniform4f(glGetUniformLocation(d_gfx.cur_shader->id, name), c.r, c.g, c.b, c.a);
 }
 
-void d_send_mat4(const char* name, mat4 m) {
+void d_send_mat4(const char *name, mat4 m) {
 	glUniformMatrix4fv(glGetUniformLocation(d_gfx.cur_shader->id, name), 1, GL_FALSE, &m.m[0]);
 }
 
-void d_send_tex(const char* name, int idx, const d_tex* tex) {
+void d_send_tex(const char *name, int idx, const d_tex *tex) {
 	if (tex) {
 		glUniform1i(glGetUniformLocation(d_gfx.cur_shader->id, name), idx + 1);
 	}
@@ -766,7 +767,7 @@ void d_rot_z(float a) {
 	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_rot_z(a));
 }
 
-void d_use_cam(const d_cam* cam) {
+void d_use_cam(const d_cam *cam) {
 	if (cam) {
 		d_gfx.cur_cam = cam;
 	} else {
@@ -774,7 +775,7 @@ void d_use_cam(const d_cam* cam) {
 	}
 }
 
-void d_use_shader(const d_shader* shader) {
+void d_use_shader(const d_shader *shader) {
 	d_batch_flush(&d_gfx.batch);
 	if (shader) {
 		d_gfx.cur_shader = shader;
@@ -783,7 +784,7 @@ void d_use_shader(const d_shader* shader) {
 	}
 }
 
-void d_use_font(const d_font* font) {
+void d_use_font(const d_font *font) {
 	if (font) {
 		d_gfx.cur_font = font;
 	} else {
@@ -791,10 +792,16 @@ void d_use_font(const d_font* font) {
 	}
 }
 
-// TODO: set cam / glViewport
-void d_use_canvas(const d_canvas* c) {
+void d_use_canvas(const d_canvas *c) {
 	d_batch_flush(&d_gfx.batch);
 	d_gfx.cur_canvas = c;
+	if (c) {
+		d_gfx.default_cam.proj = mat4_ortho(c->width, c->height, NEAR, FAR);
+		glViewport(0, 0, c->width, c->height);
+	} else {
+		d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), NEAR, FAR);
+		glViewport(0, 0, d_width(), d_height());
+	}
 }
 
 vec2 d_origin_to_pt(d_origin o) {
@@ -870,7 +877,7 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 }
 
 // TODO
-static void d_set_tex(const d_tex* t) {
+static void d_set_tex(const d_tex *t) {
 	if (t) {
 		if (t->id != d_gfx.tex_slots[0]->id) {
 			d_batch_flush(&d_gfx.batch);
@@ -885,11 +892,11 @@ static void d_set_tex(const d_tex* t) {
 }
 
 void d_draw_raw(
-	const d_vertex* verts,
+	const d_vertex *verts,
 	int vcount,
-	const d_index* indices,
+	const d_index *indices,
 	int icount,
-	const d_tex* tex
+	const d_tex *tex
 ) {
 
 	d_vertex tverts[vcount];
@@ -904,12 +911,12 @@ void d_draw_raw(
 
 }
 
-void d_draw_mesh(const d_mesh* mesh) {
+void d_draw_mesh(const d_mesh *mesh) {
 	d_batch_flush(&d_gfx.batch);
 	d_draw(mesh->vbuf, mesh->ibuf, mesh->count);
 }
 
-void d_draw_tex(const d_tex* t, quad q, color c) {
+void d_draw_tex(const d_tex *t, quad q, color c) {
 
 	d_push();
 	d_scale(vec3f(t->width * q.w, t->height * q.h, 1.0));
@@ -957,7 +964,7 @@ void d_draw_tex(const d_tex* t, quad q, color c) {
 
 }
 
-void d_draw_ftext(const d_ftext* ftext) {
+void d_draw_ftext(const d_ftext *ftext) {
 
 	for (int i = 0; i < ftext->len; i++) {
 		d_fchar ch = ftext->chars[i];
@@ -970,14 +977,14 @@ void d_draw_ftext(const d_ftext* ftext) {
 
 }
 
-void d_draw_text(const char* text, float size, d_origin origin, color c) {
+void d_draw_text(const char *text, float size, d_origin origin, color c) {
 
 	d_push();
 
 	int len = strlen(text);
 	float qw = d_gfx.cur_font->qw;
 	float qh = d_gfx.cur_font->qh;
-	const d_tex* tex = &d_gfx.cur_font->tex;
+	const d_tex *tex = &d_gfx.cur_font->tex;
 	float gw = qw * tex->width;
 	float gh = qh * tex->height;
 	float tw = gw * len;
@@ -1001,7 +1008,7 @@ void d_draw_text(const char* text, float size, d_origin origin, color c) {
 
 }
 
-void d_draw_canvas(const d_canvas* canvas, color c) {
+void d_draw_canvas(const d_canvas *canvas, color c) {
 	d_draw_tex(&canvas->ctex, quadu(), c);
 }
 
@@ -1108,10 +1115,10 @@ void d_draw_circle(vec2 p, float r, color c) {
 }
 
 // TODO
-d_ftext d_fmt_text(const char* text, float size, d_origin orig, float wrap, color c) {
+d_ftext d_fmt_text(const char *text, float size, d_origin orig, float wrap, color c) {
 
 	int len = strlen(text);
-	const d_tex* tex = &d_gfx.cur_font->tex;
+	const d_tex *tex = &d_gfx.cur_font->tex;
 	float qw = d_gfx.cur_font->qw;
 	float qh = d_gfx.cur_font->qh;
 	float gh = qh * tex->height;

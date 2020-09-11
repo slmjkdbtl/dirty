@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int strcnt(const char* str, const char* key) {
+int strcnt(const char *str, const char *key) {
 
 	int len = strlen(key);
 	int i = 0;
@@ -22,12 +22,12 @@ int strcnt(const char* str, const char* key) {
 
 }
 
-char* strsub(const char* str, const char* old, const char* new) {
+char* strsub(const char *str, const char *old, const char *new) {
 
 	int old_len = strlen(old);
 	int new_len = strlen(new);
 	int cnt = strcnt(str, old);
-	char* res = malloc(strlen(str) + cnt * (new_len - old_len) + 1);
+	char *res = malloc(strlen(str) + cnt * (new_len - old_len) + 1);
 	int i = 0;
 
 	while (*str) {
@@ -46,7 +46,7 @@ char* strsub(const char* str, const char* old, const char* new) {
 
 }
 
-unsigned long d_hash(const char* str) {
+unsigned long d_hash(const char *str) {
 
 	unsigned int hash = 0;
 
@@ -60,7 +60,7 @@ unsigned long d_hash(const char* str) {
 
 #define FMT_BUFSIZE 256
 
-const char* d_fmt(const char* fmt, ...) {
+const char* d_fmt(const char *fmt, ...) {
 
 	static char buf[FMT_BUFSIZE];
 	va_list args;

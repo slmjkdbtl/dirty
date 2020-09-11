@@ -17,7 +17,7 @@ typedef enum {
 
 typedef struct {
 	SDL_GLContext gl;
-	SDL_Window* window;
+	SDL_Window *window;
 	bool quit;
 	float time;
 	float dt;
@@ -30,7 +30,7 @@ typedef struct {
 	d_btn_state mouse_states[_D_NUM_MOUSE];
 	bool resized;
 	char tinput[32];
-	SDL_Cursor* cursors[_D_NUM_CURSORS];
+	SDL_Cursor *cursors[_D_NUM_CURSORS];
 } d_app_t;
 
 static d_app_t d_app;
@@ -146,7 +146,7 @@ static d_key sdl_key_to_d(SDL_Scancode code) {
 	return D_KEY_NONE;
 }
 
-void d_init(const char* title, int width, int height) {
+void d_init(const char *title, int width, int height) {
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
@@ -311,7 +311,7 @@ void d_quit() {
 	d_app.quit = true;
 }
 
-void d_fail(const char* fmt, ...) {
+void d_fail(const char *fmt, ...) {
 	d_quit();
 	va_list args;
 	va_start(args, fmt);
@@ -365,7 +365,7 @@ bool d_mouse_hidden() {
 	return SDL_ShowCursor(SDL_QUERY);
 }
 
-void d_set_title(const char* title) {
+void d_set_title(const char *title) {
 	SDL_SetWindowTitle(d_app.window, title);
 }
 

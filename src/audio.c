@@ -18,9 +18,9 @@ typedef struct {
 
 static d_audio_t d_audio;
 
-static void stream(void* udata, Uint8* buf, int len) {
+static void stream(void *udata, Uint8 *buf, int len) {
 
-	float* fbuf = (float*)buf;
+	float *fbuf = (float*)buf;
 
 	for (int i = 0; i < SAMPLES; i++) {
 
@@ -28,7 +28,7 @@ static void stream(void* udata, Uint8* buf, int len) {
 
 		for (int j = 0; j < d_audio.ntracks; j++) {
 
-			d_sound_pb* p = &d_audio.tracks[j];
+			d_sound_pb *p = &d_audio.tracks[j];
 
 			if (p->paused || p->done) {
 				continue;
@@ -85,11 +85,11 @@ void d_audio_destroy() {
 	SDL_CloseAudioDevice(d_audio.dev);
 }
 
-d_sound d_parse_sound(const unsigned char* bytes, int size) {
+d_sound d_parse_sound(const unsigned char *bytes, int size) {
 
 	int channels;
 	int sample_rate;
-	short* samples;
+	short *samples;
 	int len = stb_vorbis_decode_memory(bytes, size, &channels, &sample_rate, &samples);
 
 	if (len <= 0) {
@@ -105,10 +105,10 @@ d_sound d_parse_sound(const unsigned char* bytes, int size) {
 
 }
 
-d_sound d_load_sound(const char* path) {
+d_sound d_load_sound(const char *path) {
 
 	int size;
-	unsigned char* bytes = d_fread_b(path, &size);
+	unsigned char *bytes = d_fread_b(path, &size);
 	d_sound snd = d_parse_sound(bytes, size);
 	free(bytes);
 
@@ -116,7 +116,7 @@ d_sound d_load_sound(const char* path) {
 
 }
 
-d_sound_pb* d_play(const d_sound* snd) {
+d_sound_pb* d_play(const d_sound *snd) {
 
 	d_sound_pb src = (d_sound_pb) {
 		.src = snd,
@@ -140,14 +140,14 @@ d_sound_pb* d_play(const d_sound* snd) {
 
 }
 
-void d_free_sound(d_sound* snd) {
+void d_free_sound(d_sound *snd) {
 	free(snd->samples);
 	snd->samples = NULL;
 }
 
-// d_track d_parse_track(const unsigned char* bytes, int size) {
+// d_track d_parse_track(const unsigned char *bytes, int size) {
 
-// 	stb_vorbis* decoder = stb_vorbis_open_memory(bytes, size, NULL, NULL);
+// 	stb_vorbis *decoder = stb_vorbis_open_memory(bytes, size, NULL, NULL);
 
 // 	if (!decoder) {
 // 		fprintf(stderr, "failed to decode audio\n");
@@ -160,10 +160,10 @@ void d_free_sound(d_sound* snd) {
 
 // }
 
-// d_track d_load_track(const char* path) {
+// d_track d_load_track(const char *path) {
 
 // 	int size;
-// 	unsigned char* bytes = d_fread_b(path, &size);
+// 	unsigned char *bytes = d_fread_b(path, &size);
 // 	d_track track = d_parse_track(bytes, size);
 // 	free(bytes);
 
@@ -171,10 +171,10 @@ void d_free_sound(d_sound* snd) {
 
 // }
 
-// void d_track_play(const d_track* t) {
+// void d_track_play(const d_track *t) {
 // }
 
-// void d_free_track(d_track* t) {
+// void d_free_track(d_track *t) {
 // 	stb_vorbis_close(t->decoder);
 // 	t->decoder = NULL;
 // }

@@ -10,15 +10,15 @@
 #import <Foundation/Foundation.h>
 #endif
 
-char* d_fread(const char* path, int* o_size) {
+char* d_fread(const char *path, int *o_size) {
 
-	char* rpath = d_rpath(path);
+	char *rpath = d_rpath(path);
 
 	if (!rpath) {
 		return NULL;
 	}
 
-	FILE* file = fopen(rpath, "r");
+	FILE *file = fopen(rpath, "r");
 
 	if (!file) {
 		return NULL;
@@ -28,7 +28,7 @@ char* d_fread(const char* path, int* o_size) {
 	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	char* buffer = malloc(size + 1);
+	char *buffer = malloc(size + 1);
 	size_t r_size = fread(buffer, 1, size, file);
 
 	buffer[size] = '\0';
@@ -49,15 +49,15 @@ char* d_fread(const char* path, int* o_size) {
 
 }
 
-unsigned char* d_fread_b(const char* path, int* o_size) {
+unsigned char* d_fread_b(const char *path, int *o_size) {
 
-	char* rpath = d_rpath(path);
+	char *rpath = d_rpath(path);
 
 	if (!rpath) {
 		return NULL;
 	}
 
-	FILE* file = fopen(rpath, "rb");
+	FILE *file = fopen(rpath, "rb");
 
 	if (!file) {
 		return NULL;
@@ -67,7 +67,7 @@ unsigned char* d_fread_b(const char* path, int* o_size) {
 	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	unsigned char* buffer = malloc(size);
+	unsigned char *buffer = malloc(size);
 	size_t r_size = fread(buffer, 1, size, file);
 
 	if (r_size != size) {
@@ -86,9 +86,9 @@ unsigned char* d_fread_b(const char* path, int* o_size) {
 
 }
 
-bool d_fexists(const char* path) {
+bool d_fexists(const char *path) {
 
-	char* rpath = d_rpath(path);
+	char *rpath = d_rpath(path);
 	bool exists = rpath != NULL;
 	free(rpath);
 
@@ -96,22 +96,22 @@ bool d_fexists(const char* path) {
 
 }
 
-char* d_rpath(const char* path) {
+char* d_rpath(const char *path) {
 
 	if (!path) {
 		return NULL;
 	}
 
 	if (access(path, F_OK) != -1) {
-		char* cpath = malloc(sizeof(char) * strlen(path));
+		char *cpath = malloc(sizeof(char) * strlen(path));
 		strcpy(cpath, path);
 		return cpath;
 	}
 
 #ifdef __APPLE__
-	NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-	const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
-	char* cpath = malloc(sizeof(char) * (strlen(res_path) + 1 + strlen(path)));
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
+	char *cpath = malloc(sizeof(char) * (strlen(res_path) + 1 + strlen(path)));
 	sprintf(cpath, "%s/%s", res_path, path);
 	[pool drain];
 

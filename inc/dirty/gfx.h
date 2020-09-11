@@ -42,7 +42,7 @@ typedef struct {
 } d_shader;
 
 typedef struct {
-	unsigned char* data;
+	unsigned char *data;
 	int width;
 	int height;
 } d_img;
@@ -97,14 +97,14 @@ typedef struct {
 typedef struct {
 	float width;
 	float height;
-	const d_tex* tex;
+	const d_tex *tex;
 	float scale;
 	int len;
 	d_fchar chars[128];
 } d_ftext;
 
 typedef struct {
-	const char* text;
+	const char *text;
 	color color;
 	vec2 offset;
 } d_textc;

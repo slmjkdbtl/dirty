@@ -9,12 +9,12 @@
 typedef struct {
 	int channels;
 	int sample_rate;
-	short* samples;
+	short *samples;
 	int len;
 } d_sound;
 
 typedef struct {
-	const d_sound* src;
+	const d_sound *src;
 	int pos;
 	bool loop;
 	float volume;

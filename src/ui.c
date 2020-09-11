@@ -12,11 +12,11 @@
 
 typedef struct {
 	d_ui_id id;
-	void* data;
+	void *data;
 } d_widget;
 
 typedef struct {
-	const char* label;
+	const char *label;
 	vec2 pos;
 	float width;
 	float height;
@@ -26,7 +26,7 @@ typedef struct {
 } d_ui_window;
 
 typedef struct {
-	d_ui_window* win;
+	d_ui_window *win;
 	vec2 dpos;
 } d_ui_window_drag;
 
@@ -34,7 +34,7 @@ typedef struct {
 	d_ui_window windows[WINDOW_SLOTS];
 	int window_cnt;
 	d_ui_theme_t theme;
-	d_ui_window* cur_window;
+	d_ui_window *cur_window;
 	d_ui_window_drag window_drag;
 	bool wants_mouse;
 	bool wants_key;
@@ -65,7 +65,7 @@ const d_ui_theme_t* d_ui_theme() {
 	return &d_ui.theme;
 }
 
-static d_ui_window* d_ui_get_window(const char* label, vec2 pos, float w, float h, int flags) {
+static d_ui_window* d_ui_get_window(const char *label, vec2 pos, float w, float h, int flags) {
 
 	for (int i = 0; i < d_ui.window_cnt; i++) {
 		if (d_ui.windows[i].label == label) {
@@ -86,14 +86,14 @@ static d_ui_window* d_ui_get_window(const char* label, vec2 pos, float w, float 
 
 }
 
-void d_ui_begin(const char* label, vec2 pos, float w, float h, int flags) {
+void d_ui_begin(const char *label, vec2 pos, float w, float h, int flags) {
 
 	if (d_ui.cur_window) {
 		d_fail("cannot create window inside window\n");
 	}
 
-	d_ui_window* win = d_ui_get_window(label, pos, w, h, flags);
-	const d_ui_theme_t* t = d_ui_theme();
+	d_ui_window *win = d_ui_get_window(label, pos, w, h, flags);
+	const d_ui_theme_t *t = d_ui_theme();
 	vec2 mpos = d_mouse_pos();
 	float bar_height = t->padding_y * 2.0 + t->text_size;
 
@@ -145,7 +145,7 @@ void d_ui_end() {
 }
 
 // TODO: use actual hashmap
-void* d_ui_widget_data(d_ui_id id, int size, void* init_data) {
+void* d_ui_widget_data(d_ui_id id, int size, void *init_data) {
 
 	if (!d_ui.cur_window) {
 		d_fail("cannot use ui widgets without a ui window\n");
@@ -162,7 +162,7 @@ void* d_ui_widget_data(d_ui_id id, int size, void* init_data) {
 		.data = malloc(size),
 	};
 
-	void* data = d_ui.cur_window->widgets[d_ui.cur_window->widget_cnt - 1].data;
+	void *data = d_ui.cur_window->widgets[d_ui.cur_window->widget_cnt - 1].data;
 
 	memcpy(data, init_data, size);
 
@@ -179,13 +179,13 @@ typedef struct {
 	bool draggin;
 } d_ui_sliderf_t;
 
-float d_ui_sliderf(const char* label, float start, float min, float max) {
+float d_ui_sliderf(const char *label, float start, float min, float max) {
 
 	d_ui_id id = d_hash("sliderf") + d_hash(label);
-	const d_ui_theme_t* t = d_ui_theme();
+	const d_ui_theme_t *t = d_ui_theme();
 	float cw = d_ui_content_width();
 
-	d_ui_sliderf_t* data = d_ui_widget_data(id, sizeof(d_ui_sliderf_t), &(d_ui_sliderf_t) {
+	d_ui_sliderf_t *data = d_ui_widget_data(id, sizeof(d_ui_sliderf_t), &(d_ui_sliderf_t) {
 		.val = start,
 		.draggin = false,
 	});
@@ -235,9 +235,9 @@ float d_ui_sliderf(const char* label, float start, float min, float max) {
 
 }
 
-void d_ui_text(const char* txt) {
+void d_ui_text(const char *txt) {
 
-	const d_ui_theme_t* t = d_ui_theme();
+	const d_ui_theme_t *t = d_ui_theme();
 	d_draw_text(txt, t->text_size, D_TOP_LEFT, t->text_color);
 	d_move_y(-t->text_size - t->padding_y);
 
@@ -247,12 +247,12 @@ typedef struct {
 	bool pressed;
 } d_ui_button_t;
 
-bool d_ui_button(const char* label) {
+bool d_ui_button(const char *label) {
 
 	d_ui_id id = d_hash("button") + d_hash(label);
-	const d_ui_theme_t* t = d_ui_theme();
+	const d_ui_theme_t *t = d_ui_theme();
 
-	d_ui_button_t* data = d_ui_widget_data(id, sizeof(d_ui_button_t), &(d_ui_button_t) {
+	d_ui_button_t *data = d_ui_widget_data(id, sizeof(d_ui_button_t), &(d_ui_button_t) {
 		.pressed = false,
 	});
 
@@ -302,7 +302,7 @@ typedef struct {
 } d_ui_input_t;
 
 void d_ui_sep() {
-	const d_ui_theme_t* t = d_ui_theme();
+	const d_ui_theme_t *t = d_ui_theme();
 	d_move_y(-t->padding_y);
 	d_draw_line(vec2f(0.0, 0.0), vec2f(d_ui_content_width(), 0.0), t->line_width, t->line_color);
 	d_move_y(-t->padding_y);
@@ -312,12 +312,12 @@ void d_ui_space(float y) {
 	d_move_y(-y);
 }
 
-const char* d_ui_input(const char* label) {
+const char* d_ui_input(const char *label) {
 
 	d_ui_id id = d_hash("button") + d_hash(label);
-	const d_ui_theme_t* t = d_ui_theme();
+	const d_ui_theme_t *t = d_ui_theme();
 
-	d_ui_input_t* data = d_ui_widget_data(id, sizeof(d_ui_input_t), &(d_ui_input_t) {
+	d_ui_input_t *data = d_ui_widget_data(id, sizeof(d_ui_input_t), &(d_ui_input_t) {
 		.buf = "",
 		.focused = false,
 	});
@@ -339,7 +339,7 @@ const char* d_ui_input(const char* label) {
 
 	if (data->focused) {
 
-		const char* tinput = d_tinput();
+		const char *tinput = d_tinput();
 
 		if (strlen(tinput) > 0) {
 			strcat(data->buf, tinput);
