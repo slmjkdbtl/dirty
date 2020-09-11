@@ -311,6 +311,10 @@ mat4 mat4f(float m[16]) {
 }
 
 mat4 mat4u() {
+	return mat4_identity();
+}
+
+mat4 mat4_identity() {
 	return (mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,

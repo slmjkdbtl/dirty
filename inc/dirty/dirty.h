@@ -9,6 +9,16 @@
 //   - fs      file system helpers
 //   - ui      immediate mode UI for dev
 //
+// USAGE
+//
+//   1. have SDL2 available for linking
+//   2. build and copy 'libdirty.a' to your link dir
+//   3. copy 'inc/dirty' to your include dir and
+//
+//     #include <dirty/dirty.h>
+//
+//   check out 'demo/*.c' for code examples
+//
 // NAMING SCHEME
 //
 //   d_make_*: create object with raw data
@@ -19,16 +29,6 @@
 //
 //   module-specific naming schemes are written at the top of {mod}.h
 //   function / type names are mostly self explanatory
-//
-// USAGE
-//
-//   1. have SDL2 available for linking
-//   2. build and copy 'libdirty.a' to your link dir
-//   3. copy 'inc/dirty' to your include dir and
-//
-//     #include <dirty/dirty.h>
-//
-//   check out 'demo/*.c' for code examples
 
 #ifndef DIRTY_H
 #define DIRTY_H

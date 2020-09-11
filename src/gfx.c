@@ -2,6 +2,8 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb/stb_image_write.h>
 
 #include <dirty/dirty.h>
 #include "gfx.h"
@@ -314,6 +316,17 @@ d_tex_conf d_default_tex_conf() {
 	};
 }
 
+d_img d_make_img(const unsigned char *pixels, int width, int height) {
+	int size = sizeof(unsigned char) * width * height * 4;
+	unsigned char *data = malloc(size);
+	memcpy(data, pixels, size);
+	return (d_img) {
+		.data = data,
+		.width = width,
+		.height = height,
+	};
+}
+
 d_img d_parse_img(const unsigned char *bytes, int size) {
 
 	int w, h;
@@ -337,6 +350,11 @@ d_img d_load_img(const char *path) {
 	free(bytes);
 
 	return img;
+}
+
+void d_img_write(d_img *img, const char *path) {
+	stbi_flip_vertically_on_write(true);
+	stbi_write_png(path, img->width, img->height, 4, img->data, img->width * 4);
 }
 
 void d_free_img(d_img *img) {
@@ -608,11 +626,17 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 
 }
 
-// TODO
-// d_img d_canvas_capture(const d_canvas *canvas);
-// 	unsigned char *buf = calloc(c->ctex.width * c->ctex.height * 4, sizeof(unsigned char));
-// 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
-// }
+d_img d_canvas_capture(const d_canvas *c) {
+	unsigned char *buf = calloc(c->width * c->height * 4, sizeof(unsigned char));
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, c->ctex.id);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	// TODO: don't copy data here?
+	d_img img = d_make_img(buf, c->width, c->height);
+	free(buf);
+	return img;
+}
 
 void d_free_canvas(d_canvas *c) {
 	glDeleteFramebuffers(1, &c->fbuf);

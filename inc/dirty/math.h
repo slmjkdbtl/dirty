@@ -1,5 +1,10 @@
 // wengwengweng
 
+// math.h
+//
+// *f() create data specifying each value
+// *u() create unit value
+
 #ifndef D_MATH_H
 #define D_MATH_H
 
@@ -110,6 +115,7 @@ const char* color_fmt(color);
 
 mat4 mat4f(float[16]);
 mat4 mat4u();
+mat4 mat4_identity();
 mat4 mat4_mult(mat4, mat4);
 vec4 mat4_mult_vec4(mat4, vec4);
 vec3 mat4_mult_vec3(mat4, vec3);

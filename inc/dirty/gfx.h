@@ -132,6 +132,7 @@ void d_free_mesh(d_mesh *mesh);
 d_img d_make_img(const unsigned char *pixels, int width, int height);
 d_img d_parse_img(const unsigned char *bytes, int size);
 d_img d_load_img(const char *path);
+void d_img_write(d_img *img, const char *path);
 void d_free_img(d_img *img);
 
 // texture

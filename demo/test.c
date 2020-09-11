@@ -23,6 +23,7 @@ static void frame() {
 	d_draw_raw(verts, 3, indices, 3, NULL);
 	d_draw_lrect(vec2f(-200.0, -200.0), vec2f(200.0, 200.0), 5.0, coloru());
 	d_draw_text("hihi", 64.0, D_CENTER, coloru());
+// 	d_draw_canvas(&canvas, coloru());
 
 }
 
@@ -59,7 +60,7 @@ int main() {
 	canvas = d_make_canvas(320, 320);
 	tri = d_make_mesh(verts, 3, indices, 3);
 
-	d_fmt_text("1234567890", 32.0, D_TOP_LEFT, 72.0, WHITE);
+	d_fmt_text("1234567890", 32.0, D_TOP_LEFT, 72.0, coloru());
 
 	d_use_canvas(&canvas);
 	d_draw_mesh(&tri);
