@@ -23,11 +23,15 @@ USAGE
 
     #include <dirty/dirty.h>
 
-  check out 'demo/*.c' for actual use
+  check out 'demo/*.c' for code examples
 
 DOC
 
   see 'inc/dirty/'
+
+    - dirty.h
+
+  then
 
     - app.h
     - gfx.h

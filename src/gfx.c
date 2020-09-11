@@ -532,13 +532,13 @@ d_shader d_make_shader(const char *vs_src, const char *fs_src) {
 
 d_shader d_load_shader(const char *vs_path, const char *fs_path) {
 
-	const char *vs_src = d_fread(vs_path, NULL);
-	const char *fs_src = d_fread(fs_path, NULL);
+	char *vs_src = d_fread(vs_path, NULL);
+	char *fs_src = d_fread(fs_path, NULL);
 
 	d_shader s = d_make_shader(vs_src, fs_src);
 
-	free((void*)vs_src);
-	free((void*)fs_src);
+	free(vs_src);
+	free(fs_src);
 
 	return s;
 
@@ -609,10 +609,10 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 }
 
 // TODO
-void d_canvas_capture(const d_canvas *c) {
-	unsigned char *buf = calloc(c->ctex.width * c->ctex.height * 4, sizeof(unsigned char));
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
-}
+// d_img d_canvas_capture(const d_canvas *canvas);
+// 	unsigned char *buf = calloc(c->ctex.width * c->ctex.height * 4, sizeof(unsigned char));
+// 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
+// }
 
 void d_free_canvas(d_canvas *c) {
 	glDeleteFramebuffers(1, &c->fbuf);

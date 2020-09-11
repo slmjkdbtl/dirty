@@ -109,44 +109,81 @@ typedef enum {
 	_D_NUM_CURSORS,
 } d_cursor;
 
+typedef enum {
+	D_NOVSYNC = (1 << 0),
+	D_FULLSCREEN = (1 << 1),
+	D_RESIZABLE = (1 << 2),
+} d_wflag;
+
 // lifecycle
-void d_init(const char*, int, int);
-void d_run(void (*)());
+
+// init app
+void d_init(const char *title, int width, int height);
+// run main loop
+void d_run(void (*frame)());
+// quit app
 void d_quit();
-void d_fail(const char*, ...);
+// quit with error message
+void d_fail(const char *fmt, ...);
 
 // settings / query
-void d_set_vsync(bool);
-void d_set_fullscreen(bool);
+
+// set window vsync
+void d_set_vsync(bool b);
+// get / set window fullscreen state
 bool d_fullscreen();
-void d_set_mouse_relative(bool);
+void d_set_fullscreen(bool b);
+// get / set mouse relative state
 bool d_mouse_relative();
-void d_set_mouse_hidden(bool);
+void d_set_mouse_relative(bool b);
+// get / set mouse hidden state
 bool d_mouse_hidden();
-void d_set_title(const char*);
+void d_set_mouse_hidden(bool b);
+// get / set window title
 const char* d_title();
-void d_set_cursor(d_cursor);
+void d_set_title(const char *title);
+// set cursor icon
+void d_set_cursor(d_cursor icon);
+// get window width / height
 int d_width();
 int d_height();
 
 // time
+
+// get total run time
 float d_time();
+// get delta time since last frame
 float d_dt();
 
 // input
-bool d_key_pressed(d_key);
-bool d_key_rpressed(d_key);
-bool d_key_released(d_key);
-bool d_key_down(d_key);
-bool d_mouse_pressed(d_mouse);
-bool d_mouse_released(d_mouse);
-bool d_mouse_down(d_mouse);
+
+// check if a key was pressed last frame
+bool d_key_pressed(d_key k);
+// check if a key was pressed on repeat last frame
+bool d_key_rpressed(d_key k);
+// check if a key was released last frame
+bool d_key_released(d_key k);
+// check if a key button is being pressed down
+bool d_key_down(d_key k);
+// check if a mouse button was pressed last frame
+bool d_mouse_pressed(d_mouse m);
+// check if a mouse button was released last frame
+bool d_mouse_released(d_mouse m);
+// check if a mouse button is being pressed down
+bool d_mouse_down(d_mouse m);
+// check if mouse moved last frame
 bool d_mouse_moved();
+// get current mouse position
 vec2 d_mouse_pos();
+// get mouse delta position last frame
 vec2 d_mouse_dpos();
+// check if scroll wheeled last frame
 bool d_scrolled();
+// get the scroll wheel value last frame
 vec2 d_wheel();
+// check if window resized last frame
 bool d_resized();
+// get text input from last frame
 const char* d_tinput();
 
 #endif

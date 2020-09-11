@@ -12,8 +12,6 @@ d_index indices[3];
 
 static void frame() {
 
-	d_set_cursor(D_CURSOR_SIZENESW);
-
 	if (d_key_pressed(D_KEY_F)) {
 		d_set_fullscreen(!d_fullscreen());
 	}

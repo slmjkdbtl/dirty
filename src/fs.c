@@ -6,13 +6,15 @@
 #include <stdio.h>
 #include <dirty/dirty.h>
 
+#include <SDL2/SDL.h>
+
 #ifdef __APPLE__
 #import <Foundation/Foundation.h>
 #endif
 
 char* d_fread(const char *path, int *o_size) {
 
-	char *rpath = d_rpath(path);
+	const char *rpath = d_rpath(path);
 
 	if (!rpath) {
 		return NULL;
@@ -43,7 +45,6 @@ char* d_fread(const char *path, int *o_size) {
 	}
 
 	fclose(file);
-	free(rpath);
 
 	return buffer;
 
@@ -51,7 +52,7 @@ char* d_fread(const char *path, int *o_size) {
 
 unsigned char* d_fread_b(const char *path, int *o_size) {
 
-	char *rpath = d_rpath(path);
+	const char *rpath = d_rpath(path);
 
 	if (!rpath) {
 		return NULL;
@@ -80,7 +81,6 @@ unsigned char* d_fread_b(const char *path, int *o_size) {
 	}
 
 	fclose(file);
-	free(rpath);
 
 	return buffer;
 
@@ -88,42 +88,44 @@ unsigned char* d_fread_b(const char *path, int *o_size) {
 
 bool d_fexists(const char *path) {
 
-	char *rpath = d_rpath(path);
+	const char *rpath = d_rpath(path);
 	bool exists = rpath != NULL;
-	free(rpath);
 
 	return exists;
 
 }
 
-char* d_rpath(const char *path) {
+const char* d_rpath(const char *path) {
 
 	if (!path) {
 		return NULL;
 	}
 
 	if (access(path, F_OK) != -1) {
-		char *cpath = malloc(sizeof(char) * strlen(path));
-		strcpy(cpath, path);
-		return cpath;
+		return path;
 	}
 
 #ifdef __APPLE__
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
-	char *cpath = malloc(sizeof(char) * (strlen(res_path) + 1 + strlen(path)));
-	sprintf(cpath, "%s/%s", res_path, path);
+	const char *cpath = d_fmt("%s/%s", res_path, path);
 	[pool drain];
 
 	if (access(cpath, F_OK) != -1) {
 		return cpath;
 	} else {
-		free(cpath);
 		return NULL;
 	}
 #endif
 
 	return NULL;
 
+}
+
+const char* d_dpath(const char *org, const char *app, const char *path) {
+	char *spath = SDL_GetPrefPath(org, app);
+	const char *dpath = d_fmt("%s%s", spath, path);
+	free(spath);
+	return dpath;
 }
 
