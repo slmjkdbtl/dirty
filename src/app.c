@@ -193,8 +193,6 @@ static void d_frame(void (*f)()) {
 	d_app.mouse_dpos.x = (float)dx;
 	d_app.mouse_dpos.y = -(float)dy;
 
-	d_set_cursor(D_CURSOR_ARROW);
-
 	d_gfx_frame_begin();
 
 	if (f) {

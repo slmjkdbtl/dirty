@@ -130,7 +130,7 @@ void d_ui_begin(const char *label, vec2 pos, float w, float h, int flags) {
 
 	d_push();
 	d_move_xy(vec2f(t->padding_x, -t->padding_y));
-	d_draw_text(win->label, t->text_size, D_TOP_LEFT, t->text_color);
+	d_draw_text(win->label, t->text_size, w, D_TOP_LEFT, t->text_color);
 	d_pop();
 
 	d_move_xy(vec2f(t->padding_x, -bar_height - t->padding_y));
@@ -193,7 +193,7 @@ float d_ui_sliderf(const char *label, float start, float min, float max) {
 	float sw = 12.0;
 	float bh = t->text_size;
 
-	d_draw_text(label, t->text_size, D_TOP_LEFT, t->text_color);
+	d_draw_text(label, t->text_size, cw, D_TOP_LEFT, t->text_color);
 	d_move_y(-t->text_size - t->padding_y);
 
 	vec2 mpos = d_mouse_pos_t();
@@ -238,7 +238,8 @@ float d_ui_sliderf(const char *label, float start, float min, float max) {
 void d_ui_text(const char *txt) {
 
 	const d_ui_theme_t *t = d_ui_theme();
-	d_draw_text(txt, t->text_size, D_TOP_LEFT, t->text_color);
+	float cw = d_ui_content_width();
+	d_draw_text(txt, t->text_size, cw, D_TOP_LEFT, t->text_color);
 	d_move_y(-t->text_size - t->padding_y);
 
 }
@@ -251,6 +252,7 @@ bool d_ui_button(const char *label) {
 
 	d_ui_id id = d_hash_str("button") + d_hash_str(label);
 	const d_ui_theme_t *t = d_ui_theme();
+	float cw = d_ui_content_width();
 
 	d_ui_button_t *data = d_ui_widget_data(id, sizeof(d_ui_button_t), &(d_ui_button_t) {
 		.pressed = false,
@@ -287,7 +289,7 @@ bool d_ui_button(const char *label) {
 
 	d_push();
 	d_move_xy(vec2f(t->padding_y, -t->padding_y));
-	d_draw_text(label, t->text_size, D_TOP_LEFT, tcol);
+	d_draw_text(label, t->text_size, cw, D_TOP_LEFT, tcol);
 	d_pop();
 
 	d_move_y(p2.y - t->padding_y);
@@ -316,17 +318,17 @@ const char* d_ui_input(const char *label) {
 
 	d_ui_id id = d_hash_str("button") + d_hash_str(label);
 	const d_ui_theme_t *t = d_ui_theme();
+	float cw = d_ui_content_width();
 
 	d_ui_input_t *data = d_ui_widget_data(id, sizeof(d_ui_input_t), &(d_ui_input_t) {
 		.buf = "",
 		.focused = false,
 	});
 
-	d_draw_text(label, t->text_size, D_TOP_LEFT, t->text_color);
+	d_draw_text(label, t->text_size, cw, D_TOP_LEFT, t->text_color);
 	d_move_y(-t->padding_y - t->text_size);
 
 	vec2 mpos = d_mouse_pos_t();
-	float cw = d_ui_content_width();
 	float bh = t->text_size + t->padding_y * 2.0;
 	vec2 b1 = vec2f(0.0, 0.0);
 	vec2 b2 = vec2f(cw, -bh);
@@ -353,7 +355,7 @@ const char* d_ui_input(const char *label) {
 
 	d_push();
 	d_move_xy(vec2f(t->padding_y, -t->padding_y));
-	d_draw_text(data->buf, t->text_size, D_TOP_LEFT, t->text_color);
+	d_draw_text(data->buf, t->text_size, cw, D_TOP_LEFT, t->text_color);
 	d_pop();
 
 	d_move_y(b2.y - t->padding_y);

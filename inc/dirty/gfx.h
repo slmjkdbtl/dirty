@@ -101,7 +101,6 @@ typedef unsigned int d_index;
 
 // formated character
 typedef struct {
-	char ch;
 	vec2 pos;
 	color color;
 	quad quad;
@@ -114,7 +113,7 @@ typedef struct {
 	const d_tex *tex;
 	float scale;
 	int len;
-	d_fchar chars[128];
+	d_fchar chars[256];
 } d_ftext;
 
 // text chunk
@@ -187,6 +186,7 @@ void d_stencil_test(bool b);
 
 // get the position of a window coord
 vec2 d_coord(d_origin orig);
+vec2 d_origin_pt(d_origin orig);
 // get current transform
 mat4 d_transform();
 // get mouse position relative to current transform
@@ -223,7 +223,7 @@ void d_use_canvas(const d_canvas *canvas);
 void d_draw_raw(const d_vertex *vertices, int vcount, const d_index *indices, int icount, const d_tex *tex);
 void d_draw_mesh(const d_mesh *mesh);
 void d_draw_tex(const d_tex *tex, quad q, color c);
-void d_draw_text(const char *txt, float size, d_origin orig, color c);
+void d_draw_text(const char *txt, float size, float width, d_origin orig, color c);
 void d_draw_ftext(const d_ftext *ftext);
 void d_draw_canvas(const d_canvas *canvas, color c);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
@@ -232,7 +232,7 @@ void d_draw_line(vec2 p1, vec2 p2, float width, color c);
 void d_draw_circle(vec2 center, float radius, color c);
 
 // misc
-d_ftext d_fmt_text(const char *txt, float size, d_origin orig, float wrap, color c);
+d_ftext d_fmt_text(const char *txt, float size, float width, d_origin orig, color c);
 
 #endif
 

@@ -1,5 +1,7 @@
 // wengwengweng
 
+#include <ctype.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -828,7 +830,7 @@ void d_use_canvas(const d_canvas *c) {
 	}
 }
 
-vec2 d_origin_to_pt(d_origin o) {
+vec2 d_origin_pt(d_origin o) {
 	switch (o) {
 		case D_TOP_LEFT: return vec2f(-0.5, 0.5);
 		case D_TOP: return vec2f(0, 0.5);
@@ -844,7 +846,7 @@ vec2 d_origin_to_pt(d_origin o) {
 }
 
 vec2 d_coord(d_origin o) {
-	vec2 p = d_origin_to_pt(o);
+	vec2 p = d_origin_pt(o);
 	return vec2f(p.x * d_width(), p.y * d_height());
 }
 
@@ -993,43 +995,17 @@ void d_draw_ftext(const d_ftext *ftext) {
 	for (int i = 0; i < ftext->len; i++) {
 		d_fchar ch = ftext->chars[i];
 		d_push();
-		d_scale_xy(vec2f(ftext->scale, ftext->scale));
 		d_move_xy(ch.pos);
+		d_scale_xy(vec2f(ftext->scale, ftext->scale));
 		d_draw_tex(ftext->tex, ch.quad, ch.color);
 		d_pop();
 	}
 
 }
 
-void d_draw_text(const char *text, float size, d_origin origin, color c) {
-
-	d_push();
-
-	int len = strlen(text);
-	float qw = d_gfx.cur_font->qw;
-	float qh = d_gfx.cur_font->qh;
-	const d_tex *tex = &d_gfx.cur_font->tex;
-	float gw = qw * tex->width;
-	float gh = qh * tex->height;
-	float tw = gw * len;
-	float scale = size / gh;
-	vec2 offset = vec2_mult(d_origin_to_pt(origin), vec2f(tw, gh));
-
-	d_scale_xy(vec2f(scale, scale));
-	d_move_xy(vec2_sub(vec2f((gw - tw) / 2.0, 0.0), offset));
-
-	for (int i = 0; i < len; i++) {
-
-		vec2 pos = d_gfx.cur_font->map[(int)text[i]];
-		quad q = quadf(pos.x, pos.y, qw, qh);
-
-		d_draw_tex(tex, q, c);
-		d_move_xy(vec2f(gw, 0.0));
-
-	}
-
-	d_pop();
-
+void d_draw_text(const char *text, float size, float width, d_origin orig, color c) {
+	d_ftext ftext = d_fmt_text(text, size, width, orig, c);
+	d_draw_ftext(&ftext);
 }
 
 void d_draw_canvas(const d_canvas *canvas, color c) {
@@ -1138,55 +1114,94 @@ void d_draw_circle(vec2 p, float r, color c) {
 	// ...
 }
 
-// TODO
-d_ftext d_fmt_text(const char *text, float size, d_origin orig, float wrap, color c) {
+// TODO: support \n
+d_ftext d_fmt_text(const char *text, float size, float width, d_origin orig, color c) {
+
+	d_ftext ftext = {0};
 
 	int len = strlen(text);
 	const d_tex *tex = &d_gfx.cur_font->tex;
 	float qw = d_gfx.cur_font->qw;
 	float qh = d_gfx.cur_font->qh;
-	float gh = qh * tex->height;
-	float scale = size / gh;
+	float scale = size / (qh * tex->height);
 	float gw = qw * tex->width * scale;
-	float tw = 0.0;
-	float th = size;
-	float x = 0.0;
+	float gh = size;
+	int alen = 0;
 
-	d_ftext ftext = {0};
+	vec2 offset = d_origin_pt(orig);
 
-	ftext.tex = tex;
-	ftext.scale = scale;
-	ftext.len = len;
+	float lw = 0.0;
+	float y = 0.0;
+	int last_space = -1;
+	int last_i = 0;
+	int ii = 0;
 
 	for (int i = 0; i < len; i++) {
 
 		char ch = text[i];
 
-		if (ch == '\n' || (wrap != 0.0 && (x + gw) > wrap)) {
-			x = 0.0;
-			th += size;
-		}
-
-		if (ch == '\n') {
+		if (!isprint(ch)) {
 			continue;
 		}
 
-		x += gw;
+		if (ch == ' ') {
+			last_space = i;
+		}
 
-		if (x > tw) {
-			tw = x;
+		lw += gw;
+		alen++;
+
+		bool overflow = (lw + gw) > width;
+		bool last = i == len - 1;
+
+		if (overflow || last) {
+
+			int to = last ? i : (last_space >= 0 ? last_space : i);
+			float ox = 0.5 * gw - (to - last_i + 1) * gw * (offset.x + 0.5);
+			float x = 0.0;
+
+			for (int j = last_i; j <= to; j++) {
+
+				char ch = text[j];
+
+				if (!isprint(ch)) {
+					continue;
+				}
+
+				vec2 qpos = d_gfx.cur_font->map[(int)ch];
+				quad q = quadf(qpos.x, qpos.y, qw, qh);
+
+				ftext.chars[ii++] = (d_fchar) {
+					.pos = vec2f(x + ox, -y),
+					.color = c,
+					.quad = q,
+				};
+
+				x += gw;
+
+			}
+
+			lw = 0.0;
+			last_i = to + 1;
+			i = to;
+			y += gh;
+			last_space = -1;
+
 		}
 
 	}
 
-	vec2 offset = vec2_mult(d_origin_to_pt(orig), vec2f(tw, th));
+	ftext.len = alen;
+	ftext.width = width;
+	ftext.height = y;
+	ftext.tex = tex;
+	ftext.scale = scale;
 
-	for (int i = 0; i < len; i++) {
-		// ...
+	float oy = -0.5 * gh - (offset.y - 0.5) * y;
+
+	for (int i = 0; i < ftext.len; i++) {
+		ftext.chars[i].pos.y += oy;
 	}
-
-	ftext.width = tw;
-	ftext.height = th;
 
 	return ftext;
 

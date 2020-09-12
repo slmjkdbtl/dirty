@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <dirty/dirty.h>
 
 d_mesh tri;
@@ -11,9 +12,11 @@ d_canvas canvas;
 d_vertex verts[3];
 d_index indices[3];
 
+char buf[256];
+
 static void frame() {
 
-	if (d_key_pressed(D_KEY_F)) {
+	if (d_key_down(D_KEY_LMETA) && d_key_pressed(D_KEY_F)) {
 		d_set_fullscreen(!d_fullscreen());
 	}
 
@@ -23,7 +26,7 @@ static void frame() {
 
 	d_draw_raw(verts, 3, indices, 3, NULL);
 	d_draw_lrect(vec2f(-200.0, -200.0), vec2f(200.0, 200.0), 5.0, coloru());
-	d_draw_text("hihi", 64.0, D_CENTER, coloru());
+	d_draw_text("hihi", 64.0, 640.0, D_CENTER, coloru());
 // 	d_draw_canvas(&canvas, coloru());
 
 }
@@ -60,8 +63,6 @@ int main() {
 	tex = d_load_tex("res/acid2.png");
 	canvas = d_make_canvas(320, 320);
 	tri = d_make_mesh(verts, 3, indices, 3);
-
-	d_fmt_text("1234567890", 32.0, D_TOP_LEFT, 72.0, coloru());
 
 	d_use_canvas(&canvas);
 	d_draw_mesh(&tri);
