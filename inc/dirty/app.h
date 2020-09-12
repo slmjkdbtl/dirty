@@ -140,7 +140,7 @@ void d_set_mouse_relative(bool b);
 bool d_mouse_hidden();
 void d_set_mouse_hidden(bool b);
 // get / set window title
-const char* d_title();
+const char *d_title();
 void d_set_title(const char *title);
 // set cursor icon
 void d_set_cursor(d_cursor icon);
@@ -184,7 +184,7 @@ vec2 d_wheel();
 // check if window resized last frame
 bool d_resized();
 // get text input from last frame
-const char* d_tinput();
+const char *d_tinput();
 
 #endif
 

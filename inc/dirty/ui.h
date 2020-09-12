@@ -24,17 +24,17 @@ typedef enum {
 } d_ui_win_flag;
 
 void d_ui_set_theme(d_ui_theme_t);
-const d_ui_theme_t* d_ui_theme();
+const d_ui_theme_t *d_ui_theme();
 
 void d_ui_begin(const char* title, vec2 pos, float w, float h, int flags);
 void d_ui_end();
 
-void* d_ui_widget_data(d_ui_id, int, void*);
+void *d_ui_widget_data(d_ui_id, int, void*);
 float d_ui_content_width();
 
 float d_ui_sliderf(const char*, float, float, float);
 int d_ui_slideri(const char*, int, int, int);
-const char* d_ui_input(const char*);
+const char *d_ui_input(const char*);
 bool d_ui_button(const char*);
 void d_ui_text(const char*);
 void d_ui_sep();

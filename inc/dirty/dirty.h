@@ -26,6 +26,7 @@
 //   d_load_*: create object from file
 //   d_free_*: free object memory
 //   d_*_ex: do something with extra config
+//   d_*_m: the resource returned must be freed
 //
 //   module-specific naming schemes are written at the top of {mod}.h
 //   function / type names are mostly self explanatory

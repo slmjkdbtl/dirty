@@ -12,7 +12,7 @@
 #import <Foundation/Foundation.h>
 #endif
 
-char* d_fread(const char *path, int *o_size) {
+char *d_fread(const char *path, int *o_size) {
 
 	const char *rpath = d_rpath(path);
 
@@ -50,7 +50,7 @@ char* d_fread(const char *path, int *o_size) {
 
 }
 
-unsigned char* d_fread_b(const char *path, int *o_size) {
+unsigned char *d_fread_b(const char *path, int *o_size) {
 
 	const char *rpath = d_rpath(path);
 
@@ -95,7 +95,7 @@ bool d_fexists(const char *path) {
 
 }
 
-const char* d_rpath(const char *path) {
+const char *d_rpath(const char *path) {
 
 	if (!path) {
 		return NULL;
@@ -122,7 +122,7 @@ const char* d_rpath(const char *path) {
 
 }
 
-const char* d_dpath(const char *org, const char *app, const char *path) {
+const char *d_dpath(const char *org, const char *app, const char *path) {
 	char *spath = SDL_GetPrefPath(org, app);
 	const char *dpath = d_fmt("%s%s", spath, path);
 	free(spath);

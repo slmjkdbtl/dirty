@@ -369,7 +369,7 @@ void d_set_title(const char *title) {
 	SDL_SetWindowTitle(d_app.window, title);
 }
 
-const char* d_title() {
+const char *d_title() {
 	return SDL_GetWindowTitle(d_app.window);
 }
 
@@ -434,7 +434,7 @@ vec2 d_wheel() {
 	return d_app.wheel;
 }
 
-const char* d_tinput() {
+const char *d_tinput() {
 	return (const char*)&d_app.tinput;
 }
 

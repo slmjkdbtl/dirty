@@ -31,7 +31,7 @@ typedef struct {
 // sound
 d_sound d_parse_sound(const unsigned char *bytes, int size);
 d_sound d_load_sound(const char *path);
-d_sound_pb* d_play(const d_sound *sound);
+d_sound_pb *d_play(const d_sound *sound);
 void d_free_sound(d_sound *sound);
 
 // d_track d_parse_track(const unsigned char *bytes, int size);

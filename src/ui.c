@@ -61,11 +61,11 @@ void d_ui_set_theme(d_ui_theme_t theme) {
 	d_ui.theme = theme;
 }
 
-const d_ui_theme_t* d_ui_theme() {
+const d_ui_theme_t *d_ui_theme() {
 	return &d_ui.theme;
 }
 
-static d_ui_window* d_ui_get_window(const char *label, vec2 pos, float w, float h, int flags) {
+static d_ui_window *d_ui_get_window(const char *label, vec2 pos, float w, float h, int flags) {
 
 	for (int i = 0; i < d_ui.window_cnt; i++) {
 		if (d_ui.windows[i].label == label) {
@@ -145,7 +145,7 @@ void d_ui_end() {
 }
 
 // TODO: use actual hashmap
-void* d_ui_widget_data(d_ui_id id, int size, void *init_data) {
+void *d_ui_widget_data(d_ui_id id, int size, void *init_data) {
 
 	if (!d_ui.cur_window) {
 		d_fail("cannot use ui widgets without a ui window\n");
@@ -181,7 +181,7 @@ typedef struct {
 
 float d_ui_sliderf(const char *label, float start, float min, float max) {
 
-	d_ui_id id = d_hash("sliderf") + d_hash(label);
+	d_ui_id id = d_hash_str("sliderf") + d_hash_str(label);
 	const d_ui_theme_t *t = d_ui_theme();
 	float cw = d_ui_content_width();
 
@@ -249,7 +249,7 @@ typedef struct {
 
 bool d_ui_button(const char *label) {
 
-	d_ui_id id = d_hash("button") + d_hash(label);
+	d_ui_id id = d_hash_str("button") + d_hash_str(label);
 	const d_ui_theme_t *t = d_ui_theme();
 
 	d_ui_button_t *data = d_ui_widget_data(id, sizeof(d_ui_button_t), &(d_ui_button_t) {
@@ -314,7 +314,7 @@ void d_ui_space(float y) {
 
 const char* d_ui_input(const char *label) {
 
-	d_ui_id id = d_hash("button") + d_hash(label);
+	d_ui_id id = d_hash_str("button") + d_hash_str(label);
 	const d_ui_theme_t *t = d_ui_theme();
 
 	d_ui_input_t *data = d_ui_widget_data(id, sizeof(d_ui_input_t), &(d_ui_input_t) {

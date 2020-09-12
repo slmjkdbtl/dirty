@@ -1181,8 +1181,6 @@ d_ftext d_fmt_text(const char *text, float size, d_origin orig, float wrap, colo
 
 	vec2 offset = vec2_mult(d_origin_to_pt(orig), vec2f(tw, th));
 
-	printf("%s\n", vec2_fmt(offset));
-
 	for (int i = 0; i < len; i++) {
 		// ...
 	}

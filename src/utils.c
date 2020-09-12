@@ -46,7 +46,7 @@ char* strsub(const char *str, const char *old, const char *new) {
 
 }
 
-unsigned long d_hash(const char *str) {
+unsigned long d_hash_str(const char *str) {
 
 	unsigned int hash = 0;
 
@@ -58,18 +58,31 @@ unsigned long d_hash(const char *str) {
 
 }
 
-#define FMT_BUFSIZE 256
+#define TEXT_BUF_SIZE 65536
 
 const char* d_fmt(const char *fmt, ...) {
 
-	static char buf[FMT_BUFSIZE];
+	static char buf[TEXT_BUF_SIZE];
+	static int idx;
+
 	va_list args;
 
 	va_start(args, fmt);
-	vsnprintf(buf, FMT_BUFSIZE, fmt, args);
+	int size = vsnprintf(NULL, 0, fmt, args) + 1;
 	va_end(args);
 
-	return buf;
+	if (idx + size >= TEXT_BUF_SIZE) {
+		idx = 0;
+		memset(buf, 0, TEXT_BUF_SIZE);
+	}
+
+	va_start(args, fmt);
+	vsnprintf(&buf[idx], size, fmt, args);
+	va_end(args);
+
+	idx += size;
+
+	return &buf[idx - size];
 
 }
 

@@ -116,7 +116,7 @@ d_sound d_load_sound(const char *path) {
 
 }
 
-d_sound_pb* d_play(const d_sound *snd) {
+d_sound_pb *d_play(const d_sound *snd) {
 
 	d_sound_pb src = (d_sound_pb) {
 		.src = snd,
