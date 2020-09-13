@@ -26,7 +26,7 @@ static void frame() {
 
 	d_draw_raw(verts, 3, indices, 3, NULL);
 	d_draw_lrect(vec2f(-200.0, -200.0), vec2f(200.0, 200.0), 5.0, coloru());
-	d_draw_text("hihi", 64.0, 640.0, D_CENTER, coloru());
+	d_draw_text("hihi", 64.0, 0.0, D_CENTER, coloru());
 // 	d_draw_canvas(&canvas, coloru());
 
 }

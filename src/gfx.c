@@ -1003,8 +1003,8 @@ void d_draw_ftext(const d_ftext *ftext) {
 
 }
 
-void d_draw_text(const char *text, float size, float width, d_origin orig, color c) {
-	d_ftext ftext = d_fmt_text(text, size, width, orig, c);
+void d_draw_text(const char *text, float size, float wrap, d_origin orig, color c) {
+	d_ftext ftext = d_fmt_text(text, size, wrap, orig, c);
 	d_draw_ftext(&ftext);
 }
 
@@ -1115,7 +1115,7 @@ void d_draw_circle(vec2 p, float r, color c) {
 }
 
 // TODO: support \n
-d_ftext d_fmt_text(const char *text, float size, float width, d_origin orig, color c) {
+d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, color c) {
 
 	d_ftext ftext = {0};
 
@@ -1128,9 +1128,10 @@ d_ftext d_fmt_text(const char *text, float size, float width, d_origin orig, col
 	float gh = size;
 	int alen = 0;
 
-	vec2 offset = d_origin_pt(orig);
+	vec2 offset = d_origin_pt(origin);
 
 	float lw = 0.0;
+	float tw = 0.0;
 	float y = 0.0;
 	int last_space = -1;
 	int last_i = 0;
@@ -1151,13 +1152,14 @@ d_ftext d_fmt_text(const char *text, float size, float width, d_origin orig, col
 		lw += gw;
 		alen++;
 
-		bool overflow = (lw + gw) > width;
+		bool overflow = wrap != 0.0 && (lw + gw) > wrap;
 		bool last = i == len - 1;
 
 		if (overflow || last) {
 
 			int to = last ? i : (last_space >= 0 ? last_space : i);
-			float ox = 0.5 * gw - (to - last_i + 1) * gw * (offset.x + 0.5);
+			float rlw = (to - last_i + 1) * gw;
+			float ox = 0.5 * gw - rlw * (offset.x + 0.5);
 			float x = 0.0;
 
 			for (int j = last_i; j <= to; j++) {
@@ -1181,6 +1183,10 @@ d_ftext d_fmt_text(const char *text, float size, float width, d_origin orig, col
 
 			}
 
+			if (rlw > tw) {
+				tw = rlw;
+			}
+
 			lw = 0.0;
 			last_i = to + 1;
 			i = to;
@@ -1192,10 +1198,13 @@ d_ftext d_fmt_text(const char *text, float size, float width, d_origin orig, col
 	}
 
 	ftext.len = alen;
-	ftext.width = width;
+	ftext.width = wrap != 0.0 ? wrap : tw;
 	ftext.height = y;
 	ftext.tex = tex;
+	ftext.cw = gw;
+	ftext.ch = gh;
 	ftext.scale = scale;
+	ftext.origin = origin;
 
 	float oy = -0.5 * gh - (offset.y - 0.5) * y;
 
@@ -1204,6 +1213,20 @@ d_ftext d_fmt_text(const char *text, float size, float width, d_origin orig, col
 	}
 
 	return ftext;
+
+}
+
+vec2 d_ftext_cpos(const d_ftext *ftext, int cursor) {
+
+	if (ftext->len == 0) {
+		return vec2f(0.0, 0.0);
+	}
+
+	if (cursor == ftext->len) {
+		return vec2_add(d_ftext_cpos(ftext, ftext->len - 1), vec2f(ftext->cw, 0.0));
+	}
+
+	return vec2_add(ftext->chars[cursor].pos, vec2_mult(d_origin_pt(ftext->origin), vec2f(ftext->cw, ftext->ch)));
 
 }
 

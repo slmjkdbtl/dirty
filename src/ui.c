@@ -130,7 +130,7 @@ void d_ui_begin(const char *label, vec2 pos, float w, float h, int flags) {
 
 	d_push();
 	d_move_xy(vec2f(t->padding_x, -t->padding_y));
-	d_draw_text(win->label, t->text_size, w, D_TOP_LEFT, t->text_color);
+	d_draw_text(win->label, t->text_size, 0.0, D_TOP_LEFT, t->text_color);
 	d_pop();
 
 	d_move_xy(vec2f(t->padding_x, -bar_height - t->padding_y));
@@ -347,6 +347,10 @@ const char* d_ui_input(const char *label) {
 			strcat(data->buf, tinput);
 		}
 
+		if (d_key_pressed(D_KEY_BACKSPACE)) {
+			data->buf[strlen(data->buf) - 1] = '\0';
+		}
+
 		d_draw_rect(b1, b2, colorf(1.0, 1.0, 1.0, 0.3));
 
 	}
@@ -355,7 +359,12 @@ const char* d_ui_input(const char *label) {
 
 	d_push();
 	d_move_xy(vec2f(t->padding_y, -t->padding_y));
-	d_draw_text(data->buf, t->text_size, cw, D_TOP_LEFT, t->text_color);
+	d_ftext ftext = d_fmt_text(data->buf, t->text_size, 0.0, D_TOP_LEFT, t->text_color);
+	vec2 cpos = vec2_add(d_ftext_cpos(&ftext, strlen(data->buf)), vec2f(3.0, 0.0));
+	d_draw_ftext(&ftext);
+	if (data->focused) {
+		d_draw_line(cpos, vec2f(cpos.x, cpos.y - t->text_size), t->line_width, t->line_color);
+	}
 	d_pop();
 
 	d_move_y(b2.y - t->padding_y);

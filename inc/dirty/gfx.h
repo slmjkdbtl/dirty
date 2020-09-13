@@ -113,6 +113,9 @@ typedef struct {
 	const d_tex *tex;
 	float scale;
 	int len;
+	float cw;
+	float ch;
+	d_origin origin;
 	d_fchar chars[256];
 } d_ftext;
 
@@ -223,7 +226,7 @@ void d_use_canvas(const d_canvas *canvas);
 void d_draw_raw(const d_vertex *vertices, int vcount, const d_index *indices, int icount, const d_tex *tex);
 void d_draw_mesh(const d_mesh *mesh);
 void d_draw_tex(const d_tex *tex, quad q, color c);
-void d_draw_text(const char *txt, float size, float width, d_origin orig, color c);
+void d_draw_text(const char *txt, float size, float wrap, d_origin orig, color c);
 void d_draw_ftext(const d_ftext *ftext);
 void d_draw_canvas(const d_canvas *canvas, color c);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
@@ -232,7 +235,8 @@ void d_draw_line(vec2 p1, vec2 p2, float width, color c);
 void d_draw_circle(vec2 center, float radius, color c);
 
 // misc
-d_ftext d_fmt_text(const char *txt, float size, float width, d_origin orig, color c);
+d_ftext d_fmt_text(const char *txt, float size, float wrap, d_origin orig, color c);
+vec2 d_ftext_cpos(const d_ftext *ftext, int cursor);
 
 #endif
 
