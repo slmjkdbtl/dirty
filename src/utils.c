@@ -22,7 +22,7 @@ int strcnt(const char *str, const char *key) {
 
 }
 
-char* strsub(const char *str, const char *old, const char *new) {
+char *strsub(const char *str, const char *old, const char *new) {
 
 	int old_len = strlen(old);
 	int new_len = strlen(new);
@@ -60,7 +60,7 @@ unsigned long d_hash_str(const char *str) {
 
 #define FMT_BUFSIZE 256
 
-const char* d_fmt(const char *fmt, ...) {
+const char *d_fmt(const char *fmt, ...) {
 
 	static char buf[FMT_BUFSIZE];
 	va_list args;
@@ -73,7 +73,7 @@ const char* d_fmt(const char *fmt, ...) {
 
 }
 
-char* d_fmt_m(const char *fmt, ...) {
+char *d_fmt_m(const char *fmt, ...) {
 
 	va_list args;
 

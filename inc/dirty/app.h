@@ -88,6 +88,13 @@ typedef enum {
 } d_key;
 
 typedef enum {
+	D_KMOD_ALT,
+	D_KMOD_META,
+	D_KMOD_CTRL,
+	D_KMOD_SHIFT,
+} d_key_mod;
+
+typedef enum {
 	D_MOUSE_NONE,
 	D_MOUSE_LEFT,
 	D_MOUSE_RIGHT,
@@ -115,7 +122,7 @@ typedef enum {
 	D_RESIZABLE = (1 << 2),
 } d_wflag;
 
-// lifecycle
+// LIFECYCLE
 
 // init app
 void d_init(const char *title, int width, int height);
@@ -126,65 +133,53 @@ void d_quit();
 // quit with error message
 void d_fail(const char *fmt, ...);
 
-// settings / query
-
-// set window vsync
+// SETTINGS
 void d_set_vsync(bool b);
-// get / set window fullscreen state
+
 bool d_fullscreen();
 void d_set_fullscreen(bool b);
-// get / set mouse relative state
+
 bool d_mouse_relative();
 void d_set_mouse_relative(bool b);
-// get / set mouse hidden state
+
 bool d_mouse_hidden();
 void d_set_mouse_hidden(bool b);
-// get / set window title
+
 const char *d_title();
 void d_set_title(const char *title);
-// set cursor icon
+
 void d_set_cursor(d_cursor icon);
-// get window width / height
+
 int d_width();
 int d_height();
 
-// time
+// TIME
 
 // get total run time
 float d_time();
 // get delta time since last frame
 float d_dt();
 
-// input
+// INPUT
 
-// check if a key was pressed last frame
+// checking for events processed last frame
 bool d_key_pressed(d_key k);
-// check if a key was pressed on repeat last frame
 bool d_key_rpressed(d_key k);
-// check if a key was released last frame
 bool d_key_released(d_key k);
-// check if a key button is being pressed down
-bool d_key_down(d_key k);
-// check if a mouse button was pressed last frame
 bool d_mouse_pressed(d_mouse m);
-// check if a mouse button was released last frame
 bool d_mouse_released(d_mouse m);
-// check if a mouse button is being pressed down
-bool d_mouse_down(d_mouse m);
-// check if mouse moved last frame
 bool d_mouse_moved();
-// get current mouse position
-vec2 d_mouse_pos();
-// get mouse delta position last frame
-vec2 d_mouse_dpos();
-// check if scroll wheeled last frame
 bool d_scrolled();
-// get the scroll wheel value last frame
 vec2 d_wheel();
-// check if window resized last frame
 bool d_resized();
-// get text input from last frame
 const char *d_tinput();
+
+// querying input state
+bool d_mouse_down(d_mouse m);
+bool d_key_down(d_key k);
+bool d_key_has_mod(d_key_mod kmod);
+vec2 d_mouse_pos();
+vec2 d_mouse_dpos();
 
 #endif
 

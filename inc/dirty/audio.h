@@ -28,9 +28,10 @@ typedef struct {
 // 	stb_vorbis* decoder;
 // } d_track;
 
-// sound
+// SOUND
 d_sound d_parse_sound(const unsigned char *bytes, int size);
 d_sound d_load_sound(const char *path);
+// play a d_sound, returning a handle for control
 d_sound_pb *d_play(const d_sound *sound);
 void d_free_sound(d_sound *sound);
 

@@ -4,23 +4,56 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <dirty/dirty.h>
 
 #include <SDL2/SDL.h>
+#include <dirty/dirty.h>
 
 #ifdef __APPLE__
 #import <Foundation/Foundation.h>
 #endif
 
-char *d_fread(const char *path, int *o_size) {
+static const char *d_rpath(const char *path) {
 
-	const char *rpath = d_rpath(path);
-
-	if (!rpath) {
+	if (!path) {
 		return NULL;
 	}
 
-	FILE *file = fopen(rpath, "r");
+	if (access(path, F_OK) != -1) {
+		return path;
+	}
+
+#ifdef __APPLE__
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
+	const char *cpath = d_fmt("%s/%s", res_path, path);
+	[pool drain];
+
+	if (access(cpath, F_OK) != -1) {
+		return cpath;
+	} else {
+		return NULL;
+	}
+#endif
+
+	return NULL;
+
+}
+
+static const char *d_dpath(const char *path) {
+#if defined(D_ORG_NAME) || defined(D_APP_NAME)
+	char *spath = SDL_GetPrefPath(org, app);
+	const char *dpath = d_fmt("%s%s", spath, path);
+	free(spath);
+	return dpath;
+#else
+	d_fail("must define D_ORG_NAME and D_APP_NAME for data read / write");
+	return NULL;
+#endif
+}
+
+char *d_fread(const char *path, int *o_size) {
+
+	FILE *file = fopen(d_rpath(path), "r");
 
 	if (!file) {
 		return NULL;
@@ -52,13 +85,7 @@ char *d_fread(const char *path, int *o_size) {
 
 unsigned char *d_fread_b(const char *path, int *o_size) {
 
-	const char *rpath = d_rpath(path);
-
-	if (!rpath) {
-		return NULL;
-	}
-
-	FILE *file = fopen(rpath, "rb");
+	FILE *file = fopen(d_rpath(path), "rb");
 
 	if (!file) {
 		return NULL;
@@ -93,39 +120,5 @@ bool d_fexists(const char *path) {
 
 	return exists;
 
-}
-
-const char *d_rpath(const char *path) {
-
-	if (!path) {
-		return NULL;
-	}
-
-	if (access(path, F_OK) != -1) {
-		return path;
-	}
-
-#ifdef __APPLE__
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
-	const char *cpath = d_fmt("%s/%s", res_path, path);
-	[pool drain];
-
-	if (access(cpath, F_OK) != -1) {
-		return cpath;
-	} else {
-		return NULL;
-	}
-#endif
-
-	return NULL;
-
-}
-
-const char *d_dpath(const char *org, const char *app, const char *path) {
-	char *spath = SDL_GetPrefPath(org, app);
-	const char *dpath = d_fmt("%s%s", spath, path);
-	free(spath);
-	return dpath;
 }
 

@@ -388,6 +388,17 @@ bool d_key_down(d_key k) {
 	return d_app.key_states[k] == D_BTN_DOWN || d_app.key_states[k] == D_BTN_PRESSED;
 }
 
+bool d_key_has_mod(d_key_mod kmod) {
+	switch (kmod) {
+		case D_KMOD_ALT: return d_key_down(D_KEY_LALT) || d_key_down(D_KEY_RALT);
+		case D_KMOD_META: return d_key_down(D_KEY_LMETA) || d_key_down(D_KEY_RMETA);
+		case D_KMOD_CTRL: return d_key_down(D_KEY_LCTRL) || d_key_down(D_KEY_RCTRL);
+		case D_KMOD_SHIFT: return d_key_down(D_KEY_LSHIFT) || d_key_down(D_KEY_RSHIFT);
+		default: return false;
+	}
+	return false;
+}
+
 bool d_mouse_pressed(d_mouse k) {
 	return d_app.mouse_states[k] == D_BTN_PRESSED;
 }

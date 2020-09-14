@@ -21,14 +21,13 @@
 //
 // NAMING SCHEME
 //
-//   d_make_*: create object with raw data
-//   d_parse_*: create object by parsing file content
-//   d_load_*: create object from file
-//   d_free_*: free object memory
-//   d_*_ex: do something with extra config
-//   d_*_m: the resource returned must be freed
+//   d_make_*(): create object with raw data
+//   d_parse_*(): create object by parsing file content
+//   d_load_*(): create object from file
+//   d_free_*(): free object memory
+//   d_*_ex(): do something with extra config
+//   d_*_m(): the resource returned must be freed
 //
-//   module-specific naming schemes are written at the top of {mod}.h
 //   function / type names are mostly self explanatory
 
 #ifndef DIRTY_H

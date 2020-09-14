@@ -1123,13 +1123,12 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 	float gh = size;
 	vec2 offset = d_origin_pt(origin);
 
-	int actual_len = 0;
 	float line_width = 0.0;
 	float text_width = 0.0;
 	float cur_y = 0.0;
 	int last_space = -1;
 	int last_i = 0;
-	int ii = 0;
+	int actual_len = 0;
 
 	for (int i = 0; i < len; i++) {
 
@@ -1144,7 +1143,6 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 		}
 
 		line_width += gw;
-		actual_len++;
 
 		bool overflow = wrap != 0.0 && (line_width + gw) > wrap;
 		bool last = i == len - 1;
@@ -1167,7 +1165,7 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 				vec2 qpos = d_gfx.cur_font->map[(int)ch];
 				quad q = quadf(qpos.x, qpos.y, qw, qh);
 
-				ftext.chars[ii++] = (d_fchar) {
+				ftext.chars[actual_len++] = (d_fchar) {
 					.pos = vec2f(x + ox, cur_y),
 					.color = c,
 					.quad = q,
