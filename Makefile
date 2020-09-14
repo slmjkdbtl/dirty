@@ -23,6 +23,10 @@ ifeq ($(TARGET),Web)
 AR := emar
 endif
 
+ifeq ($(TARGET),iOS)
+CC := xcrun -sdk iphoneos clang
+endif
+
 DEMO := tri
 
 SRC_PATH := src
@@ -42,11 +46,16 @@ C_FLAGS += -Wall
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
 
+ifeq ($(TARGET),iOS)
+C_FLAGS += -arch armv7
+C_FLAGS += -arch arm64
+endif
+
 LD_FLAGS += -L $(EXT_LIB_PATH)
-LD_FLAGS += -l iconv
 LD_FLAGS += -l SDL2
 
 ifeq ($(TARGET),MacOS)
+LD_FLAGS += -l iconv
 LD_FLAGS += -framework OpenGL
 LD_FLAGS += -framework Cocoa
 LD_FLAGS += -framework Carbon
@@ -56,6 +65,10 @@ LD_FLAGS += -framework CoreAudio
 LD_FLAGS += -framework AudioToolbox
 LD_FLAGS += -framework Metal
 LD_FLAGS += -framework ForceFeedback
+endif
+
+ifeq ($(TARGET),Web)
+LD_FLAGS += -s USE_SDL=2
 endif
 
 AR_FLAGS += -rc

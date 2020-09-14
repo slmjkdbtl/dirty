@@ -3,8 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
 #include <SDL2/SDL.h>
+
 #include <dirty/dirty.h>
+
+#ifdef D_WEB
+#include <emscripten.h>
+#endif
 
 #include "gfx.h"
 #include "audio.h"
@@ -18,6 +24,7 @@ typedef enum {
 } d_btn_state;
 
 typedef struct {
+	void (*frame_cb)();
 	SDL_GLContext gl;
 	SDL_Window *window;
 	bool quit;
@@ -161,9 +168,9 @@ void d_init(const char *title, int width, int height) {
 		SDL_WINDOW_OPENGL
 	);
 
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
 	SDL_GL_SetSwapInterval(1);
@@ -181,8 +188,10 @@ void d_init(const char *title, int width, int height) {
 
 }
 
-void d_frame() {
+static void d_frame() {
 
+	d_clear();
+	d_app.frame_cb();
 	d_gfx_frame();
 	SDL_GL_SwapWindow(d_app.window);
 
@@ -278,8 +287,27 @@ void d_frame() {
 
 }
 
-bool d_running() {
-	return !d_app.quit;
+void d_run(void (*f)()) {
+
+	if (!f) {
+		d_quit();
+		return;
+	}
+
+	d_app.frame_cb = f;
+
+#ifdef D_WEB
+	emscripten_set_main_loop(d_frame, 0, 0);
+#else
+	while (!d_app.quit) {
+		d_frame();
+	}
+	d_audio_cleanup();
+	SDL_GL_DeleteContext(d_app.gl);
+	SDL_DestroyWindow(d_app.window);
+	SDL_Quit();
+#endif
+
 }
 
 void d_quit() {
@@ -295,13 +323,6 @@ void d_fail(const char *fmt, ...) {
 	fflush(stdout);
 	fflush(stderr);
 	exit(EXIT_FAILURE);
-}
-
-void d_cleanup() {
-	d_audio_cleanup();
-	SDL_GL_DeleteContext(d_app.gl);
-	SDL_DestroyWindow(d_app.window);
-	SDL_Quit();
 }
 
 float d_time() {

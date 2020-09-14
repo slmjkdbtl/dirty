@@ -4,6 +4,7 @@
 #define D_APP_H
 
 #include <stdbool.h>
+
 #include "math.h"
 
 typedef enum {
@@ -126,11 +127,8 @@ typedef enum {
 
 // init app
 void d_init(const char *title, int width, int height);
-// process frame
-void d_frame();
+void d_run(void (*f)());
 void d_quit();
-// if should break loop
-bool d_running();
 // quit with error message
 void d_fail(const char *fmt, ...);
 

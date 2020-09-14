@@ -3,9 +3,6 @@
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
 
-// #define STB_VORBIS_HEADER_ONLY
-// #include <stb/stb_vorbis.c>
-
 // a static sound
 typedef struct {
 	int channels;

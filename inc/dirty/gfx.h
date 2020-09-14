@@ -4,6 +4,7 @@
 #define D_GFX_H
 
 #include <stdbool.h>
+
 #include "app.h"
 #include "math.h"
 #include "gl.h"

@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include <dirty/dirty.h>
+
 #include "ui.h"
 
 #define WIDGET_SLOTS 64

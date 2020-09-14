@@ -8,6 +8,7 @@
 #include <stb/stb_image_write.h>
 
 #include <dirty/dirty.h>
+
 #include "gfx.h"
 #include "utils.h"
 // http://pelulamu.net/unscii/
@@ -68,9 +69,8 @@ static const char* vert_template =
 static const char* frag_template =
 #ifndef GLES
 "#version 120\n"
-#endif
-#ifdef GLES
-"precision mediump float;\n"
+#else
+"precision mediump float;"
 #endif
 "varying vec3 v_pos;"
 "varying vec3 v_normal;"
@@ -603,6 +603,7 @@ d_canvas d_make_canvas(int w, int h) {
 	return d_make_canvas_ex(w, h, d_default_tex_conf());
 }
 
+// TODO: depth stencil texture with GLES
 d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 
 	unsigned char *buf = calloc(w * h * 4, sizeof(unsigned char));
