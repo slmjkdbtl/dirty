@@ -10,21 +10,21 @@
 #if defined(D_MACOS)
 #include <OpenGL/gl.h>
 #elif defined(D_IOS)
+#define GLES
 #include <OpenGLES/ES2/gl.h>
 #elif defined(D_LINUX)
 #include <GL/gl.h>
 #elif defined(D_ANDROID)
+#define GLES
 #include <GLES2/gl2.h>
 #elif defined(D_WINDOWS)
 #include <GL/gl.h>
 #elif defined(D_WEB)
+#define GLES
 #include <GLES2/gl2.h>
 #else
 #error platform not supported.
 #endif
-
-#define STR(str) #str
-#define GLSL(str) (char*)"#version 120\n" #str
 
 #endif
 

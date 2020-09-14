@@ -5,6 +5,8 @@
 #include <math.h>
 #include <dirty/dirty.h>
 
+#define PI 3.14159
+
 vec2 vec2f(float x, float y) {
 	return (vec2) {
 		.x = x,
@@ -555,11 +557,11 @@ quad quadu() {
 }
 
 float degf(float r) {
-    return r * (180.0 / M_PI);
+    return r * (180.0 / PI);
 }
 
 float radf(float d) {
-    return d / (180.0 / M_PI);
+    return d / (180.0 / PI);
 }
 
 float clampf(float v, float low, float hi) {

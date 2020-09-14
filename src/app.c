@@ -1,5 +1,7 @@
 // wengwengweng
 
+#include <stdlib.h>
+#include <string.h>
 #include <stdio.h>
 #include <SDL2/SDL.h>
 #include <dirty/dirty.h>

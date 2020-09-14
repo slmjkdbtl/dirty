@@ -29,7 +29,9 @@ typedef enum {
 	D_REPEAT = GL_REPEAT,
 	D_MIRRORED_REPEAT = GL_MIRRORED_REPEAT,
 	D_CLAMP_TO_EDGE = GL_CLAMP_TO_EDGE,
+#ifndef GLES
 	D_CLAMP_TO_BORDER = GL_CLAMP_TO_BORDER,
+#endif
 } d_tex_wrap;
 
 typedef enum {
@@ -167,7 +169,9 @@ void d_free_shader(d_shader *shader);
 // canvas
 d_canvas d_make_canvas(int width, int height);
 d_canvas d_make_canvas_ex(int, int, d_tex_conf);
+#ifndef GLES
 d_img d_canvas_capture(const d_canvas *canvas);
+#endif
 void d_free_canvas(d_canvas *canvas);
 
 // send uniform values

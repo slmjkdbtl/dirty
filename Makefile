@@ -15,6 +15,14 @@ endif
 CC := clang
 AR := ar
 
+ifeq ($(TARGET),Web)
+CC := emcc
+endif
+
+ifeq ($(TARGET),Web)
+AR := emar
+endif
+
 DEMO := tri
 
 SRC_PATH := src

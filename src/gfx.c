@@ -37,73 +37,70 @@ void d_batch_push(d_batch*, const d_vertex*, int, const d_index*, int);
 void d_batch_flush(d_batch*);
 void d_free_batch(d_batch*);
 
-static const char *vert_template = GLSL(
+static const char* vert_template =
+#ifndef GLES
+"#version 120\n"
+#endif
+"attribute vec3 a_pos;"
+"attribute vec3 a_normal;"
+"attribute vec2 a_uv;"
+"attribute vec4 a_color;"
+"varying vec3 v_pos;"
+"varying vec3 v_normal;"
+"varying vec2 v_uv;"
+"varying vec4 v_color;"
+"uniform mat4 u_model;"
+"uniform mat4 u_view;"
+"uniform mat4 u_proj;"
+"vec4 default_pos() {"
+	"return u_proj * u_view * u_model * vec4(v_pos, 1.0);"
+"}"
+"##USER##"
+"void main() {"
+	"v_pos = a_pos;"
+	"v_uv = a_uv;"
+	"v_color = a_color;"
+	"v_normal = normalize(a_normal);"
+	"gl_Position = vert();"
+"}"
+;
 
-	attribute vec3 a_pos;
-	attribute vec3 a_normal;
-	attribute vec2 a_uv;
-	attribute vec4 a_color;
+static const char* frag_template =
+#ifndef GLES
+"#version 120\n"
+#endif
+#ifdef GLES
+"precision mediump float;\n"
+#endif
+"varying vec3 v_pos;"
+"varying vec3 v_normal;"
+"varying vec2 v_uv;"
+"varying vec4 v_color;"
+"uniform sampler2D u_tex;"
+"uniform vec4 u_color;"
+"vec4 default_color() {"
+	"return v_color * u_color * texture2D(u_tex, v_uv);"
+"}"
+"##USER##"
+"void main() {"
+	"gl_FragColor = frag();"
+	"if (gl_FragColor.a == 0.0) {"
+		"discard;"
+	"}"
+"}"
+;
 
-	varying vec3 v_pos;
-	varying vec3 v_normal;
-	varying vec2 v_uv;
-	varying vec4 v_color;
+static const char* vert_default =
+"vec4 vert() {"
+	"return default_pos();"
+"}"
+;
 
-	uniform mat4 u_model;
-	uniform mat4 u_view;
-	uniform mat4 u_proj;
-
-	vec4 default_pos() {
-		return u_proj * u_view * u_model * vec4(v_pos, 1.0);
-	}
-
-	##USER##
-
-	void main() {
-		v_pos = a_pos;
-		v_uv = a_uv;
-		v_color = a_color;
-		v_normal = normalize(a_normal);
-		gl_Position = vert();
-	}
-
-);
-
-static const char *frag_template = GLSL(
-
-	varying vec3 v_pos;
-	varying vec3 v_normal;
-	varying vec2 v_uv;
-	varying vec4 v_color;
-	uniform sampler2D u_tex;
-	uniform vec4 u_color;
-
-	vec4 default_color() {
-		return v_color * u_color * texture2D(u_tex, v_uv);
-	}
-
-	##USER##
-
-	void main() {
-		gl_FragColor = frag();
-		if (gl_FragColor.a == 0.0) {
-			discard;
-		}
-	}
-
-);
-
-static const char *vert_default = STR(
-	vec4 vert() {
-		return default_pos();
-	}
-);
-
-static const char *frag_default = STR(
-	vec4 frag() {
-		return default_color();
-	}
-);
+static const char* frag_default =
+"vec4 frag() {"
+	"return default_color();"
+"}"
+;
 
 static void gl_check_errors() {
 
@@ -127,12 +124,14 @@ static void gl_check_errors() {
 			case GL_OUT_OF_MEMORY:
 				d_fail("gl out of memory\n");
 				break;
+#ifndef GLES
 			case GL_STACK_UNDERFLOW:
 				d_fail("gl stack underflow\n");
 				break;
 			case GL_STACK_OVERFLOW:
 				d_fail("gl stack overflow\n");
 				break;
+#endif
 		}
 
 		err = glGetError();
@@ -337,7 +336,7 @@ void d_free_batch(d_batch *m) {
 d_tex_conf d_default_tex_conf() {
 	return (d_tex_conf) {
 		.filter = D_NEAREST,
-		.wrap = D_CLAMP_TO_BORDER,
+		.wrap = D_CLAMP_TO_EDGE,
 	};
 }
 
@@ -575,8 +574,16 @@ d_shader d_make_shader(const char *vs_src, const char *fs_src) {
 
 d_shader d_load_shader(const char *vs_path, const char *fs_path) {
 
-	char *vs_src = d_fread(vs_path, NULL);
-	char *fs_src = d_fread(fs_path, NULL);
+	char *vs_src = NULL;
+	char *fs_src = NULL;
+
+	if (vs_path) {
+		vs_src = d_fread(vs_path, NULL);
+	}
+
+	if (fs_path) {
+		fs_src = d_fread(fs_path, NULL);
+	}
 
 	d_shader s = d_make_shader(vs_src, fs_src);
 
@@ -608,6 +615,7 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, dstex);
 
+#ifndef GLES
 	glTexImage2D(
 		GL_TEXTURE_2D,
 		0,
@@ -619,6 +627,7 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 		GL_UNSIGNED_INT_24_8,
 		NULL
 	);
+#endif
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, conf.filter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, conf.filter);
@@ -632,7 +641,9 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fbuf);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ctex.id, 0);
+#ifndef GLES
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, dstex, 0);
+#endif
 	d_clear();
 
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
@@ -651,6 +662,7 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 
 }
 
+#ifndef GLES
 d_img d_canvas_capture(const d_canvas *c) {
 	unsigned char *buf = calloc(c->width * c->height * 4, sizeof(unsigned char));
 	glActiveTexture(GL_TEXTURE0);
@@ -662,6 +674,7 @@ d_img d_canvas_capture(const d_canvas *c) {
 	free(buf);
 	return img;
 }
+#endif
 
 void d_free_canvas(d_canvas *c) {
 	glDeleteFramebuffers(1, &c->fbuf);
