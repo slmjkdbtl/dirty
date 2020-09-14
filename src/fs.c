@@ -8,41 +8,16 @@
 #include <SDL2/SDL.h>
 #include <dirty/dirty.h>
 
-#ifdef __APPLE__
-#import <Foundation/Foundation.h>
-#endif
+// TODO: namings
 
-static const char *d_rpath(const char *path) {
-
-	if (!path) {
-		return NULL;
-	}
-
-	if (access(path, F_OK) != -1) {
-		return path;
-	}
-
-#ifdef __APPLE__
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
-	const char *cpath = d_fmt("%s/%s", res_path, path);
-	[pool drain];
-
-	if (access(cpath, F_OK) != -1) {
-		return cpath;
-	} else {
-		return NULL;
-	}
-#endif
-
-	return NULL;
-
+static char *d_rpath(const char *path) {
+	return d_fmta("%s%s", SDL_GetBasePath(), path);
 }
 
-static const char *d_dpath(const char *path) {
+static char *d_dpath(const char *path) {
 #if defined(D_ORG_NAME) || defined(D_APP_NAME)
 	char *spath = SDL_GetPrefPath(D_ORG_NAME, D_APP_NAME);
-	const char *dpath = d_fmt("%s%s", spath, path);
+	const char *dpath = d_fmta("%s%s", spath, path);
 	free(spath);
 	return dpath;
 #else
@@ -51,11 +26,22 @@ static const char *d_dpath(const char *path) {
 #endif
 }
 
-char *d_fread(const char *path, int *o_size) {
+static bool file_exists(const char *path) {
+	FILE *file = fopen(path, "r");
+	bool exists = false;
+	if (file) {
+		exists = true;
+		fclose(file);
+	}
+	return exists;
+}
 
-	FILE *file = fopen(d_rpath(path), "r");
+static char *read_file(const char *path, int *osize) {
+
+	FILE *file = fopen(path, "r");
 
 	if (!file) {
+		d_fail("failed to read %s\n", path);
 		return NULL;
 	}
 
@@ -73,8 +59,8 @@ char *d_fread(const char *path, int *o_size) {
 		return NULL;
 	}
 
-	if (o_size) {
-		*o_size = size;
+	if (osize) {
+		*osize = size;
 	}
 
 	fclose(file);
@@ -83,11 +69,12 @@ char *d_fread(const char *path, int *o_size) {
 
 }
 
-unsigned char *d_fread_b(const char *path, int *o_size) {
+static unsigned char *read_file_b(const char *path, int *osize) {
 
-	FILE *file = fopen(d_rpath(path), "rb");
+	FILE *file = fopen(path, "rb");
 
 	if (!file) {
+		d_fail("failed to read %s\n", path);
 		return NULL;
 	}
 
@@ -103,8 +90,8 @@ unsigned char *d_fread_b(const char *path, int *o_size) {
 		return NULL;
 	}
 
-	if (o_size) {
-		*o_size = size;
+	if (osize) {
+		*osize = size;
 	}
 
 	fclose(file);
@@ -113,12 +100,73 @@ unsigned char *d_fread_b(const char *path, int *o_size) {
 
 }
 
+// TODO
+static void write_file(const char *path, const char *content) {
+	// ...
+}
+
+// TODO
+static void write_file_b(const char *path, const unsigned char *content) {
+	// ...
+}
+
+char *d_fread(const char *path, int *size) {
+	char *rpath = d_rpath(path);
+	char *data = read_file(rpath, size);
+	free(rpath);
+	return data;
+}
+
+unsigned char *d_fread_b(const char *path, int *size) {
+	char *rpath = d_rpath(path);
+	unsigned char *data = read_file_b(rpath, size);
+	free(rpath);
+	return data;
+}
+
 bool d_fexists(const char *path) {
 
-	const char *rpath = d_rpath(path);
-	bool exists = rpath != NULL;
+	char *rpath = d_rpath(path);
+	bool exists = file_exists(rpath);
+	free(rpath);
 
 	return exists;
 
+}
+
+char *d_data_fread(const char *path, int *size) {
+	char *dpath = d_dpath(path);
+	char *data = read_file(dpath, size);
+	free(dpath);
+	return data;
+}
+
+unsigned char *d_data_fread_b(const char *path, int *size) {
+	char *dpath = d_dpath(path);
+	unsigned char *data = read_file_b(dpath, size);
+	free(dpath);
+	return data;
+}
+
+bool d_data_fexists(const char *path) {
+
+	char *dpath = d_dpath(path);
+	bool exists = file_exists(dpath);
+	free(dpath);
+
+	return exists;
+
+}
+
+void d_data_fwrite(const char *path, const char *content) {
+	char *dpath = d_dpath(path);
+	write_file(dpath, content);
+	free(dpath);
+}
+
+void d_data_fwrite_b(const char *path, const unsigned char *content) {
+	char *dpath = d_dpath(path);
+	write_file_b(dpath, content);
+	free(dpath);
 }
 

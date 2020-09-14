@@ -34,16 +34,11 @@ C_FLAGS += -Wall
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
 
-ifeq ($(TARGET),MacOS)
-C_FLAGS += -ObjC
-endif
-
 LD_FLAGS += -L $(EXT_LIB_PATH)
 LD_FLAGS += -l iconv
 LD_FLAGS += -l SDL2
 
 ifeq ($(TARGET),MacOS)
-LD_FLAGS += -framework CoreFoundation
 LD_FLAGS += -framework OpenGL
 LD_FLAGS += -framework Cocoa
 LD_FLAGS += -framework Carbon
@@ -82,8 +77,7 @@ demos: $(DEMO_TARGETS)
 .PHONY: run
 run: $(BIN_PATH)/$(DEMO)
 	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
-	cd $(BIN_PATH); \
-		./$(DEMO) $(ARGS)
+	./$(BIN_PATH)/$(DEMO) $(ARGS)
 
 $(BIN_PATH)/%: $(DEMO_PATH)/%.c $(LIB_TARGET)
 	@mkdir -p $(BIN_PATH)

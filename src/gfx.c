@@ -755,6 +755,22 @@ void d_stencil_test(bool b) {
 	}
 }
 
+void d_blend_mode(d_blend b) {
+	switch (b) {
+		case D_BLEND_ALPHA:
+			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			break;
+		case D_BLEND_ADD:
+			glBlendFunc(GL_SRC_ALPHA, GL_DST_ALPHA);
+			break;
+		case D_BLEND_REPLACE:
+			glBlendFunc(GL_SRC_ALPHA, GL_ZERO);
+			break;
+		default:
+			break;
+	}
+}
+
 void d_push() {
 
 	if (d_gfx.t_stack_cnt >= T_STACKS) {

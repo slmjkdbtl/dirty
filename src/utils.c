@@ -73,7 +73,7 @@ const char *d_fmt(const char *fmt, ...) {
 
 }
 
-char *d_fmt_m(const char *fmt, ...) {
+char *d_fmta(const char *fmt, ...) {
 
 	va_list args;
 

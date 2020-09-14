@@ -32,6 +32,12 @@ typedef enum {
 	D_CLAMP_TO_BORDER = GL_CLAMP_TO_BORDER,
 } d_tex_wrap;
 
+typedef enum {
+	D_BLEND_ALPHA,
+	D_BLEND_ADD,
+	D_BLEND_REPLACE,
+} d_blend;
+
 // a camera with projection and view matrices
 typedef struct {
 	mat4 view;
@@ -180,12 +186,12 @@ void d_clear_color();
 void d_clear_depth();
 void d_clear_stencil();
 
-// enable / disable depth write / test
+// enable / set OpenGL states
 void d_depth_write(bool b);
 void d_depth_test(bool b);
-// enable / disable stencil write / test
 void d_stencil_write(bool b);
 void d_stencil_test(bool b);
+void d_blend_mode(d_blend b);
 
 // get the position of a window coord
 vec2 d_coord(d_origin orig);
@@ -234,8 +240,9 @@ void d_draw_lrect(vec2 p1, vec2 p2, float width, color c);
 void d_draw_line(vec2 p1, vec2 p2, float width, color c);
 void d_draw_circle(vec2 center, float radius, color c);
 
-// misc
+// format text
 d_ftext d_fmt_text(const char *txt, float size, float wrap, d_origin orig, color c);
+// get cursor position of formatted text
 vec2 d_ftext_cpos(const d_ftext *ftext, int cursor);
 
 #endif
