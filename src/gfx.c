@@ -10,6 +10,7 @@
 #include <dirty/dirty.h>
 #include "gfx.h"
 #include "utils.h"
+// http://pelulamu.net/unscii/
 #include "res/unscii.png.h"
 
 #define T_STACKS 16
@@ -277,6 +278,10 @@ d_batch d_make_batch() {
 }
 
 void d_batch_flush(d_batch *m) {
+
+	if (m->icount == 0 || m->vcount == 0) {
+		return;
+	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, m->vbuf);
 	glBufferSubData(GL_ARRAY_BUFFER, 0, m->vcount * sizeof(d_vertex), &m->vqueue);
@@ -694,26 +699,32 @@ void d_send_tex(const char *name, int idx, const d_tex *tex) {
 }
 
 void d_clear() {
+	d_batch_flush(&d_gfx.batch);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 }
 
 void d_clear_color() {
+	d_batch_flush(&d_gfx.batch);
 	glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void d_clear_depth() {
+	d_batch_flush(&d_gfx.batch);
 	glClear(GL_DEPTH_BUFFER_BIT);
 }
 
 void d_clear_stencil() {
+	d_batch_flush(&d_gfx.batch);
 	glClear(GL_STENCIL_BUFFER_BIT);
 }
 
 void d_depth_write(bool b) {
+	d_batch_flush(&d_gfx.batch);
 	glDepthMask(b);
 }
 
 void d_depth_test(bool b) {
+	d_batch_flush(&d_gfx.batch);
 	if (b) {
 		glEnable(GL_DEPTH_TEST);
 	} else {
@@ -722,16 +733,23 @@ void d_depth_test(bool b) {
 }
 
 void d_stencil_write(bool b) {
+	d_batch_flush(&d_gfx.batch);
 	if (b) {
+		glEnable(GL_STENCIL_TEST);
 		glStencilOp(GL_REPLACE, GL_REPLACE, GL_REPLACE);
+		glStencilFunc(GL_NEVER, 1, 0xff);
 	} else {
+		glDisable(GL_STENCIL_TEST);
 		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 	}
 }
 
 void d_stencil_test(bool b) {
+	d_batch_flush(&d_gfx.batch);
 	if (b) {
 		glEnable(GL_STENCIL_TEST);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+		glStencilFunc(GL_EQUAL, 1, 0xff);
 	} else {
 		glDisable(GL_STENCIL_TEST);
 	}
