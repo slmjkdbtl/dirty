@@ -1,29 +1,30 @@
 # wengwengweng
 
+# setting default targets
 ifeq ($(OS),Windows_NT)
-TARGET := Windows
+TARGET := windows
 endif
 
 ifeq ($(shell uname -s),Darwin)
-TARGET := MacOS
+TARGET := macos
 endif
 
 ifeq ($(shell uname -s),Linux)
-TARGET := Linux
+TARGET := linux
 endif
 
 CC := clang
 AR := ar
 
-ifeq ($(TARGET),Web)
+ifeq ($(TARGET),web)
 CC := emcc
 endif
 
-ifeq ($(TARGET),Web)
+ifeq ($(TARGET),web)
 AR := emar
 endif
 
-ifeq ($(TARGET),iOS)
+ifeq ($(TARGET),ios)
 CC := xcrun -sdk iphoneos clang
 endif
 
@@ -31,13 +32,13 @@ DEMO := tri
 
 SRC_PATH := src
 RES_PATH := src/res
-OBJ_PATH := build/obj
-BIN_PATH := build/bin
-LIB_PATH := build/lib
+OBJ_PATH := build/obj/$(TARGET)
+BIN_PATH := build/bin/$(TARGET)
+LIB_PATH := build/lib/$(TARGET)
 INC_PATH := inc
 DEMO_PATH := demo
 EXT_INC_PATH := ext/inc
-EXT_LIB_PATH := ext/lib
+EXT_LIB_PATH := ext/lib/$(TARGET)
 LIB_TARGET := $(LIB_PATH)/libdirty.a
 
 C_FLAGS += -I $(INC_PATH)
@@ -46,15 +47,17 @@ C_FLAGS += -Wall
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
 
-ifeq ($(TARGET),iOS)
+ifeq ($(TARGET),ios)
 C_FLAGS += -arch armv7
 C_FLAGS += -arch arm64
+# TODO: should be unecessary
+C_FLAGS += -D TARGET_OS_IPHONE
 endif
 
 LD_FLAGS += -L $(EXT_LIB_PATH)
 LD_FLAGS += -l SDL2
 
-ifeq ($(TARGET),MacOS)
+ifeq ($(TARGET),macos)
 LD_FLAGS += -l iconv
 LD_FLAGS += -framework OpenGL
 LD_FLAGS += -framework Cocoa
@@ -67,7 +70,7 @@ LD_FLAGS += -framework Metal
 LD_FLAGS += -framework ForceFeedback
 endif
 
-ifeq ($(TARGET),Web)
+ifeq ($(TARGET),web)
 LD_FLAGS += -s USE_SDL=2
 endif
 
@@ -119,20 +122,6 @@ $(RES_PATH)/%.h: $(RES_PATH)/%
 .PHONY: clean
 clean:
 	rm -rf build
-
-.PHONY: sdl2
-sdl2:
-	mkdir -p $(EXT_INC_PATH)/SDL2
-	cd ext; \
-		curl https://www.libsdl.org/release/SDL2-$(SDL2_VERSION).zip > SDL2-$(SDL2_VERSION).zip; \
-		unzip -o SDL2-$(SDL2_VERSION).zip
-	cd ext/SDL2-$(SDL2_VERSION); \
-		cp inc/*.h ../inc/SDL2/; \
-		./configure; \
-		$(MAKE)
-	cp -r ext/SDL2-$(SDL2_VERSION)/build/.libs/libSDL2.a $(EXT_LIB_PATH)/libSDL2.a
-	rm -rf ext/SDL2-$(SDL2_VERSION)
-	rm -rf ext/SDL2-$(SDL2_VERSION).zip
 
 .PHONY: init
 init:

@@ -11,9 +11,9 @@ BUILD
 
   will create 'libdirty.a' under 'build/lib/'
 
-  $ make run DEMO=*
+  $ make run DEMO=?
 
-  will build and run 'demo/*.c'
+  will build and run 'demo/?.c'
 
 USAGE
 

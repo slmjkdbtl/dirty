@@ -71,7 +71,6 @@ typedef struct {
 	d_tex tex;
 	float qw;
 	float qh;
-	// TODO: support non-ASCII chars
 	vec2 map[128];
 } d_font;
 

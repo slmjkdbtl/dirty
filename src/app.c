@@ -254,7 +254,7 @@ static void d_frame() {
 				d_app.wheel.y = -event.wheel.y;
 				break;
 			case SDL_TEXTINPUT:
-				memcpy(&d_app.tinput, event.text.text, sizeof(event.text.text));
+				strcpy(d_app.tinput, event.text.text);
 				break;
 			case SDL_FINGERDOWN:
 				break;
