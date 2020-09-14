@@ -1014,30 +1014,27 @@ void d_draw_canvas(const d_canvas *canvas, color c) {
 
 void d_draw_rect(vec2 p1, vec2 p2, color c) {
 
-	vec2 pp1 = vec2_min(p1, p2);
-	vec2 pp2 = vec2_max(p1, p2);
-
 	d_vertex verts[] = {
 		{
-			.pos = vec3f(pp1.x, pp1.y, 0.0),
+			.pos = vec3f(p1.x, p1.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(0.0, 0.0),
 			.color = c
 		},
 		{
-			.pos = vec3f(pp1.x, pp2.y, 0.0),
+			.pos = vec3f(p1.x, p2.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(0.0, 1.0),
 			.color = c
 		},
 		{
-			.pos = vec3f(pp2.x, pp2.y, 0.0),
+			.pos = vec3f(p2.x, p2.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(1.0, 1.0),
 			.color = c
 		},
 		{
-			.pos = vec3f(pp2.x, pp1.y, 0.0),
+			.pos = vec3f(p2.x, p1.y, 0.0),
 			.normal = vec3f(0.0, 0.0, 1.0),
 			.uv = vec2f(1.0, 0.0),
 			.color = c
@@ -1055,14 +1052,12 @@ void d_draw_rect(vec2 p1, vec2 p2, color c) {
 
 void d_draw_line(vec2 p1, vec2 p2, float width, color c) {
 
-	vec2 pp1 = vec2_min(p1, p2);
-	vec2 pp2 = vec2_max(p1, p2);
-	vec2 dpos1 = vec2_scale(vec2_unit(vec2_normal(vec2_sub(pp2, pp1))), width / 2.0);
-	vec2 dpos2 = vec2_scale(vec2_unit(vec2_normal(vec2_sub(pp1, pp2))), width / 2.0);
-	vec2 cp1 = vec2_sub(pp1, dpos1);
-	vec2 cp2 = vec2_add(pp1, dpos1);
-	vec2 cp3 = vec2_sub(pp2, dpos2);
-	vec2 cp4 = vec2_add(pp2, dpos2);
+	vec2 dpos1 = vec2_scale(vec2_unit(vec2_normal(vec2_sub(p2, p1))), width / 2.0);
+	vec2 dpos2 = vec2_scale(vec2_unit(vec2_normal(vec2_sub(p1, p2))), width / 2.0);
+	vec2 cp1 = vec2_sub(p1, dpos1);
+	vec2 cp2 = vec2_add(p1, dpos1);
+	vec2 cp3 = vec2_sub(p2, dpos2);
+	vec2 cp4 = vec2_add(p2, dpos2);
 
 	d_vertex verts[] = {
 		{
@@ -1119,20 +1114,19 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 
 	d_ftext ftext = {0};
 
-	int len = strlen(text);
 	const d_tex *tex = &d_gfx.cur_font->tex;
+	int len = strlen(text);
 	float qw = d_gfx.cur_font->qw;
 	float qh = d_gfx.cur_font->qh;
 	float scale = size / (qh * tex->height);
 	float gw = qw * tex->width * scale;
 	float gh = size;
-	int alen = 0;
-
 	vec2 offset = d_origin_pt(origin);
 
-	float lw = 0.0;
-	float tw = 0.0;
-	float y = 0.0;
+	int actual_len = 0;
+	float line_width = 0.0;
+	float text_width = 0.0;
+	float cur_y = 0.0;
 	int last_space = -1;
 	int last_i = 0;
 	int ii = 0;
@@ -1149,10 +1143,10 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 			last_space = i;
 		}
 
-		lw += gw;
-		alen++;
+		line_width += gw;
+		actual_len++;
 
-		bool overflow = wrap != 0.0 && (lw + gw) > wrap;
+		bool overflow = wrap != 0.0 && (line_width + gw) > wrap;
 		bool last = i == len - 1;
 
 		if (overflow || last) {
@@ -1174,7 +1168,7 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 				quad q = quadf(qpos.x, qpos.y, qw, qh);
 
 				ftext.chars[ii++] = (d_fchar) {
-					.pos = vec2f(x + ox, -y),
+					.pos = vec2f(x + ox, cur_y),
 					.color = c,
 					.quad = q,
 				};
@@ -1183,30 +1177,32 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 
 			}
 
-			if (rlw > tw) {
-				tw = rlw;
+			if (rlw > text_width) {
+				text_width = rlw;
 			}
 
-			lw = 0.0;
+			line_width = 0.0;
 			last_i = to + 1;
 			i = to;
-			y += gh;
+			cur_y -= gh;
 			last_space = -1;
 
 		}
 
 	}
 
-	ftext.len = alen;
-	ftext.width = wrap != 0.0 ? wrap : tw;
-	ftext.height = y;
+	int text_height = -cur_y;
+
+	ftext.len = actual_len;
+	ftext.width = wrap != 0.0 ? wrap : text_width;
+	ftext.height = text_height;
 	ftext.tex = tex;
 	ftext.cw = gw;
 	ftext.ch = gh;
 	ftext.scale = scale;
 	ftext.origin = origin;
 
-	float oy = -0.5 * gh - (offset.y - 0.5) * y;
+	float oy = -0.5 * gh - (offset.y - 0.5) * text_height;
 
 	for (int i = 0; i < ftext.len; i++) {
 		ftext.chars[i].pos.y += oy;
