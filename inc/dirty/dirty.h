@@ -9,17 +9,13 @@
 //   - fs      file system helpers
 //   - ui      immediate mode UI for dev
 //
-// USAGE
-//
-//   1. have SDL2 available for linking
-//   2. build and copy 'libdirty.a' to your link dir
-//   3. copy 'inc/dirty' to your include dir and
-//
-//     #include <dirty/dirty.h>
+//   each .h file contains doc for specific modules
 //
 // EXAMPLE
 //
-//   here's a bsic setup:
+//   here's a basic setup:
+//
+//     #include <dirty/dirty.h>
 //
 //     int main() {
 //
@@ -37,7 +33,7 @@
 //
 //   check out 'demo/*.c' for more specific examples
 //
-// NAMING SCHEME
+// GENERAL NAMING
 //
 //   d_make_*(): create object with raw data
 //   d_parse_*(): create object by parsing file content

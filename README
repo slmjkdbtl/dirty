@@ -11,9 +11,9 @@ BUILD
 
   will create 'libdirty.a' under 'build/lib/'
 
-  $ make demos
+  $ make run DEMO=*
 
-  will build all 'demo/*.c' to 'build/bin/'
+  will build and run 'demo/*.c'
 
 USAGE
 
@@ -22,8 +22,6 @@ USAGE
   3. copy 'inc/dirty' to your include dir and
 
     #include <dirty/dirty.h>
-
-  check out 'demo/*.c' for code examples
 
 DOC
 
