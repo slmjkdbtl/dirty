@@ -92,7 +92,7 @@ typedef enum {
 	D_KMOD_META,
 	D_KMOD_CTRL,
 	D_KMOD_SHIFT,
-} d_key_mod;
+} d_kmod;
 
 typedef enum {
 	D_MOUSE_NONE,
@@ -126,10 +126,11 @@ typedef enum {
 
 // init app
 void d_init(const char *title, int width, int height);
-// run main loop
-void d_run(void (*frame)());
-// quit app
+// process frame
+void d_frame();
 void d_quit();
+// if should break loop
+bool d_running();
 // quit with error message
 void d_fail(const char *fmt, ...);
 
@@ -177,7 +178,7 @@ const char *d_tinput();
 // querying input state
 bool d_mouse_down(d_mouse m);
 bool d_key_down(d_key k);
-bool d_key_has_mod(d_key_mod kmod);
+bool d_key_mod(d_kmod kmod);
 vec2 d_mouse_pos();
 vec2 d_mouse_dpos();
 

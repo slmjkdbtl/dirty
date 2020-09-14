@@ -41,7 +41,7 @@ static const char *d_rpath(const char *path) {
 
 static const char *d_dpath(const char *path) {
 #if defined(D_ORG_NAME) || defined(D_APP_NAME)
-	char *spath = SDL_GetPrefPath(org, app);
+	char *spath = SDL_GetPrefPath(D_ORG_NAME, D_APP_NAME);
 	const char *dpath = d_fmt("%s%s", spath, path);
 	free(spath);
 	return dpath;

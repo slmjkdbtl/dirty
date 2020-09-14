@@ -81,7 +81,7 @@ void d_audio_init() {
 
 }
 
-void d_audio_destroy() {
+void d_audio_cleanup() {
 	SDL_CloseAudioDevice(d_audio.dev);
 }
 

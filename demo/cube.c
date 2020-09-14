@@ -2,21 +2,6 @@
 
 #include <dirty/dirty.h>
 
-d_mesh cube;
-
-static void frame() {
-
-	if (d_key_pressed(D_KEY_ESC)) {
-		d_quit();
-	}
-
-	d_rot_x(radf(-45.0));
-	d_rot_y(radf(-45.0));
-	d_scale(vec3f(90.0, 90.0, 90.0));
-	d_draw_mesh(&cube);
-
-}
-
 int main() {
 
 	d_init("cube", 640, 480);
@@ -87,9 +72,24 @@ int main() {
 		3, 6, 7,
 	};
 
-	cube = d_make_mesh(verts, 8, indices, 36);
+	d_mesh cube = d_make_mesh(verts, 8, indices, 36);
 
-	d_run(frame);
+	while (d_running()) {
+
+		d_clear();
+
+		if (d_key_pressed(D_KEY_ESC)) {
+			d_quit();
+		}
+
+		d_rot_x(radf(-45.0));
+		d_rot_y(radf(-45.0));
+		d_scale(vec3f(90.0, 90.0, 90.0));
+		d_draw_mesh(&cube);
+
+		d_frame();
+
+	}
 
 }
 

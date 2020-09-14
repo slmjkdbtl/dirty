@@ -17,7 +17,25 @@
 //
 //     #include <dirty/dirty.h>
 //
-//   check out 'demo/*.c' for code examples
+// EXAMPLE
+//
+//   here's a bsic setup:
+//
+//     int main() {
+//
+//         d_init("hi", 640, 480);
+//
+//         while (d_running()) {
+//
+//             d_clear();
+//             // your main loop
+//             d_frame();
+//
+//         }
+//
+//     }
+//
+//   check out 'demo/*.c' for more specific examples
 //
 // NAMING SCHEME
 //

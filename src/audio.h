@@ -4,7 +4,7 @@
 #define D_AUDIO_INTERNAL_H
 
 void d_audio_init();
-void d_audio_destroy();
+void d_audio_cleanup();
 
 #endif
 

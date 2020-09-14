@@ -17,6 +17,25 @@
 #define NEAR -1024.0
 #define FAR 1024.0
 
+#define BATCH_VERT_COUNT 65536
+#define BATCH_INDEX_COUNT 65536
+
+typedef struct {
+	GLuint vbuf;
+	GLuint ibuf;
+	d_vertex vqueue[BATCH_VERT_COUNT];
+	unsigned int iqueue[BATCH_INDEX_COUNT];
+	int vcount;
+	int icount;
+} d_batch;
+
+void d_draw(GLuint, GLuint, int);
+
+d_batch d_make_batch();
+void d_batch_push(d_batch*, const d_vertex*, int, const d_index*, int);
+void d_batch_flush(d_batch*);
+void d_free_batch(d_batch*);
+
 static const char *vert_template = GLSL(
 
 	attribute vec3 a_pos;
@@ -176,19 +195,18 @@ void d_gfx_init() {
 	// init transform
 	d_gfx.transform = mat4u();
 
+	glViewport(0, 0, d_width(), d_height());
+	gl_check_errors();
+
 }
 
-void d_gfx_frame_begin() {
+void d_gfx_frame() {
+	d_batch_flush(&d_gfx.batch);
+	gl_check_errors();
 	d_gfx.transform = mat4u();
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), NEAR, FAR);
 	d_gfx.cur_cam = &d_gfx.default_cam;
-	d_clear();
 	glViewport(0, 0, d_width(), d_height());
-}
-
-void d_gfx_frame_end() {
-	d_batch_flush(&d_gfx.batch);
-	gl_check_errors();
 }
 
 d_mesh d_make_mesh(

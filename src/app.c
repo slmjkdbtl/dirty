@@ -179,7 +179,88 @@ void d_init(const char *title, int width, int height) {
 
 }
 
-static void d_frame(void (*f)()) {
+void d_frame() {
+
+	d_gfx_frame();
+	SDL_GL_SwapWindow(d_app.window);
+
+	SDL_Event event;
+
+	// time
+	int time = SDL_GetTicks();
+
+	d_app.dt = time / 1000.0 - d_app.time;
+	d_app.time = time / 1000.0;
+
+	// reset input states
+	for (int i = 0; i < _D_NUM_KEYS; i++) {
+		if (d_app.key_states[i] == D_BTN_PRESSED) {
+			d_app.key_states[i] = D_BTN_DOWN;
+		} else if (d_app.key_states[i] == D_BTN_RELEASED) {
+			d_app.key_states[i] = D_BTN_IDLE;
+		}
+	}
+
+	for (int i = 0; i < _D_NUM_MOUSE; i++) {
+		if (d_app.mouse_states[i] == D_BTN_PRESSED) {
+			d_app.mouse_states[i] = D_BTN_DOWN;
+		} else if (d_app.mouse_states[i] == D_BTN_RELEASED) {
+			d_app.mouse_states[i] = D_BTN_IDLE;
+		}
+	}
+
+	d_app.wheel.x = 0.0;
+	d_app.wheel.y = 0.0;
+	d_app.resized = false;
+	memset(d_app.tinput, 0, sizeof(d_app.tinput));
+
+	// deal with inputs
+	while (SDL_PollEvent(&event)) {
+
+		d_key key = sdl_key_to_d(event.key.keysym.scancode);
+		d_mouse mouse = sdl_mouse_to_d(event.button.button);
+
+		switch (event.type) {
+			case SDL_QUIT:
+				d_quit();
+				break;
+			case SDL_KEYDOWN:
+				d_app.key_states[key] = D_BTN_PRESSED;
+				break;
+			case SDL_KEYUP:
+				d_app.key_states[key] = D_BTN_RELEASED;
+				break;
+			case SDL_MOUSEBUTTONDOWN:
+				d_app.mouse_states[mouse] = D_BTN_PRESSED;
+				break;
+			case SDL_MOUSEBUTTONUP:
+				d_app.mouse_states[mouse] = D_BTN_RELEASED;
+				break;
+			case SDL_MOUSEMOTION:
+				break;
+			case SDL_MOUSEWHEEL:
+				d_app.wheel.x = -event.wheel.x;
+				d_app.wheel.y = -event.wheel.y;
+				break;
+			case SDL_TEXTINPUT:
+				memcpy(&d_app.tinput, event.text.text, sizeof(event.text.text));
+				break;
+			case SDL_FINGERDOWN:
+				break;
+			case SDL_FINGERUP:
+				break;
+			case SDL_FINGERMOTION:
+				break;
+			case SDL_WINDOWEVENT:
+				switch (event.window.event) {
+					case SDL_WINDOWEVENT_RESIZED:
+						d_app.resized = true;
+						break;
+				}
+				break;
+		}
+
+	}
 
 	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 
@@ -193,116 +274,10 @@ static void d_frame(void (*f)()) {
 	d_app.mouse_dpos.x = (float)dx;
 	d_app.mouse_dpos.y = -(float)dy;
 
-	d_gfx_frame_begin();
-
-	if (f) {
-		f();
-	}
-
-	d_gfx_frame_end();
-	SDL_GL_SwapWindow(d_app.window);
-
 }
 
-void d_run(void (*f)()) {
-
-	if (!f) {
-		d_fail("invalid run func\n");
-	}
-
-	// draw at first frame
-	d_frame(f);
-
-	SDL_Event event;
-
-	while (!d_app.quit) {
-
-		// time
-		int time = SDL_GetTicks();
-
-		d_app.dt = time / 1000.0 - d_app.time;
-		d_app.time = time / 1000.0;
-
-		// reset input states
-		for (int i = 0; i < _D_NUM_KEYS; i++) {
-			if (d_app.key_states[i] == D_BTN_PRESSED) {
-				d_app.key_states[i] = D_BTN_DOWN;
-			} else if (d_app.key_states[i] == D_BTN_RELEASED) {
-				d_app.key_states[i] = D_BTN_IDLE;
-			}
-		}
-
-		for (int i = 0; i < _D_NUM_MOUSE; i++) {
-			if (d_app.mouse_states[i] == D_BTN_PRESSED) {
-				d_app.mouse_states[i] = D_BTN_DOWN;
-			} else if (d_app.mouse_states[i] == D_BTN_RELEASED) {
-				d_app.mouse_states[i] = D_BTN_IDLE;
-			}
-		}
-
-		d_app.wheel.x = 0.0;
-		d_app.wheel.y = 0.0;
-		d_app.resized = false;
-		memset(d_app.tinput, 0, sizeof(d_app.tinput));
-
-		// deal with inputs
-		while (SDL_PollEvent(&event)) {
-
-			d_key key = sdl_key_to_d(event.key.keysym.scancode);
-			d_mouse mouse = sdl_mouse_to_d(event.button.button);
-
-			switch (event.type) {
-				case SDL_QUIT:
-					d_quit();
-					break;
-				case SDL_KEYDOWN:
-					d_app.key_states[key] = D_BTN_PRESSED;
-					break;
-				case SDL_KEYUP:
-					d_app.key_states[key] = D_BTN_RELEASED;
-					break;
-				case SDL_MOUSEBUTTONDOWN:
-					d_app.mouse_states[mouse] = D_BTN_PRESSED;
-					break;
-				case SDL_MOUSEBUTTONUP:
-					d_app.mouse_states[mouse] = D_BTN_RELEASED;
-					break;
-				case SDL_MOUSEMOTION:
-					break;
-				case SDL_MOUSEWHEEL:
-					d_app.wheel.x = -event.wheel.x;
-					d_app.wheel.y = -event.wheel.y;
-					break;
-				case SDL_TEXTINPUT:
-					memcpy(&d_app.tinput, event.text.text, sizeof(event.text.text));
-					break;
-				case SDL_FINGERDOWN:
-					break;
-				case SDL_FINGERUP:
-					break;
-				case SDL_FINGERMOTION:
-					break;
-				case SDL_WINDOWEVENT:
-					switch (event.window.event) {
-						case SDL_WINDOWEVENT_RESIZED:
-							d_app.resized = true;
-							break;
-					}
-					break;
-			}
-
-		}
-
-		// process frame
-		d_frame(f);
-
-	}
-
-	d_audio_destroy();
-	SDL_GL_DeleteContext(d_app.gl);
-	SDL_DestroyWindow(d_app.window);
-	SDL_Quit();
-
+bool d_running() {
+	return !d_app.quit;
 }
 
 void d_quit() {
@@ -316,6 +291,13 @@ void d_fail(const char *fmt, ...) {
 	vfprintf(stderr, fmt, args);
 	va_end(args);
 	exit(EXIT_FAILURE);
+}
+
+void d_cleanup() {
+	d_audio_cleanup();
+	SDL_GL_DeleteContext(d_app.gl);
+	SDL_DestroyWindow(d_app.window);
+	SDL_Quit();
 }
 
 float d_time() {
@@ -388,7 +370,7 @@ bool d_key_down(d_key k) {
 	return d_app.key_states[k] == D_BTN_DOWN || d_app.key_states[k] == D_BTN_PRESSED;
 }
 
-bool d_key_has_mod(d_key_mod kmod) {
+bool d_key_mod(d_kmod kmod) {
 	switch (kmod) {
 		case D_KMOD_ALT: return d_key_down(D_KEY_LALT) || d_key_down(D_KEY_RALT);
 		case D_KMOD_META: return d_key_down(D_KEY_LMETA) || d_key_down(D_KEY_RMETA);
