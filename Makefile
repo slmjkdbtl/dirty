@@ -31,7 +31,6 @@ endif
 DEMO := tri
 
 SRC_PATH := src
-RES_PATH := src/res
 OBJ_PATH := build/obj/$(TARGET)
 BIN_PATH := build/bin/$(TARGET)
 LIB_PATH := build/lib/$(TARGET)
@@ -76,9 +75,6 @@ endif
 
 AR_FLAGS += -rc
 
-RES_FILES := $(wildcard $(RES_PATH)/*.png)
-RES_H_FILES := $(patsubst $(RES_PATH)/%, $(RES_PATH)/%.h, $(RES_FILES))
-
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))
 
@@ -90,9 +86,6 @@ SDL2_VERSION := 2.0.12
 
 .PHONY: lib
 lib: $(LIB_TARGET)
-
-.PHONY: res
-res: $(RES_H_FILES)
 
 .PHONY: demos
 demos: $(DEMO_TARGETS)
@@ -115,9 +108,10 @@ $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
 	@mkdir -p $(OBJ_PATH)
 	$(CC) $(C_FLAGS) -c $< -o $@
 
-$(RES_PATH)/%.h: $(RES_PATH)/%
-	cd $(RES_PATH); \
-		xxd -i $(notdir $^) > $(notdir $@)
+.PHONY: res
+res:
+	rm -rf src/res
+	sh cres.sh res src/res
 
 .PHONY: clean
 clean:
