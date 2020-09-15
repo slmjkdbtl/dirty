@@ -37,7 +37,7 @@ static bool file_exists(const char *path) {
 	return exists;
 }
 
-static char *read_file(const char *path, int *osize) {
+static char *read_text(const char *path) {
 
 	FILE *file = fopen(path, "r");
 
@@ -60,17 +60,13 @@ static char *read_file(const char *path, int *osize) {
 		return NULL;
 	}
 
-	if (osize) {
-		*osize = size;
-	}
-
 	fclose(file);
 
 	return buffer;
 
 }
 
-static unsigned char *read_file_b(const char *path, int *osize) {
+static unsigned char *read_bytes(const char *path, int *osize) {
 
 	FILE *file = fopen(path, "rb");
 
@@ -102,72 +98,66 @@ static unsigned char *read_file_b(const char *path, int *osize) {
 }
 
 // TODO
-static void write_file(const char *path, const char *content) {
+static void write_text(const char *path, const char *content) {
 	// ...
 }
 
 // TODO
-static void write_file_b(const char *path, const unsigned char *content) {
+static void write_bytes(const char *path, const unsigned char *content) {
 	// ...
 }
 
-char *d_fread(const char *path, int *size) {
+char *d_read_text(const char *path) {
 	char *rpath = d_rpath(path);
-	char *data = read_file(rpath, size);
+	char *content = read_text(rpath);
+	free(rpath);
+	return content;
+}
+
+unsigned char *d_read_bytes(const char *path, int *size) {
+	char *rpath = d_rpath(path);
+	unsigned char *data = read_bytes(rpath, size);
 	free(rpath);
 	return data;
 }
 
-unsigned char *d_fread_b(const char *path, int *size) {
-	char *rpath = d_rpath(path);
-	unsigned char *data = read_file_b(rpath, size);
-	free(rpath);
-	return data;
-}
-
-bool d_fexists(const char *path) {
-
+bool d_exists(const char *path) {
 	char *rpath = d_rpath(path);
 	bool exists = file_exists(rpath);
 	free(rpath);
-
 	return exists;
-
 }
 
-char *d_data_fread(const char *path, int *size) {
+char *d_data_read_text(const char *path) {
 	char *dpath = d_dpath(path);
-	char *data = read_file(dpath, size);
+	char *data = read_text(dpath);
 	free(dpath);
 	return data;
 }
 
-unsigned char *d_data_fread_b(const char *path, int *size) {
+unsigned char *d_data_read_bytes(const char *path, int *size) {
 	char *dpath = d_dpath(path);
-	unsigned char *data = read_file_b(dpath, size);
+	unsigned char *data = read_bytes(dpath, size);
 	free(dpath);
 	return data;
 }
 
-bool d_data_fexists(const char *path) {
-
+bool d_data_exists(const char *path) {
 	char *dpath = d_dpath(path);
 	bool exists = file_exists(dpath);
 	free(dpath);
-
 	return exists;
-
 }
 
-void d_data_fwrite(const char *path, const char *content) {
+void d_data_write_text(const char *path, const char *content) {
 	char *dpath = d_dpath(path);
-	write_file(dpath, content);
+	write_text(dpath, content);
 	free(dpath);
 }
 
-void d_data_fwrite_b(const char *path, const unsigned char *content) {
+void d_data_write_bytes(const char *path, const unsigned char *content) {
 	char *dpath = d_dpath(path);
-	write_file_b(dpath, content);
+	write_bytes(dpath, content);
 	free(dpath);
 }
 

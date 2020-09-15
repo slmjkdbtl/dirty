@@ -108,7 +108,7 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 d_sound d_load_sound(const char *path) {
 
 	int size;
-	unsigned char *bytes = d_fread_b(path, &size);
+	unsigned char *bytes = d_read_bytes(path, &size);
 	d_sound snd = d_parse_sound(bytes, size);
 	free(bytes);
 
@@ -163,7 +163,7 @@ void d_free_sound(d_sound *snd) {
 // d_track d_load_track(const char *path) {
 
 // 	int size;
-// 	unsigned char *bytes = d_fread_b(path, &size);
+// 	unsigned char *bytes = d_read_bytes(path, &size);
 // 	d_track track = d_parse_track(bytes, size);
 // 	free(bytes);
 

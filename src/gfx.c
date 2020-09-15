@@ -369,7 +369,7 @@ d_img d_parse_img(const unsigned char *bytes, int size) {
 d_img d_load_img(const char *path) {
 
 	int size;
-	unsigned char *bytes = d_fread_b(path, &size);
+	unsigned char *bytes = d_read_bytes(path, &size);
 	d_img img = d_parse_img(bytes, size);
 	free(bytes);
 
@@ -578,11 +578,11 @@ d_shader d_load_shader(const char *vs_path, const char *fs_path) {
 	char *fs_src = NULL;
 
 	if (vs_path) {
-		vs_src = d_fread(vs_path, NULL);
+		vs_src = d_read_text(vs_path);
 	}
 
 	if (fs_path) {
-		fs_src = d_fread(fs_path, NULL);
+		fs_src = d_read_text(fs_path);
 	}
 
 	d_shader s = d_make_shader(vs_src, fs_src);
