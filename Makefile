@@ -117,11 +117,3 @@ res:
 clean:
 	rm -rf build
 
-.PHONY: init
-init:
-	git submodule update --init --recursive
-
-.PHONY: update
-update:
-	git submodule foreach git pull origin master
-
