@@ -40,6 +40,7 @@ void d_free_sound(d_sound *sound);
 // SYNTH
 void d_synth_play(int note);
 void d_synth_release(int note);
+d_envelope *d_synth_envelope();
 
 #endif
 

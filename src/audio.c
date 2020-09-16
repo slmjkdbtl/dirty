@@ -175,7 +175,7 @@ d_synth d_make_synth(int rate) {
 
 void d_synth_play(int note) {
 	if (note < 0 || note >= D_SYNTH_NOTES) {
-		d_fail("note out of bound\n");
+		d_fail("note out of bound: '%d'\n", note);
 	}
 	d_audio.synth.notes[note].active = true;
 	d_audio.synth.notes[note].life = 1.0;
@@ -183,7 +183,7 @@ void d_synth_play(int note) {
 
 void d_synth_release(int note) {
 	if (note < 0 || note >= D_SYNTH_NOTES) {
-		d_fail("note out of bound\n");
+		d_fail("note out of bound: '%d'\n", note);
 	}
 	d_audio.synth.notes[note].active = false;
 }
@@ -215,5 +215,9 @@ float d_synth_next() {
 
 	return frame;
 
+}
+
+d_envelope *d_synth_envelope() {
+	return &d_audio.synth.envelope;
 }
 

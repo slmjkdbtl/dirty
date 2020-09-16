@@ -561,29 +561,43 @@ void d_free_canvas(d_canvas *c) {
 	d_free_tex(&c->ctex);
 }
 
+GLint d_uniform_loc(const char *name) {
+	GLint loc = glGetUniformLocation(d_gfx.cur_shader->id, name);
+	if (loc == -1) {
+		d_fail("uniform not found: '%s'\n", name);
+	}
+	return loc;
+}
+
 void d_send_f(const char *name, float v) {
-	glUniform1f(glGetUniformLocation(d_gfx.cur_shader->id, name), v);
+	glUseProgram(d_gfx.cur_shader->id);
+	glUniform1f(d_uniform_loc(name), v);
 }
 
 void d_send_vec2(const char *name, vec2 v) {
-	glUniform2f(glGetUniformLocation(d_gfx.cur_shader->id, name), v.x, v.y);
+	glUseProgram(d_gfx.cur_shader->id);
+	glUniform2f(d_uniform_loc(name), v.x, v.y);
 }
 
 void d_send_vec3(const char *name, vec3 v) {
-	glUniform3f(glGetUniformLocation(d_gfx.cur_shader->id, name), v.x, v.y, v.z);
+	glUseProgram(d_gfx.cur_shader->id);
+	glUniform3f(d_uniform_loc(name), v.x, v.y, v.z);
 }
 
 void d_send_color(const char *name, color c) {
-	glUniform4f(glGetUniformLocation(d_gfx.cur_shader->id, name), c.r, c.g, c.b, c.a);
+	glUseProgram(d_gfx.cur_shader->id);
+	glUniform4f(d_uniform_loc(name), c.r, c.g, c.b, c.a);
 }
 
 void d_send_mat4(const char *name, mat4 m) {
-	glUniformMatrix4fv(glGetUniformLocation(d_gfx.cur_shader->id, name), 1, GL_FALSE, &m.m[0]);
+	glUseProgram(d_gfx.cur_shader->id);
+	glUniformMatrix4fv(d_uniform_loc(name), 1, GL_FALSE, &m.m[0]);
 }
 
 void d_send_tex(const char *name, int idx, const d_tex *tex) {
+	glUseProgram(d_gfx.cur_shader->id);
 	if (tex) {
-		glUniform1i(glGetUniformLocation(d_gfx.cur_shader->id, name), idx + 1);
+		glUniform1i(d_uniform_loc(name), idx + 1);
 	}
 	d_gfx.tex_slots[idx + 1] = tex;
 }

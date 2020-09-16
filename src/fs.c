@@ -42,7 +42,7 @@ static char *read_text(const char *path) {
 	FILE *file = fopen(path, "r");
 
 	if (!file) {
-		d_fail("failed to read %s\n", path);
+		d_fail("failed to read: '%s'\n", path);
 		return NULL;
 	}
 
@@ -71,7 +71,7 @@ static unsigned char *read_bytes(const char *path, int *osize) {
 	FILE *file = fopen(path, "rb");
 
 	if (!file) {
-		d_fail("failed to read %s\n", path);
+		d_fail("failed to read: '%s'\n", path);
 		return NULL;
 	}
 
