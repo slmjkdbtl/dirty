@@ -22,14 +22,15 @@
 typedef enum {
 	D_BTN_IDLE,
 	D_BTN_PRESSED,
+	D_BTN_RPRESSED,
 	D_BTN_RELEASED,
 	D_BTN_DOWN,
-} d_btn_state;
+} d_btn;
 
 typedef struct {
 	vec2 pos;
 	vec2 dpos;
-	d_btn_state state;
+	d_btn state;
 } d_touch_state;
 
 typedef struct {
@@ -44,8 +45,8 @@ typedef struct {
 	vec2 mouse_pos;
 	vec2 mouse_dpos;
 	vec2 wheel;
-	d_btn_state key_states[_D_NUM_KEYS];
-	d_btn_state mouse_states[_D_NUM_MOUSE];
+	d_btn key_states[_D_NUM_KEYS];
+	d_btn mouse_states[_D_NUM_MOUSE];
 	d_touch_state touches[NUM_TOUCHES];
 	bool resized;
 	char tinput[INPUT_BUF_LEN];
@@ -201,6 +202,14 @@ void d_init(const char *title, int width, int height) {
 
 }
 
+void d_process_btn(d_btn *b) {
+	if (*b == D_BTN_PRESSED || *b == D_BTN_RPRESSED) {
+		*b = D_BTN_DOWN;
+	} else if (*b == D_BTN_RELEASED) {
+		*b = D_BTN_IDLE;
+	}
+}
+
 static void d_frame() {
 
 	d_clear();
@@ -218,27 +227,15 @@ static void d_frame() {
 
 	// reset input states
 	for (int i = 0; i < _D_NUM_KEYS; i++) {
-		if (d_app.key_states[i] == D_BTN_PRESSED) {
-			d_app.key_states[i] = D_BTN_DOWN;
-		} else if (d_app.key_states[i] == D_BTN_RELEASED) {
-			d_app.key_states[i] = D_BTN_IDLE;
-		}
+		d_process_btn(&d_app.key_states[i]);
 	}
 
 	for (int i = 0; i < _D_NUM_MOUSE; i++) {
-		if (d_app.mouse_states[i] == D_BTN_PRESSED) {
-			d_app.mouse_states[i] = D_BTN_DOWN;
-		} else if (d_app.mouse_states[i] == D_BTN_RELEASED) {
-			d_app.mouse_states[i] = D_BTN_IDLE;
-		}
+		d_process_btn(&d_app.mouse_states[i]);
 	}
 
 	for (int i = 0; i < NUM_TOUCHES; i++) {
-		if (d_app.touches[i].state == D_BTN_PRESSED) {
-			d_app.touches[i].state = D_BTN_DOWN;
-		} else if (d_app.touches[i].state == D_BTN_RELEASED) {
-			d_app.touches[i].state = D_BTN_IDLE;
-		}
+		d_process_btn(&d_app.touches[i].state);
 	}
 
 	d_app.wheel.x = 0.0;
@@ -257,7 +254,11 @@ static void d_frame() {
 				d_quit();
 				break;
 			case SDL_KEYDOWN:
-				d_app.key_states[key] = D_BTN_PRESSED;
+				if (d_key_down(key)) {
+					d_app.key_states[key] = D_BTN_RPRESSED;
+				} else {
+					d_app.key_states[key] = D_BTN_PRESSED;
+				}
 				break;
 			case SDL_KEYUP:
 				d_app.key_states[key] = D_BTN_RELEASED;
@@ -406,7 +407,7 @@ bool d_key_pressed(d_key k) {
 }
 
 bool d_key_rpressed(d_key k) {
-	return d_app.key_states[k] == D_BTN_PRESSED;
+	return d_app.key_states[k] == D_BTN_PRESSED || d_app.key_states[k] == D_BTN_RPRESSED;
 }
 
 bool d_key_released(d_key k) {

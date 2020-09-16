@@ -31,6 +31,9 @@ static void frame() {
 			if (d_key_pressed(i)) {
 				d_synth_play(map[i]);
 			}
+			if (d_key_released(i)) {
+				d_synth_release(map[i]);
+			}
 		}
 	}
 

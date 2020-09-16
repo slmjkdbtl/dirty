@@ -65,7 +65,7 @@ static void stream(void *udata, Uint8 *buf, int len) {
 
 		}
 
-		frame += d_synth_next();
+		frame += d_synth_next(&d_audio.synth);
 
 		fbuf[i] = frame;
 
@@ -186,10 +186,10 @@ d_synth d_make_synth(int rate) {
 		.sample_rate = rate,
 		.wav_func = d_wav_sin,
 		.envelope = (d_envelope) {
-			.attack = 0.01,
-			.decay = 0.01,
+			.attack = 0.05,
+			.decay = 0.05,
 			.sustain = 1.0,
-			.release = 1.0,
+			.release = 0.5,
 		},
 	};
 }
@@ -198,8 +198,13 @@ void d_synth_play(int note) {
 	if (note < 0 || note >= D_SYNTH_NOTES) {
 		d_fail("note out of bound: '%d'\n", note);
 	}
-	d_audio.synth.notes[note].active = true;
-	d_audio.synth.notes[note].life = 1.0;
+	d_audio.synth.notes[note] = (d_voice) {
+		.active = true,
+		.life = 0.0,
+		.afterlife = 0.0,
+		.volume = 0.0,
+		.alive = true,
+	};
 }
 
 void d_synth_release(int note) {
@@ -209,27 +214,68 @@ void d_synth_release(int note) {
 	d_audio.synth.notes[note].active = false;
 }
 
-float d_synth_next() {
+void d_voice_process(d_voice *v, const d_envelope *e, float dt) {
 
-	d_synth *synth = &d_audio.synth;
+	if (!v->alive) {
+		return;
+	}
+
+	float a = e->attack;
+	float d = e->decay;
+	float s = e->sustain;
+	float r = e->release;
+
+	// attack
+	if (v->life <= a) {
+		if (a == 0.0) {
+			v->volume = 1.0;
+		} else {
+			v->volume = v->life / a;
+		}
+	// decay
+	} else if (v->life > a && v->life <= a + d) {
+		v->volume = 1.0 - (v->life - a) / d * (1.0 - s);
+	// systain
+	} else {
+		if (v->active) {
+			v->volume = s;
+		// release
+		} else {
+			if (r == 0.0) {
+				v->volume = 0.0;
+			} else {
+				v->volume = s * (1.0 - (v->afterlife / r));
+				if (v->volume <= 0.0) {
+					v->alive = false;
+				}
+			}
+		}
+	}
+
+	v->life += dt;
+
+	if (!v->active) {
+		v->afterlife += dt;
+	}
+
+}
+
+float d_synth_next(d_synth *synth) {
+
 	float t = (float)(synth->clock % synth->sample_rate) / (float)synth->sample_rate;
 	float dt = 1.0 / (float)synth->sample_rate;
 	float frame = 0.0;
 
-	synth->clock += 1;
+	synth->clock = (synth->clock + 1 % synth->sample_rate);
 
 	for (int i = 0; i < D_SYNTH_NOTES; i++) {
 
 		d_voice *v = &synth->notes[i];
 
-		if (v->life <= 0.0) {
-			continue;
-		}
-
-		v->life -= dt;
+		d_voice_process(v, &synth->envelope, dt);
 
 		float freq = floor(d_note_freq(i));
-		float sample = synth->wav_func(freq, t) * v->life;
+		float sample = synth->wav_func(freq, t) * v->volume;
 
 		frame += sample;
 

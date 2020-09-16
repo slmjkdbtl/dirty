@@ -5,7 +5,10 @@
 
 typedef struct {
 	float life;
+	float afterlife;
+	float volume;
 	bool active;
+	bool alive;
 } d_voice;
 
 typedef struct {
