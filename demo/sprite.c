@@ -1,6 +1,5 @@
 // wengwengweng
 
-#include <stdlib.h>
 #include <dirty/dirty.h>
 
 d_tex tex;

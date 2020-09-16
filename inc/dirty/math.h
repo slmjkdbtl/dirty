@@ -141,8 +141,7 @@ float degf(float);
 float radf(float);
 float clampf(float, float, float);
 float lerpf(float, float, float);
-float randf();
-float randf_in(float, float);
+float randf(float, float);
 
 bool pt_rect(vec2, vec2, vec2);
 

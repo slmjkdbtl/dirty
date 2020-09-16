@@ -158,12 +158,33 @@ float d_note_freq(int n) {
 	return A4_FREQ * pow(powf(2.0, 1.0 / 12.0), n - A4_NOTE);
 }
 
+float d_wav_sin(float freq, float t) {
+	return sin(freq * 2.0 * PI * t);
+}
+
+float d_wav_square(float freq, float t) {
+	return d_wav_sin(freq, t) > 0.0 ? 1.0 : -1.0;
+}
+
+float d_wav_tri(float freq, float t) {
+	return asin(d_wav_sin(freq, t)) * 2.0 / PI;
+}
+
+float d_wav_saw(float freq, float t) {
+	return (2.0 / PI) * (freq * PI * fmod(t, 1.0 / freq) - PI / 2.0);
+}
+
+float d_wav_noise(float freq, float t) {
+	return randf(-1.0, 1.0);
+}
+
 d_synth d_make_synth(int rate) {
 	return (d_synth) {
 		.notes = {0},
-		.volume = 0.0,
+		.volume = 1.0,
 		.clock = 0,
 		.sample_rate = rate,
+		.wav_func = d_wav_sin,
 		.envelope = (d_envelope) {
 			.attack = 0.01,
 			.decay = 0.01,
@@ -207,17 +228,22 @@ float d_synth_next() {
 
 		v->life -= dt;
 
-		int freq = (int)d_note_freq(i);
+		float freq = floor(d_note_freq(i));
+		float sample = synth->wav_func(freq, t) * v->life;
 
-		frame += sin(freq * 2.0 * PI * t) * v->life;
+		frame += sample;
 
 	}
 
-	return frame;
+	return frame * synth->volume;
 
 }
 
 d_envelope *d_synth_envelope() {
 	return &d_audio.synth.envelope;
+}
+
+void d_synth_wav(float (*func)(float freq, float t)) {
+	d_audio.synth.wav_func = func;
 }
 

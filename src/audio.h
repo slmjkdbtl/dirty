@@ -14,6 +14,7 @@ typedef struct {
 	int sample_rate;
 	unsigned long clock;
 	d_envelope envelope;
+	float (*wav_func)(float freq, float t);
 } d_synth;
 
 void d_audio_init();

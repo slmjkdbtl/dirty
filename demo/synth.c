@@ -1,6 +1,5 @@
 // wengwengweng
 
-#include <stdlib.h>
 #include <dirty/dirty.h>
 
 d_tex tex;
@@ -40,6 +39,7 @@ static void frame() {
 int main() {
 
 	d_init("synth", 640, 480);
+	d_synth_wav(d_wav_tri);
 	d_run(frame);
 
 }

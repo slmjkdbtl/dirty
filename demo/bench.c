@@ -1,9 +1,6 @@
 // wengwengweng
 
-#include <stdio.h>
-#include <stdarg.h>
 #include <dirty/dirty.h>
-#include <dirty/utils.h>
 
 int cnt = 0;
 

@@ -41,6 +41,14 @@ void d_free_sound(d_sound *sound);
 void d_synth_play(int note);
 void d_synth_release(int note);
 d_envelope *d_synth_envelope();
+void d_synth_wav(float (*func)(float freq, float t));
+
+// built in wave forms
+float d_wav_sin(float freq, float t);
+float d_wav_square(float freq, float t);
+float d_wav_tri(float freq, float t);
+float d_wav_saw(float freq, float t);
+float d_wav_noise(float freq, float t);
 
 #endif
 
