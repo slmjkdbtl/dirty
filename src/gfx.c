@@ -19,127 +19,6 @@
 #define NEAR -1024.0
 #define FAR 1024.0
 
-#define BATCH_VERT_COUNT 65536
-#define BATCH_INDEX_COUNT 65536
-
-typedef struct {
-	GLuint vbuf;
-	GLuint ibuf;
-	d_vertex vqueue[BATCH_VERT_COUNT];
-	unsigned int iqueue[BATCH_INDEX_COUNT];
-	int vcount;
-	int icount;
-} d_batch;
-
-void d_draw(GLuint, GLuint, int);
-
-d_batch d_make_batch();
-void d_batch_push(d_batch*, const d_vertex*, int, const d_index*, int);
-void d_batch_flush(d_batch*);
-void d_free_batch(d_batch*);
-
-static const char* vert_template =
-#ifndef GLES
-"#version 120\n"
-#endif
-"attribute vec3 a_pos;"
-"attribute vec3 a_normal;"
-"attribute vec2 a_uv;"
-"attribute vec4 a_color;"
-"varying vec3 v_pos;"
-"varying vec3 v_normal;"
-"varying vec2 v_uv;"
-"varying vec4 v_color;"
-"uniform mat4 u_model;"
-"uniform mat4 u_view;"
-"uniform mat4 u_proj;"
-"vec4 default_pos() {"
-	"return u_proj * u_view * u_model * vec4(v_pos, 1.0);"
-"}"
-"##USER##"
-"void main() {"
-	"v_pos = a_pos;"
-	"v_uv = a_uv;"
-	"v_color = a_color;"
-	"v_normal = normalize(a_normal);"
-	"gl_Position = vert();"
-"}"
-;
-
-static const char* frag_template =
-#ifndef GLES
-"#version 120\n"
-#else
-"precision mediump float;"
-#endif
-"varying vec3 v_pos;"
-"varying vec3 v_normal;"
-"varying vec2 v_uv;"
-"varying vec4 v_color;"
-"uniform sampler2D u_tex;"
-"uniform vec4 u_color;"
-"vec4 default_color() {"
-	"return v_color * u_color * texture2D(u_tex, v_uv);"
-"}"
-"##USER##"
-"void main() {"
-	"gl_FragColor = frag();"
-	"if (gl_FragColor.a == 0.0) {"
-		"discard;"
-	"}"
-"}"
-;
-
-static const char* vert_default =
-"vec4 vert() {"
-	"return default_pos();"
-"}"
-;
-
-static const char* frag_default =
-"vec4 frag() {"
-	"return default_color();"
-"}"
-;
-
-static void gl_check_errors() {
-
-	GLuint err = glGetError();
-
-	while (err != GL_NO_ERROR) {
-
-		switch (err) {
-			case GL_INVALID_ENUM:
-				d_fail("gl invalid enum\n");
-				break;
-			case GL_INVALID_VALUE:
-				d_fail("gl invalid value\n");
-				break;
-			case GL_INVALID_OPERATION:
-				d_fail("gl invalid operation\n");
-				break;
-			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				d_fail("gl invalid framebuffer operation\n");
-				break;
-			case GL_OUT_OF_MEMORY:
-				d_fail("gl out of memory\n");
-				break;
-#ifndef GLES
-			case GL_STACK_UNDERFLOW:
-				d_fail("gl stack underflow\n");
-				break;
-			case GL_STACK_OVERFLOW:
-				d_fail("gl stack overflow\n");
-				break;
-#endif
-		}
-
-		err = glGetError();
-
-	}
-
-}
-
 typedef struct {
 	d_tex default_tex;
 	const d_tex *tex_slots[TEX_SLOTS];
@@ -159,9 +38,6 @@ typedef struct {
 static d_gfx_t d_gfx;
 
 void d_gfx_init() {
-
-// 	const GLubyte *gl_ver = glGetString(GL_VERSION);
-// 	printf("%s\n", gl_ver);
 
 	// init gl
 	glEnable(GL_BLEND);
@@ -196,13 +72,13 @@ void d_gfx_init() {
 	d_gfx.transform = mat4u();
 
 	glViewport(0, 0, d_width(), d_height());
-	gl_check_errors();
+	d_gl_check_errors();
 
 }
 
 void d_gfx_frame() {
 	d_batch_flush(&d_gfx.batch);
-	gl_check_errors();
+	d_gl_check_errors();
 	d_gfx.transform = mat4u();
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), NEAR, FAR);
 	d_gfx.cur_cam = &d_gfx.default_cam;
@@ -499,15 +375,15 @@ void d_free_font(d_font *f) {
 d_shader d_make_shader(const char *vs_src, const char *fs_src) {
 
 	if (vs_src == NULL) {
-		vs_src = vert_default;
+		vs_src = d_vert_default;
 	}
 
 	if (fs_src == NULL) {
-		fs_src = frag_default;
+		fs_src = d_frag_default;
 	}
 
-	const char *vs_code = strsub(vert_template, "##USER##", vs_src);
-	const char *fs_code = strsub(frag_template, "##USER##", fs_src);
+	const char *vs_code = strsub(d_vert_template, "##USER##", vs_src);
+	const char *fs_code = strsub(d_frag_template, "##USER##", fs_src);
 
 	GLchar info_log[512];
 	GLint success = 0;
@@ -1287,6 +1163,60 @@ vec2 d_ftext_cpos(const d_ftext *ftext, int cursor) {
 	}
 
 	return vec2_add(ftext->chars[cursor].pos, vec2_mult(d_origin_pt(ftext->origin), vec2f(ftext->cw, ftext->ch)));
+
+}
+
+const char *d_gl_version() {
+	return (const char*)glGetString(GL_VERSION);
+}
+
+const char *d_glsl_version() {
+	return (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
+}
+
+const char *d_gl_renderer() {
+	return (const char*)glGetString(GL_RENDERER);
+}
+
+const char *d_gl_vendor() {
+	return (const char*)glGetString(GL_VENDOR);
+}
+
+void d_gl_check_errors() {
+
+	GLuint err = glGetError();
+
+	while (err != GL_NO_ERROR) {
+
+		switch (err) {
+			case GL_INVALID_ENUM:
+				d_fail("gl invalid enum\n");
+				break;
+			case GL_INVALID_VALUE:
+				d_fail("gl invalid value\n");
+				break;
+			case GL_INVALID_OPERATION:
+				d_fail("gl invalid operation\n");
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				d_fail("gl invalid framebuffer operation\n");
+				break;
+			case GL_OUT_OF_MEMORY:
+				d_fail("gl out of memory\n");
+				break;
+#ifndef GLES
+			case GL_STACK_UNDERFLOW:
+				d_fail("gl stack underflow\n");
+				break;
+			case GL_STACK_OVERFLOW:
+				d_fail("gl stack overflow\n");
+				break;
+#endif
+		}
+
+		err = glGetError();
+
+	}
 
 }
 

@@ -123,6 +123,8 @@ typedef enum {
 	D_RESIZABLE = (1 << 2),
 } d_wflag;
 
+typedef int d_touch;
+
 // LIFECYCLE
 
 // init app
@@ -168,6 +170,9 @@ bool d_key_released(d_key k);
 bool d_mouse_pressed(d_mouse m);
 bool d_mouse_released(d_mouse m);
 bool d_mouse_moved();
+bool d_touch_pressed(d_touch t);
+bool d_touch_released(d_touch t);
+bool d_touch_moved(d_touch t);
 bool d_scrolled();
 vec2 d_wheel();
 bool d_resized();
@@ -179,6 +184,8 @@ bool d_key_down(d_key k);
 bool d_key_mod(d_kmod kmod);
 vec2 d_mouse_pos();
 vec2 d_mouse_dpos();
+vec2 d_touch_pos(d_touch t);
+vec2 d_touch_dpos(d_touch t);
 
 #endif
 

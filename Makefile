@@ -73,7 +73,7 @@ ifeq ($(TARGET),web)
 LD_FLAGS += -s USE_SDL=2
 endif
 
-AR_FLAGS += -rc
+AR_FLAGS += -rcs
 
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))

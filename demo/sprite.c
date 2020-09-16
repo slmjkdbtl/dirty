@@ -17,7 +17,7 @@ static void frame() {
 
 int main() {
 
-	d_init("tri", 640, 480);
+	d_init("sprite", 640, 480);
 
 	tex = d_load_tex("res/acid2.png");
 

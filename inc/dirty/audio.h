@@ -3,6 +3,8 @@
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
 
+#define D_SYNTH_NOTES 128
+
 // a static sound
 typedef struct {
 	int channels;
@@ -21,21 +23,23 @@ typedef struct {
 	bool done;
 } d_sound_pb;
 
-// typedef struct {
-// 	stb_vorbis* decoder;
-// } d_track;
+typedef struct {
+	float attack;
+	float decay;
+	float sustain;
+	float release;
+} d_envelope;
 
 // SOUND
 d_sound d_parse_sound(const unsigned char *bytes, int size);
 d_sound d_load_sound(const char *path);
-// play a d_sound, returning a handle for control
+// play a sound, returning a handle for control
 d_sound_pb *d_play(const d_sound *sound);
 void d_free_sound(d_sound *sound);
 
-// d_track d_parse_track(const unsigned char *bytes, int size);
-// d_track d_load_track(const char *path);
-// void d_track_play(const d_track *track);
-// void d_free_track(d_track *track);
+// SYNTH
+void d_synth_play(int note);
+void d_synth_release(int note);
 
 #endif
 

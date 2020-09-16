@@ -1,19 +1,25 @@
 // wengwengweng
 
+#include <math.h>
 #include <SDL2/SDL.h>
 #include <stb/stb_vorbis.c>
 
 #include <dirty/dirty.h>
+#include "audio.h"
 
-#define FREQ 44100
+#define SAMPLE_RATE 44100
 #define CHANNELS 1
 #define SAMPLES 1024
 #define MAX_TRACKS 256
+#define A4_FREQ 440
+#define A4_NOTE 69
+#define PI 3.14159
 
 typedef struct {
 	SDL_AudioDeviceID dev;
 	d_sound_pb tracks[MAX_TRACKS];
 	int ntracks;
+	d_synth synth;
 } d_audio_t;
 
 static d_audio_t d_audio;
@@ -59,6 +65,8 @@ static void stream(void *udata, Uint8 *buf, int len) {
 
 		}
 
+		frame += d_synth_next();
+
 		fbuf[i] = frame;
 
 	}
@@ -68,7 +76,7 @@ static void stream(void *udata, Uint8 *buf, int len) {
 void d_audio_init() {
 
 	SDL_AudioSpec spec = (SDL_AudioSpec) {
-		.freq = FREQ,
+		.freq = SAMPLE_RATE,
 		.format = AUDIO_F32,
 		.channels = CHANNELS,
 		.samples = SAMPLES,
@@ -76,6 +84,7 @@ void d_audio_init() {
 		.userdata = NULL,
 	};
 
+	d_audio.synth = d_make_synth(SAMPLE_RATE);
 	d_audio.dev = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, SDL_AUDIO_ALLOW_ANY_CHANGE);
 	SDL_PauseAudioDevice(d_audio.dev, 0);
 
@@ -145,37 +154,66 @@ void d_free_sound(d_sound *snd) {
 	snd->samples = NULL;
 }
 
-// d_track d_parse_track(const unsigned char *bytes, int size) {
+float d_note_freq(int n) {
+	return A4_FREQ * pow(powf(2.0, 1.0 / 12.0), n - A4_NOTE);
+}
 
-// 	stb_vorbis *decoder = stb_vorbis_open_memory(bytes, size, NULL, NULL);
+d_synth d_make_synth(int rate) {
+	return (d_synth) {
+		.notes = {0},
+		.volume = 0.0,
+		.clock = 0,
+		.sample_rate = rate,
+		.envelope = (d_envelope) {
+			.attack = 0.01,
+			.decay = 0.01,
+			.sustain = 1.0,
+			.release = 1.0,
+		},
+	};
+}
 
-// 	if (!decoder) {
-// 		fprintf(stderr, "failed to decode audio\n");
-// 		d_quit();
-// 	}
+void d_synth_play(int note) {
+	if (note < 0 || note >= D_SYNTH_NOTES) {
+		d_fail("note out of bound\n");
+	}
+	d_audio.synth.notes[note].active = true;
+	d_audio.synth.notes[note].life = 1.0;
+}
 
-// 	return (d_track) {
-// 		.decoder = decoder,
-// 	};
+void d_synth_release(int note) {
+	if (note < 0 || note >= D_SYNTH_NOTES) {
+		d_fail("note out of bound\n");
+	}
+	d_audio.synth.notes[note].active = false;
+}
 
-// }
+float d_synth_next() {
 
-// d_track d_load_track(const char *path) {
+	d_synth *synth = &d_audio.synth;
+	float t = (float)(synth->clock % synth->sample_rate) / (float)synth->sample_rate;
+	float dt = 1.0 / (float)synth->sample_rate;
+	float frame = 0.0;
 
-// 	int size;
-// 	unsigned char *bytes = d_read_bytes(path, &size);
-// 	d_track track = d_parse_track(bytes, size);
-// 	free(bytes);
+	synth->clock += 1;
 
-// 	return track;
+	for (int i = 0; i < D_SYNTH_NOTES; i++) {
 
-// }
+		d_voice *v = &synth->notes[i];
 
-// void d_track_play(const d_track *t) {
-// }
+		if (v->life <= 0.0) {
+			continue;
+		}
 
-// void d_free_track(d_track *t) {
-// 	stb_vorbis_close(t->decoder);
-// 	t->decoder = NULL;
-// }
+		v->life -= dt;
+
+		int freq = (int)d_note_freq(i);
+
+		frame += sin(freq * 2.0 * PI * t) * v->life;
+
+	}
+
+	return frame;
+
+}
 

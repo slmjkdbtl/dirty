@@ -16,12 +16,21 @@
 #include "audio.h"
 #include "ui.h"
 
+#define NUM_TOUCHES 8
+#define INPUT_BUF_LEN 32
+
 typedef enum {
 	D_BTN_IDLE,
 	D_BTN_PRESSED,
 	D_BTN_RELEASED,
 	D_BTN_DOWN,
 } d_btn_state;
+
+typedef struct {
+	vec2 pos;
+	vec2 dpos;
+	d_btn_state state;
+} d_touch_state;
 
 typedef struct {
 	void (*frame_cb)();
@@ -37,8 +46,9 @@ typedef struct {
 	vec2 wheel;
 	d_btn_state key_states[_D_NUM_KEYS];
 	d_btn_state mouse_states[_D_NUM_MOUSE];
+	d_touch_state touches[NUM_TOUCHES];
 	bool resized;
-	char tinput[32];
+	char tinput[INPUT_BUF_LEN];
 	SDL_Cursor *cursors[_D_NUM_CURSORS];
 } d_app_t;
 
@@ -158,6 +168,14 @@ static d_key sdl_key_to_d(SDL_Scancode code) {
 void d_init(const char *title, int width, int height) {
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+#ifdef GLES
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#endif
 
 	d_app.window = SDL_CreateWindow(
 		title,
@@ -168,15 +186,10 @@ void d_init(const char *title, int width, int height) {
 		SDL_WINDOW_OPENGL
 	);
 
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-	SDL_GL_SetSwapInterval(1);
-	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 	d_app.gl = SDL_GL_CreateContext(d_app.window);
+	SDL_GL_SetSwapInterval(1);
     SDL_GL_MakeCurrent(d_app.window, d_app.gl);
+	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 
 	for (int i = 0; i < _D_NUM_CURSORS; i++) {
 		d_app.cursors[i] = SDL_CreateSystemCursor(d_cursor_to_sdl(i));
@@ -220,6 +233,14 @@ static void d_frame() {
 		}
 	}
 
+	for (int i = 0; i < NUM_TOUCHES; i++) {
+		if (d_app.touches[i].state == D_BTN_PRESSED) {
+			d_app.touches[i].state = D_BTN_DOWN;
+		} else if (d_app.touches[i].state == D_BTN_RELEASED) {
+			d_app.touches[i].state = D_BTN_IDLE;
+		}
+	}
+
 	d_app.wheel.x = 0.0;
 	d_app.wheel.y = 0.0;
 	d_app.resized = false;
@@ -257,6 +278,7 @@ static void d_frame() {
 				strcpy(d_app.tinput, event.text.text);
 				break;
 			case SDL_FINGERDOWN:
+				printf("%lld, %lld", event.tfinger.touchId, event.tfinger.fingerId);
 				break;
 			case SDL_FINGERUP:
 				break;
@@ -436,6 +458,41 @@ vec2 d_mouse_dpos() {
 
 bool d_mouse_moved() {
 	return d_app.mouse_dpos.x != 0.0 || d_app.mouse_dpos.y != 0.0;
+}
+
+bool d_touch_pressed(d_touch t) {
+	if (t >= NUM_TOUCHES) {
+		d_fail("touch not found: %d\n", t);
+	}
+	return d_app.touches[t].state == D_BTN_PRESSED;
+}
+
+bool d_touch_released(d_touch t) {
+	if (t >= NUM_TOUCHES) {
+		d_fail("touch not found: %d\n", t);
+	}
+	return d_app.touches[t].state == D_BTN_RELEASED;
+}
+
+bool d_touch_moved(d_touch t) {
+	if (t >= NUM_TOUCHES) {
+		d_fail("touch not found: %d\n", t);
+	}
+	return d_app.touches[t].dpos.x != 0.0 || d_app.touches[t].dpos.x != 0.0;
+}
+
+vec2 d_touch_pos(d_touch t) {
+	if (t >= NUM_TOUCHES) {
+		d_fail("touch not found: %d\n", t);
+	}
+	return d_app.touches[t].pos;
+}
+
+vec2 d_touch_dpos(d_touch t) {
+	if (t >= NUM_TOUCHES) {
+		d_fail("touch not found: %d\n", t);
+	}
+	return d_app.touches[t].dpos;
 }
 
 bool d_resized() {

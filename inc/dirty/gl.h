@@ -6,6 +6,7 @@
 #include "platform.h"
 
 #define GL_SILENCE_DEPRECATION
+#define GLES_SILENCE_DEPRECATION
 
 #if defined(D_MACOS)
 #include <OpenGL/gl.h>

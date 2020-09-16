@@ -249,5 +249,10 @@ d_ftext d_fmt_text(const char *txt, float size, float wrap, d_origin orig, color
 // get cursor position of formatted text
 vec2 d_ftext_cpos(const d_ftext *ftext, int cursor);
 
+const char *d_gl_version();
+const char *d_glsl_version();
+const char *d_gl_renderer();
+const char *d_gl_vendor();
+
 #endif
 
