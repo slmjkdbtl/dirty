@@ -155,7 +155,6 @@ d_tex d_parse_tex_ex(const unsigned char *bytes, int size, d_tex_conf conf);
 d_tex d_load_tex(const char *path);
 d_tex d_load_tex_ex(const char *path, d_tex_conf conf);
 void d_free_tex(d_tex *tex);
-d_tex_conf d_default_tex_conf();
 
 // font
 d_font d_make_font(d_tex tex, int grid_width, int grid_height, const char *chars);

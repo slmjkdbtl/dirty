@@ -33,6 +33,7 @@ typedef struct {
 	mat4 t_stack[T_STACKS];
 	int t_stack_cnt;
 	d_batch batch;
+	d_tex_conf tex_conf;
 } d_gfx_t;
 
 static d_gfx_t d_gfx;
@@ -47,6 +48,12 @@ void d_gfx_init() {
 	glStencilFunc(GL_EQUAL, 1, 0xff);
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+	// init default tex conf
+	d_gfx.tex_conf = (d_tex_conf) {
+		.filter = D_NEAREST,
+		.wrap = D_CLAMP_TO_EDGE,
+	};
 
 	// init default shader
 	d_gfx.default_shader = d_make_shader(NULL, NULL);
@@ -209,13 +216,6 @@ void d_free_batch(d_batch *m) {
 	m->ibuf = 0;
 }
 
-d_tex_conf d_default_tex_conf() {
-	return (d_tex_conf) {
-		.filter = D_NEAREST,
-		.wrap = D_CLAMP_TO_EDGE,
-	};
-}
-
 d_img d_make_img(const unsigned char *pixels, int width, int height) {
 	int size = sizeof(unsigned char) * width * height * 4;
 	unsigned char *data = malloc(size);
@@ -298,7 +298,7 @@ d_tex d_make_tex_ex(const unsigned char *data, int w, int h, d_tex_conf conf) {
 }
 
 d_tex d_make_tex(const unsigned char *data, int w, int h) {
-	return d_make_tex_ex(data, w, h, d_default_tex_conf());
+	return d_make_tex_ex(data, w, h, d_gfx.tex_conf);
 }
 
 d_tex d_img_tex_ex(const d_img *img, d_tex_conf conf) {
@@ -306,7 +306,7 @@ d_tex d_img_tex_ex(const d_img *img, d_tex_conf conf) {
 }
 
 d_tex d_img_tex(const d_img *img) {
-	return d_img_tex_ex(img, d_default_tex_conf());
+	return d_img_tex_ex(img, d_gfx.tex_conf);
 }
 
 d_tex d_parse_tex_ex(const unsigned char *bytes, int size, d_tex_conf conf) {
@@ -320,7 +320,7 @@ d_tex d_parse_tex_ex(const unsigned char *bytes, int size, d_tex_conf conf) {
 }
 
 d_tex d_parse_tex(const unsigned char *bytes, int size) {
-	return d_parse_tex_ex(bytes, size, d_default_tex_conf());
+	return d_parse_tex_ex(bytes, size, d_gfx.tex_conf);
 }
 
 d_tex d_load_tex_ex(const char *path, d_tex_conf conf) {
@@ -333,7 +333,7 @@ d_tex d_load_tex_ex(const char *path, d_tex_conf conf) {
 }
 
 d_tex d_load_tex(const char *path) {
-	return d_load_tex_ex(path, d_default_tex_conf());
+	return d_load_tex_ex(path, d_gfx.tex_conf);
 }
 
 void d_free_tex(d_tex *t) {
@@ -476,7 +476,7 @@ void d_free_shader(d_shader *p) {
 }
 
 d_canvas d_make_canvas(int w, int h) {
-	return d_make_canvas_ex(w, h, d_default_tex_conf());
+	return d_make_canvas_ex(w, h, d_gfx.tex_conf);
 }
 
 // TODO: depth stencil texture with GLES

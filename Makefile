@@ -13,6 +13,7 @@ ifeq ($(shell uname -s),Linux)
 TARGET := linux
 endif
 
+# programs / paths
 CC := clang
 AR := ar
 
@@ -40,6 +41,7 @@ EXT_INC_PATH := ext/inc
 EXT_LIB_PATH := ext/lib/$(TARGET)
 LIB_TARGET := $(LIB_PATH)/libdirty.a
 
+# flags
 C_FLAGS += -I $(INC_PATH)
 C_FLAGS += -I $(EXT_INC_PATH)
 C_FLAGS += -Wall
@@ -49,7 +51,7 @@ C_FLAGS += -std=c99
 ifeq ($(TARGET),ios)
 C_FLAGS += -arch armv7
 C_FLAGS += -arch arm64
-# TODO: should be unecessary
+# TODO: should be unnecessary
 C_FLAGS += -D TARGET_OS_IPHONE
 endif
 
@@ -75,14 +77,13 @@ endif
 
 AR_FLAGS += -rcs
 
+# files
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))
 
 DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
 DEMOS := $(patsubst $(DEMO_PATH)/%.c, %, $(DEMO_FILES))
 DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(BIN_PATH)/%, $(DEMO_FILES))
-
-SDL2_VERSION := 2.0.12
 
 .PHONY: lib
 lib: $(LIB_TARGET)

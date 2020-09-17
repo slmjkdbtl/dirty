@@ -17,18 +17,13 @@
 //
 //     #include <dirty/dirty.h>
 //
+//     static void frame() {
+//         d_draw_text("oh hi mark", 24.0, 0.0, D_CENTER, WHITE);
+//     }
+//
 //     int main() {
-//
 //         d_init("hi", 640, 480);
-//
-//         while (d_running()) {
-//
-//             d_clear();
-//             // your main loop
-//             d_frame();
-//
-//         }
-//
+//         d_run(frame);
 //     }
 //
 //   check out 'demo/*.c' for more specific examples
