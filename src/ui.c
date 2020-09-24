@@ -89,9 +89,7 @@ static d_ui_window *d_ui_get_window(const char *label, vec2 pos, float w, float 
 
 void d_ui_begin(const char *label, vec2 pos, float w, float h, int flags) {
 
-	if (d_ui.cur_window) {
-		d_fail("cannot create window inside window\n");
-	}
+	d_assert(!d_ui.cur_window, "cannot create window inside window\n");
 
 	d_ui_window *win = d_ui_get_window(label, pos, w, h, flags);
 	const d_ui_theme_t *t = d_ui_theme();
@@ -112,7 +110,7 @@ void d_ui_begin(const char *label, vec2 pos, float w, float h, int flags) {
 			}
 		} else {
 			if (d_mouse_pressed(D_MOUSE_LEFT)) {
-				if (pt_rect(mpos, win->pos, vec2_add(win->pos, vec2f(win->width, -bar_height)))) {
+				if (pt_rect(mpos, rectf(win->pos, vec2_add(win->pos, vec2f(win->width, -bar_height))))) {
 					d_ui.wants_mouse = true;
 					d_ui.window_drag.win = win;
 					d_ui.window_drag.dpos = vec2_sub(win->pos, mpos);
@@ -148,9 +146,7 @@ void d_ui_end() {
 // TODO: use actual hashmap
 void *d_ui_widget_data(d_ui_id id, int size, void *init_data) {
 
-	if (!d_ui.cur_window) {
-		d_fail("cannot use ui widgets without a ui window\n");
-	}
+	d_assert(d_ui.cur_window, "cannot use ui widgets without a ui window\n");
 
 	for (int i = 0; i < d_ui.cur_window->widget_cnt; i++) {
 		if (id == d_ui.cur_window->widgets[i].id) {
@@ -216,7 +212,7 @@ float d_ui_sliderf(const char *label, float start, float min, float max) {
 		}
 	} else {
 		if (d_mouse_pressed(D_MOUSE_LEFT)) {
-			if (pt_rect(mpos, b1, b2)) {
+			if (pt_rect(mpos, rectf(b1, b2))) {
 				d_ui.wants_mouse = true;
 				data->draggin = true;
 			}
@@ -263,7 +259,7 @@ bool d_ui_button(const char *label) {
 	vec2 p1 = vec2f(0.0, 0.0);
 	vec2 p2 = vec2f(p1.x + strlen(label) * t->text_size + t->padding_y * 2.0, p1.y - t->text_size - t->padding_y * 2.0);
 
-	bool hover = pt_rect(mpos, p1, p2);
+	bool hover = pt_rect(mpos, rectf(p1, p2));
 
 	if (data->pressed) {
 		if (d_mouse_released(D_MOUSE_LEFT)) {
@@ -335,7 +331,7 @@ const char* d_ui_input(const char *label) {
 	vec2 b2 = vec2f(cw, -bh);
 
 	if (d_mouse_pressed(D_MOUSE_LEFT)) {
-		data->focused = pt_rect(mpos, b1, b2);
+		data->focused = pt_rect(mpos, rectf(b1, b2));
 	}
 
 	d_ui.wants_key = data->focused;

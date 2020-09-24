@@ -557,6 +557,69 @@ quad quadu() {
 	return quadf(0.0, 0.0, 1.0, 1.0);
 }
 
+rect rectf(vec2 p1, vec2 p2) {
+	return (rect) {
+		.p1 = p1,
+		.p2 = p2,
+	};
+}
+
+box boxf(vec3 p1, vec3 p2) {
+	return (box) {
+		.p1 = p1,
+		.p2 = p2,
+	};
+}
+
+line2 line2f(vec2 p1, vec2 p2) {
+	return (line2) {
+		.p1 = p1,
+		.p2 = p2,
+	};
+}
+
+line3 line3f(vec3 p1, vec3 p2) {
+	return (line3) {
+		.p1 = p1,
+		.p2 = p2,
+	};
+}
+
+circle circlef(vec2 center, float radius) {
+	return (circle) {
+		.center = center,
+		.radius = radius,
+	};
+}
+
+sphere spheref(vec3 center, float radius) {
+	return (sphere) {
+		.center = center,
+		.radius = radius,
+	};
+}
+
+plane planef(vec3 normal, float dist) {
+	return (plane) {
+		.normal = normal,
+		.dist = dist,
+	};
+}
+
+ray2 ray2f(vec2 origin, vec2 dir) {
+	return (ray2) {
+		.origin = origin,
+		.dir = dir,
+	};
+}
+
+ray3 ray3f(vec3 origin, vec3 dir) {
+	return (ray3) {
+		.origin = origin,
+		.dir = dir,
+	};
+}
+
 float degf(float r) {
     return r * (180.0 / PI);
 }
@@ -577,9 +640,46 @@ float randf(float low, float hi) {
 	return low + (float)rand() / (float)RAND_MAX * (hi - low);
 }
 
-bool pt_rect(vec2 pt, vec2 p1, vec2 p2) {
-	vec2 pp1 = vec2_min(p1, p2);
-	vec2 pp2 = vec2_max(p1, p2);
-	return pt.x >= pp1.x && pt.x <= pp2.x && pt.y >= pp1.y && pt.y <= pp2.y;
+static void fix_rect(rect *r) {
+	vec2 pp1 = vec2_min(r->p1, r->p2);
+	vec2 pp2 = vec2_max(r->p1, r->p2);
+	r->p1 = pp1;
+	r->p2 = pp2;
+}
+
+bool pt_rect(vec2 pt, rect r) {
+	fix_rect(&r);
+	return pt.x >= r.p1.x && pt.x <= r.p2.x && pt.y >= r.p1.y && pt.y <= r.p2.y;
+}
+
+bool rect_rect(rect r1, rect r2) {
+	fix_rect(&r1);
+	fix_rect(&r2);
+	return r1.p2.x >= r2.p1.x && r1.p1.x <= r2.p2.x && r1.p2.y >= r2.p1.y && r1.p1.y <= r2.p2.y;
+}
+
+bool line_line(line2 l1, line2 l2) {
+	float a = ((l2.p2.x - l2.p1.x) * (l1.p1.y - l2.p1.y) - (l2.p2.y - l2.p1.y) * (l1.p1.x - l2.p1.x)) / ((l2.p2.y - l2.p1.y) * (l1.p2.x - l1.p1.x) - (l2.p2.x - l2.p1.x) * (l1.p2.y - l1.p1.y));
+	float b = ((l1.p2.x - l1.p1.x) * (l1.p1.y - l2.p1.y) - (l1.p2.y - l1.p1.y) * (l1.p1.x - l2.p1.x)) / ((l2.p2.y - l2.p1.y) * (l1.p2.x - l1.p1.x) - (l2.p2.x - l2.p1.x) * (l1.p2.y - l1.p1.y));
+	return a >= 0.0 && a <= 1.0 && b >= 0.0 && b <= 1.0;
+}
+
+bool line_rect(line2 l, rect r) {
+	if (pt_rect(l.p1, r) || pt_rect(l.p2, r)) {
+		return true;
+	}
+	return
+		line_line(l, line2f(r.p1, vec2f(r.p2.x, r.p1.y)))
+		|| line_line(l, line2f(vec2f(r.p2.x, r.p1.y), r.p2))
+		|| line_line(l, line2f(r.p2, vec2f(r.p1.x, r.p2.y)))
+		|| line_line(l, line2f(vec2f(r.p1.x, r.p2.y), r.p1));
+}
+
+bool pt_circle(vec2 pt, circle c) {
+	return vec2_dist(pt, c.center) <= c.radius;
+}
+
+bool circle_circle(circle c1, circle c2) {
+	return vec2_dist(c1.center, c2.center) <= c1.radius + c2.radius;
 }
 

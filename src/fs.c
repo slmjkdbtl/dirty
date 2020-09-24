@@ -37,12 +37,11 @@ static bool file_exists(const char *path) {
 	return exists;
 }
 
-static char *read_text(const char *path) {
+static void *read_file(const char *path, size_t *osize) {
 
-	FILE *file = fopen(path, "r");
+	FILE *file = fopen(path, "rb");
 
 	if (!file) {
-		d_fail("failed to read: '%s'\n", path);
 		return NULL;
 	}
 
@@ -53,34 +52,7 @@ static char *read_text(const char *path) {
 	char *buffer = malloc(size + 1);
 	size_t r_size = fread(buffer, 1, size, file);
 
-	buffer[size] = '\0';
-
-	if (r_size != size) {
-		free(buffer);
-		return NULL;
-	}
-
-	fclose(file);
-
-	return buffer;
-
-}
-
-static unsigned char *read_bytes(const char *path, int *osize) {
-
-	FILE *file = fopen(path, "rb");
-
-	if (!file) {
-		d_fail("failed to read: '%s'\n", path);
-		return NULL;
-	}
-
-	fseek(file, 0, SEEK_END);
-	size_t size = ftell(file);
-	fseek(file, 0, SEEK_SET);
-
-	unsigned char *buffer = malloc(size);
-	size_t r_size = fread(buffer, 1, size, file);
+	buffer[size] = 0;
 
 	if (r_size != size) {
 		free(buffer);
@@ -98,27 +70,24 @@ static unsigned char *read_bytes(const char *path, int *osize) {
 }
 
 // TODO
-static void write_text(const char *path, const char *content) {
-	// ...
-}
-
-// TODO
-static void write_bytes(const char *path, const unsigned char *content) {
+static void write_file(const char *path, const void *data, size_t size) {
 	// ...
 }
 
 char *d_read_text(const char *path) {
 	char *rpath = d_rpath(path);
-	char *content = read_text(rpath);
+	char *content = (char*)read_file(rpath, NULL);
+	d_assert(content, "failed to read: '%s'\n", path);
 	free(rpath);
 	return content;
 }
 
-unsigned char *d_read_bytes(const char *path, int *size) {
+unsigned char *d_read_bytes(const char *path, size_t *size) {
 	char *rpath = d_rpath(path);
-	unsigned char *data = read_bytes(rpath, size);
+	unsigned char *content = (unsigned char*)read_file(rpath, size);
+	d_assert(content, "failed to read: '%s'\n", path);
 	free(rpath);
-	return data;
+	return content;
 }
 
 bool d_exists(const char *path) {
@@ -130,16 +99,18 @@ bool d_exists(const char *path) {
 
 char *d_data_read_text(const char *path) {
 	char *dpath = d_dpath(path);
-	char *data = read_text(dpath);
+	char *content = (char*)read_file(dpath, NULL);
+	d_assert(content, "failed to read: '%s'\n", path);
 	free(dpath);
-	return data;
+	return content;
 }
 
-unsigned char *d_data_read_bytes(const char *path, int *size) {
+unsigned char *d_data_read_bytes(const char *path, size_t *size) {
 	char *dpath = d_dpath(path);
-	unsigned char *data = read_bytes(dpath, size);
+	unsigned char *content = (unsigned char*)read_file(dpath, size);
+	d_assert(content, "failed to read: '%s'\n", path);
 	free(dpath);
-	return data;
+	return content;
 }
 
 bool d_data_exists(const char *path) {
@@ -149,15 +120,15 @@ bool d_data_exists(const char *path) {
 	return exists;
 }
 
-void d_data_write_text(const char *path, const char *content) {
+void d_data_write_text(const char *path, const char *data) {
 	char *dpath = d_dpath(path);
-	write_text(dpath, content);
+	write_file(dpath, data, strlen(data));
 	free(dpath);
 }
 
-void d_data_write_bytes(const char *path, const unsigned char *content) {
+void d_data_write_bytes(const char *path, const unsigned char *data, size_t size) {
 	char *dpath = d_dpath(path);
-	write_bytes(dpath, content);
+	write_file(dpath, data, size);
 	free(dpath);
 }
 

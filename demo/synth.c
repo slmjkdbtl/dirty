@@ -11,6 +11,7 @@ static void frame() {
 	}
 
 	int map[128] = {
+		[D_KEY_Q] = 59,
 		[D_KEY_A] = 60,
 		[D_KEY_W] = 61,
 		[D_KEY_S] = 62,
@@ -24,6 +25,8 @@ static void frame() {
 		[D_KEY_U] = 70,
 		[D_KEY_J] = 71,
 		[D_KEY_K] = 72,
+		[D_KEY_O] = 73,
+		[D_KEY_L] = 74,
 	};
 
 	for (int i = 0; i < 128; i++) {
@@ -42,7 +45,16 @@ static void frame() {
 int main() {
 
 	d_init("synth", 640, 480);
-	d_synth_wav(d_wav_tri);
+
+	d_synth_wav(d_wav_saw);
+
+	d_envelope *e = d_synth_envelope();
+
+	e->attack = 0.0;
+	e->decay = 0.0;
+	e->sustain = 1.0;
+	e->release = 0.0;
+
 	d_run(frame);
 
 }

@@ -2,7 +2,7 @@
 
 #include <math.h>
 #include <SDL2/SDL.h>
-#include <stb/stb_vorbis.c>
+#include <stb_vorbis.c>
 
 #include <dirty/dirty.h>
 #include "audio.h"
@@ -101,9 +101,7 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 	short *samples;
 	int len = stb_vorbis_decode_memory(bytes, size, &channels, &sample_rate, &samples);
 
-	if (len <= 0) {
-		d_fail("failed to decode audio\n");
-	}
+	d_assert(len > 0, "failed to decode audio\n");
 
 	return (d_sound) {
 		.channels = channels,
@@ -116,7 +114,7 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 
 d_sound d_load_sound(const char *path) {
 
-	int size;
+	size_t size;
 	unsigned char *bytes = d_read_bytes(path, &size);
 	d_sound snd = d_parse_sound(bytes, size);
 	free(bytes);
@@ -195,9 +193,7 @@ d_synth d_make_synth(int rate) {
 }
 
 void d_synth_play(int note) {
-	if (note < 0 || note >= D_SYNTH_NOTES) {
-		d_fail("note out of bound: '%d'\n", note);
-	}
+	d_assert(note >= 0 && note < D_SYNTH_NOTES, "note out of bound: '%d'\n", note);
 	d_audio.synth.notes[note] = (d_voice) {
 		.active = true,
 		.life = 0.0,
@@ -208,9 +204,7 @@ void d_synth_play(int note) {
 }
 
 void d_synth_release(int note) {
-	if (note < 0 || note >= D_SYNTH_NOTES) {
-		d_fail("note out of bound: '%d'\n", note);
-	}
+	d_assert(note >= 0 && note < D_SYNTH_NOTES, "note out of bound: '%d'\n", note);
 	d_audio.synth.notes[note].active = false;
 }
 

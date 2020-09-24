@@ -348,6 +348,15 @@ void d_fail(const char *fmt, ...) {
 	exit(EXIT_FAILURE);
 }
 
+void d_assert(bool test, const char *fmt, ...) {
+	if (!test) {
+		va_list args;
+		va_start(args, fmt);
+		d_fail(fmt, args);
+		va_end(args);
+	}
+}
+
 float d_time() {
 	return d_app.time;
 }
@@ -462,37 +471,27 @@ bool d_mouse_moved() {
 }
 
 bool d_touch_pressed(d_touch t) {
-	if (t >= NUM_TOUCHES) {
-		d_fail("touch not found: %d\n", t);
-	}
+	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].state == D_BTN_PRESSED;
 }
 
 bool d_touch_released(d_touch t) {
-	if (t >= NUM_TOUCHES) {
-		d_fail("touch not found: %d\n", t);
-	}
+	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].state == D_BTN_RELEASED;
 }
 
 bool d_touch_moved(d_touch t) {
-	if (t >= NUM_TOUCHES) {
-		d_fail("touch not found: %d\n", t);
-	}
+	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].dpos.x != 0.0 || d_app.touches[t].dpos.x != 0.0;
 }
 
 vec2 d_touch_pos(d_touch t) {
-	if (t >= NUM_TOUCHES) {
-		d_fail("touch not found: %d\n", t);
-	}
+	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].pos;
 }
 
 vec2 d_touch_dpos(d_touch t) {
-	if (t >= NUM_TOUCHES) {
-		d_fail("touch not found: %d\n", t);
-	}
+	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].dpos;
 }
 

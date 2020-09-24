@@ -3,17 +3,6 @@
 #include <stdlib.h>
 #include <dirty/dirty.h>
 
-static const char* frag_code =
-"uniform float u_time;"
-"vec4 frag() {"
-	"float angle = atan(v_uv.y, v_uv.x);"
-	"float dis = length(v_uv);"
-	"float time = u_time * 8.0;"
-	"float c = sin(dis * 48.0 + time + angle);"
-	"return vec4(c, c, c, 1.0) * u_color;"
-"}"
-;
-
 d_shader shader;
 
 static void frame() {
@@ -32,9 +21,7 @@ static void frame() {
 int main() {
 
 	d_init("shader", 640, 480);
-
-	shader = d_make_shader(NULL, frag_code);
-
+	shader = d_load_shader(NULL, "res/spiral.frag");
 	d_run(frame);
 
 }

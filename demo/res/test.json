@@ -1,0 +1,32 @@
+{ "frames": [
+   {
+    "filename": "hunger_sign 0.ase",
+    "frame": { "x": 0, "y": 0, "w": 72, "h": 64 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 72, "h": 64 },
+    "sourceSize": { "w": 72, "h": 64 },
+    "duration": 100
+   },
+   {
+    "filename": "hunger_sign 1.ase",
+    "frame": { "x": 72, "y": 0, "w": 72, "h": 64 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 72, "h": 64 },
+    "sourceSize": { "w": 72, "h": 64 },
+    "duration": 100
+   }
+ ],
+ "meta": {
+  "app": "http://www.aseprite.org/",
+  "version": "1.2.20",
+  "image": "hunger_sign.png",
+  "format": "RGBA8888",
+  "size": { "w": 144, "h": 64 },
+  "scale": "1",
+  "frameTags": [
+   { "name": "go", "from": 0, "to": 1, "direction": "forward" }
+  ]
+ }
+}

@@ -81,6 +81,10 @@ typedef struct {
 	int count;
 } d_mesh;
 
+typedef struct {
+	d_mesh *meshes;
+} d_model;
+
 // OpenGL framebuffer
 typedef struct {
 	GLuint fbuf;
@@ -134,6 +138,21 @@ typedef struct {
 	vec2 offset;
 } d_textc;
 
+typedef struct {
+	const char *name;
+	int from;
+	int to;
+} d_sprite_anim;
+
+typedef struct {
+	quad *frames;
+	d_sprite_anim *anims;
+	int frame_len;
+	int anim_len;
+	float w;
+	float h;
+} d_sprite_data;
+
 // mesh
 d_mesh d_make_mesh(const d_vertex *vertices, int vcount, const d_index *indices, int icount);
 void d_free_mesh(d_mesh *mesh);
@@ -155,6 +174,9 @@ d_tex d_parse_tex_ex(const unsigned char *bytes, int size, d_tex_conf conf);
 d_tex d_load_tex(const char *path);
 d_tex d_load_tex_ex(const char *path, d_tex_conf conf);
 void d_free_tex(d_tex *tex);
+
+d_model d_parse_model(const unsigned char *bytes, int size);
+d_model d_load_model(const char *path);
 
 // font
 d_font d_make_font(d_tex tex, int grid_width, int grid_height, const char *chars);
@@ -245,8 +267,14 @@ void d_draw_circle(vec2 center, float radius, color c);
 
 // format text
 d_ftext d_fmt_text(const char *txt, float size, float wrap, d_origin orig, color c);
+d_ftext d_fmt_textc(const d_textc *chunks, int count, float size, float wrap, d_origin orig);
 // get cursor position of formatted text
 vec2 d_ftext_cpos(const d_ftext *ftext, int cursor);
+
+// sprite data
+d_sprite_data d_parse_ase(const char *json);
+d_sprite_data d_load_ase(const char *path);
+void d_free_sprite_data(d_sprite_data *data);
 
 const char *d_gl_version();
 const char *d_glsl_version();

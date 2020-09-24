@@ -3,9 +3,12 @@
 #include <ctype.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
+#include <stb_image.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb/stb_image_write.h>
+#include <stb_image_write.h>
+#define CGLTF_IMPLEMENTATION
+#include <cgltf.h>
+#include <json.h>
 
 #include <dirty/dirty.h>
 
@@ -233,6 +236,7 @@ d_img d_parse_img(const unsigned char *bytes, int size) {
 	// TODO: stand alone img doesn't need this
 	stbi_set_flip_vertically_on_load(true);
 	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, size, &w, &h, NULL, 4);
+	d_assert(data, "failed to parse image\n");
 
 	return (d_img) {
 		.data = data,
@@ -244,7 +248,7 @@ d_img d_parse_img(const unsigned char *bytes, int size) {
 
 d_img d_load_img(const char *path) {
 
-	int size;
+	size_t size;
 	unsigned char *bytes = d_read_bytes(path, &size);
 	d_img img = d_parse_img(bytes, size);
 	free(bytes);
@@ -341,6 +345,22 @@ void d_free_tex(d_tex *t) {
 	t->id = 0;
 }
 
+d_model d_parse_model(const unsigned char *bytes, int size) {
+
+	cgltf_options options = {0};
+	cgltf_data* data = NULL;
+	cgltf_result res = cgltf_parse(&options, bytes, size, &data);
+
+	d_assert(res == cgltf_result_success, "failed to parse gltf\n");
+
+	cgltf_free(data);
+
+	return (d_model) {
+		.meshes = NULL,
+	};
+
+}
+
 d_font d_make_font(d_tex tex, int gw, int gh, const char *chars) {
 
 	d_font f = {0};
@@ -353,9 +373,7 @@ d_font d_make_font(d_tex tex, int gw, int gh, const char *chars) {
 	f.qh = 1.0 / rows;
 	f.tex = tex;
 
-	if (count != strlen(chars)) {
-		d_fail("invalid font\n");
-	}
+	d_assert(count == strlen(chars), "invalid font\n");
 
 	for (int i = 0; i < count; i++) {
 		f.map[(int)chars[i]] = (vec2) {
@@ -523,9 +541,7 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 #endif
 	d_clear();
 
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-		d_fail("failed to create framebuffer\n");
-	}
+	d_assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE, "failed to create framebuffer\n");
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -563,9 +579,7 @@ void d_free_canvas(d_canvas *c) {
 
 GLint d_uniform_loc(const char *name) {
 	GLint loc = glGetUniformLocation(d_gfx.cur_shader->id, name);
-	if (loc == -1) {
-		d_fail("uniform not found: '%s'\n", name);
-	}
+	d_assert(loc != -1, "uniform not found: '%s'\n", name);
 	return loc;
 }
 
@@ -676,25 +690,15 @@ void d_blend_mode(d_blend b) {
 }
 
 void d_push() {
-
-	if (d_gfx.t_stack_cnt >= T_STACKS) {
-		d_fail("transform stack overflow\n");
-	}
-
+	d_assert(d_gfx.t_stack_cnt < T_STACKS, "transform stack overflow\n");
 	d_gfx.t_stack[d_gfx.t_stack_cnt] = d_gfx.transform;
 	d_gfx.t_stack_cnt++;
-
 }
 
 void d_pop() {
-
-	if (d_gfx.t_stack_cnt <= 0) {
-		d_fail("transform stack underflow\n");
-	}
-
+	d_assert(d_gfx.t_stack_cnt > 0, "transform stack underflow\n");
 	d_gfx.t_stack_cnt--;
 	d_gfx.transform = d_gfx.t_stack[d_gfx.t_stack_cnt];
-
 }
 
 void d_move(vec3 p) {
@@ -1202,35 +1206,161 @@ void d_gl_check_errors() {
 
 	while (err != GL_NO_ERROR) {
 
-		switch (err) {
-			case GL_INVALID_ENUM:
-				d_fail("gl invalid enum\n");
-				break;
-			case GL_INVALID_VALUE:
-				d_fail("gl invalid value\n");
-				break;
-			case GL_INVALID_OPERATION:
-				d_fail("gl invalid operation\n");
-				break;
-			case GL_INVALID_FRAMEBUFFER_OPERATION:
-				d_fail("gl invalid framebuffer operation\n");
-				break;
-			case GL_OUT_OF_MEMORY:
-				d_fail("gl out of memory\n");
-				break;
+		d_assert(err != GL_INVALID_ENUM, "gl invalid enum\n");
+		d_assert(err != GL_INVALID_VALUE, "gl invalid value\n");
+		d_assert(err != GL_INVALID_OPERATION, "gl invalid operation\n");
+		d_assert(err != GL_INVALID_FRAMEBUFFER_OPERATION, "gl invalid framebuffer operation\n");
+		d_assert(err != GL_OUT_OF_MEMORY, "gl out of memory\n");
 #ifndef GLES
-			case GL_STACK_UNDERFLOW:
-				d_fail("gl stack underflow\n");
-				break;
-			case GL_STACK_OVERFLOW:
-				d_fail("gl stack overflow\n");
-				break;
+		d_assert(err != GL_STACK_UNDERFLOW, "gl stack underflow\n");
+		d_assert(err != GL_STACK_OVERFLOW, "gl stack overflow\n");
 #endif
-		}
 
 		err = glGetError();
 
 	}
 
+}
+
+static struct json_object_element_s *json_get(struct json_object_s *obj, const char *name) {
+	struct json_object_element_s *cur = obj->start;
+	while (cur) {
+		if (strcmp(cur->name->string, name) == 0) {
+			return cur;
+		}
+		cur = cur->next;
+	}
+	d_fail("expected '%s' key\n", name);
+	return NULL;
+}
+
+static struct json_object_s *json_get_obj(struct json_object_s *obj, const char *name) {
+	struct json_object_element_s *el = json_get(obj, name);
+	struct json_object_s *child = json_value_as_object(el->value);
+	d_assert(child, "expected '%s' to be an object", name);
+	return child;
+}
+
+static float json_get_num(struct json_object_s *obj, const char *name) {
+	struct json_object_element_s *el = json_get(obj, name);
+	struct json_number_s *child = json_value_as_number(el->value);
+	d_assert(child, "expected '%s' to be a number", name);
+	return atof(child->number);
+}
+
+static struct json_array_s *json_get_arr(struct json_object_s *obj, const char *name) {
+	struct json_object_element_s *el = json_get(obj, name);
+	struct json_array_s *child = json_value_as_array(el->value);
+	d_assert(child, "expected '%s' to be an array", name);
+	return child;
+}
+
+static const char *json_get_str(struct json_object_s *obj, const char *name) {
+	struct json_object_element_s *el = json_get(obj, name);
+	struct json_string_s *child = json_value_as_string(el->value);
+	d_assert(child, "expected '%s' to be a string", name);
+	return child->string;
+}
+
+static bool json_get_bool(struct json_object_s *obj, const char *name) {
+	struct json_object_element_s *el = json_get(obj, name);
+	if (json_value_is_true(el->value)) {
+		return true;
+	} else if (json_value_is_false(el->value)) {
+		return false;
+	}
+	d_fail("expected '%s' to be a boolean", name);
+	return false;
+}
+
+d_sprite_data d_parse_ase(const char *json) {
+
+	struct json_value_s *root = json_parse(json, strlen(json));
+	struct json_object_s *obj = json_value_as_object(root);
+	d_assert(obj, "failed to parse json\n");
+	struct json_array_s *frames = json_get_arr(obj, "frames");
+	struct json_object_s *meta = json_get_obj(obj, "meta");
+
+	struct json_object_s *size = json_get_obj(meta, "size");
+	float sw = json_get_num(size, "w");
+	float sh = json_get_num(size, "h");
+
+	quad *jframes = calloc(frames->length, sizeof(quad));
+
+	struct json_array_element_s *cur_frame = frames->start;
+	int cur_frame_idx = 0;
+
+	while (cur_frame) {
+
+		struct json_object_s *data = json_get_obj(json_value_as_object(cur_frame->value), "frame");
+		float fx = json_get_num(data, "x");
+		float fy = json_get_num(data, "y");
+		float fw = json_get_num(data, "w");
+		float fh = json_get_num(data, "h");
+
+		jframes[cur_frame_idx] = quadf(fx / sw, fy / sh, fw / sw, fh / sh);
+
+		cur_frame = cur_frame->next;
+		cur_frame_idx++;
+
+	}
+
+	struct json_array_s *tags = json_get_arr(meta, "frameTags");
+	d_sprite_anim *anims = calloc(tags->length, sizeof(d_sprite_anim));
+
+	struct json_array_element_s *cur_tag = tags->start;
+	int cur_tag_idx = 0;
+
+	while (cur_tag) {
+
+		struct json_object_s *data = json_value_as_object(cur_tag->value);
+
+		const char *name = json_get_str(data, "name");
+		const char *dir = json_get_str(data, "direction");
+		int from = (int)json_get_num(data, "from");
+		int to = (int)json_get_num(data, "to");
+
+		if (strcmp(dir, "reverse") == 0) {
+			int tmp = from;
+			from = to;
+			to = tmp;
+		}
+
+		anims[cur_tag_idx] = (d_sprite_anim) {
+			.name = name,
+			.from = from,
+			.to = to,
+		};
+
+		cur_tag = cur_tag->next;
+		cur_tag_idx++;
+
+	}
+
+	free(root);
+
+	return (d_sprite_data) {
+		.frames = jframes,
+		.frame_len = frames->length,
+		.anims = anims,
+		.anim_len = tags->length,
+		.w = sw,
+		.h = sh,
+	};
+
+}
+
+d_sprite_data d_load_ase(const char *path) {
+	char *content = d_read_text(path);
+	d_sprite_data data = d_parse_ase(content);
+	free(content);
+	return data;
+}
+
+void d_free_sprite_data(d_sprite_data *data) {
+	free(data->frames);
+	free(data->anims);
+	data->frames = NULL;
+	data->anims = NULL;
 }
 

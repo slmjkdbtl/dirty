@@ -133,6 +133,7 @@ void d_run(void (*f)());
 void d_quit();
 // quit with error message
 void d_fail(const char *fmt, ...);
+void d_assert(bool test, const char *fmt, ...);
 
 // SETTINGS
 void d_set_vsync(bool b);

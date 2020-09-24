@@ -62,6 +62,51 @@ typedef struct {
 	float h;
 } quad;
 
+typedef struct {
+	vec2 p1;
+	vec2 p2;
+} rect;
+
+typedef struct {
+	vec3 p1;
+	vec3 p2;
+} box;
+
+typedef struct {
+	vec2 p1;
+	vec2 p2;
+} line2;
+
+typedef struct {
+	vec3 p1;
+	vec3 p2;
+} line3;
+
+typedef struct {
+	vec2 center;
+	float radius;
+} circle;
+
+typedef struct {
+	vec3 center;
+	float radius;
+} sphere;
+
+typedef struct {
+	vec3 normal;
+	float dist;
+} plane;
+
+typedef struct {
+	vec3 origin;
+	vec3 dir;
+} ray3;
+
+typedef struct {
+	vec2 origin;
+	vec2 dir;
+} ray2;
+
 vec2 vec2f(float, float);
 vec2 vec2u();
 vec2 vec2_add(vec2, vec2);
@@ -137,13 +182,29 @@ quat quatu();
 quad quadf(float, float, float, float);
 quad quadu();
 
+rect rectf(vec2, vec2);
+box boxf(vec3, vec3);
+line2 line2f(vec2, vec2);
+line3 line3f(vec3, vec3);
+circle circlef(vec2, float);
+sphere spheref(vec3, float);
+plane planef(vec3, float);
+ray2 ray2f(vec2, vec2);
+ray3 ray3f(vec3, vec3);
+
 float degf(float);
 float radf(float);
 float clampf(float, float, float);
 float lerpf(float, float, float);
 float randf(float, float);
 
-bool pt_rect(vec2, vec2, vec2);
+bool pt_rect(vec2 pt, rect r);
+bool rect_rect(rect r1, rect r2);
+bool line_line(line2 l1, line2 l2);
+bool line_rect(line2 l, rect r);
+bool pt_circle(vec2 pt, circle c);
+bool circle_circle(circle c1, circle c2);
+bool line_circle(line2 l, circle c);
 
 #endif
 
