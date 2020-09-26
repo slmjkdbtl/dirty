@@ -3,12 +3,12 @@
 #include <ctype.h>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include <stb/stb_image.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include <stb_image_write.h>
+#include <stb/stb_image_write.h>
 #define CGLTF_IMPLEMENTATION
-#include <cgltf.h>
-#include <json.h>
+#include <cgltf/cgltf.h>
+#include <json.h/json.h>
 
 #include <dirty/dirty.h>
 
@@ -247,12 +247,10 @@ d_img d_parse_img(const unsigned char *bytes, int size) {
 }
 
 d_img d_load_img(const char *path) {
-
 	size_t size;
 	unsigned char *bytes = d_read_bytes(path, &size);
 	d_img img = d_parse_img(bytes, size);
 	free(bytes);
-
 	return img;
 }
 
@@ -345,6 +343,10 @@ void d_free_tex(d_tex *t) {
 	t->id = 0;
 }
 
+// static void parse_gltf_node(cgltf_node *node, d_model *model) {
+	// ...
+// }
+
 d_model d_parse_model(const unsigned char *bytes, int size) {
 
 	cgltf_options options = {0};
@@ -352,13 +354,52 @@ d_model d_parse_model(const unsigned char *bytes, int size) {
 	cgltf_result res = cgltf_parse(&options, bytes, size, &data);
 
 	d_assert(res == cgltf_result_success, "failed to parse gltf\n");
+	d_assert(data->scene->nodes_count >= 1, "empty gltf\n");
+
+	d_model model = {0};
+	cgltf_node *node = data->scene->nodes[0];
+	cgltf_mesh *mesh = node->mesh;
+
+	for (int i = 0; i < mesh->primitives_count; i++) {
+		cgltf_primitive *prim = &mesh->primitives[i];
+		cgltf_accessor *indices = prim->indices;
+		// TODO: why is the buffer view type invalid?
+		for (int j = 0; j < prim->attributes_count; j++) {
+			cgltf_attribute *attr = &prim->attributes[j];
+			cgltf_accessor *data = attr->data;
+// 			printf("%d\n", data->count);
+		}
+	}
+
+// 	for (int i = 0; i < node->children_count; i++) {
+// 		cgltf_node *node2 = node->children[i];
+// 		printf("%s\n", node2->mesh->name);
+// 		printf("%d\n", node->mesh->primitives_count);
+// 	}
 
 	cgltf_free(data);
 
-	return (d_model) {
-		.meshes = NULL,
-	};
+	return model;
 
+}
+
+d_model d_load_model(const char *path) {
+	size_t size;
+	unsigned char *bytes = d_read_bytes(path, &size);
+	d_model model = d_parse_model(bytes, size);
+	free(bytes);
+	return model;
+}
+
+d_model d_free_model(d_model *model) {
+	for (int i = 0; i < model->mesh_n; i++) {
+		d_free_mesh(&model->meshes[i]);
+	}
+	for (int i = 0; i < model->child_n; i++) {
+		d_free_model(&model->children[i]);
+	}
+	free(model->children);
+	free(model->meshes);
 }
 
 d_font d_make_font(d_tex tex, int gw, int gh, const char *chars) {
@@ -1206,15 +1247,31 @@ void d_gl_check_errors() {
 
 	while (err != GL_NO_ERROR) {
 
-		d_assert(err != GL_INVALID_ENUM, "gl invalid enum\n");
-		d_assert(err != GL_INVALID_VALUE, "gl invalid value\n");
-		d_assert(err != GL_INVALID_OPERATION, "gl invalid operation\n");
-		d_assert(err != GL_INVALID_FRAMEBUFFER_OPERATION, "gl invalid framebuffer operation\n");
-		d_assert(err != GL_OUT_OF_MEMORY, "gl out of memory\n");
+		switch (err) {
+			case GL_INVALID_ENUM:
+				d_fail("gl invalid enum\n");
+				break;
+			case GL_INVALID_VALUE:
+				d_fail("gl invalid value\n");
+				break;
+			case GL_INVALID_OPERATION:
+				d_fail("gl invalid operation\n");
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				d_fail("gl invalid framebuffer operation\n");
+				break;
+			case GL_OUT_OF_MEMORY:
+				d_fail("gl out of memory\n");
+				break;
 #ifndef GLES
-		d_assert(err != GL_STACK_UNDERFLOW, "gl stack underflow\n");
-		d_assert(err != GL_STACK_OVERFLOW, "gl stack overflow\n");
+			case GL_STACK_UNDERFLOW:
+				d_fail("gl stack underflow\n");
+				break;
+			case GL_STACK_OVERFLOW:
+				d_fail("gl stack overflow\n");
+				break;
 #endif
+		}
 
 		err = glGetError();
 
@@ -1341,9 +1398,9 @@ d_sprite_data d_parse_ase(const char *json) {
 
 	return (d_sprite_data) {
 		.frames = jframes,
-		.frame_len = frames->length,
+		.frame_n = frames->length,
 		.anims = anims,
-		.anim_len = tags->length,
+		.anim_n = tags->length,
 		.w = sw,
 		.h = sh,
 	};

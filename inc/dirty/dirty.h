@@ -49,6 +49,7 @@
 #include "app.h"
 #include "audio.h"
 #include "fs.h"
+#include "json.h"
 #include "ui.h"
 #include "utils.h"
 

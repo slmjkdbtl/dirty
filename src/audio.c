@@ -2,7 +2,7 @@
 
 #include <math.h>
 #include <SDL2/SDL.h>
-#include <stb_vorbis.c>
+#include <stb/stb_vorbis.c>
 
 #include <dirty/dirty.h>
 #include "audio.h"
@@ -18,7 +18,7 @@
 typedef struct {
 	SDL_AudioDeviceID dev;
 	d_sound_pb tracks[MAX_TRACKS];
-	int ntracks;
+	int tracks_n;
 	d_synth synth;
 } d_audio_t;
 
@@ -32,7 +32,7 @@ static void stream(void *udata, Uint8 *buf, int len) {
 
 		float frame = 0.0;
 
-		for (int j = 0; j < d_audio.ntracks; j++) {
+		for (int j = 0; j < d_audio.tracks_n; j++) {
 
 			d_sound_pb *p = &d_audio.tracks[j];
 
@@ -134,16 +134,16 @@ d_sound_pb *d_play(const d_sound *snd) {
 		.done = false,
 	};
 
-	for (int i = 0; i < d_audio.ntracks; i++) {
+	for (int i = 0; i < d_audio.tracks_n; i++) {
 		if (d_audio.tracks[i].done) {
 			d_audio.tracks[i] = src;
 			return &d_audio.tracks[i];
 		}
 	}
 
-	d_audio.tracks[d_audio.ntracks] = src;
+	d_audio.tracks[d_audio.tracks_n] = src;
 
-	return &d_audio.tracks[d_audio.ntracks++];
+	return &d_audio.tracks[d_audio.tracks_n++];
 
 }
 

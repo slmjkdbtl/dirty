@@ -636,6 +636,10 @@ float lerpf(float a, float b, float t) {
     return a + (b - a) * t;
 }
 
+float mapf(float v, float l1, float h1, float l2, float h2) {
+	return l2 + (v - l1) / (h1 - l1) * (h2 - l2);
+}
+
 float randf(float low, float hi) {
 	return low + (float)rand() / (float)RAND_MAX * (hi - low);
 }

@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <json.h>
-
 #include <dirty/dirty.h>
 
 int strcnt(const char *str, const char *key) {
