@@ -2,7 +2,7 @@
 
 #include <dirty/dirty.h>
 
-static void frame() {
+void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
 		d_quit();
@@ -21,7 +21,9 @@ static void frame() {
 }
 
 int main() {
-	d_init("ui", 640, 480);
-	d_run(frame);
+	d_run((d_desc) {
+		.title = "ui",
+		.frame = frame,
+	});
 }
 

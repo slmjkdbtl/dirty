@@ -5,7 +5,7 @@
 
 char buf[256];
 
-static void frame() {
+void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
 		d_quit();
@@ -19,10 +19,10 @@ static void frame() {
 		}
 	}
 
-	const char *input = d_tinput();
+	char input = d_input();
 
-	if (strlen(input) > 0) {
-		strcat(buf, input);
+	if (input) {
+		strcat(buf, &input);
 	}
 
 	d_move_xy(vec2f(-120.0, 120.0));
@@ -36,7 +36,9 @@ static void frame() {
 }
 
 int main() {
-	d_init("text", 640, 480);
-	d_run(frame);
+	d_run((d_desc) {
+		.title = "text",
+		.frame = frame,
+	});
 }
 

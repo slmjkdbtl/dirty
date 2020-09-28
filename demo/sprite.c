@@ -4,7 +4,7 @@
 
 d_tex tex;
 
-static void frame() {
+void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
 		d_quit();
@@ -14,9 +14,7 @@ static void frame() {
 
 }
 
-int main() {
-
-	d_init("sprite", 640, 480);
+void init() {
 
 	tex = d_load_tex("res/acid2.png");
 
@@ -26,7 +24,13 @@ int main() {
 		printf("%f\n", data.frames[i].x);
 	}
 
-	d_run(frame);
+}
 
+int main() {
+	d_run((d_desc) {
+		.title = "sprite",
+		.init = init,
+		.frame = frame,
+	});
 }
 

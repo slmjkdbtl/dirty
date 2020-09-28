@@ -6,7 +6,7 @@ d_sound snd;
 d_sound track;
 d_sound_pb* track_pb;
 
-static void frame() {
+void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
 		d_quit();
@@ -28,16 +28,17 @@ static void frame() {
 
 }
 
-int main() {
-
-	d_init("audio", 640, 480);
-
+void init() {
 	snd = d_load_sound("res/shoot.ogg");
 	track = d_load_sound("res/yo.ogg");
-
 	track_pb = d_play(&track);
+}
 
-	d_run(frame);
-
+int main() {
+	d_run((d_desc) {
+		.title = "audio",
+		.init = init,
+		.frame = frame,
+	});
 }
 

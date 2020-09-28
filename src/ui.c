@@ -338,10 +338,10 @@ const char* d_ui_input(const char *label) {
 
 	if (data->focused) {
 
-		const char *tinput = d_tinput();
+		char input = d_input();
 
-		if (strlen(tinput) > 0) {
-			strcat(data->buf, tinput);
+		if (input) {
+			strcat(data->buf, &input);
 		}
 
 		if (d_key_pressed(D_KEY_BACKSPACE)) {

@@ -48,18 +48,20 @@ C_FLAGS += -Wall
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
 
+ifeq ($(TARGET),macos)
+C_FLAGS += -ObjC
+endif
+
 ifeq ($(TARGET),ios)
 C_FLAGS += -arch armv7
 C_FLAGS += -arch arm64
-# TODO: should be unnecessary
-C_FLAGS += -D TARGET_OS_IPHONE
 endif
 
 LD_FLAGS += -L $(EXT_LIB_PATH)
+LD_FLAGS += -l iconv
 LD_FLAGS += -l SDL2
 
 ifeq ($(TARGET),macos)
-LD_FLAGS += -l iconv
 LD_FLAGS += -framework OpenGL
 LD_FLAGS += -framework Cocoa
 LD_FLAGS += -framework Carbon
@@ -69,6 +71,10 @@ LD_FLAGS += -framework CoreAudio
 LD_FLAGS += -framework AudioToolbox
 LD_FLAGS += -framework Metal
 LD_FLAGS += -framework ForceFeedback
+# LD_FLAGS += -framework Cocoa
+# LD_FLAGS += -framework QuartzCore
+# LD_FLAGS += -framework OpenGL
+# LD_FLAGS += -framework AudioToolbox
 endif
 
 ifeq ($(TARGET),web)

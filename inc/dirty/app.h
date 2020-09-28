@@ -103,40 +103,30 @@ typedef enum {
 	_D_NUM_MOUSE,
 } d_mouse;
 
-typedef enum {
-	D_CURSOR_ARROW,
-	D_CURSOR_EDIT,
-	D_CURSOR_WAIT,
-	D_CURSOR_HAND,
-	D_CURSOR_CROSSHAIR,
-	D_CURSOR_SIZEALL,
-	D_CURSOR_SIZENWSE,
-	D_CURSOR_SIZENESW,
-	D_CURSOR_SIZEWE,
-	D_CURSOR_SIZENS,
-	_D_NUM_CURSORS,
-} d_cursor;
-
-typedef enum {
-	D_NOVSYNC = (1 << 0),
-	D_FULLSCREEN = (1 << 1),
-	D_RESIZABLE = (1 << 2),
-} d_wflag;
+typedef struct {
+	void (*init)();
+	void (*frame)();
+	void (*cleanup)();
+	void (*fail)();
+	const char *title;
+	int width;
+	int height;
+	bool fullscreen;
+	bool vsync;
+} d_desc;
 
 typedef int d_touch;
 
 // LIFECYCLE
 
 // init app
-void d_init(const char *title, int width, int height);
-void d_run(void (*f)());
+void d_run(d_desc desc);
 void d_quit();
 // quit with error message
 void d_fail(const char *fmt, ...);
 void d_assert(bool test, const char *fmt, ...);
 
 // SETTINGS
-void d_set_vsync(bool b);
 
 bool d_fullscreen();
 void d_set_fullscreen(bool b);
@@ -149,8 +139,6 @@ void d_set_mouse_hidden(bool b);
 
 const char *d_title();
 void d_set_title(const char *title);
-
-void d_set_cursor(d_cursor icon);
 
 int d_width();
 int d_height();
@@ -177,7 +165,7 @@ bool d_touch_moved(d_touch t);
 bool d_scrolled();
 vec2 d_wheel();
 bool d_resized();
-const char *d_tinput();
+char d_input();
 
 // querying input state
 bool d_mouse_down(d_mouse m);

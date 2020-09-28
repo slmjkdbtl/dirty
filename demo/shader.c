@@ -5,7 +5,7 @@
 
 d_shader shader;
 
-static void frame() {
+void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
 		d_quit();
@@ -18,11 +18,15 @@ static void frame() {
 
 }
 
-int main() {
-
-	d_init("shader", 640, 480);
+void init() {
 	shader = d_load_shader(NULL, "res/spiral.frag");
-	d_run(frame);
+}
 
+int main() {
+	d_run((d_desc) {
+		.title = "shader",
+		.init = init,
+		.frame = frame,
+	});
 }
 

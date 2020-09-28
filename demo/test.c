@@ -12,7 +12,7 @@ d_index indices[3];
 
 char buf[256];
 
-static void frame() {
+void frame() {
 
 	if (d_key_down(D_KEY_LMETA) && d_key_pressed(D_KEY_F)) {
 		d_set_fullscreen(!d_fullscreen());
@@ -22,16 +22,15 @@ static void frame() {
 		d_quit();
 	}
 
-	d_draw_raw(verts, 3, indices, 3, NULL);
-	d_draw_lrect(vec2f(-200.0, -200.0), vec2f(200.0, 200.0), 5.0, coloru());
-	d_draw_text("hihi", 64.0, 0.0, D_CENTER, coloru());
+// 	d_draw_raw(verts, 3, indices, 3, NULL);
+// 	d_draw_lrect(vec2f(-200.0, -200.0), vec2f(200.0, 200.0), 5.0, coloru());
+// 	d_draw_text("hihi", 64.0, 0.0, D_CENTER, coloru());
 // 	d_draw_canvas(&canvas, coloru());
+	d_draw_mesh(&tri);
 
 }
 
-int main() {
-
-	d_init("test", 640, 480);
+void init() {
 
 	verts[0] = (d_vertex) {
 		.pos = vec3f(0.0, 120.0, 0.0),
@@ -66,7 +65,13 @@ int main() {
 	d_draw_mesh(&tri);
 	d_use_canvas(NULL);
 
-	d_run(frame);
+}
 
+int main() {
+	d_run((d_desc) {
+		.title = "test",
+		.init = init,
+		.frame = frame,
+	});
 }
 

@@ -4,7 +4,7 @@
 
 d_mesh cube;
 
-static void frame() {
+void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
 		d_quit();
@@ -17,9 +17,7 @@ static void frame() {
 
 }
 
-int main() {
-
-	d_init("cube", 640, 480);
+void init() {
 
 	d_vertex verts[] = {
 		{
@@ -89,7 +87,13 @@ int main() {
 
 	cube = d_make_mesh(verts, 8, indices, 36);
 
-	d_run(frame);
+}
 
+int main() {
+	d_run((d_desc) {
+		.title = "cube",
+		.init = init,
+		.frame = frame,
+	});
 }
 

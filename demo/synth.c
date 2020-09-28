@@ -2,8 +2,6 @@
 
 #include <dirty/dirty.h>
 
-d_tex tex;
-
 static void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
@@ -42,9 +40,7 @@ static void frame() {
 
 }
 
-int main() {
-
-	d_init("synth", 640, 480);
+void init() {
 
 	d_synth_wav(d_wav_saw);
 
@@ -55,6 +51,13 @@ int main() {
 	e->sustain = 1.0;
 	e->release = 0.0;
 
-	d_run(frame);
-
 }
+
+int main() {
+	d_run((d_desc) {
+		.title = "synth",
+		.init = init,
+		.frame = frame,
+	});
+}
+

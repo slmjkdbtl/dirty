@@ -6,7 +6,7 @@
 #define BATCH_VERT_COUNT 65536
 #define BATCH_INDEX_COUNT 65536
 
-static const char* d_vert_template =
+static const char *d_vert_template =
 #ifndef GLES
 "#version 120\n"
 #endif
@@ -34,7 +34,7 @@ static const char* d_vert_template =
 "}"
 ;
 
-static const char* d_frag_template =
+static const char *d_frag_template =
 #ifndef GLES
 "#version 120\n"
 #else
@@ -58,13 +58,13 @@ static const char* d_frag_template =
 "}"
 ;
 
-static const char* d_vert_default =
+static const char *d_vert_default =
 "vec4 vert() {"
 	"return default_pos();"
 "}"
 ;
 
-static const char* d_frag_default =
+static const char *d_frag_default =
 "vec4 frag() {"
 	"return default_color();"
 "}"
@@ -74,7 +74,7 @@ typedef struct {
 	GLuint vbuf;
 	GLuint ibuf;
 	d_vertex vqueue[BATCH_VERT_COUNT];
-	unsigned int iqueue[BATCH_INDEX_COUNT];
+	d_index iqueue[BATCH_INDEX_COUNT];
 	int vcount;
 	int icount;
 } d_batch;

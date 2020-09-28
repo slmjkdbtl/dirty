@@ -2,11 +2,7 @@
 
 #include <dirty/dirty.h>
 
-d_sound snd;
-d_sound track;
-d_sound_pb* track_pb;
-
-static void frame() {
+void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
 		d_quit();
@@ -28,9 +24,9 @@ static void frame() {
 }
 
 int main() {
-
-	d_init("geom", 640, 480);
-	d_run(frame);
-
+	d_run((d_desc) {
+		.title = "geom",
+		.frame = frame,
+	});
 }
 

@@ -6,7 +6,7 @@
 d_vertex verts[3];
 d_index indices[3];
 
-static void frame() {
+void frame() {
 
 	if (d_key_pressed(D_KEY_ESC)) {
 		d_quit();
@@ -16,9 +16,7 @@ static void frame() {
 
 }
 
-int main() {
-
-	d_init("tri", 640, 480);
+void init() {
 
 	verts[0] = (d_vertex) {
 		.pos = vec3f(0.0, 120.0, 0.0),
@@ -45,7 +43,13 @@ int main() {
 	indices[1] = 1;
 	indices[2] = 2;
 
-	d_run(frame);
+}
 
+int main() {
+	d_run((d_desc) {
+		.title = "tri",
+		.init = init,
+		.frame = frame,
+	});
 }
 

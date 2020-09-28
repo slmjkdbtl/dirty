@@ -34,7 +34,7 @@ typedef struct {
 } d_touch_state;
 
 typedef struct {
-	void (*frame_cb)();
+	d_desc desc;
 	SDL_GLContext gl;
 	SDL_Window *window;
 	bool quit;
@@ -49,8 +49,7 @@ typedef struct {
 	d_btn mouse_states[_D_NUM_MOUSE];
 	d_touch_state touches[NUM_TOUCHES];
 	bool resized;
-	char tinput[INPUT_BUF_LEN];
-	SDL_Cursor *cursors[_D_NUM_CURSORS];
+	char char_input;
 } d_app_t;
 
 static d_app_t d_app;
@@ -63,24 +62,6 @@ static d_mouse sdl_mouse_to_d(int btn) {
 		default: return D_MOUSE_NONE;
 	}
 	return D_MOUSE_NONE;
-}
-
-static SDL_SystemCursor d_cursor_to_sdl(d_cursor c) {
-	switch (c) {
-		case D_CURSOR_ARROW: return SDL_SYSTEM_CURSOR_ARROW;
-		case D_CURSOR_EDIT: return SDL_SYSTEM_CURSOR_IBEAM;
-		// TODO
-		case D_CURSOR_WAIT: return SDL_SYSTEM_CURSOR_WAIT;
-		case D_CURSOR_HAND: return SDL_SYSTEM_CURSOR_HAND;
-		case D_CURSOR_CROSSHAIR: return SDL_SYSTEM_CURSOR_CROSSHAIR;
-		case D_CURSOR_SIZEALL: return SDL_SYSTEM_CURSOR_SIZEALL;
-		case D_CURSOR_SIZENWSE: return SDL_SYSTEM_CURSOR_SIZENWSE;
-		case D_CURSOR_SIZENESW: return SDL_SYSTEM_CURSOR_SIZENESW;
-		case D_CURSOR_SIZEWE: return SDL_SYSTEM_CURSOR_SIZEWE;
-		case D_CURSOR_SIZENS: return SDL_SYSTEM_CURSOR_SIZENS;
-		default: return SDL_SYSTEM_CURSOR_ARROW;
-	}
-	return 0;
 }
 
 static d_key sdl_key_to_d(SDL_Scancode code) {
@@ -166,42 +147,6 @@ static d_key sdl_key_to_d(SDL_Scancode code) {
 	return D_KEY_NONE;
 }
 
-void d_init(const char *title, int width, int height) {
-
-	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-#ifdef GLES
-	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-#endif
-
-	d_app.window = SDL_CreateWindow(
-		title,
-		SDL_WINDOWPOS_CENTERED,
-		SDL_WINDOWPOS_CENTERED,
-		width,
-		height,
-		SDL_WINDOW_OPENGL
-	);
-
-	d_app.gl = SDL_GL_CreateContext(d_app.window);
-	SDL_GL_SetSwapInterval(1);
-    SDL_GL_MakeCurrent(d_app.window, d_app.gl);
-	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
-
-	for (int i = 0; i < _D_NUM_CURSORS; i++) {
-		d_app.cursors[i] = SDL_CreateSystemCursor(d_cursor_to_sdl(i));
-	}
-
-	d_gfx_init();
-	d_audio_init();
-	d_ui_init();
-
-}
-
 void d_process_btn(d_btn *b) {
 	if (*b == D_BTN_PRESSED || *b == D_BTN_RPRESSED) {
 		*b = D_BTN_DOWN;
@@ -213,7 +158,11 @@ void d_process_btn(d_btn *b) {
 static void d_frame() {
 
 	d_clear();
-	d_app.frame_cb();
+
+	if (d_app.desc.frame) {
+		d_app.desc.frame();
+	}
+
 	d_gfx_frame();
 	SDL_GL_SwapWindow(d_app.window);
 
@@ -241,7 +190,7 @@ static void d_frame() {
 	d_app.wheel.x = 0.0;
 	d_app.wheel.y = 0.0;
 	d_app.resized = false;
-	memset(d_app.tinput, 0, sizeof(d_app.tinput));
+	d_app.char_input = 0;
 
 	// deal with inputs
 	while (SDL_PollEvent(&event)) {
@@ -276,10 +225,9 @@ static void d_frame() {
 				d_app.wheel.y = -event.wheel.y;
 				break;
 			case SDL_TEXTINPUT:
-				strcpy(d_app.tinput, event.text.text);
+				d_app.char_input = event.text.text[0];
 				break;
 			case SDL_FINGERDOWN:
-				printf("%lld, %lld", event.tfinger.touchId, event.tfinger.fingerId);
 				break;
 			case SDL_FINGERUP:
 				break;
@@ -310,25 +258,63 @@ static void d_frame() {
 
 }
 
-void d_run(void (*f)()) {
+void d_run(d_desc desc) {
 
-	if (!f) {
-		d_quit();
-		return;
+	desc.title = desc.title ? desc.title : "";
+	desc.width = desc.width ? desc.width : 640;
+	desc.height = desc.height ? desc.height : 480;
+
+	d_app.desc = desc;
+
+	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+#ifdef GLES
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#endif
+
+	d_app.window = SDL_CreateWindow(
+		desc.title,
+		SDL_WINDOWPOS_CENTERED,
+		SDL_WINDOWPOS_CENTERED,
+		desc.width,
+		desc.height,
+		SDL_WINDOW_OPENGL
+	);
+
+	d_app.gl = SDL_GL_CreateContext(d_app.window);
+	SDL_GL_SetSwapInterval(1);
+    SDL_GL_MakeCurrent(d_app.window, d_app.gl);
+	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
+
+	d_gfx_init();
+	d_audio_init();
+	d_ui_init();
+
+	if (d_app.desc.init) {
+		d_app.desc.init();
 	}
-
-	d_app.frame_cb = f;
 
 #ifdef D_WEB
 	emscripten_set_main_loop(d_frame, 0, 0);
 #else
+
 	while (!d_app.quit) {
 		d_frame();
 	}
+
 	d_audio_cleanup();
 	SDL_GL_DeleteContext(d_app.gl);
 	SDL_DestroyWindow(d_app.window);
 	SDL_Quit();
+
+	if (d_app.desc.cleanup) {
+		d_app.desc.cleanup();
+	}
+
 #endif
 
 }
@@ -507,11 +493,7 @@ vec2 d_wheel() {
 	return d_app.wheel;
 }
 
-const char *d_tinput() {
-	return (const char*)&d_app.tinput;
-}
-
-void d_set_cursor(d_cursor c) {
-	SDL_SetCursor(d_app.cursors[c]);
+char d_input() {
+	return d_app.char_input;
 }
 
