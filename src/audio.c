@@ -42,7 +42,7 @@ static float d_audio_next() {
 			continue;
 		}
 
-		if (p->pos + p->src->channels >= p->src->len) {
+		if (p->pos + p->src->channels >= p->src->num_samples) {
 			if (p->loop) {
 				p->pos = 0;
 			} else {
@@ -112,15 +112,15 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 	int channels;
 	int sample_rate;
 	short *samples;
-	int len = stb_vorbis_decode_memory(bytes, size, &channels, &sample_rate, &samples);
+	int num_samples = stb_vorbis_decode_memory(bytes, size, &channels, &sample_rate, &samples);
 
-	d_assert(len > 0, "failed to decode audio\n");
+	d_assert(num_samples > 0, "failed to decode audio\n");
 
 	return (d_sound) {
 		.channels = channels,
 		.sample_rate = sample_rate,
 		.samples = samples,
-		.len = len,
+		.num_samples = num_samples,
 	};
 
 }
@@ -158,6 +158,12 @@ d_sound_pb *d_play(const d_sound *snd) {
 
 	return &d_audio.tracks[d_audio.num_tracks++];
 
+}
+
+void d_sound_pb_seek(d_sound_pb *pb, float time) {
+	float len = pb->src->num_samples * pb->src->sample_rate;
+	time = clampf(time, 0.0, len);
+	pb->pos = (int)(time * pb->src->sample_rate);
 }
 
 void d_free_sound(d_sound *snd) {

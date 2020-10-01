@@ -3,6 +3,8 @@
 #ifndef D_GFX_H
 #define D_GFX_H
 
+#define D_ASCII_CHARS " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+
 #include <stdbool.h>
 
 #include "app.h"

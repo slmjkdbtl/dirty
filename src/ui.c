@@ -10,6 +10,7 @@
 
 #define WIDGET_SLOTS 64
 #define WINDOW_SLOTS 16
+#define INPUT_BUF_SIZE 256
 
 typedef struct {
 	d_ui_id id;
@@ -296,7 +297,7 @@ bool d_ui_button(const char *label) {
 }
 
 typedef struct {
-	char buf[256];
+	char buf[INPUT_BUF_SIZE];
 	bool focused;
 } d_ui_input_t;
 
@@ -340,8 +341,11 @@ const char* d_ui_input(const char *label) {
 
 		char input = d_input();
 
-		if (input) {
-			strcat(data->buf, &input);
+		if (input && strlen(data->buf) < INPUT_BUF_SIZE) {
+			char tmpstr[2];
+			tmpstr[0] = input;
+			tmpstr[1] = '\0';
+			strcat(data->buf, tmpstr);
 		}
 
 		if (d_key_rpressed(D_KEY_BACKSPACE)) {

@@ -67,7 +67,7 @@ void d_gfx_init() {
 	d_gfx.tex_slots[0] = &d_gfx.default_tex;
 
 	// init default font
-	d_gfx.default_font = d_make_font(d_parse_tex(unscii_png, unscii_png_len), 8, 8, " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~");
+	d_gfx.default_font = d_make_font(d_parse_tex(unscii_png, unscii_png_len), 8, 8, D_ASCII_CHARS);
 	d_gfx.cur_font = &d_gfx.default_font;
 
 	// init default cam

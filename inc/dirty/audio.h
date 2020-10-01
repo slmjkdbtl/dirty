@@ -8,7 +8,7 @@ typedef struct {
 	int channels;
 	int sample_rate;
 	short *samples;
-	int len;
+	int num_samples;
 } d_sound;
 
 // sound playback control handle
@@ -34,9 +34,10 @@ void d_stream(float (*f)());
 // SOUND
 d_sound d_parse_sound(const unsigned char *bytes, int size);
 d_sound d_load_sound(const char *path);
+void d_free_sound(d_sound *sound);
 // play a sound, returning a handle for control
 d_sound_pb *d_play(const d_sound *sound);
-void d_free_sound(d_sound *sound);
+void d_sound_pb_seek(d_sound_pb *pb, float time);
 
 // SYNTH
 void d_synth_play(int note);
