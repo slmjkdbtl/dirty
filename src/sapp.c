@@ -258,14 +258,19 @@ static void cleanup() {
 }
 
 static void fail() {
-	// ...
+// 	if (d_app.desc.err) {
+// 		d_app.desc.err();
+// 	}
 }
 
 void d_run(d_desc desc) {
+
 	desc.title = desc.title ? desc.title : "";
 	desc.width = desc.width ? desc.width : 640;
 	desc.height = desc.height ? desc.height : 480;
+
 	d_app.desc = desc;
+
 	sapp_run(&(sapp_desc) {
 		.init_cb = init,
 		.frame_cb = frame,
@@ -277,6 +282,7 @@ void d_run(d_desc desc) {
 		.window_title = desc.title,
 		.fullscreen = desc.fullscreen,
 	});
+
 }
 
 void d_quit() {
@@ -296,10 +302,14 @@ void d_fail(const char *fmt, ...) {
 
 void d_assert(bool test, const char *fmt, ...) {
 	if (!test) {
+		d_quit();
 		va_list args;
 		va_start(args, fmt);
-		d_fail(fmt, args);
+		vfprintf(stderr, fmt, args);
 		va_end(args);
+		fflush(stdout);
+		fflush(stderr);
+		exit(EXIT_FAILURE);
 	}
 }
 

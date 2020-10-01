@@ -83,7 +83,7 @@ char *d_fmta(const char *fmt, ...) {
 	int size = vsnprintf(NULL, 0, fmt, args) + 1;
 	va_end(args);
 
-	char *buf = malloc(sizeof(char) * size);
+	char *buf = malloc(size);
 
 	va_start(args, fmt);
 	vsnprintf(buf, size, fmt, args);

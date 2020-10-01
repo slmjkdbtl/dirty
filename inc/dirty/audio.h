@@ -3,8 +3,6 @@
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
 
-#define D_SYNTH_NOTES 128
-
 // a static sound
 typedef struct {
 	int channels;
@@ -29,6 +27,9 @@ typedef struct {
 	float sustain;
 	float release;
 } d_envelope;
+
+// user provided stream
+void d_stream(float (*f)());
 
 // SOUND
 d_sound d_parse_sound(const unsigned char *bytes, int size);

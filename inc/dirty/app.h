@@ -107,12 +107,17 @@ typedef struct {
 	void (*init)();
 	void (*frame)();
 	void (*cleanup)();
-	void (*fail)();
+	void (*err)(const char *msg);
+	void (*init_u)(void *udata);
+	void (*frame_u)(void *udata);
+	void (*cleanup_u)(void *udata);
+	void (*err_u)(void *udata, const char *msg);
 	const char *title;
 	int width;
 	int height;
 	bool fullscreen;
 	bool vsync;
+	void *udata;
 } d_desc;
 
 typedef int d_touch;

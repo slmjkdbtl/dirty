@@ -6,8 +6,6 @@
 
 #include <dirty/dirty.h>
 
-#define PI 3.14159
-
 vec2 vec2f(float x, float y) {
 	return (vec2) {
 		.x = x,
@@ -621,11 +619,11 @@ ray3 ray3f(vec3 origin, vec3 dir) {
 }
 
 float degf(float r) {
-    return r * (180.0 / PI);
+    return r * (180.0 / D_PI);
 }
 
 float radf(float d) {
-    return d / (180.0 / PI);
+    return d / (180.0 / D_PI);
 }
 
 float clampf(float v, float low, float hi) {

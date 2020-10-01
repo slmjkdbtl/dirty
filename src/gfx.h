@@ -80,7 +80,7 @@ typedef struct {
 } d_batch;
 
 void d_gfx_init();
-void d_gfx_frame();
+void d_gfx_frame_end();
 
 void d_gl_check_errors();
 void d_draw(GLuint, GLuint, int);

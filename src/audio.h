@@ -3,6 +3,8 @@
 #ifndef D_AUDIO_INTERNAL_H
 #define D_AUDIO_INTERNAL_H
 
+#define D_SYNTH_NOTES 128
+
 typedef struct {
 	float life;
 	float afterlife;

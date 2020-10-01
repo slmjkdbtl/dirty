@@ -15,15 +15,7 @@ void frame() {
 }
 
 void init() {
-
 	tex = d_load_tex("res/acid2.png");
-
-	d_sprite_data data = d_load_ase("res/test.json");
-
-	for (int i = 0; i < data.frame_n; i++) {
-		printf("%f\n", data.frames[i].x);
-	}
-
 }
 
 int main() {

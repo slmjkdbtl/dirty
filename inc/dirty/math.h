@@ -19,6 +19,8 @@
 #define YELLOW colorf(1.0, 1.0, 0.0, 1.0)
 #define MAGENTA colorf(1.0, 0.0, 1.0, 1.0)
 
+#define D_PI 3.14
+
 typedef struct {
 	float x;
 	float y;

@@ -16,59 +16,68 @@
 #define PI 3.14159
 
 typedef struct {
-	SDL_AudioDeviceID dev;
+	SDL_AudioDeviceID device;
 	d_sound_pb tracks[MAX_TRACKS];
-	int tracks_n;
+	int num_tracks;
+	float (*user_stream)();
 	d_synth synth;
 } d_audio_t;
 
 static d_audio_t d_audio;
 
-static void stream(void *udata, Uint8 *buf, int len) {
+static float d_audio_next() {
+
+	float frame = 0.0;
+
+	for (int j = 0; j < d_audio.num_tracks; j++) {
+
+		d_sound_pb *p = &d_audio.tracks[j];
+
+		if (p->paused || p->done) {
+			continue;
+		}
+
+		if (p->src->samples == NULL) {
+			p->done = true;
+			continue;
+		}
+
+		if (p->pos + p->src->channels >= p->src->len) {
+			if (p->loop) {
+				p->pos = 0;
+			} else {
+				p->done = true;
+				continue;
+			}
+		}
+
+		float f = 0.0;
+
+		for (int k = 0; k < p->src->channels; k++) {
+			f += (float)p->src->samples[p->pos] / (float)SHRT_MAX;
+			p->pos++;
+		}
+
+		frame += (f / (float)p->src->channels) * p->volume;
+
+	}
+
+	frame += d_synth_next();
+
+	if (d_audio.user_stream) {
+		frame += d_audio.user_stream();
+	}
+
+	return frame;
+
+}
+
+static void sdl_stream(void *udata, unsigned char *buf, int len) {
 
 	float *fbuf = (float*)buf;
 
 	for (int i = 0; i < SAMPLES; i++) {
-
-		float frame = 0.0;
-
-		for (int j = 0; j < d_audio.tracks_n; j++) {
-
-			d_sound_pb *p = &d_audio.tracks[j];
-
-			if (p->paused || p->done) {
-				continue;
-			}
-
-			if (p->src->samples == NULL) {
-				p->done = true;
-				continue;
-			}
-
-			if (p->pos + p->src->channels >= p->src->len) {
-				if (p->loop) {
-					p->pos = 0;
-				} else {
-					p->done = true;
-					continue;
-				}
-			}
-
-			float f = 0.0;
-
-			for (int k = 0; k < p->src->channels; k++) {
-				f += (float)p->src->samples[p->pos] / (float)SHRT_MAX;
-				p->pos++;
-			}
-
-			frame += (f / (float)p->src->channels) * p->volume;
-
-		}
-
-		frame += d_synth_next(&d_audio.synth);
-
-		fbuf[i] = frame;
-
+		fbuf[i] = d_audio_next();
 	}
 
 }
@@ -80,18 +89,22 @@ void d_audio_init() {
 		.format = AUDIO_F32,
 		.channels = CHANNELS,
 		.samples = SAMPLES,
-		.callback = stream,
+		.callback = sdl_stream,
 		.userdata = NULL,
 	};
 
 	d_audio.synth = d_make_synth(SAMPLE_RATE);
-	d_audio.dev = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, SDL_AUDIO_ALLOW_ANY_CHANGE);
-	SDL_PauseAudioDevice(d_audio.dev, 0);
+	d_audio.device = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, SDL_AUDIO_ALLOW_ANY_CHANGE);
+	SDL_PauseAudioDevice(d_audio.device, 0);
 
 }
 
 void d_audio_cleanup() {
-	SDL_CloseAudioDevice(d_audio.dev);
+	SDL_CloseAudioDevice(d_audio.device);
+}
+
+void d_stream(float (*f)()) {
+	d_audio.user_stream = f;
 }
 
 d_sound d_parse_sound(const unsigned char *bytes, int size) {
@@ -134,16 +147,16 @@ d_sound_pb *d_play(const d_sound *snd) {
 		.done = false,
 	};
 
-	for (int i = 0; i < d_audio.tracks_n; i++) {
+	for (int i = 0; i < d_audio.num_tracks; i++) {
 		if (d_audio.tracks[i].done) {
 			d_audio.tracks[i] = src;
 			return &d_audio.tracks[i];
 		}
 	}
 
-	d_audio.tracks[d_audio.tracks_n] = src;
+	d_audio.tracks[d_audio.num_tracks] = src;
 
-	return &d_audio.tracks[d_audio.tracks_n++];
+	return &d_audio.tracks[d_audio.num_tracks++];
 
 }
 
@@ -254,8 +267,9 @@ void d_voice_process(d_voice *v, const d_envelope *e, float dt) {
 
 }
 
-float d_synth_next(d_synth *synth) {
+float d_synth_next() {
 
+	d_synth *synth = &d_audio.synth;
 	float t = (float)(synth->clock % synth->sample_rate) / (float)synth->sample_rate;
 	float dt = 1.0 / (float)synth->sample_rate;
 	float frame = 0.0;

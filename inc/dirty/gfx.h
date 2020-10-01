@@ -83,9 +83,9 @@ typedef struct {
 
 typedef struct d_model {
 	d_mesh *meshes;
-	int mesh_n;
+	int num_meshes;
 	struct d_model *children;
-	int child_n;
+	int num_children;
 } d_model;
 
 // OpenGL framebuffer
@@ -150,8 +150,8 @@ typedef struct {
 typedef struct {
 	quad *frames;
 	d_sprite_anim *anims;
-	int frame_n;
-	int anim_n;
+	int num_frames;
+	int num_anims;
 	float w;
 	float h;
 } d_sprite_data;
@@ -180,7 +180,7 @@ void d_free_tex(d_tex *tex);
 
 d_model d_parse_model(const unsigned char *bytes, int size);
 d_model d_load_model(const char *path);
-d_model d_free_model(d_model *model);
+void d_free_model(d_model *model);
 
 // font
 d_font d_make_font(d_tex tex, int grid_width, int grid_height, const char *chars);

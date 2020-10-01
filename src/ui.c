@@ -344,7 +344,7 @@ const char* d_ui_input(const char *label) {
 			strcat(data->buf, &input);
 		}
 
-		if (d_key_pressed(D_KEY_BACKSPACE)) {
+		if (d_key_rpressed(D_KEY_BACKSPACE)) {
 			data->buf[strlen(data->buf) - 1] = '\0';
 		}
 
@@ -359,9 +359,11 @@ const char* d_ui_input(const char *label) {
 	d_ftext ftext = d_fmt_text(data->buf, t->text_size, 0.0, D_TOP_LEFT, t->text_color);
 	vec2 cpos = vec2_add(d_ftext_cpos(&ftext, strlen(data->buf)), vec2f(3.0, 0.0));
 	d_draw_ftext(&ftext);
+
 	if (data->focused) {
 		d_draw_line(cpos, vec2f(cpos.x, cpos.y - t->text_size), t->line_width, t->line_color);
 	}
+
 	d_pop();
 
 	d_move_y(b2.y - t->padding_y);

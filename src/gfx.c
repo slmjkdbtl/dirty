@@ -86,7 +86,7 @@ void d_gfx_init() {
 
 }
 
-void d_gfx_frame() {
+void d_gfx_frame_end() {
 	d_batch_flush(&d_gfx.batch);
 	d_gl_check_errors();
 	d_gfx.transform = mat4u();
@@ -347,6 +347,7 @@ void d_free_tex(d_tex *t) {
 	// ...
 // }
 
+// TODO
 d_model d_parse_model(const unsigned char *bytes, int size) {
 
 	cgltf_options options = {0};
@@ -391,11 +392,11 @@ d_model d_load_model(const char *path) {
 	return model;
 }
 
-d_model d_free_model(d_model *model) {
-	for (int i = 0; i < model->mesh_n; i++) {
+void d_free_model(d_model *model) {
+	for (int i = 0; i < model->num_meshes; i++) {
 		d_free_mesh(&model->meshes[i]);
 	}
-	for (int i = 0; i < model->child_n; i++) {
+	for (int i = 0; i < model->num_children; i++) {
 		d_free_model(&model->children[i]);
 	}
 	free(model->children);
@@ -603,7 +604,6 @@ d_img d_canvas_capture(const d_canvas *c) {
 	glBindTexture(GL_TEXTURE_2D, c->ctex.id);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	// TODO: don't copy data here?
 	d_img img = d_make_img(buf, c->width, c->height);
 	free(buf);
 	return img;
@@ -903,7 +903,6 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 
 }
 
-// TODO
 static void d_set_tex(const d_tex *t) {
 	if (t) {
 		if (t->id != d_gfx.tex_slots[0]->id) {
@@ -1398,9 +1397,9 @@ d_sprite_data d_parse_ase(const char *json) {
 
 	return (d_sprite_data) {
 		.frames = jframes,
-		.frame_n = frames->length,
+		.num_frames = frames->length,
 		.anims = anims,
-		.anim_n = tags->length,
+		.num_anims = tags->length,
 		.w = sw,
 		.h = sh,
 	};

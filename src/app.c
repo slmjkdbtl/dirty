@@ -1,5 +1,7 @@
 // wengwengweng
 
+#ifndef D_SAPP
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -163,7 +165,11 @@ static void d_frame() {
 		d_app.desc.frame();
 	}
 
-	d_gfx_frame();
+	if (d_app.desc.frame_u) {
+		d_app.desc.frame_u(d_app.desc.udata);
+	}
+
+	d_gfx_frame_end();
 	SDL_GL_SwapWindow(d_app.window);
 
 	SDL_Event event;
@@ -298,6 +304,10 @@ void d_run(d_desc desc) {
 		d_app.desc.init();
 	}
 
+	if (d_app.desc.init_u) {
+		d_app.desc.init_u(d_app.desc.udata);
+	}
+
 #ifdef D_WEB
 	emscripten_set_main_loop(d_frame, 0, 0);
 #else
@@ -313,6 +323,10 @@ void d_run(d_desc desc) {
 
 	if (d_app.desc.cleanup) {
 		d_app.desc.cleanup();
+	}
+
+	if (d_app.desc.cleanup_u) {
+		d_app.desc.cleanup_u(d_app.desc.udata);
 	}
 
 #endif
@@ -334,12 +348,42 @@ void d_fail(const char *fmt, ...) {
 	exit(EXIT_FAILURE);
 }
 
+void d_err(const char *fmt, ...) {
+
+	va_list args;
+
+	va_start(args, fmt);
+	int size = vsnprintf(NULL, 0, fmt, args) + 1;
+	va_end(args);
+
+	char *msg = malloc(size);
+
+	va_start(args, fmt);
+	vsnprintf(msg, size, fmt, args);
+	va_end(args);
+
+	if (d_app.desc.err) {
+		d_app.desc.err(msg);
+	}
+
+	if (d_app.desc.err_u) {
+		d_app.desc.err_u(d_app.desc.udata, msg);
+	}
+
+	free(msg);
+
+}
+
 void d_assert(bool test, const char *fmt, ...) {
 	if (!test) {
+		d_quit();
 		va_list args;
 		va_start(args, fmt);
-		d_fail(fmt, args);
+		vfprintf(stderr, fmt, args);
 		va_end(args);
+		fflush(stdout);
+		fflush(stderr);
+		exit(EXIT_FAILURE);
 	}
 }
 
@@ -496,4 +540,6 @@ vec2 d_wheel() {
 char d_input() {
 	return d_app.char_input;
 }
+
+#endif
 
