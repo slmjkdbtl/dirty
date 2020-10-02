@@ -38,18 +38,27 @@ static void frame() {
 		}
 	}
 
+	float last_frame = 0.0;
+	float height = 64.0;
+
+	for (int i = -640; i <= 0; i++) {
+		float frame = d_synth_bufn(i);
+		d_draw_line(vec2f((float)i + 320.0, last_frame * height), vec2f((float)i + 321.0, frame * height), 2.0, WHITE);
+		last_frame = frame;
+	}
+
 }
 
 void init() {
 
-	d_synth_wav(d_wav_saw);
+	d_synth_wav(d_wav_tri);
 
 	d_envelope *e = d_synth_envelope();
 
-	e->attack = 0.0;
+	e->attack = 0.01;
 	e->decay = 0.0;
 	e->sustain = 1.0;
-	e->release = 0.0;
+	e->release = 0.01;
 
 }
 

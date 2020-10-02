@@ -13,7 +13,6 @@
 #define MAX_TRACKS 256
 #define A4_FREQ 440
 #define A4_NOTE 69
-#define PI 3.14159
 
 typedef struct {
 	SDL_AudioDeviceID device;
@@ -51,6 +50,7 @@ static float d_audio_next() {
 			}
 		}
 
+		// proceed through frames, make everything mono
 		float f = 0.0;
 
 		for (int k = 0; k < p->src->channels; k++) {
@@ -171,12 +171,14 @@ void d_free_sound(d_sound *snd) {
 	snd->samples = NULL;
 }
 
+// TODO: clicking noise sound every second
+
 float d_note_freq(int n) {
 	return A4_FREQ * pow(powf(2.0, 1.0 / 12.0), n - A4_NOTE);
 }
 
 float d_wav_sin(float freq, float t) {
-	return sin(freq * 2.0 * PI * t);
+	return sin(freq * 2.0 * D_PI * t);
 }
 
 float d_wav_square(float freq, float t) {
@@ -184,11 +186,11 @@ float d_wav_square(float freq, float t) {
 }
 
 float d_wav_tri(float freq, float t) {
-	return asin(d_wav_sin(freq, t)) * 2.0 / PI;
+	return asin(d_wav_sin(freq, t)) * 2.0 / D_PI;
 }
 
 float d_wav_saw(float freq, float t) {
-	return (2.0 / PI) * (freq * PI * fmod(t, 1.0 / freq) - PI / 2.0);
+	return (2.0 / D_PI) * (freq * D_PI * fmod(t, 1.0 / freq) - D_PI / 2.0);
 }
 
 float d_wav_noise(float freq, float t) {
@@ -295,8 +297,24 @@ float d_synth_next() {
 
 	}
 
-	return frame * synth->volume;
+	frame *= synth->volume;
 
+	if (synth->buf_size < D_SYNTH_BUF_SIZE) {
+		synth->buf[synth->buf_size++] = frame;
+	} else {
+		synth->buf[synth->buf_head++] = frame;
+		if (synth->buf_head >= D_SYNTH_BUF_SIZE) {
+			synth->buf_head = 0;
+		}
+	}
+
+	return frame;
+
+}
+
+float d_synth_bufn(int n) {
+	d_synth *synth = &d_audio.synth;
+	return synth->buf[(n + synth->buf_size - 1 + synth->buf_head) % D_SYNTH_BUF_SIZE];
 }
 
 d_envelope *d_synth_envelope() {

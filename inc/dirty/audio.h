@@ -44,6 +44,7 @@ void d_synth_play(int note);
 void d_synth_release(int note);
 d_envelope *d_synth_envelope();
 void d_synth_wav(float (*func)(float freq, float t));
+float d_synth_bufn(int n);
 
 // built in wave forms
 float d_wav_sin(float freq, float t);
