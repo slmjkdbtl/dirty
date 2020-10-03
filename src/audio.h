@@ -7,18 +7,10 @@
 #define D_SYNTH_BUF_SIZE 44100
 
 typedef struct {
-	float life;
-	float afterlife;
-	float volume;
-	bool active;
-	bool alive;
-} d_voice;
-
-typedef struct {
 	d_voice notes[D_SYNTH_NOTES];
 	float volume;
 	int sample_rate;
-	unsigned long clock;
+	float clock;
 	d_envelope envelope;
 	float buf[D_SYNTH_BUF_SIZE];
 	int buf_head;

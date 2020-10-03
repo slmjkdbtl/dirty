@@ -54,7 +54,7 @@ static float d_audio_next() {
 		float f = 0.0;
 
 		for (int k = 0; k < p->src->channels; k++) {
-			f += (float)p->src->samples[p->pos] / (float)SHRT_MAX;
+			f += p->src->samples[p->pos];
 			p->pos++;
 		}
 
@@ -68,7 +68,7 @@ static float d_audio_next() {
 		frame += d_audio.user_stream();
 	}
 
-	return frame;
+	return clampf(frame, -1.0, 1.0);
 
 }
 
@@ -93,7 +93,7 @@ void d_audio_init() {
 		.userdata = NULL,
 	};
 
-	d_audio.synth = d_make_synth(SAMPLE_RATE);
+	d_audio.synth = d_make_synth();
 	d_audio.device = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, SDL_AUDIO_ALLOW_ANY_CHANGE);
 	SDL_PauseAudioDevice(d_audio.device, 0);
 
@@ -107,6 +107,8 @@ void d_stream(float (*f)()) {
 	d_audio.user_stream = f;
 }
 
+// TODO: d_make_sound()
+
 d_sound d_parse_sound(const unsigned char *bytes, int size) {
 
 	int channels;
@@ -116,10 +118,19 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 
 	d_assert(num_samples > 0, "failed to decode audio\n");
 
+	// TODO: convert to default sample rate and channel
+
+	float *fsamples = malloc(sizeof(float) * num_samples);
+
+	for (int i = 0; i < num_samples; i++) {
+		fsamples[i] = (float)samples[i] / SHRT_MAX;
+	}
+
+	free(samples);
+
 	return (d_sound) {
 		.channels = channels,
-		.sample_rate = sample_rate,
-		.samples = samples,
+		.samples = fsamples,
 		.num_samples = num_samples,
 	};
 
@@ -161,17 +172,15 @@ d_sound_pb *d_play(const d_sound *snd) {
 }
 
 void d_sound_pb_seek(d_sound_pb *pb, float time) {
-	float len = pb->src->num_samples * pb->src->sample_rate;
+	float len = pb->src->num_samples * SAMPLE_RATE;
 	time = clampf(time, 0.0, len);
-	pb->pos = (int)(time * pb->src->sample_rate);
+	pb->pos = (int)(time * SAMPLE_RATE);
 }
 
 void d_free_sound(d_sound *snd) {
 	free(snd->samples);
 	snd->samples = NULL;
 }
-
-// TODO: clicking noise sound every second
 
 float d_note_freq(int n) {
 	return A4_FREQ * pow(powf(2.0, 1.0 / 12.0), n - A4_NOTE);
@@ -197,12 +206,12 @@ float d_wav_noise(float freq, float t) {
 	return randf(-1.0, 1.0);
 }
 
-d_synth d_make_synth(int rate) {
+d_synth d_make_synth() {
 	return (d_synth) {
 		.notes = {0},
-		.volume = 1.0,
+		.volume = 0.5,
 		.clock = 0,
-		.sample_rate = rate,
+		.sample_rate = SAMPLE_RATE,
 		.wav_func = d_wav_sin,
 		.envelope = (d_envelope) {
 			.attack = 0.05,
@@ -213,15 +222,19 @@ d_synth d_make_synth(int rate) {
 	};
 }
 
-void d_synth_play(int note) {
-	d_assert(note >= 0 && note < D_SYNTH_NOTES, "note out of bound: '%d'\n", note);
-	d_audio.synth.notes[note] = (d_voice) {
+d_voice d_make_voice() {
+	return (d_voice) {
 		.active = true,
 		.life = 0.0,
 		.afterlife = 0.0,
 		.volume = 0.0,
 		.alive = true,
 	};
+}
+
+void d_synth_play(int note) {
+	d_assert(note >= 0 && note < D_SYNTH_NOTES, "note out of bound: '%d'\n", note);
+	d_audio.synth.notes[note] = d_make_voice();
 }
 
 void d_synth_release(int note) {
@@ -278,11 +291,10 @@ void d_voice_process(d_voice *v, const d_envelope *e, float dt) {
 float d_synth_next() {
 
 	d_synth *synth = &d_audio.synth;
-	float t = (float)(synth->clock % synth->sample_rate) / (float)synth->sample_rate;
-	float dt = 1.0 / (float)synth->sample_rate;
 	float frame = 0.0;
+	float dt = 1.0 / (float)synth->sample_rate;
 
-	synth->clock = (synth->clock + 1 % synth->sample_rate);
+	synth->clock += dt;
 
 	for (int i = 0; i < D_SYNTH_NOTES; i++) {
 
@@ -290,14 +302,15 @@ float d_synth_next() {
 
 		d_voice_process(v, &synth->envelope, dt);
 
-		float freq = floor(d_note_freq(i));
-		float sample = synth->wav_func(freq, t) * v->volume;
+		float freq = d_note_freq(i);
+		float sample = synth->wav_func(freq, synth->clock) * v->volume;
 
 		frame += sample;
 
 	}
 
 	frame *= synth->volume;
+	frame = clampf(frame, -1.0, 1.0);
 
 	if (synth->buf_size < D_SYNTH_BUF_SIZE) {
 		synth->buf[synth->buf_size++] = frame;
@@ -312,9 +325,16 @@ float d_synth_next() {
 
 }
 
-float d_synth_bufn(int n) {
+float d_synth_peek(int n) {
 	d_synth *synth = &d_audio.synth;
-	return synth->buf[(n + synth->buf_size - 1 + synth->buf_head) % D_SYNTH_BUF_SIZE];
+	if (synth->buf_size == 0) {
+		return 0.0;
+	}
+	int idx = (n + synth->buf_size - 1 + synth->buf_head) % D_SYNTH_BUF_SIZE;
+	if (idx < 0 || idx >= D_SYNTH_BUF_SIZE) {
+		return 0.0;
+	}
+	return synth->buf[idx];
 }
 
 d_envelope *d_synth_envelope() {
