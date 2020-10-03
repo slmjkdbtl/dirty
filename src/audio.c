@@ -41,7 +41,7 @@ static float d_audio_next() {
 			continue;
 		}
 
-		if (p->pos + p->src->channels >= p->src->num_samples) {
+		if (p->pos >= p->src->num_samples) {
 			if (p->loop) {
 				p->pos = 0;
 			} else {
@@ -51,14 +51,10 @@ static float d_audio_next() {
 		}
 
 		// proceed through frames, make everything mono
-		float f = 0.0;
+		float f = p->src->samples[p->pos];
 
-		for (int k = 0; k < p->src->channels; k++) {
-			f += p->src->samples[p->pos];
-			p->pos++;
-		}
-
-		frame += (f / (float)p->src->channels) * p->volume;
+		p->pos++;
+		frame += f * p->volume;
 
 	}
 
@@ -107,7 +103,14 @@ void d_stream(float (*f)()) {
 	d_audio.user_stream = f;
 }
 
-// TODO: d_make_sound()
+d_sound d_make_sound(const float *samples, int len) {
+	float *fsamples = malloc(sizeof(float) * len);
+	memcpy(fsamples, samples, sizeof(float) * len);
+	return (d_sound) {
+		.samples = fsamples,
+		.num_samples = len,
+	};
+}
 
 d_sound d_parse_sound(const unsigned char *bytes, int size) {
 
@@ -118,18 +121,20 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 
 	d_assert(num_samples > 0, "failed to decode audio\n");
 
-	// TODO: convert to default sample rate and channel
+	int num_fsamples = num_samples / channels;
+	float *fsamples = malloc(sizeof(float) * num_fsamples);
 
-	float *fsamples = malloc(sizeof(float) * num_samples);
-
-	for (int i = 0; i < num_samples; i++) {
-		fsamples[i] = (float)samples[i] / SHRT_MAX;
+	for (int i = 0; i < num_fsamples; i++) {
+		float frame = 0.0;
+		for (int j = 0; j < channels; j++) {
+			frame += (float)samples[i * channels + j] / SHRT_MAX;
+		}
+		fsamples[i] = frame / channels;
 	}
 
 	free(samples);
 
 	return (d_sound) {
-		.channels = channels,
 		.samples = fsamples,
 		.num_samples = num_samples,
 	};

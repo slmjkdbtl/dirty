@@ -5,7 +5,6 @@
 
 // a static sound
 typedef struct {
-	int channels;
 	float *samples;
 	int num_samples;
 } d_sound;
