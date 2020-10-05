@@ -3,11 +3,24 @@
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
 
+#define D_MAX_EFFECTS 8
+
 // a static sound
 typedef struct {
 	float *samples;
 	int num_samples;
 } d_sound;
+
+// sound play config
+typedef struct {
+	bool loop;
+	float volume;
+	bool paused;
+	float time;
+	float (*effects[D_MAX_EFFECTS])(float f, void *udata);
+	void *effects_udata[D_MAX_EFFECTS];
+	int num_effects;
+} d_play_conf;
 
 // sound playback control handle
 typedef struct {
@@ -17,7 +30,10 @@ typedef struct {
 	float volume;
 	bool paused;
 	bool done;
-} d_sound_pb;
+	float (*effects[D_MAX_EFFECTS])(float f, void *udata);
+	void *effects_udata[D_MAX_EFFECTS];
+	int num_effects;
+} d_playback;
 
 typedef struct {
 	float attack;
@@ -41,10 +57,13 @@ void d_stream(float (*f)());
 d_sound d_make_sound(const float *samples, int len);
 d_sound d_parse_sound(const unsigned char *bytes, int size);
 d_sound d_load_sound(const char *path);
+float d_sound_sample(d_sound *snd, float time);
 void d_free_sound(d_sound *sound);
 // play a sound, returning a handle for control
-d_sound_pb *d_play(const d_sound *sound);
-void d_sound_pb_seek(d_sound_pb *pb, float time);
+d_playback *d_play(const d_sound *sound);
+d_playback *d_play_ex(const d_sound *sound, d_play_conf conf);
+void d_playback_seek(d_playback *pb, float time);
+float d_playback_time(d_playback *pb);
 
 // SYNTH
 void d_synth_play(int note);

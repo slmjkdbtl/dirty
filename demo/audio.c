@@ -4,7 +4,7 @@
 
 d_sound snd;
 d_sound track;
-d_sound_pb* track_pb;
+d_playback *track_pb;
 
 void frame() {
 

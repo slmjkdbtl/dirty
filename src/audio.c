@@ -10,14 +10,14 @@
 #define SAMPLE_RATE 44100
 #define CHANNELS 1
 #define SAMPLES 1024
-#define MAX_TRACKS 256
+#define MAX_PLAYBACKS 256
 #define A4_FREQ 440
 #define A4_NOTE 69
 
 typedef struct {
 	SDL_AudioDeviceID device;
-	d_sound_pb tracks[MAX_TRACKS];
-	int num_tracks;
+	d_playback playbacks[MAX_PLAYBACKS];
+	int num_playbacks;
 	float (*user_stream)();
 	d_synth synth;
 } d_audio_t;
@@ -28,9 +28,9 @@ static float d_audio_next() {
 
 	float frame = 0.0;
 
-	for (int j = 0; j < d_audio.num_tracks; j++) {
+	for (int j = 0; j < d_audio.num_playbacks; j++) {
 
-		d_sound_pb *p = &d_audio.tracks[j];
+		d_playback *p = &d_audio.playbacks[j];
 
 		if (p->paused || p->done) {
 			continue;
@@ -38,6 +38,7 @@ static float d_audio_next() {
 
 		if (p->src->samples == NULL) {
 			p->done = true;
+			p->paused = true;
 			continue;
 		}
 
@@ -46,15 +47,19 @@ static float d_audio_next() {
 				p->pos = 0;
 			} else {
 				p->done = true;
+				p->paused = true;
 				continue;
 			}
 		}
 
-		// proceed through frames, make everything mono
-		float f = p->src->samples[p->pos];
+		float f = p->src->samples[p->pos] * p->volume;
 
+		for (int i = 0; i < p->num_effects; i++) {
+			f = p->effects[i](f, p->effects_udata[i]);
+		}
+
+		frame += f;
 		p->pos++;
-		frame += f * p->volume;
 
 	}
 
@@ -104,8 +109,9 @@ void d_stream(float (*f)()) {
 }
 
 d_sound d_make_sound(const float *samples, int len) {
-	float *fsamples = malloc(sizeof(float) * len);
-	memcpy(fsamples, samples, sizeof(float) * len);
+	int size = sizeof(float) * len;
+	float *fsamples = malloc(size);
+	memcpy(fsamples, samples, size);
 	return (d_sound) {
 		.samples = fsamples,
 		.num_samples = len,
@@ -136,7 +142,7 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 
 	return (d_sound) {
 		.samples = fsamples,
-		.num_samples = num_samples,
+		.num_samples = num_fsamples,
 	};
 
 }
@@ -152,39 +158,59 @@ d_sound d_load_sound(const char *path) {
 
 }
 
-d_sound_pb *d_play(const d_sound *snd) {
-
-	d_sound_pb src = (d_sound_pb) {
-		.src = snd,
-		.pos = 0,
-		.loop = false,
-		.paused = false,
-		.volume = 1.0,
-		.done = false,
-	};
-
-	for (int i = 0; i < d_audio.num_tracks; i++) {
-		if (d_audio.tracks[i].done) {
-			d_audio.tracks[i] = src;
-			return &d_audio.tracks[i];
-		}
-	}
-
-	d_audio.tracks[d_audio.num_tracks] = src;
-
-	return &d_audio.tracks[d_audio.num_tracks++];
-
-}
-
-void d_sound_pb_seek(d_sound_pb *pb, float time) {
-	float len = pb->src->num_samples * SAMPLE_RATE;
-	time = clampf(time, 0.0, len);
-	pb->pos = (int)(time * SAMPLE_RATE);
+float d_sound_sample(d_sound *snd, float time) {
+	return snd->samples[clampi(time * SAMPLE_RATE, 0, snd->num_samples - 1)];
 }
 
 void d_free_sound(d_sound *snd) {
 	free(snd->samples);
 	snd->samples = NULL;
+}
+
+d_playback *d_play(const d_sound *snd) {
+	return d_play_ex(snd, (d_play_conf) {
+		.loop = false,
+		.paused = false,
+		.volume = 1.0,
+		.effects = {0},
+		.effects_udata = {0},
+		.num_effects = 0,
+	});
+}
+
+d_playback *d_play_ex(const d_sound *snd, d_play_conf conf) {
+
+	float len = snd->num_samples * SAMPLE_RATE;
+	float time = clampf(conf.time, 0.0, len);
+
+	d_playback src = (d_playback) {
+		.src = snd,
+		.pos = (int)(time * SAMPLE_RATE),
+		.loop = conf.loop,
+		.paused = conf.paused,
+		.volume = conf.volume,
+		.done = false,
+	};
+
+	for (int i = 0; i < d_audio.num_playbacks; i++) {
+		if (d_audio.playbacks[i].done) {
+			d_audio.playbacks[i] = src;
+			return &d_audio.playbacks[i];
+		}
+	}
+
+	d_audio.playbacks[d_audio.num_playbacks] = src;
+
+	return &d_audio.playbacks[d_audio.num_playbacks++];
+
+}
+
+void d_playback_seek(d_playback *pb, float time) {
+	pb->pos = clampi(time * SAMPLE_RATE, 0, pb->src->num_samples - 1);
+}
+
+float d_playback_time(d_playback *pb) {
+	return (float)pb->pos / (float)SAMPLE_RATE;
 }
 
 float d_note_freq(int n) {

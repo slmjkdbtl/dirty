@@ -197,6 +197,7 @@ ray3 ray3f(vec3, vec3);
 float degf(float);
 float radf(float);
 float clampf(float, float, float);
+int clampi(int, int, int);
 float lerpf(float, float, float);
 float mapf(float, float, float, float, float);
 float randf(float, float);
