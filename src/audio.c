@@ -7,7 +7,6 @@
 #include <dirty/dirty.h>
 #include "audio.h"
 
-#define SAMPLE_RATE 44100
 #define CHANNELS 1
 #define SAMPLES 1024
 #define MAX_PLAYBACKS 256
@@ -36,13 +35,13 @@ static float d_audio_next() {
 			continue;
 		}
 
-		if (p->src->samples == NULL) {
+		if (p->src->frames == NULL) {
 			p->done = true;
 			p->paused = true;
 			continue;
 		}
 
-		if (p->pos >= p->src->num_samples) {
+		if (p->pos >= p->src->num_frames) {
 			if (p->loop) {
 				p->pos = 0;
 			} else {
@@ -52,7 +51,7 @@ static float d_audio_next() {
 			}
 		}
 
-		float f = p->src->samples[p->pos] * p->volume;
+		float f = p->src->frames[p->pos] * p->volume;
 
 		for (int i = 0; i < p->num_effects; i++) {
 			f = p->effects[i](f, p->effects_udata[i]);
@@ -69,7 +68,7 @@ static float d_audio_next() {
 		frame += d_audio.user_stream();
 	}
 
-	return clampf(frame, -1.0, 1.0);
+	return frame;
 
 }
 
@@ -78,7 +77,7 @@ static void sdl_stream(void *udata, unsigned char *buf, int len) {
 	float *fbuf = (float*)buf;
 
 	for (int i = 0; i < SAMPLES; i++) {
-		fbuf[i] = d_audio_next();
+		fbuf[i] = clampf(d_audio_next(), -1.0, 1.0);
 	}
 
 }
@@ -86,7 +85,7 @@ static void sdl_stream(void *udata, unsigned char *buf, int len) {
 void d_audio_init() {
 
 	SDL_AudioSpec spec = (SDL_AudioSpec) {
-		.freq = SAMPLE_RATE,
+		.freq = D_SAMPLE_RATE,
 		.format = AUDIO_F32,
 		.channels = CHANNELS,
 		.samples = SAMPLES,
@@ -100,7 +99,7 @@ void d_audio_init() {
 
 }
 
-void d_audio_cleanup() {
+void d_audio_quit() {
 	SDL_CloseAudioDevice(d_audio.device);
 }
 
@@ -108,13 +107,13 @@ void d_stream(float (*f)()) {
 	d_audio.user_stream = f;
 }
 
-d_sound d_make_sound(const float *samples, int len) {
+d_sound d_make_sound(const float *frames, int len) {
 	int size = sizeof(float) * len;
-	float *fsamples = malloc(size);
-	memcpy(fsamples, samples, size);
+	float *fframes = malloc(size);
+	memcpy(fframes, frames, size);
 	return (d_sound) {
-		.samples = fsamples,
-		.num_samples = len,
+		.frames = fframes,
+		.num_frames = len,
 	};
 }
 
@@ -122,27 +121,27 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 
 	int channels;
 	int sample_rate;
-	short *samples;
-	int num_samples = stb_vorbis_decode_memory(bytes, size, &channels, &sample_rate, &samples);
+	short *frames;
+	int num_frames = stb_vorbis_decode_memory(bytes, size, &channels, &sample_rate, &frames);
 
-	d_assert(num_samples > 0, "failed to decode audio\n");
+	d_assert(num_frames > 0, "failed to decode audio\n");
 
-	int num_fsamples = num_samples / channels;
-	float *fsamples = malloc(sizeof(float) * num_fsamples);
+	int num_fframes = num_frames / channels;
+	float *fframes = malloc(sizeof(float) * num_fframes);
 
-	for (int i = 0; i < num_fsamples; i++) {
+	for (int i = 0; i < num_fframes; i++) {
 		float frame = 0.0;
 		for (int j = 0; j < channels; j++) {
-			frame += (float)samples[i * channels + j] / SHRT_MAX;
+			frame += (float)frames[i * channels + j] / SHRT_MAX;
 		}
-		fsamples[i] = frame / channels;
+		fframes[i] = frame / channels;
 	}
 
-	free(samples);
+	free(frames);
 
 	return (d_sound) {
-		.samples = fsamples,
-		.num_samples = num_fsamples,
+		.frames = fframes,
+		.num_frames = num_fframes,
 	};
 
 }
@@ -159,12 +158,12 @@ d_sound d_load_sound(const char *path) {
 }
 
 float d_sound_sample(d_sound *snd, float time) {
-	return snd->samples[clampi(time * SAMPLE_RATE, 0, snd->num_samples - 1)];
+	return snd->frames[clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1)];
 }
 
 void d_free_sound(d_sound *snd) {
-	free(snd->samples);
-	snd->samples = NULL;
+	free(snd->frames);
+	snd->frames = NULL;
 }
 
 d_playback *d_play(const d_sound *snd) {
@@ -180,12 +179,11 @@ d_playback *d_play(const d_sound *snd) {
 
 d_playback *d_play_ex(const d_sound *snd, d_play_conf conf) {
 
-	float len = snd->num_samples * SAMPLE_RATE;
-	float time = clampf(conf.time, 0.0, len);
+	int pos = clampi((int)(conf.time * D_SAMPLE_RATE), 0, snd->num_frames - 1);
 
 	d_playback src = (d_playback) {
 		.src = snd,
-		.pos = (int)(time * SAMPLE_RATE),
+		.pos = pos,
 		.loop = conf.loop,
 		.paused = conf.paused,
 		.volume = conf.volume,
@@ -206,11 +204,11 @@ d_playback *d_play_ex(const d_sound *snd, d_play_conf conf) {
 }
 
 void d_playback_seek(d_playback *pb, float time) {
-	pb->pos = clampi(time * SAMPLE_RATE, 0, pb->src->num_samples - 1);
+	pb->pos = clampi(time * D_SAMPLE_RATE, 0, pb->src->num_frames - 1);
 }
 
 float d_playback_time(d_playback *pb) {
-	return (float)pb->pos / (float)SAMPLE_RATE;
+	return (float)pb->pos / (float)D_SAMPLE_RATE;
 }
 
 float d_note_freq(int n) {
@@ -242,7 +240,7 @@ d_synth d_make_synth() {
 		.notes = {0},
 		.volume = 0.5,
 		.clock = 0,
-		.sample_rate = SAMPLE_RATE,
+		.sample_rate = D_SAMPLE_RATE,
 		.wav_func = d_wav_sin,
 		.envelope = (d_envelope) {
 			.attack = 0.05,
@@ -341,7 +339,6 @@ float d_synth_next() {
 	}
 
 	frame *= synth->volume;
-	frame = clampf(frame, -1.0, 1.0);
 
 	if (synth->buf_size < D_SYNTH_BUF_SIZE) {
 		synth->buf[synth->buf_size++] = frame;

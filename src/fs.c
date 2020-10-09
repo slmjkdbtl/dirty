@@ -15,11 +15,11 @@
 
 // TODO: namings
 
-static char *d_rpath(const char *path) {
+char *d_res_path(const char *path) {
 	return d_fmta("%s%s", SDL_GetBasePath(), path);
 }
 
-static char *d_dpath(const char *path) {
+char *d_data_path(const char *path) {
 #if defined(D_ORG_NAME) || defined(D_APP_NAME)
 	char *spath = SDL_GetPrefPath(D_ORG_NAME, D_APP_NAME);
 	const char *dpath = d_fmta("%s%s", spath, path);
@@ -178,21 +178,21 @@ void d_free_dir(d_dir *dir) {
 }
 
 char *d_read_text(const char *path) {
-	char *rpath = d_rpath(path);
+	char *rpath = d_res_path(path);
 	char *content = read_text(rpath);
 	free(rpath);
 	return content;
 }
 
 unsigned char *d_read_bytes(const char *path, size_t *size) {
-	char *rpath = d_rpath(path);
+	char *rpath = d_res_path(path);
 	unsigned char *data = read_bytes(rpath, size);
 	free(rpath);
 	return data;
 }
 
 char **d_read_dir(const char *path) {
-	char *rpath = d_rpath(path);
+	char *rpath = d_res_path(path);
 	char **list = read_dir(rpath);
 	free(rpath);
 	return list;
@@ -200,7 +200,7 @@ char **d_read_dir(const char *path) {
 
 bool d_is_file(const char *path) {
 	struct stat sb;
-	char *rpath = d_rpath(path);
+	char *rpath = d_res_path(path);
 	bool is = stat(rpath, &sb) == 0 && S_ISREG(sb.st_mode);
 	free(rpath);
 	return is;
@@ -208,21 +208,21 @@ bool d_is_file(const char *path) {
 
 bool d_is_dir(const char *path) {
 	struct stat sb;
-	char *rpath = d_rpath(path);
+	char *rpath = d_res_path(path);
 	bool is = stat(rpath, &sb) == 0 && S_ISDIR(sb.st_mode);
 	free(rpath);
 	return is;
 }
 
 char *d_data_read_text(const char *path) {
-	char *dpath = d_dpath(path);
+	char *dpath = d_data_path(path);
 	char *data = read_text(dpath);
 	free(dpath);
 	return data;
 }
 
 unsigned char *d_data_read_bytes(const char *path, size_t *size) {
-	char *dpath = d_dpath(path);
+	char *dpath = d_data_path(path);
 	unsigned char *data = read_bytes(dpath, size);
 	free(dpath);
 	return data;
@@ -230,7 +230,7 @@ unsigned char *d_data_read_bytes(const char *path, size_t *size) {
 
 bool d_data_is_file(const char *path) {
 	struct stat sb;
-	char *rpath = d_dpath(path);
+	char *rpath = d_data_path(path);
 	bool is = stat(rpath, &sb) == 0 && S_ISREG(sb.st_mode);
 	free(rpath);
 	return is;
@@ -238,20 +238,20 @@ bool d_data_is_file(const char *path) {
 
 bool d_data_is_dir(const char *path) {
 	struct stat sb;
-	char *rpath = d_dpath(path);
+	char *rpath = d_data_path(path);
 	bool is = stat(rpath, &sb) == 0 && S_ISDIR(sb.st_mode);
 	free(rpath);
 	return is;
 }
 
 void d_data_write_text(const char *path, const char *content) {
-	char *dpath = d_dpath(path);
+	char *dpath = d_data_path(path);
 	write_text(dpath, content);
 	free(dpath);
 }
 
 void d_data_write_bytes(const char *path, const unsigned char *content, size_t size) {
-	char *dpath = d_dpath(path);
+	char *dpath = d_data_path(path);
 	write_bytes(dpath, content, size);
 	free(dpath);
 }

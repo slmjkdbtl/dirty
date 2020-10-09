@@ -19,7 +19,7 @@ typedef struct {
 } d_synth;
 
 void d_audio_init();
-void d_audio_cleanup();
+void d_audio_quit();
 
 d_synth d_make_synth();
 float d_synth_next();

@@ -106,11 +106,11 @@ typedef enum {
 typedef struct {
 	void (*init)();
 	void (*frame)();
-	void (*cleanup)();
+	void (*quit)();
 	void (*err)(const char *msg);
 	void (*init_u)(void *udata);
 	void (*frame_u)(void *udata);
-	void (*cleanup_u)(void *udata);
+	void (*quit_u)(void *udata);
 	void (*err_u)(void *udata, const char *msg);
 	const char *title;
 	int width;

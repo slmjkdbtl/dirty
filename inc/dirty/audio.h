@@ -3,12 +3,13 @@
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
 
+#define D_SAMPLE_RATE 44100
 #define D_MAX_EFFECTS 8
 
 // a static sound
 typedef struct {
-	float *samples;
-	int num_samples;
+	float *frames;
+	int num_frames;
 } d_sound;
 
 // sound play config
@@ -54,7 +55,7 @@ typedef struct {
 void d_stream(float (*f)());
 
 // SOUND
-d_sound d_make_sound(const float *samples, int len);
+d_sound d_make_sound(const float *frames, int len);
 d_sound d_parse_sound(const unsigned char *bytes, int size);
 d_sound d_load_sound(const char *path);
 float d_sound_sample(d_sound *snd, float time);

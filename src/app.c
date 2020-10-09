@@ -239,6 +239,11 @@ static void d_frame() {
 				break;
 			case SDL_FINGERMOTION:
 				break;
+// 			case SDL_DROPBEGIN: {
+// 				char *path = event.drop.file;
+// 				SDL_free(path);
+// 				break;
+// 			}
 			case SDL_WINDOWEVENT:
 				switch (event.window.event) {
 					case SDL_WINDOWEVENT_RESIZED:
@@ -316,17 +321,17 @@ void d_run(d_desc desc) {
 		d_frame();
 	}
 
-	d_audio_cleanup();
+	d_audio_quit();
 	SDL_GL_DeleteContext(d_app.gl);
 	SDL_DestroyWindow(d_app.window);
 	SDL_Quit();
 
-	if (d_app.desc.cleanup) {
-		d_app.desc.cleanup();
+	if (d_app.desc.quit) {
+		d_app.desc.quit();
 	}
 
-	if (d_app.desc.cleanup_u) {
-		d_app.desc.cleanup_u(d_app.desc.udata);
+	if (d_app.desc.quit_u) {
+		d_app.desc.quit_u(d_app.desc.udata);
 	}
 
 #endif
