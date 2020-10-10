@@ -48,6 +48,10 @@ C_FLAGS += -Wall
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
 
+ifeq ($(MODE),release)
+C_FLAGS += -O3
+endif
+
 ifeq ($(TARGET),macos)
 C_FLAGS += -ObjC
 endif

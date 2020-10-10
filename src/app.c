@@ -52,9 +52,9 @@ typedef struct {
 	d_touch_state touches[NUM_TOUCHES];
 	bool resized;
 	char char_input;
-} d_app_t;
+} d_app_ctx;
 
-static d_app_t d_app;
+static d_app_ctx d_app;
 
 static d_mouse sdl_mouse_to_d(int btn) {
 	switch (btn) {
@@ -287,13 +287,25 @@ void d_run(d_desc desc) {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 #endif
 
+	if (desc.vsync) {
+		SDL_GL_SetSwapInterval(1);
+	} else {
+		SDL_GL_SetSwapInterval(0);
+	}
+
+	int flags = SDL_WINDOW_OPENGL;
+
+	if (desc.fullscreen) {
+		flags |= SDL_WINDOW_FULLSCREEN;
+	}
+
 	d_app.window = SDL_CreateWindow(
 		desc.title,
 		SDL_WINDOWPOS_CENTERED,
 		SDL_WINDOWPOS_CENTERED,
 		desc.width,
 		desc.height,
-		SDL_WINDOW_OPENGL
+		flags
 	);
 
 	d_app.gl = SDL_GL_CreateContext(d_app.window);
@@ -398,14 +410,6 @@ float d_time() {
 
 float d_dt() {
 	return d_app.dt;
-}
-
-void d_vsync(bool b) {
-	if (b) {
-		SDL_GL_SetSwapInterval(1);
-	} else {
-		SDL_GL_SetSwapInterval(0);
-	}
 }
 
 void d_set_fullscreen(bool b) {

@@ -19,9 +19,9 @@ typedef struct {
 	int num_playbacks;
 	float (*user_stream)();
 	d_synth synth;
-} d_audio_t;
+} d_audio_ctx;
 
-static d_audio_t d_audio;
+static d_audio_ctx d_audio;
 
 static float d_audio_next() {
 
@@ -159,6 +159,10 @@ d_sound d_load_sound(const char *path) {
 
 float d_sound_sample(d_sound *snd, float time) {
 	return snd->frames[clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1)];
+}
+
+float d_sound_len(d_sound *snd) {
+	return (float)snd->num_frames / (float)D_SAMPLE_RATE;
 }
 
 void d_free_sound(d_sound *snd) {

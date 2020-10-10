@@ -59,6 +59,7 @@ d_sound d_make_sound(const float *frames, int len);
 d_sound d_parse_sound(const unsigned char *bytes, int size);
 d_sound d_load_sound(const char *path);
 float d_sound_sample(d_sound *snd, float time);
+float d_sound_len(d_sound *snd);
 void d_free_sound(d_sound *sound);
 // play a sound, returning a handle for control
 d_playback *d_play(const d_sound *sound);

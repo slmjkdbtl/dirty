@@ -40,9 +40,9 @@ typedef struct {
 	d_ui_window_drag window_drag;
 	bool wants_mouse;
 	bool wants_key;
-} d_ui_t;
+} d_ui_ctx;
 
-static d_ui_t d_ui;
+static d_ui_ctx d_ui;
 
 void d_ui_init() {
 

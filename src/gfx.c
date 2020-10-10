@@ -37,9 +37,9 @@ typedef struct {
 	int t_stack_cnt;
 	d_batch batch;
 	d_tex_conf tex_conf;
-} d_gfx_t;
+} d_gfx_ctx;
 
-static d_gfx_t d_gfx;
+static d_gfx_ctx d_gfx;
 
 void d_gfx_init() {
 
