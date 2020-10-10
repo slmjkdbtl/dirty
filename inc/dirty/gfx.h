@@ -12,11 +12,11 @@
 #include "gl.h"
 
 typedef enum {
+	D_CENTER,
 	D_TOP_LEFT,
 	D_TOP,
 	D_TOP_RIGHT,
 	D_LEFT,
-	D_CENTER,
 	D_RIGHT,
 	D_BOT_LEFT,
 	D_BOT,

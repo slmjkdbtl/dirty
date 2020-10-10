@@ -41,6 +41,11 @@ FACTS
 
   'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
 
+BINDINGS
+
+  - lua
+    https://github.com/slmjkdbtl/ldirty
+
 CONTRIBUTION
 
   no
