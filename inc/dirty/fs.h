@@ -6,10 +6,6 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-// paths
-char *d_res_path(const char *path);
-char *d_data_path(const char *path);
-
 // read resource file content (alloc)
 char *d_read_text(const char *path);
 unsigned char *d_read_bytes(const char *path, size_t *size);

@@ -117,6 +117,9 @@ typedef struct {
 	int height;
 	bool fullscreen;
 	bool vsync;
+	const char *path;
+	const char *org;
+	const char *name;
 	void *udata;
 } d_desc;
 

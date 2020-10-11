@@ -1,6 +1,7 @@
 // wengwengweng
 
 #include <string.h>
+#include <limits.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -11,24 +12,26 @@
 
 #include <dirty/dirty.h>
 
-#define MAX_PATH_LEN 64
+typedef struct {
+	char base_path[PATH_MAX];
+	char data_path[PATH_MAX];
+} d_fs_ctx;
 
-// TODO: namings
+static d_fs_ctx d_fs;
 
-char *d_res_path(const char *path) {
-	return d_fmta("%s%s", SDL_GetBasePath(), path);
-}
-
-char *d_data_path(const char *path) {
-#if defined(D_ORG_NAME) || defined(D_APP_NAME)
-	char *spath = SDL_GetPrefPath(D_ORG_NAME, D_APP_NAME);
-	const char *dpath = d_fmta("%s%s", spath, path);
-	free(spath);
-	return dpath;
-#else
-	d_fail("must define D_ORG_NAME and D_APP_NAME for data read / write");
-	return NULL;
-#endif
+void d_fs_init(d_desc *desc) {
+	if (desc->path) {
+		strcpy(d_fs.base_path, desc->path);
+	} else {
+		char *rpath = SDL_GetBasePath();
+		strcpy(d_fs.base_path, rpath);
+		SDL_free(rpath);
+	}
+	if (desc->org && desc->name) {
+		char *dpath = SDL_GetPrefPath(desc->org, desc->name);
+		strcpy(d_fs.data_path, dpath);
+		SDL_free(dpath);
+	}
 }
 
 static char *read_text(const char *path) {
@@ -139,7 +142,7 @@ static bool write_bytes(const char *path, const unsigned char *data, size_t size
 }
 
 typedef struct {
-	char *(entries[MAX_PATH_LEN]);
+	char *(entries[PATH_MAX]);
 	int num_entries;
 } d_dir;
 
@@ -178,81 +181,53 @@ void d_free_dir(d_dir *dir) {
 }
 
 char *d_read_text(const char *path) {
-	char *rpath = d_res_path(path);
-	char *content = read_text(rpath);
-	free(rpath);
-	return content;
+	return read_text(d_fmt("%s%s", d_fs.base_path, path));
 }
 
 unsigned char *d_read_bytes(const char *path, size_t *size) {
-	char *rpath = d_res_path(path);
-	unsigned char *data = read_bytes(rpath, size);
-	free(rpath);
-	return data;
+	return read_bytes(d_fmt("%s%s", d_fs.base_path, path), size);
 }
 
 char **d_read_dir(const char *path) {
-	char *rpath = d_res_path(path);
-	char **list = read_dir(rpath);
-	free(rpath);
+	char **list = read_dir(d_fmt("%s%s", d_fs.base_path, path));
 	return list;
 }
 
 bool d_is_file(const char *path) {
 	struct stat sb;
-	char *rpath = d_res_path(path);
-	bool is = stat(rpath, &sb) == 0 && S_ISREG(sb.st_mode);
-	free(rpath);
-	return is;
+	return stat(d_fmt("%s%s", d_fs.base_path, path), &sb) == 0 && S_ISREG(sb.st_mode);
 }
 
 bool d_is_dir(const char *path) {
 	struct stat sb;
-	char *rpath = d_res_path(path);
-	bool is = stat(rpath, &sb) == 0 && S_ISDIR(sb.st_mode);
-	free(rpath);
-	return is;
+	return stat(d_fmt("%s%s", d_fs.base_path, path), &sb) == 0 && S_ISDIR(sb.st_mode);
 }
 
 char *d_data_read_text(const char *path) {
-	char *dpath = d_data_path(path);
-	char *data = read_text(dpath);
-	free(dpath);
-	return data;
+	return read_text(d_fmt("%s%s", d_fs.data_path, path));
 }
 
 unsigned char *d_data_read_bytes(const char *path, size_t *size) {
-	char *dpath = d_data_path(path);
-	unsigned char *data = read_bytes(dpath, size);
-	free(dpath);
-	return data;
+	return read_bytes(d_fmt("%s%s", d_fs.data_path, path), size);
 }
 
 bool d_data_is_file(const char *path) {
 	struct stat sb;
-	char *rpath = d_data_path(path);
-	bool is = stat(rpath, &sb) == 0 && S_ISREG(sb.st_mode);
-	free(rpath);
+	bool is = stat(d_fmt("%s%s", d_fs.base_path, path), &sb) == 0 && S_ISREG(sb.st_mode);
 	return is;
 }
 
 bool d_data_is_dir(const char *path) {
 	struct stat sb;
-	char *rpath = d_data_path(path);
-	bool is = stat(rpath, &sb) == 0 && S_ISDIR(sb.st_mode);
-	free(rpath);
+	bool is = stat(d_fmt("%s%s", d_fs.base_path, path), &sb) == 0 && S_ISDIR(sb.st_mode);
 	return is;
 }
 
 void d_data_write_text(const char *path, const char *content) {
-	char *dpath = d_data_path(path);
-	write_text(dpath, content);
-	free(dpath);
+	write_text(d_fmt("%s%s", d_fs.data_path, path), content);
 }
 
 void d_data_write_bytes(const char *path, const unsigned char *content, size_t size) {
-	char *dpath = d_data_path(path);
-	write_bytes(dpath, content, size);
-	free(dpath);
+	write_bytes(d_fmt("%s%s", d_fs.data_path, path), content, size);
 }
 
