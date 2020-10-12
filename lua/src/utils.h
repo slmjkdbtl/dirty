@@ -16,9 +16,10 @@ typedef struct {
 	int val;
 } enum_map;
 
+void luaL_checktable(lua_State *L, int pos);
 bool luaL_checkboolean(lua_State *L, int pos);
 void *luaL_optudata(lua_State *L, int pos, const char *type, void *def);
-void lua_import(lua_State *L, luaL_Reg *reg);
+void luaL_import(lua_State *L, luaL_Reg *reg);
 bool streq(const char *a, const char *b);
 int str_to_enum(const char *str, enum_map *map);
 bool is_file(const char *path);

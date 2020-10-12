@@ -62,6 +62,19 @@ static int l_stencil_test(lua_State *L) {
 	return 0;
 }
 
+static int l_coord(lua_State *L) {
+	d_origin orig = str_to_enum(luaL_optstring(L, 1, "center"), str_orig_map);
+	vec2 pos = d_coord(orig);
+	lua_pushudata(L, vec2, &pos);
+	return 1;
+}
+
+static int l_mouse_pos_t(lua_State *L) {
+	vec2 mpos = d_mouse_pos_t();
+	lua_pushudata(L, vec2, &mpos);
+	return 1;
+}
+
 static int l_push(lua_State *L) {
 	d_push();
 	return 0;
@@ -154,6 +167,14 @@ static int l_make_shader(lua_State *L) {
 	const char *vs = luaL_checkstring(L, 1);
 	const char *fs = luaL_checkstring(L, 2);
 	d_shader p = d_make_shader(vs, fs);
+	lua_pushudata(L, d_shader, &p);
+	return 1;
+}
+
+static int l_load_shader(lua_State *L) {
+	const char *vspath = luaL_checkstring(L, 1);
+	const char *fspath = luaL_checkstring(L, 2);
+	d_shader p = d_load_shader(vspath, fspath);
 	lua_pushudata(L, d_shader, &p);
 	return 1;
 }
@@ -272,6 +293,102 @@ static int l_use_canvas(lua_State *L) {
 	return 0;
 }
 
+static int l_fmt_text(lua_State *L) {
+	const char *str = luaL_checkstring(L, 1);
+	float size = luaL_checknumber(L, 2);
+	float wrap = luaL_optnumber(L, 3, 0.0);
+	d_origin orig = str_to_enum(luaL_optstring(L, 4, "center"), str_orig_map);
+	color c = lua_isnoneornil(L, 5) ? coloru() : *(color*)luaL_checkudata(L, 5, "color");
+	d_ftext t = d_fmt_text(str, size, wrap, orig, c);
+	lua_pushudata(L, d_ftext, &t);
+	return 1;
+}
+
+static int l_ftext_cpos(lua_State *L) {
+	d_ftext *t = luaL_checkudata(L, 1, "d_ftext");
+	int n = luaL_checknumber(L, 2);
+	vec2 pos = d_ftext_cpos(t, n);
+	lua_pushudata(L, vec2, &pos);
+	return 1;
+}
+
+static int l_ftext__index(lua_State *L) {
+
+	d_ftext *t = luaL_checkudata(L, 1, "d_ftext");
+	const char *arg = luaL_checkstring(L, 2);
+
+	if (streq(arg, "width")) {
+		lua_pushnumber(L, t->width);
+		return 1;
+	}
+
+	if (streq(arg, "height")) {
+		lua_pushnumber(L, t->height);
+		return 1;
+	}
+
+	if (streq(arg, "cpos")) {
+		lua_pushcfunction(L, l_ftext_cpos);
+		return 1;
+	}
+
+	return 0;
+
+}
+
+static int l_draw_raw(lua_State *L) {
+
+	luaL_checktable(L, 1);
+	luaL_checktable(L, 2);
+	int num_verts = lua_rawlen(L, 1);
+	int num_indices = lua_rawlen(L, 2);
+	d_vertex *verts = malloc(sizeof(d_vertex) * num_verts);
+	d_index *indices = malloc(sizeof(d_index) * num_indices);
+
+	for (int i = 0; i < num_verts; i++) {
+
+		// TODO: stack mess?
+		lua_rawgeti(L, 1, i + 1);
+
+		lua_getfield(L, -1, "pos");
+		vec3 pos = *(vec3*)luaL_checkudata(L, -1, "vec3");
+		lua_pop(L, 1);
+
+		lua_getfield(L, -1, "normal");
+		vec3 normal = *(vec3*)luaL_checkudata(L, -1, "vec3");
+		lua_pop(L, 1);
+
+		lua_getfield(L, -1, "uv");
+		vec2 uv = *(vec2*)luaL_checkudata(L, -1, "vec2");
+		lua_pop(L, 1);
+
+		lua_getfield(L, -1, "color");
+		color c = *(color*)luaL_checkudata(L, -1, "color");
+		lua_pop(L, 1);
+
+		verts[i] = (d_vertex) {
+			.pos = pos,
+			.normal = normal,
+			.uv = uv,
+			.color = c,
+		};
+
+		lua_pop(L, 1);
+
+	}
+
+	for (int i = 0; i < num_indices; i++) {
+		lua_rawgeti(L, 2, i + 1);
+		indices[i] = luaL_checknumber(L, 3);
+		lua_pop(L, 1);
+	}
+
+	d_draw_raw(verts, num_verts, indices, num_indices, NULL);
+
+	return 0;
+
+}
+
 static int l_draw_tex(lua_State *L) {
 
 	d_tex *t = luaL_checkudata(L, 1, "d_tex");
@@ -298,6 +415,73 @@ static int l_draw_text(lua_State *L) {
 
 }
 
+static int l_draw_ftext(lua_State *L) {
+	d_ftext *t = luaL_checkudata(L, 1, "d_ftext");
+	d_draw_ftext(t);
+	return 0;
+}
+
+static int l_draw_canvas(lua_State *L) {
+
+	d_canvas *c = luaL_checkudata(L, 1, "d_canvas");
+	color co = lua_isnoneornil(L, 2) ? coloru() : *(color*)luaL_checkudata(L, 2, "color");
+
+	d_draw_canvas(c, co);
+
+	return 0;
+
+}
+
+static int l_draw_rect(lua_State *L) {
+
+	vec2 *p1 = luaL_checkudata(L, 1, "vec2");
+	vec2 *p2 = luaL_checkudata(L, 2, "vec2");
+	color c = lua_isnoneornil(L, 3) ? coloru() : *(color*)luaL_checkudata(L, 3, "color");
+
+	d_draw_rect(*p1, *p2, c);
+
+	return 0;
+
+}
+
+static int l_draw_line(lua_State *L) {
+
+	vec2 *p1 = luaL_checkudata(L, 1, "vec2");
+	vec2 *p2 = luaL_checkudata(L, 2, "vec2");
+	float w = luaL_checknumber(L, 3);
+	color c = lua_isnoneornil(L, 4) ? coloru() : *(color*)luaL_checkudata(L, 4, "color");
+
+	d_draw_line(*p1, *p2, w, c);
+
+	return 0;
+
+}
+
+static int l_draw_lrect(lua_State *L) {
+
+	vec2 *p1 = luaL_checkudata(L, 1, "vec2");
+	vec2 *p2 = luaL_checkudata(L, 2, "vec2");
+	float w = luaL_checknumber(L, 3);
+	color c = lua_isnoneornil(L, 4) ? coloru() : *(color*)luaL_checkudata(L, 4, "color");
+
+	d_draw_lrect(*p1, *p2, w, c);
+
+	return 0;
+
+}
+
+static int l_draw_circle(lua_State *L) {
+
+	vec2 *center = luaL_checkudata(L, 1, "vec2");
+	float r = luaL_checknumber(L, 2);
+	color c = lua_isnoneornil(L, 3) ? coloru() : *(color*)luaL_checkudata(L, 3, "color");
+
+	d_draw_circle(*center, r, c);
+
+	return 0;
+
+}
+
 void l_gfx_init(lua_State *L) {
 
 	luaL_Reg reg[] = {
@@ -309,6 +493,8 @@ void l_gfx_init(lua_State *L) {
 		{ "d_depth_test", l_depth_test, },
 		{ "d_stencil_write", l_stencil_write, },
 		{ "d_stencil_test", l_stencil_test, },
+		{ "d_coord", l_coord, },
+		{ "d_mouse_pos_t", l_mouse_pos_t, },
 		{ "d_push", l_push, },
 		{ "d_pop", l_pop, },
 		{ "d_move", l_move, },
@@ -324,16 +510,25 @@ void l_gfx_init(lua_State *L) {
 		{ "d_send_color", l_send_color, },
 		{ "d_send_tex", l_send_tex, },
 		{ "d_make_shader", l_make_shader, },
+		{ "d_load_shader", l_load_shader, },
 		{ "d_make_canvas", l_make_canvas, },
 		{ "d_load_tex", l_load_tex, },
 		{ "d_use_shader", l_use_shader, },
 		{ "d_use_canvas", l_use_canvas, },
+		{ "d_fmt_text", l_fmt_text, },
+		{ "d_draw_raw", l_draw_raw, },
 		{ "d_draw_tex", l_draw_tex, },
 		{ "d_draw_text", l_draw_text, },
+		{ "d_draw_ftext", l_draw_ftext, },
+		{ "d_draw_canvas", l_draw_canvas, },
+		{ "d_draw_rect", l_draw_rect, },
+		{ "d_draw_line", l_draw_line, },
+		{ "d_draw_lrect", l_draw_lrect, },
+		{ "d_draw_circle", l_draw_circle, },
 		{ NULL, NULL },
 	};
 
-	lua_import(L, reg);
+	luaL_import(L, reg);
 
 	luaL_newmetatable(L, "d_shader");
 	lua_pushcfunction(L, l_shader__index);
@@ -345,6 +540,10 @@ void l_gfx_init(lua_State *L) {
 
 	luaL_newmetatable(L, "d_tex");
 	lua_pushcfunction(L, l_tex__index);
+	lua_setfield(L, -2, "__index");
+
+	luaL_newmetatable(L, "d_ftext");
+	lua_pushcfunction(L, l_ftext__index);
 	lua_setfield(L, -2, "__index");
 
 }

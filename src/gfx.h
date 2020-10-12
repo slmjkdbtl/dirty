@@ -75,8 +75,8 @@ typedef struct {
 	GLuint ibuf;
 	d_vertex vqueue[BATCH_VERT_COUNT];
 	d_index iqueue[BATCH_INDEX_COUNT];
-	int vcount;
-	int icount;
+	int num_verts;
+	int num_indices;
 } d_batch;
 
 void d_gfx_init();

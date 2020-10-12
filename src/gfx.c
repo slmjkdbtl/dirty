@@ -97,9 +97,9 @@ void d_gfx_frame_end() {
 
 d_mesh d_make_mesh(
 	const d_vertex *verts,
-	int vcount,
+	int num_verts,
 	const d_index *indices,
-	int icount
+	int num_indices
 ) {
 
 	// vertex buffer
@@ -107,7 +107,7 @@ d_mesh d_make_mesh(
 
 	glGenBuffers(1, &vbuf);
 	glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-	glBufferData(GL_ARRAY_BUFFER, vcount * sizeof(d_vertex), verts, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, num_verts * sizeof(d_vertex), verts, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// index buffer
@@ -115,13 +115,13 @@ d_mesh d_make_mesh(
 
 	glGenBuffers(1, &ibuf);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, icount * sizeof(d_index), indices, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, num_indices * sizeof(d_index), indices, GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	return (d_mesh) {
 		.vbuf = vbuf,
 		.ibuf = ibuf,
-		.count = icount,
+		.count = num_indices,
 	};
 
 }
@@ -156,33 +156,33 @@ d_batch d_make_batch() {
 		.ibuf = ibuf,
 		.vqueue = {0},
 		.iqueue = {0},
-		.vcount = 0,
-		.icount = 0,
+		.num_verts = 0,
+		.num_indices = 0,
 	};
 
 }
 
 void d_batch_flush(d_batch *m) {
 
-	if (m->icount == 0 || m->vcount == 0) {
+	if (m->num_indices == 0 || m->num_verts == 0) {
 		return;
 	}
 
 	glBindBuffer(GL_ARRAY_BUFFER, m->vbuf);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, m->vcount * sizeof(d_vertex), &m->vqueue);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, m->num_verts * sizeof(d_vertex), &m->vqueue);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m->ibuf);
-	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, m->icount * sizeof(d_index), &m->iqueue);
+	glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, m->num_indices * sizeof(d_index), &m->iqueue);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	d_push();
 	d_gfx.transform = mat4u();
-	d_draw(m->vbuf, m->ibuf, m->icount);
+	d_draw(m->vbuf, m->ibuf, m->num_indices);
 	d_pop();
 
-	m->vcount = 0;
-	m->icount = 0;
+	m->num_verts = 0;
+	m->num_indices = 0;
 	memset(m->vqueue, 0, sizeof(m->vqueue));
 	memset(m->iqueue, 0, sizeof(m->iqueue));
 
@@ -191,24 +191,24 @@ void d_batch_flush(d_batch *m) {
 void d_batch_push(
 	d_batch *m,
 	const d_vertex *verts,
-	int vcount,
+	int num_verts,
 	const d_index *indices,
-	int icount
+	int num_indices
 ) {
 
-	if (m->vcount + vcount >= BATCH_VERT_COUNT || m->icount + icount >= BATCH_INDEX_COUNT) {
+	if (m->num_verts + num_verts >= BATCH_VERT_COUNT || m->num_indices + num_indices >= BATCH_INDEX_COUNT) {
 		d_batch_flush(m);
 	}
 
-	memcpy(&m->vqueue[m->vcount], verts, vcount * sizeof(d_vertex));
-	memcpy(&m->iqueue[m->icount], indices, icount * sizeof(d_index));
+	memcpy(&m->vqueue[m->num_verts], verts, num_verts * sizeof(d_vertex));
+	memcpy(&m->iqueue[m->num_indices], indices, num_indices * sizeof(d_index));
 
-	for (int i = 0; i < icount; i++) {
-		m->iqueue[m->icount + i] += m->vcount;
+	for (int i = 0; i < num_indices; i++) {
+		m->iqueue[m->num_indices + i] += m->num_verts;
 	}
 
-	m->vcount += vcount;
-	m->icount += icount;
+	m->num_verts += num_verts;
+	m->num_indices += num_indices;
 
 }
 
@@ -919,21 +919,21 @@ static void d_set_tex(const d_tex *t) {
 
 void d_draw_raw(
 	const d_vertex *verts,
-	int vcount,
+	int num_verts,
 	const d_index *indices,
-	int icount,
+	int num_indices,
 	const d_tex *tex
 ) {
 
-	d_vertex tverts[vcount];
-	memcpy(&tverts, verts, vcount * sizeof(d_vertex));
+	d_vertex tverts[num_verts];
+	memcpy(&tverts, verts, num_verts * sizeof(d_vertex));
 
-	for (int i = 0; i < vcount; i++) {
+	for (int i = 0; i < num_verts; i++) {
 		tverts[i].pos = mat4_mult_vec3(d_gfx.transform, verts[i].pos);
 	}
 
 	d_set_tex(tex);
-	d_batch_push(&d_gfx.batch, tverts, vcount, indices, icount);
+	d_batch_push(&d_gfx.batch, tverts, num_verts, indices, num_indices);
 
 }
 

@@ -126,11 +126,15 @@ static void l_frame_inner() {
 }
 
 static int l_run(lua_State *L) {
+
+	luaL_checktable(L, 1);
 	lua_getfield(L, 1, "init");
 	l_app.init_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	lua_getfield(L, 1, "frame");
 	l_app.frame_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	lua_getfield(L, 1, "title");
+
+	// TODO: stack mess?
 	d_run((d_desc) {
 		.init = l_init_inner,
 		.frame = l_frame_inner,
@@ -140,7 +144,9 @@ static int l_run(lua_State *L) {
 		.vsync = lua_getfield(L, 1, "vsync") ? luaL_checkboolean(L, -1) : true,
 		.path = l_app.path,
 	});
+
 	return 0;
+
 }
 
 static int l_quit(lua_State *L) {
@@ -252,7 +258,7 @@ void l_app_init(lua_State *L, const char *path) {
 		{ NULL, NULL },
 	};
 
-	lua_import(L, reg);
+	luaL_import(L, reg);
 
 }
 

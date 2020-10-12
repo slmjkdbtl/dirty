@@ -27,7 +27,7 @@ void l_fs_init(lua_State *L) {
 		{ NULL, NULL },
 	};
 
-	lua_import(L, reg);
+	luaL_import(L, reg);
 
 }
 

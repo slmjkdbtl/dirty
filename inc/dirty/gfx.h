@@ -159,7 +159,7 @@ typedef struct {
 } d_sprite_data;
 
 // mesh
-d_mesh d_make_mesh(const d_vertex *vertices, int vcount, const d_index *indices, int icount);
+d_mesh d_make_mesh(const d_vertex *vertices, int num_verts, const d_index *indices, int num_indices);
 void d_free_mesh(d_mesh *mesh);
 
 // image
@@ -260,7 +260,7 @@ void d_use_font(const d_font *font);
 void d_use_canvas(const d_canvas *canvas);
 
 // draw
-void d_draw_raw(const d_vertex *vertices, int vcount, const d_index *indices, int icount, const d_tex *tex);
+void d_draw_raw(const d_vertex *vertices, int num_verts, const d_index *indices, int num_indices, const d_tex *tex);
 void d_draw_mesh(const d_mesh *mesh);
 void d_draw_tex(const d_tex *tex, quad q, color c);
 void d_draw_text(const char *txt, float size, float wrap, d_origin orig, color c);

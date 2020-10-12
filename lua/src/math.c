@@ -433,7 +433,7 @@ void l_math_init(lua_State *L) {
 		{ NULL, NULL },
 	};
 
-	lua_import(L, reg);
+	luaL_import(L, reg);
 
 	luaL_newmetatable(L, "vec2");
 	lua_pushcfunction(L, l_vec2__index);

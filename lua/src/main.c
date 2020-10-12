@@ -25,7 +25,7 @@ int run(const char *path) {
 
 	strcpy(dir, path);
 	to_dir(dir);
-	sprintf(load_path, "%s%s", dir, "?.lua");
+	sprintf(load_path, "%s%s;%s%s", dir, "?.lua", dir, "?.so");
 
 	lua_State *L = luaL_newstate();
 	luaL_openlibs(L);

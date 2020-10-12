@@ -14,8 +14,12 @@
 
 #include "utils.h"
 
+void luaL_checktable(lua_State *L, int pos) {
+	luaL_checktype(L, pos, LUA_TTABLE);
+}
+
 bool luaL_checkboolean(lua_State *L, int pos) {
-	luaL_argexpected(L, lua_type(L, pos) == LUA_TBOOLEAN, pos, lua_typename(L, LUA_TBOOLEAN));
+	luaL_checktype(L, pos, LUA_TBOOLEAN);
 	return lua_toboolean(L, pos);
 }
 
@@ -23,7 +27,7 @@ void *luaL_optudata(lua_State *L, int pos, const char *type, void *def) {
 	return lua_isnoneornil(L, pos) ? def : luaL_checkudata(L, pos, type);
 }
 
-void lua_import(lua_State *L, luaL_Reg *reg) {
+void luaL_import(lua_State *L, luaL_Reg *reg) {
 	for (int i = 0; reg[i].name != NULL; i++) {
 		lua_register(L, reg[i].name, reg[i].func);
 	}
