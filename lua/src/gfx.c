@@ -5,19 +5,6 @@
 
 #include "utils.h"
 
-static enum_map str_orig_map[] = {
-	{ "topleft", D_TOP_LEFT },
-	{ "top", D_TOP },
-	{ "topright", D_TOP_RIGHT },
-	{ "left", D_LEFT },
-	{ "center", D_CENTER },
-	{ "right", D_RIGHT },
-	{ "botleft", D_BOT_LEFT },
-	{ "bot", D_BOT },
-	{ "botright", D_BOT_RIGHT },
-	{ NULL, 0 },
-};
-
 static int l_clear(lua_State *L) {
 	d_clear();
 	return 0;
@@ -62,8 +49,14 @@ static int l_stencil_test(lua_State *L) {
 	return 0;
 }
 
+static int l_transform(lua_State *L) {
+	mat4 m = d_transform();
+	lua_pushudata(L, mat4, &m);
+	return 1;
+}
+
 static int l_coord(lua_State *L) {
-	d_origin orig = str_to_enum(luaL_optstring(L, 1, "center"), str_orig_map);
+	d_origin orig = luaL_checknumber(L, 1);
 	vec2 pos = d_coord(orig);
 	lua_pushudata(L, vec2, &pos);
 	return 1;
@@ -297,7 +290,7 @@ static int l_fmt_text(lua_State *L) {
 	const char *str = luaL_checkstring(L, 1);
 	float size = luaL_checknumber(L, 2);
 	float wrap = luaL_optnumber(L, 3, 0.0);
-	d_origin orig = str_to_enum(luaL_optstring(L, 4, "center"), str_orig_map);
+	d_origin orig = luaL_optnumber(L, 4, D_CENTER);
 	color c = lua_isnoneornil(L, 5) ? coloru() : *(color*)luaL_checkudata(L, 5, "color");
 	d_ftext t = d_fmt_text(str, size, wrap, orig, c);
 	lua_pushudata(L, d_ftext, &t);
@@ -406,7 +399,7 @@ static int l_draw_text(lua_State *L) {
 	const char *str = luaL_checkstring(L, 1);
 	float size = luaL_checknumber(L, 2);
 	float wrap = luaL_optnumber(L, 3, 0.0);
-	d_origin orig = str_to_enum(luaL_optstring(L, 4, "center"), str_orig_map);
+	d_origin orig = luaL_optnumber(L, 4, D_CENTER);
 	color c = lua_isnoneornil(L, 5) ? coloru() : *(color*)luaL_checkudata(L, 5, "color");
 
 	d_draw_text(str, size, wrap, orig, c);
@@ -484,7 +477,7 @@ static int l_draw_circle(lua_State *L) {
 
 void l_gfx_init(lua_State *L) {
 
-	luaL_Reg reg[] = {
+	luaL_regfuncs(L, (luaL_Reg[]) {
 		{ "d_clear", l_clear, },
 		{ "d_clear_color", l_clear_color, },
 		{ "d_clear_depth", l_clear_depth, },
@@ -493,6 +486,7 @@ void l_gfx_init(lua_State *L) {
 		{ "d_depth_test", l_depth_test, },
 		{ "d_stencil_write", l_stencil_write, },
 		{ "d_stencil_test", l_stencil_test, },
+		{ "d_transform", l_transform, },
 		{ "d_coord", l_coord, },
 		{ "d_mouse_pos_t", l_mouse_pos_t, },
 		{ "d_push", l_push, },
@@ -526,9 +520,41 @@ void l_gfx_init(lua_State *L) {
 		{ "d_draw_lrect", l_draw_lrect, },
 		{ "d_draw_circle", l_draw_circle, },
 		{ NULL, NULL },
-	};
+	});
 
-	luaL_import(L, reg);
+	luaL_regenum(L, "d_origin", (luaL_Enum[]) {
+		{ "topleft", D_TOP_LEFT, },
+		{ "top", D_TOP, },
+		{ "topright", D_TOP_RIGHT, },
+		{ "left", D_LEFT, },
+		{ "center", D_CENTER, },
+		{ "right", D_RIGHT, },
+		{ "botleft", D_BOT_LEFT, },
+		{ "bot", D_BOT, },
+		{ "botright", D_BOT_RIGHT, },
+		{ NULL, 0, },
+	});
+
+	luaL_regenum(L, "d_tex_filter", (luaL_Enum[]) {
+		{ "nearest", D_NEAREST, },
+		{ "linear", D_LINEAR, },
+		{ NULL, 0 },
+	});
+
+	luaL_regenum(L, "d_tex_wrap", (luaL_Enum[]) {
+		{ "repeat", D_REPEAT, },
+		{ "mirroredrepeat", D_MIRRORED_REPEAT, },
+		{ "clamptoedge", D_CLAMP_TO_EDGE, },
+		{ "clamptoborder", D_CLAMP_TO_BORDER, },
+		{ NULL, 0 },
+	});
+
+	luaL_regenum(L, "d_blend", (luaL_Enum[]) {
+		{ "alpha", D_BLEND_ALPHA, },
+		{ "add", D_BLEND_ADD, },
+		{ "replace", D_BLEND_REPLACE, },
+		{ NULL, 0 },
+	});
 
 	luaL_newmetatable(L, "d_shader");
 	lua_pushcfunction(L, l_shader__index);

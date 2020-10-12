@@ -80,13 +80,11 @@ static int l_playback__newindex(lua_State *L) {
 
 void l_audio_init(lua_State *L) {
 
-	luaL_Reg reg[] = {
+	luaL_regfuncs(L, (luaL_Reg[]) {
 		{ "d_load_sound", l_load_sound, },
 		{ "d_play", l_play, },
 		{ NULL, NULL },
-	};
-
-	luaL_import(L, reg);
+	});
 
 	luaL_newmetatable(L, "d_sound");
 	lua_pushcfunction(L, l_sound__index);

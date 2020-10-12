@@ -396,7 +396,7 @@ static int l_quad__index(lua_State *L) {
 
 static int l_quad__newindex(lua_State *L) {
 
-	quad* q = luaL_checkudata(L, 1, "quad");
+	quad *q = luaL_checkudata(L, 1, "quad");
 	const char *arg = luaL_checkstring(L, 2);
 
 	if (streq(arg, "x")) {
@@ -423,17 +423,62 @@ static int l_quad__newindex(lua_State *L) {
 
 }
 
+static int l_mat4f(lua_State *L) {
+	mat4 m = mat4u();
+	lua_pushudata(L, mat4, &m);
+	return 1;
+}
+
+static int l_mat4__index(lua_State *L) {
+
+	mat4 *m = luaL_checkudata(L, 1, "mat4");
+
+	if (lua_isinteger(L, 2)) {
+		int i = luaL_checkinteger(L, 2);
+		if (i < 1 || i > 16) {
+			d_fail("mat4 does not contain index '%d'\n", i);
+		}
+		lua_pushnumber(L, m->m[i - 1]);
+		return 1;
+	}
+
+	if (lua_isstring(L, 2)) {
+		const char *arg = luaL_checkstring(L, 2);
+		if (streq(arg, "invert")) {
+			// TODO
+		}
+	}
+
+	return 0;
+
+}
+
+static int l_mat4__newindex(lua_State *L) {
+
+	mat4 *m = luaL_checkudata(L, 1, "mat4");
+	int i = luaL_checkinteger(L, 2);
+	float v = luaL_checknumber(L, 3);
+
+	if (i < 1 || i > 16) {
+		d_fail("mat4 does not contain index '%d'\n", i);
+	}
+
+	m->m[i - 1] = v;
+
+	return 0;
+
+}
+
 void l_math_init(lua_State *L) {
 
-	luaL_Reg reg[] = {
+	luaL_regfuncs(L, (luaL_Reg[]) {
 		{ "vec2", l_vec2f, },
 		{ "vec3", l_vec3f, },
 		{ "color", l_colorf, },
 		{ "quad", l_quadf, },
+		{ "mat4", l_mat4f, },
 		{ NULL, NULL },
-	};
-
-	luaL_import(L, reg);
+	});
 
 	luaL_newmetatable(L, "vec2");
 	lua_pushcfunction(L, l_vec2__index);
@@ -479,6 +524,12 @@ void l_math_init(lua_State *L) {
 	lua_pushcfunction(L, l_quad__index);
 	lua_setfield(L, -2, "__index");
 	lua_pushcfunction(L, l_quad__newindex);
+	lua_setfield(L, -2, "__newindex");
+
+	luaL_newmetatable(L, "mat4");
+	lua_pushcfunction(L, l_mat4__index);
+	lua_setfield(L, -2, "__index");
+	lua_pushcfunction(L, l_mat4__newindex);
 	lua_setfield(L, -2, "__newindex");
 
 }

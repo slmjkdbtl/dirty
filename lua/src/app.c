@@ -16,95 +16,6 @@ typedef struct {
 
 static l_app_ctx l_app;
 
-static enum_map str_mouse_map[] = {
-	{ "left", D_MOUSE_LEFT },
-	{ "right", D_MOUSE_RIGHT },
-	{ "middle", D_MOUSE_MIDDLE },
-	{ NULL, 0 },
-};
-
-static enum_map str_key_map[] = {
-	{ "q", D_KEY_Q },
-	{ "w", D_KEY_W },
-	{ "e", D_KEY_E },
-	{ "r", D_KEY_R },
-	{ "t", D_KEY_T },
-	{ "y", D_KEY_Y },
-	{ "u", D_KEY_U },
-	{ "i", D_KEY_I },
-	{ "o", D_KEY_O },
-	{ "p", D_KEY_P },
-	{ "a", D_KEY_A },
-	{ "s", D_KEY_S },
-	{ "d", D_KEY_D },
-	{ "f", D_KEY_F },
-	{ "g", D_KEY_G },
-	{ "h", D_KEY_H },
-	{ "j", D_KEY_J },
-	{ "k", D_KEY_K },
-	{ "l", D_KEY_L },
-	{ "z", D_KEY_Z },
-	{ "x", D_KEY_X },
-	{ "c", D_KEY_C },
-	{ "v", D_KEY_V },
-	{ "b", D_KEY_B },
-	{ "n", D_KEY_N },
-	{ "m", D_KEY_M },
-	{ "1", D_KEY_1 },
-	{ "2", D_KEY_2 },
-	{ "3", D_KEY_3 },
-	{ "4", D_KEY_4 },
-	{ "5", D_KEY_5 },
-	{ "6", D_KEY_6 },
-	{ "7", D_KEY_7 },
-	{ "8", D_KEY_8 },
-	{ "9", D_KEY_9 },
-	{ "0", D_KEY_0 },
-	{ "f1", D_KEY_F1 },
-	{ "f2", D_KEY_F2 },
-	{ "f3", D_KEY_F3 },
-	{ "f4", D_KEY_F4 },
-	{ "f5", D_KEY_F5 },
-	{ "f6", D_KEY_F6 },
-	{ "f7", D_KEY_F7 },
-	{ "f8", D_KEY_F8 },
-	{ "f9", D_KEY_F9 },
-	{ "f10", D_KEY_F10 },
-	{ "f11", D_KEY_F11 },
-	{ "f12", D_KEY_F12 },
-	{ "-", D_KEY_MINUS },
-	{ "=", D_KEY_EQUAL },
-	{ ",", D_KEY_COMMA },
-	{ ".", D_KEY_PERIOD },
-	{ "`", D_KEY_BACKQUOTE },
-	{ "/", D_KEY_SLASH },
-	{ "\\", D_KEY_BACKSLASH },
-	{ ";", D_KEY_SEMICOLON },
-	{ "'", D_KEY_QUOTE },
-	{ "up", D_KEY_UP },
-	{ "down", D_KEY_DOWN },
-	{ "left", D_KEY_LEFT },
-	{ "right", D_KEY_RIGHT },
-	{ "esc", D_KEY_ESC },
-	{ "tab", D_KEY_TAB },
-	{ " ", D_KEY_SPACE },
-	{ "space", D_KEY_SPACE },
-	{ "bksp", D_KEY_BACKSPACE },
-	{ "backspace", D_KEY_BACKSPACE },
-	{ "enter", D_KEY_ENTER },
-	{ "[", D_KEY_LBRACKET },
-	{ "]", D_KEY_RBRACKET },
-	{ "lshft", D_KEY_LSHIFT },
-	{ "rshft", D_KEY_RSHIFT },
-	{ "lalt", D_KEY_LALT },
-	{ "ralt", D_KEY_RALT },
-	{ "lmeta", D_KEY_LMETA },
-	{ "rmeta", D_KEY_RMETA },
-	{ "lctrl", D_KEY_LCTRL },
-	{ "rctrl", D_KEY_RCTRL },
-	{ NULL, 0 },
-};
-
 static void l_init_inner() {
 	lua_rawgeti(l_app.lua, LUA_REGISTRYINDEX, l_app.init_ref);
 	if (lua_isfunction(l_app.lua, -1)) {
@@ -165,44 +76,44 @@ static int l_dt(lua_State *L) {
 }
 
 static int l_key_pressed(lua_State *L) {
-	const char *k = luaL_checkstring(L, 1);
-	lua_pushboolean(L, d_key_pressed(str_to_enum(k, str_key_map)));
+	int k = luaL_checknumber(L, 1);
+	lua_pushboolean(L, d_key_pressed(k));
 	return 1;
 }
 
 static int l_key_rpressed(lua_State *L) {
-	const char *k = luaL_checkstring(L, 1);
-	lua_pushboolean(L, d_key_rpressed(str_to_enum(k, str_key_map)));
+	int k = luaL_checknumber(L, 1);
+	lua_pushboolean(L, d_key_rpressed(k));
 	return 1;
 }
 
 static int l_key_released(lua_State *L) {
-	const char *k = luaL_checkstring(L, 1);
-	lua_pushboolean(L, d_key_released(str_to_enum(k, str_key_map)));
+	int k = luaL_checknumber(L, 1);
+	lua_pushboolean(L, d_key_released(k));
 	return 1;
 }
 
 static int l_key_down(lua_State *L) {
-	const char *k = luaL_checkstring(L, 1);
-	lua_pushboolean(L, d_key_down(str_to_enum(k, str_key_map)));
+	int k = luaL_checknumber(L, 1);
+	lua_pushboolean(L, d_key_down(k));
 	return 1;
 }
 
 static int l_mouse_pressed(lua_State *L) {
-	const char *m = luaL_checkstring(L, 1);
-	lua_pushboolean(L, d_mouse_pressed(str_to_enum(m, str_mouse_map)));
+	int m = luaL_checknumber(L, 1);
+	lua_pushboolean(L, d_mouse_pressed(m));
 	return 1;
 }
 
 static int l_mouse_released(lua_State *L) {
-	const char *m = luaL_checkstring(L, 1);
-	lua_pushboolean(L, d_mouse_released(str_to_enum(m, str_mouse_map)));
+	int m = luaL_checknumber(L, 1);
+	lua_pushboolean(L, d_mouse_released(m));
 	return 1;
 }
 
 static int l_mouse_down(lua_State *L) {
-	const char *m = luaL_checkstring(L, 1);
-	lua_pushboolean(L, d_mouse_down(str_to_enum(m, str_mouse_map)));
+	int m = luaL_checknumber(L, 1);
+	lua_pushboolean(L, d_mouse_down(m));
 	return 1;
 }
 
@@ -238,7 +149,7 @@ void l_app_init(lua_State *L, const char *path) {
 	strcpy(l_app.path, path);
 	l_app.lua = L;
 
-	luaL_Reg reg[] = {
+	luaL_regfuncs(L, (luaL_Reg[]) {
 		{ "d_run", l_run, },
 		{ "d_quit", l_quit, },
 		{ "d_time", l_time, },
@@ -256,9 +167,96 @@ void l_app_init(lua_State *L, const char *path) {
 		{ "d_mouse_dpos", l_mouse_dpos, },
 		{ "d_mouse_moved", l_mouse_moved, },
 		{ NULL, NULL },
-	};
+	});
 
-	luaL_import(L, reg);
+	luaL_regenum(L, "d_key", (luaL_Enum[]) {
+		{ "q", D_KEY_Q, },
+		{ "w", D_KEY_W, },
+		{ "e", D_KEY_E, },
+		{ "r", D_KEY_R, },
+		{ "t", D_KEY_T, },
+		{ "y", D_KEY_Y, },
+		{ "u", D_KEY_U, },
+		{ "i", D_KEY_I, },
+		{ "o", D_KEY_O, },
+		{ "p", D_KEY_P, },
+		{ "a", D_KEY_A, },
+		{ "s", D_KEY_S, },
+		{ "d", D_KEY_D, },
+		{ "f", D_KEY_F, },
+		{ "g", D_KEY_G, },
+		{ "h", D_KEY_H, },
+		{ "j", D_KEY_J, },
+		{ "k", D_KEY_K, },
+		{ "l", D_KEY_L, },
+		{ "z", D_KEY_Z, },
+		{ "x", D_KEY_X, },
+		{ "c", D_KEY_C, },
+		{ "v", D_KEY_V, },
+		{ "b", D_KEY_B, },
+		{ "n", D_KEY_N, },
+		{ "m", D_KEY_M, },
+		{ "1", D_KEY_1, },
+		{ "2", D_KEY_2, },
+		{ "3", D_KEY_3, },
+		{ "4", D_KEY_4, },
+		{ "5", D_KEY_5, },
+		{ "6", D_KEY_6, },
+		{ "7", D_KEY_7, },
+		{ "8", D_KEY_8, },
+		{ "9", D_KEY_9, },
+		{ "0", D_KEY_0, },
+		{ "f1", D_KEY_F1, },
+		{ "f2", D_KEY_F2, },
+		{ "f3", D_KEY_F3, },
+		{ "f4", D_KEY_F4, },
+		{ "f5", D_KEY_F5, },
+		{ "f6", D_KEY_F6, },
+		{ "f7", D_KEY_F7, },
+		{ "f8", D_KEY_F8, },
+		{ "f9", D_KEY_F9, },
+		{ "f10", D_KEY_F10, },
+		{ "f11", D_KEY_F11, },
+		{ "f12", D_KEY_F12, },
+		{ "-", D_KEY_MINUS, },
+		{ "=", D_KEY_EQUAL, },
+		{ ",", D_KEY_COMMA, },
+		{ ".", D_KEY_PERIOD, },
+		{ "`", D_KEY_BACKQUOTE, },
+		{ "/", D_KEY_SLASH, },
+		{ "\\", D_KEY_BACKSLASH, },
+		{ ";", D_KEY_SEMICOLON, },
+		{ "'", D_KEY_QUOTE, },
+		{ "up", D_KEY_UP, },
+		{ "down", D_KEY_DOWN, },
+		{ "left", D_KEY_LEFT, },
+		{ "right", D_KEY_RIGHT, },
+		{ "esc", D_KEY_ESC, },
+		{ "tab", D_KEY_TAB, },
+		{ " ", D_KEY_SPACE, },
+		{ "space", D_KEY_SPACE, },
+		{ "bksp", D_KEY_BACKSPACE, },
+		{ "backspace", D_KEY_BACKSPACE, },
+		{ "enter", D_KEY_ENTER, },
+		{ "[", D_KEY_LBRACKET, },
+		{ "]", D_KEY_RBRACKET, },
+		{ "lshft", D_KEY_LSHIFT, },
+		{ "rshft", D_KEY_RSHIFT, },
+		{ "lalt", D_KEY_LALT, },
+		{ "ralt", D_KEY_RALT, },
+		{ "lmeta", D_KEY_LMETA, },
+		{ "rmeta", D_KEY_RMETA, },
+		{ "lctrl", D_KEY_LCTRL, },
+		{ "rctrl", D_KEY_RCTRL, },
+		{ NULL, 0, },
+	});
+
+	luaL_regenum(L, "d_mouse", (luaL_Enum[]) {
+		{ "left", D_MOUSE_LEFT, },
+		{ "right", D_MOUSE_RIGHT, },
+		{ "middle", D_MOUSE_MIDDLE, },
+		{ NULL, 0, },
+	});
 
 }
 

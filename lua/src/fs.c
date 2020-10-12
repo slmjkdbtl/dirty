@@ -21,13 +21,11 @@ static int l_is_file(lua_State *L) {
 
 void l_fs_init(lua_State *L) {
 
-	luaL_Reg reg[] = {
+	luaL_regfuncs(L, (luaL_Reg[]) {
 		{ "d_read_text", l_read_text, },
 		{ "d_is_file", l_is_file, },
 		{ NULL, NULL },
-	};
-
-	luaL_import(L, reg);
+	});
 
 }
 

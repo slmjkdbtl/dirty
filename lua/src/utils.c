@@ -27,23 +27,27 @@ void *luaL_optudata(lua_State *L, int pos, const char *type, void *def) {
 	return lua_isnoneornil(L, pos) ? def : luaL_checkudata(L, pos, type);
 }
 
-void luaL_import(lua_State *L, luaL_Reg *reg) {
+void luaL_regfuncs(lua_State *L, luaL_Reg *reg) {
 	for (int i = 0; reg[i].name != NULL; i++) {
 		lua_register(L, reg[i].name, reg[i].func);
 	}
 }
 
-bool streq(const char *a, const char *b) {
-	return strcmp(a, b) == 0;
+void luaL_regenum(lua_State *L, const char *name, luaL_Enum *map) {
+
+	lua_newtable(L);
+
+	for (int i = 0; map[i].str != NULL; i++) {
+		lua_pushnumber(L, map[i].val);
+		lua_setfield(L, -2, map[i].str);
+	}
+
+	lua_setglobal(L, name);
+
 }
 
-int str_to_enum(const char *str, enum_map *map) {
-	for (int i = 0; map[i].str != NULL; i++) {
-		if (streq(map[i].str, str)) {
-			return map[i].val;
-		}
-	}
-	return 0;
+bool streq(const char *a, const char *b) {
+	return strcmp(a, b) == 0;
 }
 
 bool is_file(const char *path) {

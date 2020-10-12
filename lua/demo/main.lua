@@ -3,23 +3,17 @@
 d_run({
 	title = "hi",
 	init = function()
-		print("oh hi")
 		tex = d_load_tex("acid2.png")
 		snd = d_load_sound("yo.ogg")
 		pb = d_play(snd)
 	end,
 	frame = function()
-		if d_key_pressed("esc") then
+		if d_key_pressed(d_key["esc"]) then
 			d_quit()
 		end
-		if d_key_rpressed("space") then
+		if d_key_rpressed(d_key["space"]) then
 			print("ouch")
 		end
--- 		print(d_dt())
--- 		for i = 1, 100000, 1 do
--- 			local a = vec2(0, 0)
--- 			local a = { x = 0, y = 0 }
--- 		end
 		d_draw_raw({
 			{
 				pos = vec3(0, 120, 0),
