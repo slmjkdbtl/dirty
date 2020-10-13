@@ -23,6 +23,17 @@ bool luaL_checkboolean(lua_State *L, int pos) {
 	return lua_toboolean(L, pos);
 }
 
+const char *lua_udatatype(lua_State *L, int pos) {
+	if (!lua_getmetatable(L, pos)) {
+		return NULL;
+	}
+	lua_getfield(L, -1, "__name");
+	const char *tname = lua_tostring(L, -1);
+	// TODO: stack management
+	lua_pop(L, 2);
+	return tname;
+}
+
 void *luaL_optudata(lua_State *L, int pos, const char *type, void *def) {
 	return lua_isnoneornil(L, pos) ? def : luaL_checkudata(L, pos, type);
 }

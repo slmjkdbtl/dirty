@@ -7,7 +7,7 @@
 #include <string.h>
 
 #define lua_pushudata(L, T, V) \
-	T* lv = lua_newuserdata(L, sizeof(T)); \
+	T *lv = lua_newuserdata(L, sizeof(T)); \
 	luaL_setmetatable(L, #T); \
 	memcpy(lv, V, sizeof(T)); \
 
@@ -18,6 +18,7 @@ typedef struct {
 
 void luaL_checktable(lua_State *L, int pos);
 bool luaL_checkboolean(lua_State *L, int pos);
+const char *lua_udatatype(lua_State *L, int pos);
 void *luaL_optudata(lua_State *L, int pos, const char *type, void *def);
 void luaL_regfuncs(lua_State *L, luaL_Reg *reg);
 void luaL_regenum(lua_State *L, const char *name, luaL_Enum *map);

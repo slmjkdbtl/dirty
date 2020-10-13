@@ -128,7 +128,7 @@ vec2 vec2_rand(vec2, vec2);
 vec2 vec2_lerp(vec2, vec2, float);
 vec2 vec2_clamp(vec2, vec2, vec2);
 bool vec2_eq(vec2, vec2);
-const char* vec2_fmt(vec2);
+const char *vec2_fmt(vec2);
 
 vec3 vec3f(float, float, float);
 vec3 vec3u();
@@ -147,7 +147,7 @@ vec3 vec3_rand(vec3, vec3);
 vec3 vec3_lerp(vec3, vec3, float);
 vec3 vec3_clamp(vec3, vec3, vec3);
 bool vec3_eq(vec3, vec3);
-const char* vec3_fmt(vec3);
+const char *vec3_fmt(vec3);
 
 vec4 vec4f(float, float, float, float);
 vec4 vec4u();
@@ -158,7 +158,7 @@ color coloru();
 color color_invert(color);
 color color_darken(color c, float a);
 bool color_eq(color, color);
-const char* color_fmt(color);
+const char *color_fmt(color);
 
 mat4 mat4f(float[16]);
 mat4 mat4u();
@@ -176,7 +176,7 @@ mat4 mat4_view(vec3, vec3, vec3);
 mat4 mat4_rot_x(float);
 mat4 mat4_rot_y(float);
 mat4 mat4_rot_z(float);
-const char* mat4_fmt(mat4);
+const char *mat4_fmt(mat4);
 
 quat quatf(float, float, float, float);
 quat quatu();

@@ -5,11 +5,17 @@ ABOUT
 
   written in C99, based on SDL2 and OpenGL
 
+  supports both C lib usage and Lua scripting
+
 BUILD
 
   $ make lib
 
   will create 'libdirty.a' under 'build/lib/'
+
+  $ make lua
+
+  will create 'dirty' Lua runtime binary under 'build/bin'
 
   $ make run DEMO=?
 
@@ -17,11 +23,17 @@ BUILD
 
 USAGE
 
-  1. have SDL2 available for linking
-  2. build and copy 'libdirty.a' to your link dir
-  3. copy 'inc/dirty' to your include dir and
+  C
 
-    #include <dirty/dirty.h>
+    1. have SDL2 available for linking
+    2. build and copy 'libdirty.a' to your link dir
+    3. copy 'inc/dirty' to your include dir and
+
+      #include <dirty/dirty.h>
+
+  Lua
+
+    $ dirty <file>
 
 DOC
 
@@ -40,11 +52,6 @@ DOC
 FACTS
 
   'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
-
-BINDINGS
-
-  - lua
-    https://github.com/slmjkdbtl/ldirty
 
 CONTRIBUTION
 

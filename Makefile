@@ -32,14 +32,17 @@ endif
 DEMO := tri
 
 SRC_PATH := src
+LUA_SRC_PATH := $(SRC_PATH)/lua
 OBJ_PATH := build/obj/$(TARGET)
 BIN_PATH := build/bin/$(TARGET)
+DEMO_BIN_PATH := build/bin/$(TARGET)/demo
 LIB_PATH := build/lib/$(TARGET)
 INC_PATH := inc
 DEMO_PATH := demo
 EXT_INC_PATH := ext/inc
 EXT_LIB_PATH := ext/lib/$(TARGET)
 LIB_TARGET := $(LIB_PATH)/libdirty.a
+BIN_TARGET := $(BIN_PATH)/dirty
 
 # flags
 C_FLAGS += -I $(INC_PATH)
@@ -90,26 +93,38 @@ AR_FLAGS += -rcs
 # files
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
 OBJ_FILES := $(patsubst $(SRC_PATH)/%.c, $(OBJ_PATH)/%.o, $(SRC_FILES))
+LUA_SRC_FILES := $(wildcard $(LUA_SRC_PATH)/*.c)
 
 DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
 DEMOS := $(patsubst $(DEMO_PATH)/%.c, %, $(DEMO_FILES))
-DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(BIN_PATH)/%, $(DEMO_FILES))
+DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(DEMO_BIN_PATH)/%, $(DEMO_FILES))
 
 .PHONY: lib
 lib: $(LIB_TARGET)
 
+.PHONY: lua
+lua: $(BIN_TARGET)
+
 .PHONY: demos
 demos: $(DEMO_TARGETS)
-	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
+	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
 
 .PHONY: run
-run: $(BIN_PATH)/$(DEMO)
-	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
-	./$(BIN_PATH)/$(DEMO) $(ARGS)
+run: $(DEMO_BIN_PATH)/$(DEMO)
+	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
+	./$(DEMO_BIN_PATH)/$(DEMO) $(ARGS)
 
-$(BIN_PATH)/%: $(DEMO_PATH)/%.c $(LIB_TARGET)
-	@mkdir -p $(BIN_PATH)
+.PHONY: run-lua
+run-lua: $(BIN_TARGET) $(DEMO_PATH)/$(DEMO).lua
+	./$(BIN_TARGET) $(DEMO_PATH)/$(DEMO).lua
+
+$(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c $(LIB_TARGET)
+	@mkdir -p $(DEMO_BIN_PATH)
 	$(CC) $(C_FLAGS) -L $(LIB_PATH) -ldirty $(LD_FLAGS) -o $@ $^
+
+$(BIN_TARGET): $(LUA_SRC_FILES) $(LIB_TARGET)
+	@mkdir -p $(BIN_PATH)
+	$(CC) $(C_FLAGS) -L $(LIB_PATH) -ldirty -llua $(LD_FLAGS) -o $@ $^
 
 $(LIB_TARGET): $(OBJ_FILES)
 	@mkdir -p $(LIB_PATH)
