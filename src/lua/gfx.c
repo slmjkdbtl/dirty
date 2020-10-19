@@ -56,7 +56,7 @@ static int l_transform(lua_State *L) {
 }
 
 static int l_coord(lua_State *L) {
-	d_origin orig = luaL_checknumber(L, 1);
+	d_origin orig = luaL_checkinteger(L, 1);
 	vec2 pos = d_coord(orig);
 	lua_pushudata(L, vec2, &pos);
 	return 1;
@@ -150,7 +150,7 @@ static int l_send_color(lua_State *L) {
 
 static int l_send_tex(lua_State *L) {
 	const char *name = luaL_checkstring(L, 1);
-	int slot = luaL_checknumber(L, 2);
+	int slot = luaL_checkinteger(L, 2);
 	d_tex *t = luaL_checkudata(L, 3, "d_tex");
 	d_send_tex(name, slot, t);
 	return 0;
@@ -192,8 +192,8 @@ static int l_shader__index(lua_State *L) {
 }
 
 static int l_make_canvas(lua_State *L) {
-	int w = luaL_checknumber(L, 1);
-	int h = luaL_checknumber(L, 2);
+	int w = luaL_checkinteger(L, 1);
+	int h = luaL_checkinteger(L, 2);
 	d_canvas c = d_make_canvas(w, h);
 	lua_pushudata(L, d_canvas, &c);
 	return 1;
@@ -290,7 +290,7 @@ static int l_fmt_text(lua_State *L) {
 	const char *str = luaL_checkstring(L, 1);
 	float size = luaL_checknumber(L, 2);
 	float wrap = luaL_optnumber(L, 3, 0.0);
-	d_origin orig = luaL_optnumber(L, 4, D_CENTER);
+	d_origin orig = luaL_optinteger(L, 4, D_CENTER);
 	color c = lua_isnoneornil(L, 5) ? coloru() : *(color*)luaL_checkudata(L, 5, "color");
 	d_ftext t = d_fmt_text(str, size, wrap, orig, c);
 	lua_pushudata(L, d_ftext, &t);
@@ -299,7 +299,7 @@ static int l_fmt_text(lua_State *L) {
 
 static int l_ftext_cpos(lua_State *L) {
 	d_ftext *t = luaL_checkudata(L, 1, "d_ftext");
-	int n = luaL_checknumber(L, 2);
+	int n = luaL_checkinteger(L, 2);
 	vec2 pos = d_ftext_cpos(t, n);
 	lua_pushudata(L, vec2, &pos);
 	return 1;
@@ -372,7 +372,7 @@ static int l_draw_raw(lua_State *L) {
 
 	for (int i = 0; i < num_indices; i++) {
 		lua_rawgeti(L, 2, i + 1);
-		indices[i] = luaL_checknumber(L, 3);
+		indices[i] = luaL_checkinteger(L, 3);
 		lua_pop(L, 1);
 	}
 
@@ -399,7 +399,7 @@ static int l_draw_text(lua_State *L) {
 	const char *str = luaL_checkstring(L, 1);
 	float size = luaL_checknumber(L, 2);
 	float wrap = luaL_optnumber(L, 3, 0.0);
-	d_origin orig = luaL_optnumber(L, 4, D_CENTER);
+	d_origin orig = luaL_optinteger(L, 4, D_CENTER);
 	color c = lua_isnoneornil(L, 5) ? coloru() : *(color*)luaL_checkudata(L, 5, "color");
 
 	d_draw_text(str, size, wrap, orig, c);
@@ -559,18 +559,22 @@ void l_gfx_init(lua_State *L) {
 	luaL_newmetatable(L, "d_shader");
 	lua_pushcfunction(L, l_shader__index);
 	lua_setfield(L, -2, "__index");
+	lua_pop(L, 1);
 
 	luaL_newmetatable(L, "d_canvas");
 	lua_pushcfunction(L, l_canvas__index);
 	lua_setfield(L, -2, "__index");
+	lua_pop(L, 1);
 
 	luaL_newmetatable(L, "d_tex");
 	lua_pushcfunction(L, l_tex__index);
 	lua_setfield(L, -2, "__index");
+	lua_pop(L, 1);
 
 	luaL_newmetatable(L, "d_ftext");
 	lua_pushcfunction(L, l_ftext__index);
 	lua_setfield(L, -2, "__index");
+	lua_pop(L, 1);
 
 }
 

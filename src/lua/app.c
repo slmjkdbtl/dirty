@@ -19,20 +19,14 @@ static l_app_ctx l_app;
 static void l_init_inner() {
 	lua_rawgeti(l_app.lua, LUA_REGISTRYINDEX, l_app.init_ref);
 	if (lua_isfunction(l_app.lua, -1)) {
-		if (lua_pcall(l_app.lua, 0, 0, 0) != LUA_OK) {
-			d_quit();
-			fprintf(stderr, "%s\n", lua_tostring(l_app.lua, -1));
-		}
+		lua_call(l_app.lua, 0, 0);
 	}
 }
 
 static void l_frame_inner() {
 	lua_rawgeti(l_app.lua, LUA_REGISTRYINDEX, l_app.frame_ref);
 	if (lua_isfunction(l_app.lua, -1)) {
-		if (lua_pcall(l_app.lua, 0, 0, 0) != LUA_OK) {
-			d_quit();
-			fprintf(stderr, "%s\n", lua_tostring(l_app.lua, -1));
-		}
+		lua_call(l_app.lua, 0, 0);
 	}
 }
 
@@ -50,8 +44,8 @@ static int l_run(lua_State *L) {
 		.init = l_init_inner,
 		.frame = l_frame_inner,
 		.title = lua_getfield(L, 1, "title") ? luaL_checkstring(L, -1) : NULL,
-		.width = lua_getfield(L, 1, "width") ? luaL_checknumber(L, -1) : 0,
-		.height = lua_getfield(L, 1, "height") ? luaL_checknumber(L, -1) : 0,
+		.width = lua_getfield(L, 1, "width") ? luaL_checkinteger(L, -1) : 0,
+		.height = lua_getfield(L, 1, "height") ? luaL_checkinteger(L, -1) : 0,
 		.vsync = lua_getfield(L, 1, "vsync") ? luaL_checkboolean(L, -1) : true,
 		.path = l_app.path,
 	});
@@ -76,43 +70,43 @@ static int l_dt(lua_State *L) {
 }
 
 static int l_key_pressed(lua_State *L) {
-	int k = luaL_checknumber(L, 1);
+	int k = luaL_checkinteger(L, 1);
 	lua_pushboolean(L, d_key_pressed(k));
 	return 1;
 }
 
 static int l_key_rpressed(lua_State *L) {
-	int k = luaL_checknumber(L, 1);
+	int k = luaL_checkinteger(L, 1);
 	lua_pushboolean(L, d_key_rpressed(k));
 	return 1;
 }
 
 static int l_key_released(lua_State *L) {
-	int k = luaL_checknumber(L, 1);
+	int k = luaL_checkinteger(L, 1);
 	lua_pushboolean(L, d_key_released(k));
 	return 1;
 }
 
 static int l_key_down(lua_State *L) {
-	int k = luaL_checknumber(L, 1);
+	int k = luaL_checkinteger(L, 1);
 	lua_pushboolean(L, d_key_down(k));
 	return 1;
 }
 
 static int l_mouse_pressed(lua_State *L) {
-	int m = luaL_checknumber(L, 1);
+	int m = luaL_checkinteger(L, 1);
 	lua_pushboolean(L, d_mouse_pressed(m));
 	return 1;
 }
 
 static int l_mouse_released(lua_State *L) {
-	int m = luaL_checknumber(L, 1);
+	int m = luaL_checkinteger(L, 1);
 	lua_pushboolean(L, d_mouse_released(m));
 	return 1;
 }
 
 static int l_mouse_down(lua_State *L) {
-	int m = luaL_checknumber(L, 1);
+	int m = luaL_checkinteger(L, 1);
 	lua_pushboolean(L, d_mouse_down(m));
 	return 1;
 }

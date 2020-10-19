@@ -436,7 +436,7 @@ static int l_mat4__index(lua_State *L) {
 	if (lua_isinteger(L, 2)) {
 		int i = luaL_checkinteger(L, 2);
 		if (i < 1 || i > 16) {
-			d_fail("mat4 does not contain index '%d'\n", i);
+			luaL_error(L, "mat4 does not contain index '%d'\n", i);
 		}
 		lua_pushnumber(L, m->m[i - 1]);
 		return 1;
@@ -460,7 +460,7 @@ static int l_mat4__newindex(lua_State *L) {
 	float v = luaL_checknumber(L, 3);
 
 	if (i < 1 || i > 16) {
-		d_fail("mat4 does not contain index '%d'\n", i);
+		luaL_error(L, "mat4 does not contain index '%d'\n", i);
 	}
 
 	m->m[i - 1] = v;
@@ -477,7 +477,7 @@ void l_math_init(lua_State *L) {
 		{ "color", l_colorf, },
 		{ "quad", l_quadf, },
 		{ "mat4", l_mat4f, },
-		{ NULL, NULL },
+		{ NULL, NULL, },
 	});
 
 	luaL_newmetatable(L, "vec2");
@@ -495,6 +495,7 @@ void l_math_init(lua_State *L) {
 	lua_setfield(L, -2, "__div");
 	lua_pushcfunction(L, l_vec2__eq);
 	lua_setfield(L, -2, "__eq");
+	lua_pop(L, 1);
 
 	luaL_newmetatable(L, "vec3");
 	lua_pushcfunction(L, l_vec3__index);
@@ -511,6 +512,7 @@ void l_math_init(lua_State *L) {
 	lua_setfield(L, -2, "__div");
 	lua_pushcfunction(L, l_vec3__eq);
 	lua_setfield(L, -2, "__eq");
+	lua_pop(L, 1);
 
 	luaL_newmetatable(L, "color");
 	lua_pushcfunction(L, l_color__index);
@@ -519,18 +521,21 @@ void l_math_init(lua_State *L) {
 	lua_setfield(L, -2, "__newindex");
 	lua_pushcfunction(L, l_color__eq);
 	lua_setfield(L, -2, "__eq");
+	lua_pop(L, 1);
 
 	luaL_newmetatable(L, "quad");
 	lua_pushcfunction(L, l_quad__index);
 	lua_setfield(L, -2, "__index");
 	lua_pushcfunction(L, l_quad__newindex);
 	lua_setfield(L, -2, "__newindex");
+	lua_pop(L, 1);
 
 	luaL_newmetatable(L, "mat4");
 	lua_pushcfunction(L, l_mat4__index);
 	lua_setfield(L, -2, "__index");
 	lua_pushcfunction(L, l_mat4__newindex);
 	lua_setfield(L, -2, "__newindex");
+	lua_pop(L, 1);
 
 }
 

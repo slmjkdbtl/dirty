@@ -4,6 +4,7 @@
 #define D_PLATFORM_H
 
 #if defined(__APPLE__)
+	#include <TargetConditionals.h>
 	#if TARGET_OS_IPHONE
 		#define D_IOS
 	#else

@@ -6,10 +6,6 @@ d_run({
 		tex = d_load_tex("res/acid2.png")
 		snd = d_load_sound("res/yo.ogg")
 		pb = d_play(snd)
-		local m = mat4()
-		print(m[1])
-		m[1] = 12
-		print(m[1])
 	end,
 	frame = function()
 		if d_key_pressed(d_key["esc"]) then
