@@ -137,6 +137,12 @@ static int l_vec2__eq(lua_State *L) {
 	return 1;
 }
 
+static int l_vec2__tostring(lua_State *L) {
+	vec2 *p = luaL_checkudata(L, 1, "vec2");
+	lua_pushstring(L, vec2_fmt(*p));
+	return 1;
+}
+
 static int l_vec3f(lua_State *L) {
 	float x = luaL_optnumber(L, 1, 0.0);
 	float y = luaL_optnumber(L, 2, x);
@@ -280,6 +286,12 @@ static int l_vec3__eq(lua_State *L) {
 	return 1;
 }
 
+static int l_vec3__tostring(lua_State *L) {
+	vec3 *p = luaL_checkudata(L, 1, "vec3");
+	lua_pushstring(L, vec3_fmt(*p));
+	return 1;
+}
+
 static int l_colorf(lua_State *L) {
 	float r = luaL_checknumber(L, 1);
 	float g = luaL_checknumber(L, 2);
@@ -355,6 +367,12 @@ static int l_color__eq(lua_State *L) {
 	return 1;
 }
 
+static int l_color__tostring(lua_State *L) {
+	color *c = luaL_checkudata(L, 1, "color");
+	lua_pushstring(L, color_fmt(*c));
+	return 1;
+}
+
 static int l_quadf(lua_State *L) {
 	float x = luaL_checknumber(L, 1);
 	float y = luaL_checknumber(L, 2);
@@ -423,6 +441,12 @@ static int l_quad__newindex(lua_State *L) {
 
 }
 
+static int l_quad__tostring(lua_State *L) {
+	quad *q = luaL_checkudata(L, 1, "quad");
+	lua_pushstring(L, quad_fmt(*q));
+	return 1;
+}
+
 static int l_mat4f(lua_State *L) {
 	mat4 m = mat4u();
 	lua_pushudata(L, mat4, &m);
@@ -469,6 +493,12 @@ static int l_mat4__newindex(lua_State *L) {
 
 }
 
+static int l_mat4__tostring(lua_State *L) {
+	mat4 *m = luaL_checkudata(L, 1, "mat4");
+	lua_pushstring(L, mat4_fmt(*m));
+	return 1;
+}
+
 void l_math_init(lua_State *L) {
 
 	luaL_regfuncs(L, (luaL_Reg[]) {
@@ -480,63 +510,51 @@ void l_math_init(lua_State *L) {
 		{ NULL, NULL, },
 	});
 
-	luaL_newmetatable(L, "vec2");
-	lua_pushcfunction(L, l_vec2__index);
-	lua_setfield(L, -2, "__index");
-	lua_pushcfunction(L, l_vec2__newindex);
-	lua_setfield(L, -2, "__newindex");
-	lua_pushcfunction(L, l_vec2__add);
-	lua_setfield(L, -2, "__add");
-	lua_pushcfunction(L, l_vec2__sub);
-	lua_setfield(L, -2, "__sub");
-	lua_pushcfunction(L, l_vec2__mul);
-	lua_setfield(L, -2, "__mul");
-	lua_pushcfunction(L, l_vec2__div);
-	lua_setfield(L, -2, "__div");
-	lua_pushcfunction(L, l_vec2__eq);
-	lua_setfield(L, -2, "__eq");
-	lua_pop(L, 1);
+	luaL_regtype(L, "vec2", (luaL_Reg[]) {
+		{ "__index", l_vec2__index, },
+		{ "__newindex", l_vec2__newindex, },
+		{ "__add", l_vec2__add, },
+		{ "__sub", l_vec2__sub, },
+		{ "__mul", l_vec2__mul, },
+		{ "__div", l_vec2__div, },
+		{ "__eq", l_vec2__eq, },
+		{ "__tostring", l_vec2__tostring, },
+		{ NULL, NULL, },
+	});
 
-	luaL_newmetatable(L, "vec3");
-	lua_pushcfunction(L, l_vec3__index);
-	lua_setfield(L, -2, "__index");
-	lua_pushcfunction(L, l_vec3__newindex);
-	lua_setfield(L, -2, "__newindex");
-	lua_pushcfunction(L, l_vec3__add);
-	lua_setfield(L, -2, "__add");
-	lua_pushcfunction(L, l_vec3__sub);
-	lua_setfield(L, -2, "__sub");
-	lua_pushcfunction(L, l_vec3__mul);
-	lua_setfield(L, -2, "__mul");
-	lua_pushcfunction(L, l_vec3__div);
-	lua_setfield(L, -2, "__div");
-	lua_pushcfunction(L, l_vec3__eq);
-	lua_setfield(L, -2, "__eq");
-	lua_pop(L, 1);
+	luaL_regtype(L, "vec3", (luaL_Reg[]) {
+		{ "__index", l_vec3__index, },
+		{ "__newindex", l_vec3__newindex, },
+		{ "__add", l_vec3__add, },
+		{ "__sub", l_vec3__sub, },
+		{ "__mul", l_vec3__mul, },
+		{ "__div", l_vec3__div, },
+		{ "__eq", l_vec3__eq, },
+		{ "__tostring", l_vec3__tostring, },
+		{ NULL, NULL, },
+	});
 
-	luaL_newmetatable(L, "color");
-	lua_pushcfunction(L, l_color__index);
-	lua_setfield(L, -2, "__index");
-	lua_pushcfunction(L, l_color__newindex);
-	lua_setfield(L, -2, "__newindex");
-	lua_pushcfunction(L, l_color__eq);
-	lua_setfield(L, -2, "__eq");
-	lua_pop(L, 1);
+	luaL_regtype(L, "color", (luaL_Reg[]) {
+		{ "__index", l_color__index, },
+		{ "__newindex", l_color__newindex, },
+		{ "__eq", l_color__eq, },
+		{ "__tostring", l_color__tostring, },
+		{ NULL, NULL, },
+	});
 
-	luaL_newmetatable(L, "quad");
-	lua_pushcfunction(L, l_quad__index);
-	lua_setfield(L, -2, "__index");
-	lua_pushcfunction(L, l_quad__newindex);
-	lua_setfield(L, -2, "__newindex");
-	lua_pop(L, 1);
+	luaL_regtype(L, "quad", (luaL_Reg[]) {
+		{ "__index", l_quad__index, },
+		{ "__newindex", l_quad__newindex, },
+		{ "__tostring", l_quad__tostring, },
+		{ NULL, NULL, },
+	});
 
-	luaL_newmetatable(L, "mat4");
-	lua_pushcfunction(L, l_mat4__index);
-	lua_setfield(L, -2, "__index");
-	lua_pushcfunction(L, l_mat4__newindex);
-	lua_setfield(L, -2, "__newindex");
-	lua_pop(L, 1);
+	luaL_regtype(L, "mat4", (luaL_Reg[]) {
+		{ "__index", l_mat4__index, },
+		{ "__newindex", l_mat4__newindex, },
+		{ "__tostring", l_mat4__tostring, },
+		{ NULL, NULL, },
+	});
 
 }
-
 

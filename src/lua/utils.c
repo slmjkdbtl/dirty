@@ -23,6 +23,12 @@ bool luaL_checkboolean(lua_State *L, int pos) {
 	return lua_toboolean(L, pos);
 }
 
+void luaL_opttable(lua_State *L, int pos) {
+	if (!lua_isnoneornil(L, pos)) {
+		luaL_checktable(L, pos);
+	}
+}
+
 void *luaL_optudata(lua_State *L, int pos, const char *type, void *def) {
 	return lua_isnoneornil(L, pos) ? def : luaL_checkudata(L, pos, type);
 }
@@ -49,12 +55,24 @@ void luaL_regenum(lua_State *L, const char *name, luaL_Enum *map) {
 	lua_newtable(L);
 
 	for (int i = 0; map[i].str != NULL; i++) {
-		lua_pushnumber(L, map[i].val);
+		lua_pushinteger(L, map[i].val);
 		lua_setfield(L, -2, map[i].str);
 	}
 
 	lua_setglobal(L, name);
 
+}
+
+void luaL_regtype(lua_State *L, const char *name, luaL_Reg *reg) {
+
+	luaL_newmetatable(L, name);
+
+	for (int i = 0; reg[i].name != NULL; i++) {
+		lua_pushcfunction(L, reg[i].func);
+		lua_setfield(L, -2, reg[i].name);
+	}
+
+	lua_pop(L, 1);
 }
 
 bool streq(const char *a, const char *b) {

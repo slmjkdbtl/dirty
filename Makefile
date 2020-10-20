@@ -99,6 +99,11 @@ DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
 DEMOS := $(patsubst $(DEMO_PATH)/%.c, %, $(DEMO_FILES))
 DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(DEMO_BIN_PATH)/%, $(DEMO_FILES))
 
+INSTALL_TOP := /usr/local
+INSTALL_BIN := $(INSTALL_TOP)/bin
+INSTALL_INC := $(INSTALL_TOP)/include
+INSTALL_LIB := $(INSTALL_TOP)/lib
+
 .PHONY: lib
 lib: $(LIB_TARGET)
 
@@ -138,6 +143,15 @@ $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
 res:
 	rm -rf src/res
 	sh cres.sh res src/res
+
+.PHONY: install
+install: $(LIB_TARGET)
+	cp $(LIB_TARGET) $(INSTALL_LIB)
+	cp -r $(INC_PATH)/* $(INSTALL_INC)
+
+.PHONY: install-lua
+install-lua: $(BIN_TARGET)
+	install $(BIN_TARGET) $(INSTALL_BIN)
 
 .PHONY: clean
 clean:

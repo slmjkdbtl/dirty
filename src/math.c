@@ -118,7 +118,7 @@ bool vec2_eq(vec2 p1, vec2 p2) {
 	return p1.x == p2.x && p1.y == p2.y;
 }
 
-const char* vec2_fmt(vec2 p) {
+const char *vec2_fmt(vec2 p) {
 	return d_fmt("vec2(%.8g, %.8g)", p.x, p.y);
 }
 
@@ -238,7 +238,7 @@ bool vec3_eq(vec3 p1, vec3 p2) {
 	return p1.x == p2.x && p1.y == p2.y && p1.z == p2.z;
 }
 
-const char* vec3_fmt(vec3 p) {
+const char *vec3_fmt(vec3 p) {
 	return d_fmt("vec3(%.8g, %.8g, %.8g)", p.x, p.y, p.z);
 }
 
@@ -299,7 +299,7 @@ bool color_eq(color c1, color c2) {
 	return c1.r == c2.r && c1.g == c2.g && c1.b == c2.b && c1.a == c2.a;
 }
 
-const char* color_fmt(color c) {
+const char *color_fmt(color c) {
 	return d_fmt("color(%.8g, %.8g, %.8g, %.8g)", c.r, c.g, c.b, c.a);
 }
 
@@ -519,7 +519,7 @@ mat4 mat4_view(vec3 pos, vec3 dir, vec3 up) {
 
 }
 
-const char* mat4_fmt(mat4 m) {
+const char *mat4_fmt(mat4 m) {
 	return d_fmt(
 		"mat4(%.8g, %.8g, %.8g, %.8g,\n"
 		"     %.8g, %.8g, %.8g, %.8g,\n"
@@ -556,6 +556,10 @@ quad quadf(float x, float y, float w, float h) {
 
 quad quadu() {
 	return quadf(0.0, 0.0, 1.0, 1.0);
+}
+
+const char *quad_fmt(quad q) {
+	return d_fmt("quad(%.8g, %.8g, %.8g, %.8g)", q.x, q.y, q.w, q.h);
 }
 
 rect rectf(vec2 p1, vec2 p2) {

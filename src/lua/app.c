@@ -128,13 +128,23 @@ static int l_mouse_moved(lua_State *L) {
 	return 1;
 }
 
+static int l_input(lua_State *L) {
+	char c = d_input();
+	if (c) {
+		lua_pushlstring(L, &c, 1);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
 static int l_width(lua_State *L) {
-	lua_pushnumber(L, d_width());
+	lua_pushinteger(L, d_width());
 	return 1;
 }
 
 static int l_height(lua_State *L) {
-	lua_pushnumber(L, d_height());
+	lua_pushinteger(L, d_height());
 	return 1;
 }
 
@@ -160,6 +170,7 @@ void l_app_init(lua_State *L, const char *path) {
 		{ "d_mouse_pos", l_mouse_pos, },
 		{ "d_mouse_dpos", l_mouse_dpos, },
 		{ "d_mouse_moved", l_mouse_moved, },
+		{ "d_input", l_input, },
 		{ NULL, NULL },
 	});
 

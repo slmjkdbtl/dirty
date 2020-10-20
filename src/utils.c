@@ -60,7 +60,7 @@ unsigned long d_hash_str(const char *str) {
 
 }
 
-#define FMT_BUFSIZE 256
+#define FMT_BUFSIZE 1024
 
 const char *d_fmt(const char *fmt, ...) {
 

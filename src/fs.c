@@ -141,12 +141,7 @@ static bool write_bytes(const char *path, const unsigned char *data, size_t size
 
 }
 
-typedef struct {
-	char *(entries[PATH_MAX]);
-	int num_entries;
-} d_dir;
-
-static d_dir *read_dir(const char *path) {
+static char **read_dir(const char *path) {
 
 	DIR *dir = opendir(path);
 
@@ -155,29 +150,39 @@ static d_dir *read_dir(const char *path) {
 		return NULL;
 	}
 
-	struct dirent *entry = readdir(dir);
+	struct dirent *entry;
 	int num = 0;
 
-	while (entry) {
+	while ((entry = readdir(dir))) {
 		if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
 			num++;
-			printf("%s\n", entry->d_name);
 		}
-		entry = readdir(dir);
 	}
 
-	d_dir *ddir = malloc(sizeof(d_dir));
-// 	ddir->entries = malloc(sizeof(char*) * num);
+	rewinddir(dir);
+	char **list = malloc(sizeof(char*) * (num + 1));
+	num = 0;
 
+	while ((entry = readdir(dir))) {
+		if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+			list[num] = malloc(strlen(entry->d_name) + 1);
+			strcpy(list[num], entry->d_name);
+			num++;
+		}
+	}
+
+	list[num] = NULL;
 	closedir(dir);
 
-	return ddir;
+	return list;
 
 }
 
-void d_free_dir(d_dir *dir) {
-	free(dir->entries);
-	free(dir);
+void d_free_dir(char **list) {
+	for (int i = 0; list[i] != NULL; i++) {
+		free(list[i]);
+	}
+	free(list);
 }
 
 char *d_read_text(const char *path) {
@@ -189,8 +194,7 @@ unsigned char *d_read_bytes(const char *path, size_t *size) {
 }
 
 char **d_read_dir(const char *path) {
-	char **list = read_dir(d_fmt("%s%s", d_fs.base_path, path));
-	return list;
+	return read_dir(d_fmt("%s%s", d_fs.base_path, path));
 }
 
 bool d_is_file(const char *path) {
@@ -229,5 +233,27 @@ void d_data_write_text(const char *path, const char *content) {
 
 void d_data_write_bytes(const char *path, const unsigned char *content, size_t size) {
 	write_bytes(d_fmt("%s%s", d_fs.data_path, path), content, size);
+}
+
+char *d_extname(const char *path) {
+	const char *dot = strrchr(path, '.');
+	if (!dot) {
+		return NULL;
+	}
+	char *buf = malloc(strlen(dot + 1) + 1);
+	strcpy(buf, dot + 1);
+	return buf;
+}
+
+char *d_basename(const char *path) {
+	const char *dot = strrchr(path, '.');
+	const char *slash = strrchr(path, '/');
+	dot = dot ? dot : path + strlen(path);
+	slash = slash ? slash + 1 : path;
+	int len = dot - slash;
+	char *buf = malloc(len + 1);
+	strncpy(buf, slash, len);
+	buf[len] = '\0';
+	return buf;
 }
 

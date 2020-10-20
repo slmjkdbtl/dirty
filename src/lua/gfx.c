@@ -84,6 +84,24 @@ static int l_move(lua_State *L) {
 	return 0;
 }
 
+static int l_move_x(lua_State *L) {
+	float x = luaL_checknumber(L, 1);
+	d_move_x(x);
+	return 0;
+}
+
+static int l_move_y(lua_State *L) {
+	float y = luaL_checknumber(L, 1);
+	d_move_y(y);
+	return 0;
+}
+
+static int l_move_z(lua_State *L) {
+	float z = luaL_checknumber(L, 1);
+	d_move_z(z);
+	return 0;
+}
+
 static int l_move_xy(lua_State *L) {
 	vec2 *p = luaL_checkudata(L, 1, "vec2");
 	d_move_xy(*p);
@@ -93,6 +111,24 @@ static int l_move_xy(lua_State *L) {
 static int l_scale(lua_State *L) {
 	vec3 *p = luaL_checkudata(L, 1, "vec3");
 	d_scale(*p);
+	return 0;
+}
+
+static int l_scale_x(lua_State *L) {
+	float x = luaL_checknumber(L, 1);
+	d_scale_x(x);
+	return 0;
+}
+
+static int l_scale_y(lua_State *L) {
+	float y = luaL_checknumber(L, 1);
+	d_scale_y(y);
+	return 0;
+}
+
+static int l_scale_z(lua_State *L) {
+	float z = luaL_checknumber(L, 1);
+	d_scale_z(z);
 	return 0;
 }
 
@@ -157,16 +193,16 @@ static int l_send_tex(lua_State *L) {
 }
 
 static int l_make_shader(lua_State *L) {
-	const char *vs = luaL_checkstring(L, 1);
-	const char *fs = luaL_checkstring(L, 2);
+	const char *vs = luaL_optstring(L, 1, NULL);
+	const char *fs = luaL_optstring(L, 2, NULL);
 	d_shader p = d_make_shader(vs, fs);
 	lua_pushudata(L, d_shader, &p);
 	return 1;
 }
 
 static int l_load_shader(lua_State *L) {
-	const char *vspath = luaL_checkstring(L, 1);
-	const char *fspath = luaL_checkstring(L, 2);
+	const char *vspath = luaL_optstring(L, 1, NULL);
+	const char *fspath = luaL_optstring(L, 2, NULL);
 	d_shader p = d_load_shader(vspath, fspath);
 	lua_pushudata(L, d_shader, &p);
 	return 1;
@@ -211,12 +247,12 @@ static int l_canvas__index(lua_State *L) {
 	const char *arg = luaL_checkstring(L, 2);
 
 	if (streq(arg, "width")) {
-		lua_pushnumber(L, c->width);
+		lua_pushinteger(L, c->width);
 		return 1;
 	}
 
 	if (streq(arg, "height")) {
-		lua_pushnumber(L, c->height);
+		lua_pushinteger(L, c->height);
 		return 1;
 	}
 
@@ -248,12 +284,12 @@ static int l_tex__index(lua_State *L) {
 	const char *arg = luaL_checkstring(L, 2);
 
 	if (streq(arg, "width")) {
-		lua_pushnumber(L, t->width);
+		lua_pushinteger(L, t->width);
 		return 1;
 	}
 
 	if (streq(arg, "height")) {
-		lua_pushnumber(L, t->height);
+		lua_pushinteger(L, t->height);
 		return 1;
 	}
 
@@ -492,9 +528,15 @@ void l_gfx_init(lua_State *L) {
 		{ "d_push", l_push, },
 		{ "d_pop", l_pop, },
 		{ "d_move", l_move, },
+		{ "d_move_x", l_move_x, },
+		{ "d_move_y", l_move_y, },
+		{ "d_move_z", l_move_z, },
 		{ "d_move_xy", l_move_xy, },
 		{ "d_scale", l_scale, },
 		{ "d_scale_xy", l_scale_xy, },
+		{ "d_scale_x", l_scale_x, },
+		{ "d_scale_y", l_scale_y, },
+		{ "d_scale_z", l_scale_z, },
 		{ "d_rot_x", l_rot_x, },
 		{ "d_rot_y", l_rot_y, },
 		{ "d_rot_z", l_rot_z, },
@@ -556,25 +598,25 @@ void l_gfx_init(lua_State *L) {
 		{ NULL, 0 },
 	});
 
-	luaL_newmetatable(L, "d_shader");
-	lua_pushcfunction(L, l_shader__index);
-	lua_setfield(L, -2, "__index");
-	lua_pop(L, 1);
+	luaL_regtype(L, "d_shader", (luaL_Reg[]) {
+		{ "__index", l_shader__index, },
+		{ NULL, NULL, },
+	});
 
-	luaL_newmetatable(L, "d_canvas");
-	lua_pushcfunction(L, l_canvas__index);
-	lua_setfield(L, -2, "__index");
-	lua_pop(L, 1);
+	luaL_regtype(L, "d_canvas", (luaL_Reg[]) {
+		{ "__index", l_canvas__index, },
+		{ NULL, NULL, },
+	});
 
-	luaL_newmetatable(L, "d_tex");
-	lua_pushcfunction(L, l_tex__index);
-	lua_setfield(L, -2, "__index");
-	lua_pop(L, 1);
+	luaL_regtype(L, "d_tex", (luaL_Reg[]) {
+		{ "__index", l_tex__index, },
+		{ NULL, NULL, },
+	});
 
-	luaL_newmetatable(L, "d_ftext");
-	lua_pushcfunction(L, l_ftext__index);
-	lua_setfield(L, -2, "__index");
-	lua_pop(L, 1);
+	luaL_regtype(L, "d_ftext", (luaL_Reg[]) {
+		{ "__index", l_ftext__index, },
+		{ NULL, NULL, },
+	});
 
 }
 

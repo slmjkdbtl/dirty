@@ -183,6 +183,7 @@ quat quatu();
 
 quad quadf(float, float, float, float);
 quad quadu();
+const char *quad_fmt(quad);
 
 rect rectf(vec2, vec2);
 box boxf(vec3, vec3);

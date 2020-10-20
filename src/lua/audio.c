@@ -86,17 +86,16 @@ void l_audio_init(lua_State *L) {
 		{ NULL, NULL, },
 	});
 
-	luaL_newmetatable(L, "d_sound");
-	lua_pushcfunction(L, l_sound__index);
-	lua_setfield(L, -2, "__index");
-	lua_pop(L, 1);
+	luaL_regtype(L, "d_sound", (luaL_Reg[]) {
+		{ "__index", l_sound__index, },
+		{ NULL, NULL, },
+	});
 
-	luaL_newmetatable(L, "d_playback");
-	lua_pushcfunction(L, l_playback__index);
-	lua_setfield(L, -2, "__index");
-	lua_pushcfunction(L, l_playback__newindex);
-	lua_setfield(L, -2, "__newindex");
-	lua_pop(L, 1);
+	luaL_regtype(L, "d_playback", (luaL_Reg[]) {
+		{ "__index", l_playback__index, },
+		{ "__newindex", l_playback__newindex, },
+		{ NULL, NULL, },
+	});
 
 }
 

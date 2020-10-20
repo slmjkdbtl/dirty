@@ -55,7 +55,7 @@ void d_gfx_init() {
 	// init default tex conf
 	d_gfx.tex_conf = (d_tex_conf) {
 		.filter = D_NEAREST,
-		.wrap = D_CLAMP_TO_EDGE,
+		.wrap = D_REPEAT,
 	};
 
 	// init default shader
@@ -351,7 +351,7 @@ void d_free_tex(d_tex *t) {
 d_model d_parse_model(const unsigned char *bytes, int size) {
 
 	cgltf_options options = {0};
-	cgltf_data* data = NULL;
+	cgltf_data *data = NULL;
 	cgltf_result res = cgltf_parse(&options, bytes, size, &data);
 
 	d_assert(res == cgltf_result_success, "failed to parse gltf\n");
@@ -363,20 +363,13 @@ d_model d_parse_model(const unsigned char *bytes, int size) {
 
 	for (int i = 0; i < mesh->primitives_count; i++) {
 		cgltf_primitive *prim = &mesh->primitives[i];
-		cgltf_accessor *indices = prim->indices;
+// 		cgltf_accessor *indices = prim->indices;
 		// TODO: why is the buffer view type invalid?
 		for (int j = 0; j < prim->attributes_count; j++) {
-			cgltf_attribute *attr = &prim->attributes[j];
-			cgltf_accessor *data = attr->data;
-// 			printf("%d\n", data->count);
+// 			cgltf_attribute *attr = &prim->attributes[j];
+// 			cgltf_accessor *data = attr->data;
 		}
 	}
-
-// 	for (int i = 0; i < node->children_count; i++) {
-// 		cgltf_node *node2 = node->children[i];
-// 		printf("%s\n", node2->mesh->name);
-// 		printf("%d\n", node->mesh->primitives_count);
-// 	}
 
 	cgltf_free(data);
 
@@ -523,8 +516,13 @@ d_shader d_load_shader(const char *vs_path, const char *fs_path) {
 
 	d_shader s = d_make_shader(vs_src, fs_src);
 
-	free(vs_src);
-	free(fs_src);
+	if (vs_src) {
+		free(vs_src);
+	}
+
+	if (fs_src) {
+		free(fs_src);
+	}
 
 	return s;
 
@@ -1318,16 +1316,16 @@ static const char *json_get_str(struct json_object_s *obj, const char *name) {
 	return child->string;
 }
 
-static bool json_get_bool(struct json_object_s *obj, const char *name) {
-	struct json_object_element_s *el = json_get(obj, name);
-	if (json_value_is_true(el->value)) {
-		return true;
-	} else if (json_value_is_false(el->value)) {
-		return false;
-	}
-	d_fail("expected '%s' to be a boolean", name);
-	return false;
-}
+// static bool json_get_bool(struct json_object_s *obj, const char *name) {
+// 	struct json_object_element_s *el = json_get(obj, name);
+// 	if (json_value_is_true(el->value)) {
+// 		return true;
+// 	} else if (json_value_is_false(el->value)) {
+// 		return false;
+// 	}
+// 	d_fail("expected '%s' to be a boolean", name);
+// 	return false;
+// }
 
 d_sprite_data d_parse_ase(const char *json) {
 

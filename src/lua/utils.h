@@ -19,9 +19,11 @@ typedef struct {
 void luaL_checktable(lua_State *L, int pos);
 bool luaL_checkboolean(lua_State *L, int pos);
 const char *lua_udatatype(lua_State *L, int pos);
+void luaL_opttable(lua_State *L, int pos);
 void *luaL_optudata(lua_State *L, int pos, const char *type, void *def);
 void luaL_regfuncs(lua_State *L, luaL_Reg *reg);
 void luaL_regenum(lua_State *L, const char *name, luaL_Enum *map);
+void luaL_regtype(lua_State *L, const char *name, luaL_Reg *reg);
 bool streq(const char *a, const char *b);
 bool is_file(const char *path);
 bool is_dir(const char *path);
