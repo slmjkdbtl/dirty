@@ -7,7 +7,6 @@
 //   - audio   anything audio
 //   - math    math types / algorithms
 //   - fs      file system helpers
-//   - ui      immediate mode UI for dev
 //
 //   each .h file contains doc for specific modules
 //
@@ -52,7 +51,6 @@
 #include "audio.h"
 #include "fs.h"
 #include "json.h"
-#include "ui.h"
 #include "utils.h"
 
 #endif

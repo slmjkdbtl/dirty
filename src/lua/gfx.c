@@ -413,6 +413,8 @@ static int l_draw_raw(lua_State *L) {
 	}
 
 	d_draw_raw(verts, num_verts, indices, num_indices, NULL);
+	free(verts);
+	free(indices);
 
 	return 0;
 

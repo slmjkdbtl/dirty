@@ -16,7 +16,6 @@
 
 #include "gfx.h"
 #include "audio.h"
-#include "ui.h"
 #include "fs.h"
 
 #define NUM_TOUCHES 8
@@ -316,7 +315,6 @@ void d_run(d_desc desc) {
 
 	d_gfx_init();
 	d_audio_init();
-	d_ui_init();
 	d_fs_init(&desc);
 
 	if (d_app.desc.init) {

@@ -1190,7 +1190,7 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 	int text_height = -cur_y;
 
 	ftext.len = actual_len;
-	ftext.width = wrap != 0.0 ? wrap : text_width;
+	ftext.width = text_width;
 	ftext.height = text_height;
 	ftext.tex = tex;
 	ftext.cw = gw;
