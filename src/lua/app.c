@@ -39,7 +39,7 @@ static int l_run(lua_State *L) {
 	l_app.frame_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	lua_getfield(L, 1, "title");
 
-	// TODO: stack mess?
+	// TODO: luaL_check* does not give meaningful error for table fields
 	d_run((d_desc) {
 		.init = l_init_inner,
 		.frame = l_frame_inner,
@@ -47,6 +47,12 @@ static int l_run(lua_State *L) {
 		.width = lua_getfield(L, 1, "width") ? luaL_checkinteger(L, -1) : 0,
 		.height = lua_getfield(L, 1, "height") ? luaL_checkinteger(L, -1) : 0,
 		.vsync = lua_getfield(L, 1, "vsync") ? luaL_checkboolean(L, -1) : true,
+		.fullscreen = lua_getfield(L, 1, "fullscreen") ? luaL_checkboolean(L, -1) : false,
+		.resizable = lua_getfield(L, 1, "resizable") ? luaL_checkboolean(L, -1) : false,
+		.borderless = lua_getfield(L, 1, "borderless") ? luaL_checkboolean(L, -1) : false,
+		.hidpi = lua_getfield(L, 1, "hidpi") ? luaL_checkboolean(L, -1) : false,
+		.org = lua_getfield(L, 1, "org") ? luaL_checkstring(L, -1) : NULL,
+		.name = lua_getfield(L, 1, "name") ? luaL_checkstring(L, -1) : NULL,
 		.path = l_app.path,
 	});
 
@@ -148,6 +154,50 @@ static int l_height(lua_State *L) {
 	return 1;
 }
 
+static int l_fullscreen(lua_State *L) {
+	if (lua_isnoneornil(L, 1)) {
+		lua_pushboolean(L, d_fullscreen());
+		return 1;
+	} else {
+		bool b = luaL_checkboolean(L, 1);
+		d_set_fullscreen(b);
+		return 0;
+	}
+}
+
+static int l_mouse_relative(lua_State *L) {
+	if (lua_isnoneornil(L, 1)) {
+		lua_pushboolean(L, d_mouse_relative());
+		return 1;
+	} else {
+		bool b = luaL_checkboolean(L, 1);
+		d_set_mouse_relative(b);
+		return 0;
+	}
+}
+
+static int l_mouse_hidden(lua_State *L) {
+	if (lua_isnoneornil(L, 1)) {
+		lua_pushboolean(L, d_mouse_hidden());
+		return 1;
+	} else {
+		bool b = luaL_checkboolean(L, 1);
+		d_set_mouse_hidden(b);
+		return 0;
+	}
+}
+
+static int l_title(lua_State *L) {
+	if (lua_isnoneornil(L, 1)) {
+		lua_pushstring(L, d_title());
+		return 1;
+	} else {
+		const char *title = luaL_checkstring(L, 1);
+		d_set_title(title);
+		return 0;
+	}
+}
+
 void l_app_init(lua_State *L, const char *path) {
 
 	strcpy(l_app.path, path);
@@ -171,6 +221,10 @@ void l_app_init(lua_State *L, const char *path) {
 		{ "d_mouse_dpos", l_mouse_dpos, },
 		{ "d_mouse_moved", l_mouse_moved, },
 		{ "d_input", l_input, },
+		{ "d_fullscreen", l_fullscreen, },
+		{ "d_mouse_relative", l_mouse_relative, },
+		{ "d_mouse_hidden", l_mouse_hidden, },
+		{ "d_title", l_title, },
 		{ NULL, NULL, },
 	});
 

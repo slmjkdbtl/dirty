@@ -165,10 +165,6 @@ static void d_frame() {
 		d_app.desc.frame();
 	}
 
-	if (d_app.desc.frame_u) {
-		d_app.desc.frame_u(d_app.desc.udata);
-	}
-
 	d_gfx_frame_end();
 	SDL_GL_SwapWindow(d_app.window);
 
@@ -278,7 +274,7 @@ void d_run(d_desc desc) {
 	d_app.desc = desc;
 
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, true);
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
@@ -287,16 +283,22 @@ void d_run(d_desc desc) {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
 #endif
 
-	if (desc.vsync) {
-		SDL_GL_SetSwapInterval(1);
-	} else {
-		SDL_GL_SetSwapInterval(0);
-	}
-
 	int flags = SDL_WINDOW_OPENGL;
 
 	if (desc.fullscreen) {
-		flags |= SDL_WINDOW_FULLSCREEN;
+		flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+	}
+
+	if (desc.resizable) {
+		flags |= SDL_WINDOW_RESIZABLE;
+	}
+
+	if (desc.borderless) {
+		flags |= SDL_WINDOW_BORDERLESS;
+	}
+
+	if (desc.hidpi) {
+		flags |= SDL_WINDOW_ALLOW_HIGHDPI;
 	}
 
 	d_app.window = SDL_CreateWindow(
@@ -313,16 +315,18 @@ void d_run(d_desc desc) {
     SDL_GL_MakeCurrent(d_app.window, d_app.gl);
 	SDL_GetWindowSize(d_app.window, &d_app.width, &d_app.height);
 
+	if (desc.vsync) {
+		SDL_GL_SetSwapInterval(1);
+	} else {
+		SDL_GL_SetSwapInterval(0);
+	}
+
 	d_gfx_init();
 	d_audio_init();
 	d_fs_init(&desc);
 
 	if (d_app.desc.init) {
 		d_app.desc.init();
-	}
-
-	if (d_app.desc.init_u) {
-		d_app.desc.init_u(d_app.desc.udata);
 	}
 
 #ifdef D_WEB
@@ -340,10 +344,6 @@ void d_run(d_desc desc) {
 
 	if (d_app.desc.quit) {
 		d_app.desc.quit();
-	}
-
-	if (d_app.desc.quit_u) {
-		d_app.desc.quit_u(d_app.desc.udata);
 	}
 
 #endif
@@ -381,10 +381,6 @@ void d_err(const char *fmt, ...) {
 
 	if (d_app.desc.err) {
 		d_app.desc.err(msg);
-	}
-
-	if (d_app.desc.err_u) {
-		d_app.desc.err_u(d_app.desc.udata, msg);
 	}
 
 	free(msg);
@@ -548,6 +544,10 @@ vec2 d_wheel() {
 
 char d_input() {
 	return d_app.char_input;
+}
+
+void *d_udata() {
+	return d_app.desc.udata;
 }
 
 #endif

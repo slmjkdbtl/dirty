@@ -51,10 +51,6 @@ C_FLAGS += -Wall
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
 
-ifeq ($(MODE),release)
-C_FLAGS += -O3
-endif
-
 ifeq ($(TARGET),macos)
 C_FLAGS += -ObjC
 endif
@@ -86,6 +82,11 @@ endif
 
 ifeq ($(TARGET),web)
 LD_FLAGS += -s USE_SDL=2
+endif
+
+ifdef RELEASE
+C_FLAGS += -O3
+LD_FLAGS += -O3
 endif
 
 AR_FLAGS += -rcs

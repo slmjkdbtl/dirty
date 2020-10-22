@@ -751,15 +751,15 @@ void l_gfx_init(lua_State *L) {
 	});
 
 	luaL_regenum(L, "d_origin", (luaL_Enum[]) {
-		{ "topleft", D_TOP_LEFT, },
+		{ "top_left", D_TOP_LEFT, },
 		{ "top", D_TOP, },
-		{ "topright", D_TOP_RIGHT, },
+		{ "top_right", D_TOP_RIGHT, },
 		{ "left", D_LEFT, },
 		{ "center", D_CENTER, },
 		{ "right", D_RIGHT, },
-		{ "botleft", D_BOT_LEFT, },
+		{ "bot_left", D_BOT_LEFT, },
 		{ "bot", D_BOT, },
-		{ "botright", D_BOT_RIGHT, },
+		{ "bot_right", D_BOT_RIGHT, },
 		{ NULL, 0, },
 	});
 
@@ -771,9 +771,9 @@ void l_gfx_init(lua_State *L) {
 
 	luaL_regenum(L, "d_tex_wrap", (luaL_Enum[]) {
 		{ "repeat", D_REPEAT, },
-		{ "mirroredrepeat", D_MIRRORED_REPEAT, },
-		{ "clamptoedge", D_CLAMP_TO_EDGE, },
-		{ "clamptoborder", D_CLAMP_TO_BORDER, },
+		{ "mirrored_repeat", D_MIRRORED_REPEAT, },
+		{ "clamp_to_edge", D_CLAMP_TO_EDGE, },
+		{ "clamp_to_border", D_CLAMP_TO_BORDER, },
 		{ NULL, 0, },
 	});
 

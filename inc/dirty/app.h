@@ -108,15 +108,14 @@ typedef struct {
 	void (*frame)();
 	void (*quit)();
 	void (*err)(const char *msg);
-	void (*init_u)(void *udata);
-	void (*frame_u)(void *udata);
-	void (*quit_u)(void *udata);
-	void (*err_u)(void *udata, const char *msg);
 	const char *title;
 	int width;
 	int height;
 	bool fullscreen;
 	bool vsync;
+	bool resizable;
+	bool borderless;
+	bool hidpi;
 	const char *path;
 	const char *org;
 	const char *name;
@@ -183,6 +182,8 @@ vec2 d_mouse_pos();
 vec2 d_mouse_dpos();
 vec2 d_touch_pos(d_touch t);
 vec2 d_touch_dpos(d_touch t);
+
+void *d_udata();
 
 #endif
 
