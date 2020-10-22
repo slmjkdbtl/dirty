@@ -171,7 +171,7 @@ void l_app_init(lua_State *L, const char *path) {
 		{ "d_mouse_dpos", l_mouse_dpos, },
 		{ "d_mouse_moved", l_mouse_moved, },
 		{ "d_input", l_input, },
-		{ NULL, NULL },
+		{ NULL, NULL, },
 	});
 
 	luaL_regenum(L, "d_key", (luaL_Enum[]) {

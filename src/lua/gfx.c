@@ -5,6 +5,87 @@
 
 #include "utils.h"
 
+d_tex_conf l_parse_tex_conf(lua_State *L, int index) {
+
+	lua_getfield(L, index, "filter");
+	d_tex_filter filter = luaL_optinteger(L, -1, D_NEAREST);
+	lua_pop(L, 1);
+
+	lua_getfield(L, index, "wrap");
+	d_tex_wrap wrap = luaL_optinteger(L, -1, D_REPEAT);
+	lua_pop(L, 1);
+
+	return (d_tex_conf) {
+		.filter = filter,
+		.wrap = wrap,
+	};
+
+}
+
+d_vertex l_parse_vertex(lua_State *L, int index) {
+
+	lua_getfield(L, index, "pos");
+	vec3 pos = *(vec3*)luaL_checkudata(L, -1, "vec3");
+	lua_pop(L, 1);
+
+	lua_getfield(L, index, "normal");
+	vec3 normal = *(vec3*)luaL_checkudata(L, -1, "vec3");
+	lua_pop(L, 1);
+
+	lua_getfield(L, index, "uv");
+	vec2 uv = *(vec2*)luaL_checkudata(L, -1, "vec2");
+	lua_pop(L, 1);
+
+	lua_getfield(L, index, "color");
+	color c = *(color*)luaL_checkudata(L, -1, "color");
+	lua_pop(L, 1);
+
+	return (d_vertex) {
+		.pos = pos,
+		.normal = normal,
+		.uv = uv,
+		.color = c,
+	};
+}
+
+d_cam l_parse_cam(lua_State *L, int index) {
+
+	lua_getfield(L, index, "proj");
+	mat4 proj = *(mat4*)luaL_checkudata(L, -1, "mat4");
+	lua_pop(L, 1);
+
+	lua_getfield(L, index, "view");
+	mat4 view = *(mat4*)luaL_checkudata(L, -1, "mat4");
+	lua_pop(L, 1);
+
+	return (d_cam) {
+		.proj = proj,
+		.view = view,
+	};
+}
+
+d_vertex *l_parse_vertex_list(lua_State *L, int index) {
+	int num_verts = lua_rawlen(L, index);
+	d_vertex *verts = malloc(sizeof(d_vertex) * num_verts);
+	for (int i = 0; i < num_verts; i++) {
+		lua_rawgeti(L, index, i + 1);
+		verts[i] = l_parse_vertex(L, -1);
+		lua_pop(L, 1);
+	}
+	return verts;
+}
+
+d_index *l_parse_index_list(lua_State *L, int index) {
+	int num_indices = lua_rawlen(L, index);
+	d_index *indices = malloc(sizeof(d_index) * num_indices);
+	for (int i = 0; i < num_indices; i++) {
+		lua_rawgeti(L, index, i + 1);
+		indices[i] = luaL_checkinteger(L, 3);
+		lua_pop(L, 1);
+	}
+	return indices;
+}
+
 static int l_clear(lua_State *L) {
 	d_clear();
 	return 0;
@@ -235,6 +316,16 @@ static int l_make_canvas(lua_State *L) {
 	return 1;
 }
 
+static int l_make_canvas_ex(lua_State *L) {
+	int w = luaL_checkinteger(L, 1);
+	int h = luaL_checkinteger(L, 2);
+	luaL_checktable(L, 3);
+	d_tex_conf conf = l_parse_tex_conf(L, 3);
+	d_canvas c = d_make_canvas_ex(w, h, conf);
+	lua_pushudata(L, d_canvas, &c);
+	return 1;
+}
+
 static int l_free_canvas(lua_State *L) {
 	d_canvas *c = luaL_checkudata(L, 1, "d_canvas");
 	d_free_canvas(c);
@@ -272,6 +363,15 @@ static int l_load_tex(lua_State *L) {
 	return 1;
 }
 
+static int l_load_tex_ex(lua_State *L) {
+	const char *path = luaL_checkstring(L, 1);
+	luaL_checktable(L, 2);
+	d_tex_conf conf = l_parse_tex_conf(L, 2);
+	d_tex t = d_load_tex_ex(path, conf);
+	lua_pushudata(L, d_tex, &t);
+	return 1;
+}
+
 static int l_free_tex(lua_State *L) {
 	d_tex *t = luaL_checkudata(L, 1, "d_tex");
 	d_free_tex(t);
@@ -302,6 +402,71 @@ static int l_tex__index(lua_State *L) {
 
 }
 
+static int l_make_mesh(lua_State *L) {
+
+	luaL_checktable(L, 1);
+	luaL_checktable(L, 2);
+	int num_verts = lua_rawlen(L, 1);
+	int num_indices = lua_rawlen(L, 2);
+	d_vertex *verts = l_parse_vertex_list(L, 1);
+	d_index *indices = l_parse_index_list(L, 2);
+
+	d_mesh m = d_make_mesh(verts, num_verts, indices, num_indices);
+	free(verts);
+	free(indices);
+	lua_pushudata(L, d_mesh, &m);
+
+	return 1;
+}
+
+static int l_free_mesh(lua_State *L) {
+	d_mesh *m = luaL_checkudata(L, 1, "d_mesh");
+	d_free_mesh(m);
+	return 0;
+}
+
+static int l_mesh__index(lua_State *L) {
+
+	const char *arg = luaL_checkstring(L, 2);
+
+	if (streq(arg, "free")) {
+		lua_pushcfunction(L, l_free_mesh);
+		return 1;
+	}
+
+	return 0;
+
+}
+
+static int l_make_font(lua_State *L) {
+	d_tex *tex = luaL_checkudata(L, 1, "d_tex");
+	int gw = luaL_checkinteger(L, 2);
+	int gh = luaL_checkinteger(L, 3);
+	const char *chars = luaL_optstring(L, 4, D_ASCII_CHARS);
+	d_font f = d_make_font(*tex, gw, gh, chars);
+	lua_pushudata(L, d_font, &f);
+	return 1;
+}
+
+static int l_free_font(lua_State *L) {
+	d_font *f = luaL_checkudata(L, 1, "d_font");
+	d_free_font(f);
+	return 0;
+}
+
+static int l_font__index(lua_State *L) {
+
+	const char *arg = luaL_checkstring(L, 2);
+
+	if (streq(arg, "free")) {
+		lua_pushcfunction(L, l_free_font);
+		return 1;
+	}
+
+	return 0;
+
+}
+
 static int l_use_shader(lua_State *L) {
 	if (lua_isnoneornil(L, 1)) {
 		d_use_shader(NULL);
@@ -318,6 +483,26 @@ static int l_use_canvas(lua_State *L) {
 	} else {
 		d_canvas *c = luaL_checkudata(L, 1, "d_canvas");
 		d_use_canvas(c);
+	}
+	return 0;
+}
+
+static int l_use_font(lua_State *L) {
+	if (lua_isnoneornil(L, 1)) {
+		d_use_font(NULL);
+	} else {
+		d_font *f = luaL_checkudata(L, 1, "d_font");
+		d_use_font(f);
+	}
+	return 0;
+}
+
+static int l_use_cam(lua_State *L) {
+	if (lua_isnoneornil(L, 1)) {
+		d_use_cam(NULL);
+	} else {
+		d_cam *c = luaL_checkudata(L, 1, "d_cam");
+		d_use_cam(c);
 	}
 	return 0;
 }
@@ -371,46 +556,8 @@ static int l_draw_raw(lua_State *L) {
 	luaL_checktable(L, 2);
 	int num_verts = lua_rawlen(L, 1);
 	int num_indices = lua_rawlen(L, 2);
-	d_vertex *verts = malloc(sizeof(d_vertex) * num_verts);
-	d_index *indices = malloc(sizeof(d_index) * num_indices);
-
-	for (int i = 0; i < num_verts; i++) {
-
-		// TODO: stack mess?
-		lua_rawgeti(L, 1, i + 1);
-
-		lua_getfield(L, -1, "pos");
-		vec3 pos = *(vec3*)luaL_checkudata(L, -1, "vec3");
-		lua_pop(L, 1);
-
-		lua_getfield(L, -1, "normal");
-		vec3 normal = *(vec3*)luaL_checkudata(L, -1, "vec3");
-		lua_pop(L, 1);
-
-		lua_getfield(L, -1, "uv");
-		vec2 uv = *(vec2*)luaL_checkudata(L, -1, "vec2");
-		lua_pop(L, 1);
-
-		lua_getfield(L, -1, "color");
-		color c = *(color*)luaL_checkudata(L, -1, "color");
-		lua_pop(L, 1);
-
-		verts[i] = (d_vertex) {
-			.pos = pos,
-			.normal = normal,
-			.uv = uv,
-			.color = c,
-		};
-
-		lua_pop(L, 1);
-
-	}
-
-	for (int i = 0; i < num_indices; i++) {
-		lua_rawgeti(L, 2, i + 1);
-		indices[i] = luaL_checkinteger(L, 3);
-		lua_pop(L, 1);
-	}
+	d_vertex *verts = l_parse_vertex_list(L, 1);
+	d_index *indices = l_parse_index_list(L, 2);
 
 	d_draw_raw(verts, num_verts, indices, num_indices, NULL);
 	free(verts);
@@ -418,6 +565,12 @@ static int l_draw_raw(lua_State *L) {
 
 	return 0;
 
+}
+
+static int l_draw_mesh(lua_State *L) {
+	d_mesh *m = luaL_checkudata(L, 1, "d_mesh");
+	d_draw_mesh(m);
+	return 0;
 }
 
 static int l_draw_tex(lua_State *L) {
@@ -513,6 +666,26 @@ static int l_draw_circle(lua_State *L) {
 
 }
 
+static int l_gl_version(lua_State *L) {
+	lua_pushstring(L, d_gl_version());
+	return 1;
+}
+
+static int l_glsl_version(lua_State *L) {
+	lua_pushstring(L, d_glsl_version());
+	return 1;
+}
+
+static int l_gl_renderer(lua_State *L) {
+	lua_pushstring(L, d_gl_renderer());
+	return 1;
+}
+
+static int l_gl_vendor(lua_State *L) {
+	lua_pushstring(L, d_gl_vendor());
+	return 1;
+}
+
 void l_gfx_init(lua_State *L) {
 
 	luaL_regfuncs(L, (luaL_Reg[]) {
@@ -547,14 +720,21 @@ void l_gfx_init(lua_State *L) {
 		{ "d_send_vec3", l_send_vec3, },
 		{ "d_send_color", l_send_color, },
 		{ "d_send_tex", l_send_tex, },
+		{ "d_make_mesh", l_make_mesh, },
+		{ "d_make_font", l_make_font, },
 		{ "d_make_shader", l_make_shader, },
 		{ "d_load_shader", l_load_shader, },
 		{ "d_make_canvas", l_make_canvas, },
+		{ "d_make_canvas_ex", l_make_canvas_ex, },
 		{ "d_load_tex", l_load_tex, },
+		{ "d_load_tex_ex", l_load_tex_ex, },
 		{ "d_use_shader", l_use_shader, },
 		{ "d_use_canvas", l_use_canvas, },
+		{ "d_use_font", l_use_font, },
+		{ "d_use_cam", l_use_cam, },
 		{ "d_fmt_text", l_fmt_text, },
 		{ "d_draw_raw", l_draw_raw, },
+		{ "d_draw_mesh", l_draw_mesh, },
 		{ "d_draw_tex", l_draw_tex, },
 		{ "d_draw_text", l_draw_text, },
 		{ "d_draw_ftext", l_draw_ftext, },
@@ -563,7 +743,11 @@ void l_gfx_init(lua_State *L) {
 		{ "d_draw_line", l_draw_line, },
 		{ "d_draw_lrect", l_draw_lrect, },
 		{ "d_draw_circle", l_draw_circle, },
-		{ NULL, NULL },
+		{ "d_gl_version", l_gl_version, },
+		{ "d_glsl_version", l_glsl_version, },
+		{ "d_gl_renderer", l_gl_renderer, },
+		{ "d_gl_vendor", l_gl_vendor, },
+		{ NULL, NULL, },
 	});
 
 	luaL_regenum(L, "d_origin", (luaL_Enum[]) {
@@ -582,7 +766,7 @@ void l_gfx_init(lua_State *L) {
 	luaL_regenum(L, "d_tex_filter", (luaL_Enum[]) {
 		{ "nearest", D_NEAREST, },
 		{ "linear", D_LINEAR, },
-		{ NULL, 0 },
+		{ NULL, 0, },
 	});
 
 	luaL_regenum(L, "d_tex_wrap", (luaL_Enum[]) {
@@ -590,14 +774,19 @@ void l_gfx_init(lua_State *L) {
 		{ "mirroredrepeat", D_MIRRORED_REPEAT, },
 		{ "clamptoedge", D_CLAMP_TO_EDGE, },
 		{ "clamptoborder", D_CLAMP_TO_BORDER, },
-		{ NULL, 0 },
+		{ NULL, 0, },
 	});
 
 	luaL_regenum(L, "d_blend", (luaL_Enum[]) {
 		{ "alpha", D_BLEND_ALPHA, },
 		{ "add", D_BLEND_ADD, },
 		{ "replace", D_BLEND_REPLACE, },
-		{ NULL, 0 },
+		{ NULL, 0, },
+	});
+
+	luaL_regtype(L, "d_mesh", (luaL_Reg[]) {
+		{ "__index", l_mesh__index, },
+		{ NULL, NULL, },
 	});
 
 	luaL_regtype(L, "d_shader", (luaL_Reg[]) {
@@ -612,6 +801,11 @@ void l_gfx_init(lua_State *L) {
 
 	luaL_regtype(L, "d_tex", (luaL_Reg[]) {
 		{ "__index", l_tex__index, },
+		{ NULL, NULL, },
+	});
+
+	luaL_regtype(L, "d_font", (luaL_Reg[]) {
+		{ "__index", l_font__index, },
 		{ NULL, NULL, },
 	});
 

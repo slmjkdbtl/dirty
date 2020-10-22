@@ -713,6 +713,7 @@ void d_stencil_test(bool b) {
 }
 
 void d_blend_mode(d_blend b) {
+	d_batch_flush(&d_gfx.batch);
 	switch (b) {
 		case D_BLEND_ALPHA:
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
