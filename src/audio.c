@@ -5,13 +5,29 @@
 #include <stb/stb_vorbis.c>
 
 #include <dirty/dirty.h>
-#include "audio.h"
 
 #define CHANNELS 1
 #define SAMPLES 1024
 #define MAX_PLAYBACKS 256
 #define A4_FREQ 440
 #define A4_NOTE 69
+#define D_SYNTH_NOTES 128
+#define D_SYNTH_BUF_SIZE 44100
+
+typedef struct {
+	d_voice notes[D_SYNTH_NOTES];
+	float volume;
+	int sample_rate;
+	float clock;
+	d_envelope envelope;
+	float buf[D_SYNTH_BUF_SIZE];
+	int buf_head;
+	int buf_size;
+	float (*wav_func)(float freq, float t);
+} d_synth;
+
+d_synth d_make_synth();
+float d_synth_next();
 
 typedef struct {
 	SDL_AudioDeviceID device;

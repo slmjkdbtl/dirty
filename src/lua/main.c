@@ -11,12 +11,16 @@
 
 #include <dirty/dirty.h>
 
-#include "app.h"
-#include "gfx.h"
-#include "audio.h"
-#include "math.h"
-#include "fs.h"
 #include "utils.h"
+
+void l_app_init(lua_State *L, const char *path);
+void l_app_quit(lua_State *L);
+void l_gfx_init(lua_State *L);
+void l_audio_init(lua_State *L);
+void l_math_init(lua_State *L);
+void l_fs_init(lua_State *L);
+void l_json_init(lua_State *L);
+void l_extstd_init(lua_State *L);
 
 void run(const char *path) {
 
@@ -37,6 +41,8 @@ void run(const char *path) {
 	l_audio_init(L);
 	l_math_init(L);
 	l_fs_init(L);
+	l_json_init(L);
+	l_extstd_init(L);
 
 	lua_getglobal(L, "package");
 	lua_pushstring(L, load_path);

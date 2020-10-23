@@ -13,25 +13,30 @@
 #include <dirty/dirty.h>
 
 typedef struct {
-	char base_path[PATH_MAX];
-	char data_path[PATH_MAX];
+	char *res_path;
+	char *data_path;
 } d_fs_ctx;
 
 static d_fs_ctx d_fs;
 
 void d_fs_init(d_desc *desc) {
+
 	if (desc->path) {
-		strcpy(d_fs.base_path, desc->path);
+		d_fs.res_path = malloc(strlen(desc->path) + 1);
+		strcpy(d_fs.res_path, desc->path);
 	} else {
-		char *rpath = SDL_GetBasePath();
-		strcpy(d_fs.base_path, rpath);
-		SDL_free(rpath);
+		d_fs.res_path = SDL_GetBasePath();
 	}
+
 	if (desc->org && desc->name) {
-		char *dpath = SDL_GetPrefPath(desc->org, desc->name);
-		strcpy(d_fs.data_path, dpath);
-		SDL_free(dpath);
+		d_fs.data_path = SDL_GetPrefPath(desc->org, desc->name);
 	}
+
+}
+
+void d_fs_quit() {
+	free(d_fs.res_path);
+	free(d_fs.data_path);
 }
 
 static char *read_text(const char *path) {
@@ -186,52 +191,58 @@ void d_free_dir(char **list) {
 }
 
 char *d_read_text(const char *path) {
-	return read_text(d_fmt("%s%s", d_fs.base_path, path));
+	return read_text(d_fmt("%s%s", d_fs.res_path, path));
 }
 
 unsigned char *d_read_bytes(const char *path, size_t *size) {
-	return read_bytes(d_fmt("%s%s", d_fs.base_path, path), size);
+	return read_bytes(d_fmt("%s%s", d_fs.res_path, path), size);
 }
 
 char **d_read_dir(const char *path) {
-	return read_dir(d_fmt("%s%s", d_fs.base_path, path));
+	return read_dir(d_fmt("%s%s", d_fs.res_path, path));
 }
 
 bool d_is_file(const char *path) {
 	struct stat sb;
-	return stat(d_fmt("%s%s", d_fs.base_path, path), &sb) == 0 && S_ISREG(sb.st_mode);
+	return stat(d_fmt("%s%s", d_fs.res_path, path), &sb) == 0 && S_ISREG(sb.st_mode);
 }
 
 bool d_is_dir(const char *path) {
 	struct stat sb;
-	return stat(d_fmt("%s%s", d_fs.base_path, path), &sb) == 0 && S_ISDIR(sb.st_mode);
+	return stat(d_fmt("%s%s", d_fs.res_path, path), &sb) == 0 && S_ISDIR(sb.st_mode);
 }
 
 char *d_data_read_text(const char *path) {
+	d_assert(d_fs.data_path, "failed to get data path\n");
 	return read_text(d_fmt("%s%s", d_fs.data_path, path));
 }
 
 unsigned char *d_data_read_bytes(const char *path, size_t *size) {
+	d_assert(d_fs.data_path, "failed to get data path\n");
 	return read_bytes(d_fmt("%s%s", d_fs.data_path, path), size);
 }
 
 bool d_data_is_file(const char *path) {
+	d_assert(d_fs.data_path, "failed to get data path\n");
 	struct stat sb;
-	bool is = stat(d_fmt("%s%s", d_fs.base_path, path), &sb) == 0 && S_ISREG(sb.st_mode);
+	bool is = stat(d_fmt("%s%s", d_fs.data_path, path), &sb) == 0 && S_ISREG(sb.st_mode);
 	return is;
 }
 
 bool d_data_is_dir(const char *path) {
+	d_assert(d_fs.data_path, "failed to get data path\n");
 	struct stat sb;
-	bool is = stat(d_fmt("%s%s", d_fs.base_path, path), &sb) == 0 && S_ISDIR(sb.st_mode);
+	bool is = stat(d_fmt("%s%s", d_fs.data_path, path), &sb) == 0 && S_ISDIR(sb.st_mode);
 	return is;
 }
 
 void d_data_write_text(const char *path, const char *content) {
+	d_assert(d_fs.data_path, "failed to get data path\n");
 	write_text(d_fmt("%s%s", d_fs.data_path, path), content);
 }
 
 void d_data_write_bytes(const char *path, const unsigned char *content, size_t size) {
+	d_assert(d_fs.data_path, "failed to get data path\n");
 	write_bytes(d_fmt("%s%s", d_fs.data_path, path), content, size);
 }
 

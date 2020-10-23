@@ -518,7 +518,7 @@ static int l_use_cam(lua_State *L) {
 
 static int l_cur_font(lua_State *L) {
 	const d_font *f = d_cur_font();
-	lua_pushlightuserdata(L, f);
+	lua_pushlightuserdata(L, (void*)f);
 	luaL_setmetatable(L, "d_font");
 	return 1;
 }

@@ -1,9 +1,7 @@
 // wengwengweng
 
-#ifndef D_UTILS_INTERNAL_H
-#define D_UTILS_INTERNAL_H
-
-#define d_def(val, def) ((val) ? (def) : (val))
+#ifndef D_INTERNAL_UTILS_H
+#define D_INTERNAL_UTILS_H
 
 int strcnt(const char*, const char*);
 char *strsub(const char*, const char*, const char*);

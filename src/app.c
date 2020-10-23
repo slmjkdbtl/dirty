@@ -14,12 +14,15 @@
 #include <emscripten.h>
 #endif
 
-#include "gfx.h"
-#include "audio.h"
-#include "fs.h"
-
 #define NUM_TOUCHES 8
 #define INPUT_BUF_LEN 32
+
+void d_audio_init();
+void d_audio_quit();
+void d_fs_init(d_desc *desc);
+void d_fs_quit();
+void d_gfx_init();
+void d_gfx_frame_end();
 
 typedef enum {
 	D_BTN_IDLE,

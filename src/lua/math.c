@@ -346,7 +346,7 @@ static int l_color__newindex(lua_State *L) {
 		c->a = luaL_checknumber(L, 3);
 		return 0;
 	} else {
-		luaL_error(L, "unknown member '%s' of color\n", arg);
+		luaL_error(L, "unknown member '%s' of d_ftext\n", arg);
 	}
 
 	return 0;
