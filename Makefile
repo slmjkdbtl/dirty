@@ -143,7 +143,7 @@ $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
 .PHONY: res
 res:
 	rm -rf src/res
-	sh cres.sh res src/res
+	sh scripts/cres.sh res src/res
 
 .PHONY: install
 install: $(LIB_TARGET)

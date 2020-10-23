@@ -48,31 +48,23 @@ static int l_vec2__index(lua_State *L) {
 	if (streq(arg, "x")) {
 		lua_pushnumber(L, p->x);
 		return 1;
-	}
-
-	if (streq(arg, "y")) {
+	} else if (streq(arg, "y")) {
 		lua_pushnumber(L, p->y);
 		return 1;
-	}
-
-	if (streq(arg, "len")) {
+	} else if (streq(arg, "len")) {
 		lua_pushcfunction(L, l_vec2_len);
 		return 1;
-	}
-
-	if (streq(arg, "unit")) {
+	} else if (streq(arg, "unit")) {
 		lua_pushcfunction(L, l_vec2_unit);
 		return 1;
-	}
-
-	if (streq(arg, "dist")) {
+	} else if (streq(arg, "dist")) {
 		lua_pushcfunction(L, l_vec2_dist);
 		return 1;
-	}
-
-	if (streq(arg, "dot")) {
+	} else if (streq(arg, "dot")) {
 		lua_pushcfunction(L, l_vec2_dot);
 		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of vec2\n", arg);
 	}
 
 	return 0;
@@ -87,11 +79,11 @@ static int l_vec2__newindex(lua_State *L) {
 	if (streq(arg, "x")) {
 		p->x = luaL_checknumber(L, 3);
 		return 0;
-	}
-
-	if (streq(arg, "y")) {
+	} if (streq(arg, "y")) {
 		p->y = luaL_checknumber(L, 3);
 		return 0;
+	} else {
+		luaL_error(L, "unknown member '%s' of vec2\n", arg);
 	}
 
 	return 0;
@@ -187,36 +179,26 @@ static int l_vec3__index(lua_State *L) {
 	if (streq(arg, "x")) {
 		lua_pushnumber(L, p->x);
 		return 1;
-	}
-
-	if (streq(arg, "y")) {
+	} else if (streq(arg, "y")) {
 		lua_pushnumber(L, p->y);
 		return 1;
-	}
-
-	if (streq(arg, "z")) {
+	} else if (streq(arg, "z")) {
 		lua_pushnumber(L, p->z);
 		return 1;
-	}
-
-	if (streq(arg, "len")) {
+	} else if (streq(arg, "len")) {
 		lua_pushcfunction(L, l_vec3_len);
 		return 1;
-	}
-
-	if (streq(arg, "unit")) {
+	} else if (streq(arg, "unit")) {
 		lua_pushcfunction(L, l_vec3_unit);
 		return 1;
-	}
-
-	if (streq(arg, "dist")) {
+	} else if (streq(arg, "dist")) {
 		lua_pushcfunction(L, l_vec3_dist);
 		return 1;
-	}
-
-	if (streq(arg, "dot")) {
+	} else if (streq(arg, "dot")) {
 		lua_pushcfunction(L, l_vec3_dot);
 		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of vec3\n", arg);
 	}
 
 	return 0;
@@ -231,16 +213,14 @@ static int l_vec3__newindex(lua_State *L) {
 	if (streq(arg, "x")) {
 		p->x = luaL_checknumber(L, 3);
 		return 0;
-	}
-
-	if (streq(arg, "y")) {
+	} if (streq(arg, "y")) {
 		p->y = luaL_checknumber(L, 3);
 		return 0;
-	}
-
-	if (streq(arg, "z")) {
+	} if (streq(arg, "z")) {
 		p->z = luaL_checknumber(L, 3);
 		return 0;
+	} else {
+		luaL_error(L, "unknown member '%s' of vec3\n", arg);
 	}
 
 	return 0;
@@ -302,6 +282,21 @@ static int l_colorf(lua_State *L) {
 	return 1;
 }
 
+static int l_color_invert(lua_State *L) {
+	color *c = luaL_checkudata(L, 1, "color");
+	color res = color_invert(*c);
+	lua_pushudata(L, color, &res);
+	return 1;
+}
+
+static int l_color_darken(lua_State *L) {
+	color *c = luaL_checkudata(L, 1, "color");
+	float i = luaL_checknumber(L, 2);
+	color res = color_darken(*c, i);
+	lua_pushudata(L, color, &res);
+	return 1;
+}
+
 static int l_color__index(lua_State *L) {
 
 	color *c = luaL_checkudata(L, 1, "color");
@@ -310,21 +305,23 @@ static int l_color__index(lua_State *L) {
 	if (streq(arg, "r")) {
 		lua_pushnumber(L, c->r);
 		return 1;
-	}
-
-	if (streq(arg, "g")) {
+	} else if (streq(arg, "g")) {
 		lua_pushnumber(L, c->g);
 		return 1;
-	}
-
-	if (streq(arg, "b")) {
+	} else if (streq(arg, "b")) {
 		lua_pushnumber(L, c->b);
 		return 1;
-	}
-
-	if (streq(arg, "a")) {
+	} else if (streq(arg, "a")) {
 		lua_pushnumber(L, c->a);
 		return 1;
+	} else if (streq(arg, "invert")) {
+		lua_pushcfunction(L, l_color_invert);
+		return 1;
+	} else if (streq(arg, "darken")) {
+		lua_pushcfunction(L, l_color_darken);
+		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of color\n", arg);
 	}
 
 	return 0;
@@ -339,21 +336,17 @@ static int l_color__newindex(lua_State *L) {
 	if (streq(arg, "r")) {
 		c->r = luaL_checknumber(L, 3);
 		return 0;
-	}
-
-	if (streq(arg, "g")) {
+	} else if (streq(arg, "g")) {
 		c->g = luaL_checknumber(L, 3);
 		return 0;
-	}
-
-	if (streq(arg, "b")) {
+	} else if (streq(arg, "b")) {
 		c->b = luaL_checknumber(L, 3);
 		return 0;
-	}
-
-	if (streq(arg, "a")) {
+	} else if (streq(arg, "a")) {
 		c->a = luaL_checknumber(L, 3);
 		return 0;
+	} else {
+		luaL_error(L, "unknown member '%s' of color\n", arg);
 	}
 
 	return 0;
@@ -391,21 +384,17 @@ static int l_quad__index(lua_State *L) {
 	if (streq(arg, "x")) {
 		lua_pushnumber(L, q->x);
 		return 1;
-	}
-
-	if (streq(arg, "y")) {
+	} else if (streq(arg, "y")) {
 		lua_pushnumber(L, q->y);
 		return 1;
-	}
-
-	if (streq(arg, "w")) {
+	} else if (streq(arg, "w")) {
 		lua_pushnumber(L, q->w);
 		return 1;
-	}
-
-	if (streq(arg, "h")) {
+	} else if (streq(arg, "h")) {
 		lua_pushnumber(L, q->h);
 		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of quad\n", arg);
 	}
 
 	return 0;
@@ -420,21 +409,17 @@ static int l_quad__newindex(lua_State *L) {
 	if (streq(arg, "x")) {
 		q->x = luaL_checknumber(L, 3);
 		return 0;
-	}
-
-	if (streq(arg, "y")) {
+	} else if (streq(arg, "y")) {
 		q->y = luaL_checknumber(L, 3);
 		return 0;
-	}
-
-	if (streq(arg, "w")) {
+	} else if (streq(arg, "w")) {
 		q->w = luaL_checknumber(L, 3);
 		return 0;
-	}
-
-	if (streq(arg, "h")) {
+	} else if (streq(arg, "h")) {
 		q->h = luaL_checknumber(L, 3);
 		return 0;
+	} else {
+		luaL_error(L, "unknown member '%s' of quad\n", arg);
 	}
 
 	return 0;
@@ -448,8 +433,37 @@ static int l_quad__tostring(lua_State *L) {
 }
 
 static int l_mat4f(lua_State *L) {
+
 	mat4 m = mat4u();
+
+	if (!lua_isnoneornil(L, 1)) {
+
+		luaL_checktable(L, 1);
+		int num = lua_rawlen(L, 1);
+
+		if (num != 16) {
+			luaL_error(L, "wrong number of mat4 members\n");
+		}
+
+		for (int i = 0; i < num; i++) {
+			lua_rawgeti(L, 1, i + 1);
+			float v = luaL_checknumber(L, -1);
+			m.m[i] = v;
+			lua_pop(L, 1);
+		}
+
+	}
+
 	lua_pushudata(L, mat4, &m);
+
+	return 1;
+
+}
+
+static int l_mat4_invert(lua_State *L) {
+	mat4 *m = luaL_checkudata(L, 1, "mat4");
+	mat4 res = mat4_invert(*m);
+	lua_pushudata(L, mat4, &res);
 	return 1;
 }
 
@@ -469,7 +483,8 @@ static int l_mat4__index(lua_State *L) {
 	if (lua_isstring(L, 2)) {
 		const char *arg = luaL_checkstring(L, 2);
 		if (streq(arg, "invert")) {
-			// TODO
+			lua_pushcfunction(L, l_mat4_invert);
+			return 1;
 		}
 	}
 
@@ -491,6 +506,35 @@ static int l_mat4__newindex(lua_State *L) {
 
 	return 0;
 
+}
+
+static int l_mat4__mul(lua_State *L) {
+	mat4 *m = luaL_checkudata(L, 1, "mat4");
+	const char *t = lua_udatatype(L, 2);
+	if (streq(t, "mat4")) {
+		mat4 *m2 = luaL_checkudata(L, 2, "mat4");
+		mat4 res = mat4_mult(*m, *m2);
+		lua_pushudata(L, mat4, &res);
+		return 1;
+	} else if (streq(t, "vec4")) {
+		vec4 *p = luaL_checkudata(L, 2, "vec4");
+		vec4 res = mat4_mult_vec4(*m, *p);
+		lua_pushudata(L, vec4, &res);
+		return 1;
+	} else if (streq(t, "vec3")) {
+		vec3 *p = luaL_checkudata(L, 2, "vec3");
+		vec3 res = mat4_mult_vec3(*m, *p);
+		lua_pushudata(L, vec3, &res);
+		return 1;
+	} else if (streq(t, "vec2")) {
+		vec2 *p = luaL_checkudata(L, 2, "vec2");
+		vec2 res = mat4_mult_vec2(*m, *p);
+		lua_pushudata(L, vec2, &res);
+		return 1;
+	} else {
+		luaL_error(L, "bad matrix multiplication argument\n");
+	}
+	return 0;
 }
 
 static int l_mat4__tostring(lua_State *L) {
@@ -552,6 +596,7 @@ void l_math_init(lua_State *L) {
 	luaL_regtype(L, "mat4", (luaL_Reg[]) {
 		{ "__index", l_mat4__index, },
 		{ "__newindex", l_mat4__newindex, },
+		{ "__mul", l_mat4__mul, },
 		{ "__tostring", l_mat4__tostring, },
 		{ NULL, NULL, },
 	});

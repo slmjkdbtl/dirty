@@ -18,7 +18,7 @@
 #include "fs.h"
 #include "utils.h"
 
-int run(const char *path) {
+void run(const char *path) {
 
 	char dir[PATH_MAX];
 	char load_path[PATH_MAX];
@@ -51,8 +51,6 @@ int run(const char *path) {
 
 	l_app_quit(L);
 	lua_close(L);
-
-	return 0;
 
 }
 

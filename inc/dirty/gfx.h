@@ -71,6 +71,8 @@ typedef struct {
 // bitmap font
 typedef struct {
 	d_tex tex;
+	int height;
+	int width;
 	float qw;
 	float qh;
 	vec2 map[128];
@@ -258,6 +260,9 @@ void d_use_cam(const d_cam *cam);
 void d_use_shader(const d_shader *shader);
 void d_use_font(const d_font *font);
 void d_use_canvas(const d_canvas *canvas);
+
+// query current state
+const d_font *d_cur_font();
 
 // draw
 void d_draw_raw(const d_vertex *vertices, int num_verts, const d_index *indices, int num_indices, const d_tex *tex);

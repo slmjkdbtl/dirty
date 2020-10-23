@@ -302,6 +302,8 @@ static int l_shader__index(lua_State *L) {
 	if (streq(arg, "free")) {
 		lua_pushcfunction(L, l_free_shader);
 		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of d_shader\n", arg);
 	}
 
 	return 0;
@@ -340,16 +342,14 @@ static int l_canvas__index(lua_State *L) {
 	if (streq(arg, "width")) {
 		lua_pushinteger(L, c->width);
 		return 1;
-	}
-
-	if (streq(arg, "height")) {
+	} if (streq(arg, "height")) {
 		lua_pushinteger(L, c->height);
 		return 1;
-	}
-
-	if (streq(arg, "free")) {
+	} if (streq(arg, "free")) {
 		lua_pushcfunction(L, l_free_canvas);
 		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of d_canvas\n", arg);
 	}
 
 	return 0;
@@ -386,16 +386,14 @@ static int l_tex__index(lua_State *L) {
 	if (streq(arg, "width")) {
 		lua_pushinteger(L, t->width);
 		return 1;
-	}
-
-	if (streq(arg, "height")) {
+	} if (streq(arg, "height")) {
 		lua_pushinteger(L, t->height);
 		return 1;
-	}
-
-	if (streq(arg, "free")) {
+	} if (streq(arg, "free")) {
 		lua_pushcfunction(L, l_free_tex);
 		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of d_tex\n", arg);
 	}
 
 	return 0;
@@ -432,6 +430,8 @@ static int l_mesh__index(lua_State *L) {
 	if (streq(arg, "free")) {
 		lua_pushcfunction(L, l_free_mesh);
 		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of d_mesh\n", arg);
 	}
 
 	return 0;
@@ -456,11 +456,20 @@ static int l_free_font(lua_State *L) {
 
 static int l_font__index(lua_State *L) {
 
+	d_font *f = luaL_checkudata(L, 1, "d_font");
 	const char *arg = luaL_checkstring(L, 2);
 
 	if (streq(arg, "free")) {
 		lua_pushcfunction(L, l_free_font);
 		return 1;
+	} else if (streq(arg, "width")) {
+		lua_pushinteger(L, f->width);
+		return 1;
+	} else if (streq(arg, "height")) {
+		lua_pushinteger(L, f->height);
+		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of d_font\n", arg);
 	}
 
 	return 0;
@@ -507,6 +516,13 @@ static int l_use_cam(lua_State *L) {
 	return 0;
 }
 
+static int l_cur_font(lua_State *L) {
+	const d_font *f = d_cur_font();
+	lua_pushlightuserdata(L, f);
+	luaL_setmetatable(L, "d_font");
+	return 1;
+}
+
 static int l_fmt_text(lua_State *L) {
 	const char *str = luaL_checkstring(L, 1);
 	float size = luaL_checknumber(L, 2);
@@ -534,16 +550,14 @@ static int l_ftext__index(lua_State *L) {
 	if (streq(arg, "width")) {
 		lua_pushnumber(L, t->width);
 		return 1;
-	}
-
-	if (streq(arg, "height")) {
+	} else if (streq(arg, "height")) {
 		lua_pushnumber(L, t->height);
 		return 1;
-	}
-
-	if (streq(arg, "cpos")) {
+	} else if (streq(arg, "cpos")) {
 		lua_pushcfunction(L, l_ftext_cpos);
 		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of d_ftext\n", arg);
 	}
 
 	return 0;
@@ -732,6 +746,7 @@ void l_gfx_init(lua_State *L) {
 		{ "d_use_canvas", l_use_canvas, },
 		{ "d_use_font", l_use_font, },
 		{ "d_use_cam", l_use_cam, },
+		{ "d_cur_font", l_cur_font, },
 		{ "d_fmt_text", l_fmt_text, },
 		{ "d_draw_raw", l_draw_raw, },
 		{ "d_draw_mesh", l_draw_mesh, },

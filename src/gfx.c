@@ -406,6 +406,8 @@ d_font d_make_font(d_tex tex, int gw, int gh, const char *chars) {
 
 	f.qw = 1.0 / cols;
 	f.qh = 1.0 / rows;
+	f.width = gw;
+	f.height = gh;
 	f.tex = tex;
 
 	d_assert(count == strlen(chars), "invalid font\n");
@@ -828,6 +830,10 @@ void d_use_canvas(const d_canvas *c) {
 		d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), NEAR, FAR);
 		glViewport(0, 0, d_width(), d_height());
 	}
+}
+
+const d_font *d_cur_font() {
+	return d_gfx.cur_font;
 }
 
 vec2 d_origin_pt(d_origin o) {

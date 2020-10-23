@@ -430,7 +430,7 @@ bool d_mouse_relative() {
 }
 
 void d_set_mouse_hidden(bool b) {
-	SDL_ShowCursor(b);
+	SDL_ShowCursor(!b);
 }
 
 bool d_mouse_hidden() {
