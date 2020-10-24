@@ -5,12 +5,57 @@
 
 #include "utils.h"
 
-static int l_vec2f(lua_State *L) {
-	float x = luaL_optnumber(L, 1, 0.0);
-	float y = luaL_optnumber(L, 2, x);
-	vec2 p = vec2f(x, y);
-	lua_pushudata(L, vec2, &p);
+static int l_vec2(lua_State *L) {
+
+	int num_args = lua_gettop(L);
+
+	if (num_args == 0) {
+
+		vec2 p = vec2f(0.0, 0.0);
+		lua_pushudata(L, vec2, &p);
+		return 1;
+
+	} else if (num_args == 1) {
+
+		if (lua_isnumber(L, 1)) {
+
+			float v = luaL_checknumber(L, 1);
+			vec2 p = vec2f(v, v);
+			lua_pushudata(L, vec2, &p);
+			return 1;
+
+		} else if (lua_isuserdata(L, 1)) {
+
+			const char *t = lua_udatatype(L, 1);
+
+			if (streq(t, "vec2")) {
+				vec2 *p2 = luaL_checkudata(L, 1, "vec2");
+				vec2 p = vec2f(p2->x, p2->y);
+				lua_pushudata(L, vec2, &p);
+				return 1;
+			} else if (streq(t, "vec3")) {
+				vec3 *p2 = luaL_checkudata(L, 1, "vec3");
+				vec2 p = vec2f(p2->x, p2->y);
+				lua_pushudata(L, vec2, &p);
+				return 1;
+			}
+
+		}
+
+	} else if (num_args == 2) {
+
+		float x = luaL_checknumber(L, 1);
+		float y = luaL_checknumber(L, 2);
+		vec2 p = vec2f(x, y);
+		lua_pushudata(L, vec2, &p);
+		return 1;
+
+	} else {
+		luaL_error(L, "wrong number of arguments to 'vec3()'\n");
+	}
+
 	return 1;
+
 }
 
 static int l_vec2_len(lua_State *L) {
@@ -64,7 +109,7 @@ static int l_vec2__index(lua_State *L) {
 		lua_pushcfunction(L, l_vec2_dot);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of vec2\n", arg);
+		luaL_error(L, "unknown member '%s' of 'vec2'\n", arg);
 	}
 
 	return 0;
@@ -83,7 +128,7 @@ static int l_vec2__newindex(lua_State *L) {
 		p->y = luaL_checknumber(L, 3);
 		return 0;
 	} else {
-		luaL_error(L, "unknown member '%s' of vec2\n", arg);
+		luaL_error(L, "unknown member '%s' of 'vec2'\n", arg);
 	}
 
 	return 0;
@@ -135,13 +180,74 @@ static int l_vec2__tostring(lua_State *L) {
 	return 1;
 }
 
-static int l_vec3f(lua_State *L) {
-	float x = luaL_optnumber(L, 1, 0.0);
-	float y = luaL_optnumber(L, 2, x);
-	float z = luaL_optnumber(L, 3, 0.0);
-	vec3 p = vec3f(x, y, z);
-	lua_pushudata(L, vec3, &p);
+static int l_vec3(lua_State *L) {
+
+	int num_args = lua_gettop(L);
+
+	if (num_args == 0) {
+
+		vec3 p = vec3f(0.0, 0.0, 0.0);
+		lua_pushudata(L, vec3, &p);
+		return 1;
+
+	} else if (num_args == 1) {
+
+		if (lua_isnumber(L, 1)) {
+
+			float v = luaL_checknumber(L, 1);
+			vec3 p = vec3f(v, v, v);
+			lua_pushudata(L, vec3, &p);
+			return 1;
+
+		} else if (lua_isuserdata(L, 1)) {
+
+			const char *t = lua_udatatype(L, 1);
+
+			if (streq(t, "vec3")) {
+				vec3 *p2 = luaL_checkudata(L, 1, "vec3");
+				vec3 p = vec3f(p2->x, p2->y, p2->z);
+				lua_pushudata(L, vec3, &p);
+				return 1;
+			} else if (streq(t, "vec2")) {
+				vec2 *p2 = luaL_checkudata(L, 1, "vec2");
+				vec3 p = vec3f(p2->x, p2->y, 0.0);
+				lua_pushudata(L, vec3, &p);
+				return 1;
+			}
+
+		}
+
+	} else if (num_args == 2) {
+
+		if (lua_isuserdata(L, 1)) {
+			vec2 *p2 = luaL_checkudata(L, 1, "vec2");
+			float z = luaL_optnumber(L, 2, 0.0);
+			vec3 p = vec3f(p2->x, p2->y, z);
+			lua_pushudata(L, vec3, &p);
+			return 1;
+		} else {
+			float x = luaL_checknumber(L, 1);
+			float y = luaL_checknumber(L, 2);
+			vec3 p = vec3f(x, y, 0.0);
+			lua_pushudata(L, vec3, &p);
+			return 1;
+		}
+
+	} else if (num_args == 3) {
+
+		float x = luaL_checknumber(L, 1);
+		float y = luaL_checknumber(L, 2);
+		float z = luaL_checknumber(L, 3);
+		vec3 p = vec3f(x, y, z);
+		lua_pushudata(L, vec3, &p);
+		return 1;
+
+	} else {
+		luaL_error(L, "wrong number of arguments to 'vec3()'\n");
+	}
+
 	return 1;
+
 }
 
 static int l_vec3_len(lua_State *L) {
@@ -198,7 +304,7 @@ static int l_vec3__index(lua_State *L) {
 		lua_pushcfunction(L, l_vec3_dot);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of vec3\n", arg);
+		luaL_error(L, "unknown member '%s' of 'vec3'\n", arg);
 	}
 
 	return 0;
@@ -220,7 +326,7 @@ static int l_vec3__newindex(lua_State *L) {
 		p->z = luaL_checknumber(L, 3);
 		return 0;
 	} else {
-		luaL_error(L, "unknown member '%s' of vec3\n", arg);
+		luaL_error(L, "unknown member '%s' of 'vec3'\n", arg);
 	}
 
 	return 0;
@@ -272,14 +378,30 @@ static int l_vec3__tostring(lua_State *L) {
 	return 1;
 }
 
-static int l_colorf(lua_State *L) {
-	float r = luaL_checknumber(L, 1);
-	float g = luaL_checknumber(L, 2);
-	float b = luaL_checknumber(L, 3);
-	float a = luaL_checknumber(L, 4);
-	color c = colorf(r, g, b, a);
-	lua_pushudata(L, color, &c);
+static int l_color(lua_State *L) {
+
+	int num_args = lua_gettop(L);
+
+	if (num_args == 1 || num_args == 2) {
+		int rgb = luaL_checkinteger(L, 1);
+		float a = luaL_optnumber(L, 2, 1.0);
+		color c = colori(rgb, a);
+		lua_pushudata(L, color, &c);
+		return 1;
+	} else if (num_args == 3 || num_args == 4) {
+		float r = luaL_checknumber(L, 1);
+		float g = luaL_checknumber(L, 2);
+		float b = luaL_checknumber(L, 3);
+		float a = luaL_optnumber(L, 4, 1.0);
+		color c = colorf(r, g, b, a);
+		lua_pushudata(L, color, &c);
+		return 1;
+	} else {
+		luaL_error(L, "wrong number of arguments to 'color()'\n");
+	}
+
 	return 1;
+
 }
 
 static int l_color_invert(lua_State *L) {
@@ -321,7 +443,7 @@ static int l_color__index(lua_State *L) {
 		lua_pushcfunction(L, l_color_darken);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of color\n", arg);
+		luaL_error(L, "unknown member '%s' of 'color'\n", arg);
 	}
 
 	return 0;
@@ -346,7 +468,7 @@ static int l_color__newindex(lua_State *L) {
 		c->a = luaL_checknumber(L, 3);
 		return 0;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_ftext\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_ftext'\n", arg);
 	}
 
 	return 0;
@@ -366,7 +488,7 @@ static int l_color__tostring(lua_State *L) {
 	return 1;
 }
 
-static int l_quadf(lua_State *L) {
+static int l_quad(lua_State *L) {
 	float x = luaL_checknumber(L, 1);
 	float y = luaL_checknumber(L, 2);
 	float w = luaL_checknumber(L, 3);
@@ -394,7 +516,7 @@ static int l_quad__index(lua_State *L) {
 		lua_pushnumber(L, q->h);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of quad\n", arg);
+		luaL_error(L, "unknown member '%s' of 'quad'\n", arg);
 	}
 
 	return 0;
@@ -419,7 +541,7 @@ static int l_quad__newindex(lua_State *L) {
 		q->h = luaL_checknumber(L, 3);
 		return 0;
 	} else {
-		luaL_error(L, "unknown member '%s' of quad\n", arg);
+		luaL_error(L, "unknown member '%s' of 'quad'\n", arg);
 	}
 
 	return 0;
@@ -432,7 +554,7 @@ static int l_quad__tostring(lua_State *L) {
 	return 1;
 }
 
-static int l_mat4f(lua_State *L) {
+static int l_mat4(lua_State *L) {
 
 	mat4 m = mat4u();
 
@@ -442,7 +564,7 @@ static int l_mat4f(lua_State *L) {
 		int num = lua_rawlen(L, 1);
 
 		if (num != 16) {
-			luaL_error(L, "wrong number of mat4 members\n");
+			luaL_error(L, "wrong number of 'mat4' members\n");
 		}
 
 		for (int i = 0; i < num; i++) {
@@ -474,7 +596,7 @@ static int l_mat4__index(lua_State *L) {
 	if (lua_isinteger(L, 2)) {
 		int i = luaL_checkinteger(L, 2);
 		if (i < 1 || i > 16) {
-			luaL_error(L, "mat4 does not contain index '%d'\n", i);
+			luaL_error(L, "'mat4' does not contain index '%d'\n", i);
 		}
 		lua_pushnumber(L, m->m[i - 1]);
 		return 1;
@@ -499,7 +621,7 @@ static int l_mat4__newindex(lua_State *L) {
 	float v = luaL_checknumber(L, 3);
 
 	if (i < 1 || i > 16) {
-		luaL_error(L, "mat4 does not contain index '%d'\n", i);
+		luaL_error(L, "'mat4' does not contain index '%d'\n", i);
 	}
 
 	m->m[i - 1] = v;
@@ -546,11 +668,11 @@ static int l_mat4__tostring(lua_State *L) {
 void l_math_init(lua_State *L) {
 
 	luaL_regfuncs(L, (luaL_Reg[]) {
-		{ "vec2", l_vec2f, },
-		{ "vec3", l_vec3f, },
-		{ "color", l_colorf, },
-		{ "quad", l_quadf, },
-		{ "mat4", l_mat4f, },
+		{ "vec2", l_vec2, },
+		{ "vec3", l_vec3, },
+		{ "color", l_color, },
+		{ "quad", l_quad, },
+		{ "mat4", l_mat4, },
 		{ NULL, NULL, },
 	});
 

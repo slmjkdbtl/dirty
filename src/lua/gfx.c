@@ -303,7 +303,7 @@ static int l_shader__index(lua_State *L) {
 		lua_pushcfunction(L, l_free_shader);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_shader\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_shader'\n", arg);
 	}
 
 	return 0;
@@ -349,7 +349,7 @@ static int l_canvas__index(lua_State *L) {
 		lua_pushcfunction(L, l_free_canvas);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_canvas\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_canvas'\n", arg);
 	}
 
 	return 0;
@@ -393,7 +393,7 @@ static int l_tex__index(lua_State *L) {
 		lua_pushcfunction(L, l_free_tex);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_tex\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_tex'\n", arg);
 	}
 
 	return 0;
@@ -431,7 +431,7 @@ static int l_mesh__index(lua_State *L) {
 		lua_pushcfunction(L, l_free_mesh);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_mesh\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_mesh'\n", arg);
 	}
 
 	return 0;
@@ -469,7 +469,7 @@ static int l_font__index(lua_State *L) {
 		lua_pushinteger(L, f->height);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_font\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_font'\n", arg);
 	}
 
 	return 0;
@@ -557,7 +557,7 @@ static int l_ftext__index(lua_State *L) {
 		lua_pushcfunction(L, l_ftext_cpos);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_ftext\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_ftext'\n", arg);
 	}
 
 	return 0;

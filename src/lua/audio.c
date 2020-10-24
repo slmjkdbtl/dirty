@@ -30,7 +30,7 @@ static int l_sound__index(lua_State *L) {
 		lua_pushcfunction(L, l_free_sound);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_sound\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_sound'\n", arg);
 	}
 
 	return 0;
@@ -57,7 +57,7 @@ static int l_playback__index(lua_State *L) {
 		lua_pushboolean(L, p->paused);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_playback\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_playback'\n", arg);
 	}
 
 	return 0;
@@ -73,7 +73,7 @@ static int l_playback__newindex(lua_State *L) {
 		p->paused = luaL_checkboolean(L, 3);
 		return 0;
 	} else {
-		luaL_error(L, "unknown member '%s' of d_playback\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_playback'\n", arg);
 	}
 
 	return 0;

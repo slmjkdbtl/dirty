@@ -14,6 +14,46 @@
 
 #include "utils.h"
 
+bool luaL_args0(lua_State *L) {
+	return lua_gettop(L) == 0;
+}
+
+bool luaL_args1(lua_State *L, int type) {
+	if (lua_gettop(L) == 1) {
+		if (lua_type(L, 1) == type) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool luaL_args2(lua_State *L, int t1, int t2) {
+	if (lua_gettop(L) == 2) {
+		if (lua_type(L, 1) == t1 && lua_type(L, 2) == t2) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool luaL_args3(lua_State *L, int t1, int t2, int t3) {
+	if (lua_gettop(L) == 3) {
+		if (lua_type(L, 1) == t1 && lua_type(L, 2) == t2 && lua_type(L, 3) == t3) {
+			return true;
+		}
+	}
+	return false;
+}
+
+bool luaL_args4(lua_State *L, int t1, int t2, int t3, int t4) {
+	if (lua_gettop(L) == 4) {
+		if (lua_type(L, 1) == t1 && lua_type(L, 2) == t2 && lua_type(L, 3) == t3 && lua_type(L, 4) == t4) {
+			return true;
+		}
+	}
+	return false;
+}
+
 void luaL_checktable(lua_State *L, int pos) {
 	luaL_checktype(L, pos, LUA_TTABLE);
 }
@@ -99,14 +139,5 @@ void to_dir(char *path) {
 	}
 	path[0] = '\0';
 	return;
-}
-
-void *get_res_dir(char *buf) {
-#ifdef __APPLE__
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
-	strcpy(buf, res_path);
-	[pool drain];
-#endif
 }
 
