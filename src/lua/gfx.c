@@ -80,7 +80,7 @@ d_index *l_parse_index_list(lua_State *L, int index) {
 	d_index *indices = malloc(sizeof(d_index) * num_indices);
 	for (int i = 0; i < num_indices; i++) {
 		lua_rawgeti(L, index, i + 1);
-		indices[i] = luaL_checkinteger(L, 3);
+		indices[i] = luaL_checkinteger(L, -1);
 		lua_pop(L, 1);
 	}
 	return indices;
@@ -334,6 +334,13 @@ static int l_free_canvas(lua_State *L) {
 	return 0;
 }
 
+static int l_canvas_capture(lua_State *L) {
+	d_canvas *c = luaL_checkudata(L, 1, "d_canvas");
+	d_img img = d_canvas_capture(c);
+	lua_pushudata(L, d_img, &img);
+	return 1;
+}
+
 static int l_canvas__index(lua_State *L) {
 
 	d_canvas *c = luaL_checkudata(L, 1, "d_canvas");
@@ -345,11 +352,63 @@ static int l_canvas__index(lua_State *L) {
 	} if (streq(arg, "height")) {
 		lua_pushinteger(L, c->height);
 		return 1;
+	} if (streq(arg, "tex")) {
+		lua_pushlightuserdata(L, &c->ctex);
+		luaL_setmetatable(L, "d_tex");
+		return 1;
+	} if (streq(arg, "capture")) {
+		lua_pushcfunction(L, l_canvas_capture);
+		return 1;
 	} if (streq(arg, "free")) {
 		lua_pushcfunction(L, l_free_canvas);
 		return 1;
 	} else {
 		luaL_error(L, "unknown member '%s' of 'd_canvas'\n", arg);
+	}
+
+	return 0;
+
+}
+
+static int l_img_tex(lua_State *L) {
+	d_img *i = luaL_checkudata(L, 1, "d_img");
+	d_tex t = d_img_tex(i);
+	lua_pushudata(L, d_tex, &t);
+	return 1;
+}
+
+static int l_img_save(lua_State *L) {
+	d_img *i = luaL_checkudata(L, 1, "d_img");
+	const char *path = luaL_checkstring(L, 2);
+	d_img_save(i, path);
+	return 0;
+}
+
+static int l_free_img(lua_State *L) {
+	d_img *i = luaL_checkudata(L, 1, "d_img");
+	d_free_img(i);
+	return 0;
+}
+
+static int l_img__index(lua_State *L) {
+
+	d_img *i = luaL_checkudata(L, 1, "d_img");
+	const char *arg = luaL_checkstring(L, 2);
+
+	if (streq(arg, "width")) {
+		lua_pushinteger(L, i->width);
+		return 1;
+	} if (streq(arg, "height")) {
+		lua_pushinteger(L, i->height);
+		return 1;
+	} if (streq(arg, "free")) {
+		lua_pushcfunction(L, l_free_img);
+		return 1;
+	} if (streq(arg, "wave")) {
+		lua_pushcfunction(L, l_img_save);
+		return 1;
+	} else {
+		luaL_error(L, "unknown member '%s' of 'd_img'\n", arg);
 	}
 
 	return 0;
@@ -572,8 +631,9 @@ static int l_draw_raw(lua_State *L) {
 	int num_indices = lua_rawlen(L, 2);
 	d_vertex *verts = l_parse_vertex_list(L, 1);
 	d_index *indices = l_parse_index_list(L, 2);
+	d_tex *tex = lua_isnoneornil(L, 3) ? NULL : luaL_checkudata(L, 3, "d_tex");
 
-	d_draw_raw(verts, num_verts, indices, num_indices, NULL);
+	d_draw_raw(verts, num_verts, indices, num_indices, tex);
 	free(verts);
 	free(indices);
 
@@ -740,6 +800,7 @@ void l_gfx_init(lua_State *L) {
 		{ "d_load_shader", l_load_shader, },
 		{ "d_make_canvas", l_make_canvas, },
 		{ "d_make_canvas_ex", l_make_canvas_ex, },
+		{ "d_img_tex", l_img_tex, },
 		{ "d_load_tex", l_load_tex, },
 		{ "d_load_tex_ex", l_load_tex_ex, },
 		{ "d_use_shader", l_use_shader, },
@@ -811,6 +872,11 @@ void l_gfx_init(lua_State *L) {
 
 	luaL_regtype(L, "d_canvas", (luaL_Reg[]) {
 		{ "__index", l_canvas__index, },
+		{ NULL, NULL, },
+	});
+
+	luaL_regtype(L, "d_img", (luaL_Reg[]) {
+		{ "__index", l_img__index, },
 		{ NULL, NULL, },
 	});
 

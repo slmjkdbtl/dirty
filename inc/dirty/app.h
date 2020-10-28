@@ -5,6 +5,7 @@
 
 #include <stdbool.h>
 
+#include "gfx.h"
 #include "math.h"
 
 typedef enum {
@@ -116,6 +117,8 @@ typedef struct {
 	bool resizable;
 	bool borderless;
 	bool hidpi;
+	color clear_color;
+	d_tex_conf tex_conf;
 	const char *path;
 	const char *org;
 	const char *name;

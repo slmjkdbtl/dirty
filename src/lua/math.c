@@ -167,6 +167,13 @@ static int l_vec2__div(lua_State *L) {
 	return 1;
 }
 
+static int l_vec2__unm(lua_State *L) {
+	vec2 *p = luaL_checkudata(L, 1, "vec2");
+	vec2 np = vec2f(-p->x, -p->y);
+	lua_pushudata(L, vec2, &np);
+	return 1;
+}
+
 static int l_vec2__eq(lua_State *L) {
 	vec2 *p1 = luaL_checkudata(L, 1, "vec2");
 	vec2 *p2 = luaL_checkudata(L, 2, "vec2");
@@ -365,6 +372,13 @@ static int l_vec3__div(lua_State *L) {
 	return 1;
 }
 
+static int l_vec3__unm(lua_State *L) {
+	vec3 *p = luaL_checkudata(L, 1, "vec3");
+	vec3 np = vec3f(-p->x, -p->y, -p->z);
+	lua_pushudata(L, vec3, &np);
+	return 1;
+}
+
 static int l_vec3__eq(lua_State *L) {
 	vec3 *p1 = luaL_checkudata(L, 1, "vec3");
 	vec3 *p2 = luaL_checkudata(L, 2, "vec3");
@@ -382,7 +396,11 @@ static int l_color(lua_State *L) {
 
 	int num_args = lua_gettop(L);
 
-	if (num_args == 1 || num_args == 2) {
+	if (num_args == 0) {
+		color c = coloru();
+		lua_pushudata(L, color, &c);
+		return 1;
+	} else if (num_args == 1 || num_args == 2) {
 		int rgb = luaL_checkinteger(L, 1);
 		float a = luaL_optnumber(L, 2, 1.0);
 		color c = colori(rgb, a);
@@ -683,6 +701,7 @@ void l_math_init(lua_State *L) {
 		{ "__sub", l_vec2__sub, },
 		{ "__mul", l_vec2__mul, },
 		{ "__div", l_vec2__div, },
+		{ "__unm", l_vec2__unm, },
 		{ "__eq", l_vec2__eq, },
 		{ "__tostring", l_vec2__tostring, },
 		{ NULL, NULL, },
@@ -695,6 +714,7 @@ void l_math_init(lua_State *L) {
 		{ "__sub", l_vec3__sub, },
 		{ "__mul", l_vec3__mul, },
 		{ "__div", l_vec3__div, },
+		{ "__unm", l_vec3__unm, },
 		{ "__eq", l_vec3__eq, },
 		{ "__tostring", l_vec3__tostring, },
 		{ NULL, NULL, },

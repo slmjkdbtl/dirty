@@ -125,7 +125,9 @@ typedef struct {
 
 static d_gfx_ctx d_gfx;
 
-void d_gfx_init() {
+void d_gfx_init(d_desc *desc) {
+
+	color c = desc->clear_color;
 
 	// init gl
 	glEnable(GL_BLEND);
@@ -133,14 +135,11 @@ void d_gfx_init() {
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LEQUAL);
 	glStencilFunc(GL_EQUAL, 1, 0xff);
-	glClearColor(0.0, 0.0, 0.0, 1.0);
+	glClearColor(c.r, c.g, c.b, c.a);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	// init default tex conf
-	d_gfx.tex_conf = (d_tex_conf) {
-		.filter = D_NEAREST,
-		.wrap = D_REPEAT,
-	};
+	d_gfx.tex_conf = desc->tex_conf;
 
 	// init default shader
 	d_gfx.default_shader = d_make_shader(NULL, NULL);
@@ -338,7 +337,7 @@ d_img d_load_img(const char *path) {
 	return img;
 }
 
-void d_img_write(d_img *img, const char *path) {
+void d_img_save(d_img *img, const char *path) {
 	stbi_flip_vertically_on_write(true);
 	stbi_write_png(path, img->width, img->height, 4, img->data, img->width * 4);
 }
@@ -346,6 +345,48 @@ void d_img_write(d_img *img, const char *path) {
 void d_free_img(d_img *img) {
 	free(img->data);
 	img->data = NULL;
+}
+
+void d_set_tex_conf(const d_tex_conf *conf) {
+
+	GLuint filter = GL_NEAREST;
+	GLuint wrap = GL_REPEAT;
+
+	switch (conf->filter) {
+		case D_NEAREST:
+			filter = GL_NEAREST;
+			break;
+		case D_LINEAR:
+			filter = GL_LINEAR;
+			break;
+		default:
+			break;
+	}
+
+	switch (conf->wrap) {
+		case D_REPEAT:
+			wrap = GL_REPEAT;
+			break;
+		case D_MIRRORED_REPEAT:
+			wrap = GL_MIRRORED_REPEAT;
+			break;
+		case D_CLAMP_TO_EDGE:
+			wrap = GL_CLAMP_TO_EDGE;
+			break;
+#ifndef GLES
+		case D_CLAMP_TO_BORDER:
+			wrap = GL_CLAMP_TO_BORDER;
+			break;
+#endif
+		default:
+			break;
+	}
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+
 }
 
 d_tex d_make_tex_ex(const unsigned char *data, int w, int h, d_tex_conf conf) {
@@ -368,11 +409,7 @@ d_tex d_make_tex_ex(const unsigned char *data, int w, int h, d_tex_conf conf) {
 		data
 	);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, conf.filter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, conf.filter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, conf.wrap);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, conf.wrap);
-
+	d_set_tex_conf(&conf);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	return (d_tex) {
@@ -650,10 +687,7 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 	);
 #endif
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, conf.filter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, conf.filter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, conf.wrap);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, conf.wrap);
+	d_set_tex_conf(&conf);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -910,9 +944,11 @@ void d_use_canvas(const d_canvas *c) {
 	if (c) {
 		d_gfx.default_cam.proj = mat4_ortho(c->width, c->height, NEAR, FAR);
 		glViewport(0, 0, c->width, c->height);
+		glBindFramebuffer(GL_FRAMEBUFFER, c->fbuf);
 	} else {
 		d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), NEAR, FAR);
 		glViewport(0, 0, d_width(), d_height());
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 }
 
@@ -973,13 +1009,8 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 	d_send_mat4("u_proj", d_gfx.cur_cam->proj);
 	d_send_color("u_color", coloru());
 
-	if (d_gfx.cur_canvas) {
-		glBindFramebuffer(GL_FRAMEBUFFER, d_gfx.cur_canvas->fbuf);
-	}
-
 	glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 

@@ -5,6 +5,8 @@
 
 #include "utils.h"
 
+d_tex_conf l_parse_tex_conf(lua_State *L, int index);
+
 typedef struct {
 	lua_State *lua;
 	int init_ref;
@@ -51,6 +53,11 @@ static int l_run(lua_State *L) {
 		.resizable = lua_getfield(L, 1, "resizable") ? luaL_checkboolean(L, -1) : false,
 		.borderless = lua_getfield(L, 1, "borderless") ? luaL_checkboolean(L, -1) : false,
 		.hidpi = lua_getfield(L, 1, "hidpi") ? luaL_checkboolean(L, -1) : false,
+		.clear_color = lua_getfield(L, 1, "clear_color") ? *(color*)luaL_checkudata(L, -1, "color") : colorf(0.0, 0.0, 0.0, 0.0),
+		.tex_conf = lua_getfield(L, 1, "tex_conf") ? l_parse_tex_conf(L, -1) : (d_tex_conf) {
+			.filter = D_NEAREST,
+			.wrap = D_REPEAT,
+		},
 		.org = lua_getfield(L, 1, "org") ? luaL_checkstring(L, -1) : NULL,
 		.name = lua_getfield(L, 1, "name") ? luaL_checkstring(L, -1) : NULL,
 		.path = l_app.path,
@@ -198,6 +205,11 @@ static int l_title(lua_State *L) {
 	}
 }
 
+static int l_os(lua_State *L) {
+	// TODO
+	return 1;
+}
+
 void l_app_init(lua_State *L, const char *path) {
 
 	strcpy(l_app.path, path);
@@ -225,6 +237,7 @@ void l_app_init(lua_State *L, const char *path) {
 		{ "d_mouse_relative", l_mouse_relative, },
 		{ "d_mouse_hidden", l_mouse_hidden, },
 		{ "d_title", l_title, },
+		{ "d_os", l_os, },
 		{ NULL, NULL, },
 	});
 

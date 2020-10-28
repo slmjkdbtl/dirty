@@ -7,9 +7,7 @@
 
 #include <stdbool.h>
 
-#include "app.h"
 #include "math.h"
-#include "gl.h"
 
 typedef enum {
 	D_CENTER,
@@ -24,17 +22,15 @@ typedef enum {
 } d_origin;
 
 typedef enum {
-	D_NEAREST = GL_NEAREST,
-	D_LINEAR = GL_LINEAR,
+	D_NEAREST,
+	D_LINEAR,
 } d_tex_filter;
 
 typedef enum {
-	D_REPEAT = GL_REPEAT,
-	D_MIRRORED_REPEAT = GL_MIRRORED_REPEAT,
-	D_CLAMP_TO_EDGE = GL_CLAMP_TO_EDGE,
-#ifndef GLES
-	D_CLAMP_TO_BORDER = GL_CLAMP_TO_BORDER,
-#endif
+	D_REPEAT,
+	D_MIRRORED_REPEAT,
+	D_CLAMP_TO_EDGE,
+	D_CLAMP_TO_BORDER,
 } d_tex_wrap;
 
 typedef enum {
@@ -168,7 +164,7 @@ void d_free_mesh(d_mesh *mesh);
 d_img d_make_img(const unsigned char *pixels, int width, int height);
 d_img d_parse_img(const unsigned char *bytes, int size);
 d_img d_load_img(const char *path);
-void d_img_write(d_img *img, const char *path);
+void d_img_save(d_img *img, const char *path);
 void d_free_img(d_img *img);
 
 // texture

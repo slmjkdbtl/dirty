@@ -98,7 +98,7 @@ static void sdl_stream(void *udata, unsigned char *buf, int len) {
 
 }
 
-void d_audio_init() {
+void d_audio_init(d_desc *desc) {
 
 	SDL_AudioSpec spec = (SDL_AudioSpec) {
 		.freq = D_SAMPLE_RATE,

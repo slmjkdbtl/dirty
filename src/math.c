@@ -502,6 +502,21 @@ mat4 mat4_ortho(float w, float h, float near, float far) {
 
 }
 
+mat4 mat4_persp(float fov, float aspect, float near, float far) {
+
+	float f = 1.0 / tan(fov / 2.0);
+
+	return (mat4) {
+		.m = {
+			-f / aspect, 0.0, 0.0, 0.0,
+			0.0, f, 0.0, 0.0,
+			0.0, 0.0, (far + near) / (far - near), 1.0,
+			0.0, 0.0, -(2.0 * far * near) / (far - near), 0.0,
+		}
+	};
+
+}
+
 mat4 mat4_view(vec3 pos, vec3 dir, vec3 up) {
 
 	vec3 z = vec3_unit(dir);

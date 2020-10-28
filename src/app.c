@@ -17,12 +17,12 @@
 #define NUM_TOUCHES 8
 #define INPUT_BUF_LEN 32
 
-void d_audio_init();
-void d_audio_quit();
+void d_gfx_init(d_desc *desc);
+void d_audio_init(d_desc *desc);
 void d_fs_init(d_desc *desc);
-void d_fs_quit();
-void d_gfx_init();
 void d_gfx_frame_end();
+void d_audio_quit();
+void d_fs_quit();
 
 typedef enum {
 	D_BTN_IDLE,
@@ -324,8 +324,8 @@ void d_run(d_desc desc) {
 		SDL_GL_SetSwapInterval(0);
 	}
 
-	d_gfx_init();
-	d_audio_init();
+	d_gfx_init(&desc);
+	d_audio_init(&desc);
 	d_fs_init(&desc);
 
 	if (d_app.desc.init) {
