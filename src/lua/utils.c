@@ -141,3 +141,12 @@ void to_dir(char *path) {
 	return;
 }
 
+void get_res_dir(char *buf) {
+#ifdef __APPLE__
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+	const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
+	strcpy(buf, res_path);
+	[pool drain];
+#endif
+}
+

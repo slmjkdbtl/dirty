@@ -2281,6 +2281,12 @@ SOKOL_API_DECL void sg_discard_context(sg_context ctx_id);
    This group of functions will be expanded as needed.
 */
 
+/* D3D11: return ID3D11Device */
+SOKOL_API_DECL const void* sg_d3d11_device(void);
+
+/* Metal: return __bridge-casted MTLDevice */
+SOKOL_API_DECL const void* sg_mtl_device(void);
+
 /* Metal: return __bridge-casted MTLRenderCommandEncoder in current pass (or zero if outside pass) */
 SOKOL_API_DECL const void* sg_mtl_render_command_encoder(void);
 
@@ -2538,12 +2544,13 @@ inline void sg_init_pass(sg_pass pass_id, const sg_pass_desc& desc) { return sg_
     #include <d3dcompiler.h>
     #ifdef _MSC_VER
     #if (defined(WINAPI_FAMILY_PARTITION) && !WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_DESKTOP))
-    #pragma comment (lib, "WindowsApp.lib")
+        #pragma comment (lib, "WindowsApp.lib")
     #else
-    #pragma comment (lib, "user32.lib")
-    #pragma comment (lib, "dxgi.lib")
-    #pragma comment (lib, "d3d11.lib")
-    #pragma comment (lib, "dxguid.lib")
+        #pragma comment (lib, "kernel32.lib")
+        #pragma comment (lib, "user32.lib")
+        #pragma comment (lib, "dxgi.lib")
+        #pragma comment (lib, "d3d11.lib")
+        #pragma comment (lib, "dxguid.lib")
     #endif
     #endif
 #elif defined(SOKOL_METAL)
@@ -13925,7 +13932,7 @@ _SOKOL_PRIVATE void _sg_init_pass(sg_pass pass_id, const sg_pass_desc* desc) {
 #if defined(SOKOL_METAL)
     // this is ARC compatible
     #if defined(__cplusplus)
-        #define _SG_CLEAR(type, item) { item = { }; }
+        #define _SG_CLEAR(type, item) { item = (type) { }; }
     #else
         #define _SG_CLEAR(type, item) { item = (type) { 0 }; }
     #endif
@@ -14813,6 +14820,27 @@ SOKOL_API_IMPL sg_pipeline_desc sg_query_pipeline_defaults(const sg_pipeline_des
 SOKOL_API_IMPL sg_pass_desc sg_query_pass_defaults(const sg_pass_desc* desc) {
     SOKOL_ASSERT(_sg.valid && desc);
     return _sg_pass_desc_defaults(desc);
+}
+
+SOKOL_API_IMPL const void* sg_d3d11_device(void) {
+#if defined(SOKOL_D3D11)
+    return (const void*) _sg.d3d11.dev;
+#else
+    return 0;
+#endif
+}
+
+SOKOL_API_IMPL const void* sg_mtl_device(void) {
+#if defined(SOKOL_METAL)
+    if (nil != _sg.mtl.device) {
+        return (__bridge const void*) _sg.mtl.device;
+    }
+    else {
+        return 0;
+    }
+#else
+    return 0;
+#endif
 }
 
 SOKOL_API_IMPL const void* sg_mtl_render_command_encoder(void) {

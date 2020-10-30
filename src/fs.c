@@ -8,9 +8,11 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-#include <SDL2/SDL.h>
-
 #include <dirty/dirty.h>
+
+#ifdef __APPLE__
+#import <Foundation/Foundation.h>
+#endif
 
 typedef struct {
 	char *res_path;
@@ -25,11 +27,17 @@ void d_fs_init(d_desc *desc) {
 		d_fs.res_path = malloc(strlen(desc->path) + 1);
 		strcpy(d_fs.res_path, desc->path);
 	} else {
-		d_fs.res_path = SDL_GetBasePath();
+#ifdef __APPLE__
+		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+		const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
+		d_fs.res_path = malloc(strlen(res_path) + 1);
+		strcpy(d_fs.res_path, res_path);
+		[pool drain];
+#endif
 	}
 
 	if (desc->org && desc->name) {
-		d_fs.data_path = SDL_GetPrefPath(desc->org, desc->name);
+		// TODO
 	}
 
 }

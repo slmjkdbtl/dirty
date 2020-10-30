@@ -33,6 +33,7 @@ bool streq(const char *a, const char *b);
 bool is_file(const char *path);
 bool is_dir(const char *path);
 void to_dir(char *path);
+void get_res_dir(char *buf);
 
 #endif
 

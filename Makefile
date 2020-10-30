@@ -61,27 +61,12 @@ C_FLAGS += -arch arm64
 endif
 
 LD_FLAGS += -L $(EXT_LIB_PATH)
-LD_FLAGS += -l iconv
-LD_FLAGS += -l SDL2
 
 ifeq ($(TARGET),macos)
-LD_FLAGS += -framework OpenGL
 LD_FLAGS += -framework Cocoa
-LD_FLAGS += -framework Carbon
-LD_FLAGS += -framework IOKit
-LD_FLAGS += -framework CoreVideo
-LD_FLAGS += -framework CoreAudio
+LD_FLAGS += -framework QuartzCore
+LD_FLAGS += -framework OpenGL
 LD_FLAGS += -framework AudioToolbox
-LD_FLAGS += -framework Metal
-LD_FLAGS += -framework ForceFeedback
-# LD_FLAGS += -framework Cocoa
-# LD_FLAGS += -framework QuartzCore
-# LD_FLAGS += -framework OpenGL
-# LD_FLAGS += -framework AudioToolbox
-endif
-
-ifeq ($(TARGET),web)
-LD_FLAGS += -s USE_SDL=2
 endif
 
 ifdef RELEASE

@@ -10,7 +10,6 @@
 #include <lua/lauxlib.h>
 
 #include <dirty/dirty.h>
-#include <SDL2/SDL.h>
 
 #include "utils.h"
 
@@ -91,9 +90,7 @@ int main(int argc, char **argv) {
 	sprintf(path, "%s/main.lua", path);
 
 	if (!is_file(path)) {
-		char *base_path = SDL_GetBasePath();
-		strcpy(path, base_path);
-		free(base_path);
+		get_res_dir(path);
 		sprintf(path, "%s/main.lua", path);
 	}
 
