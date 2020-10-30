@@ -172,13 +172,13 @@ static int l_fullscreen(lua_State *L) {
 	}
 }
 
-static int l_mouse_relative(lua_State *L) {
+static int l_mouse_locked(lua_State *L) {
 	if (lua_isnoneornil(L, 1)) {
-		lua_pushboolean(L, d_mouse_relative());
+		lua_pushboolean(L, d_mouse_locked());
 		return 1;
 	} else {
 		bool b = luaL_checkboolean(L, 1);
-		d_set_mouse_relative(b);
+		d_set_mouse_locked(b);
 		return 0;
 	}
 }
@@ -234,7 +234,7 @@ void l_app_init(lua_State *L, const char *path) {
 		{ "d_mouse_moved", l_mouse_moved, },
 		{ "d_input", l_input, },
 		{ "d_fullscreen", l_fullscreen, },
-		{ "d_mouse_relative", l_mouse_relative, },
+		{ "d_mouse_locked", l_mouse_locked, },
 		{ "d_mouse_hidden", l_mouse_hidden, },
 		{ "d_title", l_title, },
 		{ "d_os", l_os, },

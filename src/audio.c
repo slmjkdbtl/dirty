@@ -1,6 +1,7 @@
 // wengwengweng
 
 #include <math.h>
+#include <sokol/sokol_audio.h>
 #include <stb/stb_vorbis.c>
 
 #include <dirty/dirty.h>
@@ -86,35 +87,26 @@ static float d_audio_next() {
 
 }
 
-// static void sdl_stream(void *udata, unsigned char *buf, int len) {
-
-// 	float *fbuf = (float*)buf;
-
-// 	for (int i = 0; i < SAMPLES; i++) {
-// 		fbuf[i] = clampf(d_audio_next(), -1.0, 1.0);
-// 	}
-
-// }
+static void saudio_stream(float *buffer, int num_frames, int num_channels) {
+	for (int i = 0; i < num_frames; i++) {
+		buffer[i] = clampf(d_audio_next(), -1.0, 1.0);
+	}
+}
 
 void d_audio_init(d_desc *desc) {
 
-// 	SDL_AudioSpec spec = (SDL_AudioSpec) {
-// 		.freq = D_SAMPLE_RATE,
-// 		.format = AUDIO_F32,
-// 		.channels = CHANNELS,
-// 		.samples = SAMPLES,
-// 		.callback = sdl_stream,
-// 		.userdata = NULL,
-// 	};
+	saudio_setup(&(saudio_desc) {
+		.stream_cb = saudio_stream,
+		.sample_rate = D_SAMPLE_RATE,
+		.num_channels = CHANNELS,
+	});
 
 	d_audio.synth = d_make_synth();
-// 	d_audio.device = SDL_OpenAudioDevice(NULL, 0, &spec, NULL, SDL_AUDIO_ALLOW_ANY_CHANGE);
-// 	SDL_PauseAudioDevice(d_audio.device, 0);
 
 }
 
 void d_audio_quit() {
-// 	SDL_CloseAudioDevice(d_audio.device);
+	saudio_shutdown();
 }
 
 void d_stream(float (*f)()) {

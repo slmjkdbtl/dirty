@@ -1124,6 +1124,9 @@ void d_draw_ftext(const d_ftext *ftext) {
 }
 
 void d_draw_text(const char *text, float size, float wrap, d_origin orig, color c) {
+	if (size == 0.0) {
+		size = d_cur_font()->height;
+	}
 	d_ftext ftext = d_fmt_text(text, size, wrap, orig, c);
 	d_draw_ftext(&ftext);
 }

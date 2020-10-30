@@ -40,7 +40,7 @@ LIB_PATH := build/lib/$(TARGET)
 INC_PATH := inc
 DEMO_PATH := demo
 EXT_INC_PATH := ext/inc
-EXT_LIB_PATH := ext/lib/$(TARGET)
+EXT_LIB_PATH := ext/lib
 LIB_TARGET := $(LIB_PATH)/libdirty.a
 BIN_TARGET := $(BIN_PATH)/dirty
 
@@ -50,6 +50,9 @@ C_FLAGS += -I $(EXT_INC_PATH)
 C_FLAGS += -Wall
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
+C_FLAGS += -D SOKOL_IMPL
+C_FLAGS += -D SOKOL_GLCORE33
+C_FLAGS += -D SOKOL_NO_ENTRY
 
 ifeq ($(TARGET),macos)
 C_FLAGS += -ObjC

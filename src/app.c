@@ -4,10 +4,8 @@
 #include <string.h>
 #include <stdio.h>
 
-#define SOKOL_IMPL
-#define SOKOL_GLCORE33
-#define SOKOL_NO_ENTRY
 #include <sokol/sokol_app.h>
+#include <sokol/sokol_time.h>
 
 #include <dirty/dirty.h>
 
@@ -174,10 +172,10 @@ static void frame() {
 	d_gfx_frame_end();
 
 	// time
-// 	int time = SAPP_GetTicks();
+	float time = stm_sec(stm_now());
 
-// 	d_app.dt = time / 1000.0 - d_app.time;
-// 	d_app.time = time / 1000.0;
+	d_app.dt = time - d_app.time;
+	d_app.time = time;
 
 	// reset input states
 	for (int i = 0; i < _D_NUM_KEYS; i++) {
@@ -232,7 +230,9 @@ static void event(const sapp_event *e) {
 			d_app.wheel.y = -e->scroll_y;
 			break;
 		case SAPP_EVENTTYPE_CHAR:
-			d_app.char_input = e->char_code;
+			if (isprint(e->char_code)) {
+				d_app.char_input = e->char_code;
+			}
 			break;
 		case SAPP_EVENTTYPE_TOUCHES_BEGAN:
 			break;
@@ -270,6 +270,8 @@ void d_run(d_desc desc) {
 
 	d_app.desc = desc;
 
+	stm_setup();
+
 	sapp_run(&(sapp_desc) {
 		.init_cb = init,
 		.frame_cb = frame,
@@ -278,6 +280,7 @@ void d_run(d_desc desc) {
 		.fail_cb = fail,
 		.width = desc.width,
 		.height = desc.height,
+		.high_dpi = desc.hidpi,
 		.window_title = desc.title,
 		.fullscreen = desc.fullscreen,
 	});
@@ -321,27 +324,33 @@ float d_dt() {
 }
 
 void d_set_fullscreen(bool b) {
+	if (d_fullscreen() != b) {
+		sapp_toggle_fullscreen();
+	}
 }
 
 bool d_fullscreen() {
-	return false;
+	return sapp_is_fullscreen();
 }
 
-void d_set_mouse_relative(bool b) {
+void d_set_mouse_locked(bool b) {
+	sapp_lock_mouse(b);
 }
 
-bool d_mouse_relative() {
-	return false;
+bool d_mouse_locked() {
+	return sapp_mouse_locked();
 }
 
 void d_set_mouse_hidden(bool b) {
+	sapp_show_mouse(!b);
 }
 
 bool d_mouse_hidden() {
-	return false;
+	return !sapp_mouse_shown();
 }
 
 void d_set_title(const char *title) {
+	sapp_set_window_title(title);
 }
 
 const char *d_title() {

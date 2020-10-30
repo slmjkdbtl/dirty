@@ -662,7 +662,7 @@ static int l_draw_tex(lua_State *L) {
 static int l_draw_text(lua_State *L) {
 
 	const char *str = luaL_checkstring(L, 1);
-	float size = luaL_checknumber(L, 2);
+	float size = luaL_optnumber(L, 2, 0.0);
 	float wrap = luaL_optnumber(L, 3, 0.0);
 	d_origin orig = luaL_optinteger(L, 4, D_CENTER);
 	color c = lua_isnoneornil(L, 5) ? coloru() : *(color*)luaL_checkudata(L, 5, "color");

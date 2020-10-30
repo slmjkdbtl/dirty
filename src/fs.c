@@ -15,8 +15,8 @@
 #endif
 
 typedef struct {
-	char *res_path;
-	char *data_path;
+	char res_path[PATH_MAX];
+	char data_path[PATH_MAX];
 } d_fs_ctx;
 
 static d_fs_ctx d_fs;
@@ -24,14 +24,12 @@ static d_fs_ctx d_fs;
 void d_fs_init(d_desc *desc) {
 
 	if (desc->path) {
-		d_fs.res_path = malloc(strlen(desc->path) + 1);
-		strcpy(d_fs.res_path, desc->path);
+		sprintf(d_fs.res_path, "%s/", desc->path);
 	} else {
 #ifdef __APPLE__
 		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 		const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
-		d_fs.res_path = malloc(strlen(res_path) + 1);
-		strcpy(d_fs.res_path, res_path);
+		sprintf(d_fs.res_path, "%s/", res_path);
 		[pool drain];
 #endif
 	}
@@ -221,36 +219,30 @@ bool d_is_dir(const char *path) {
 }
 
 char *d_data_read_text(const char *path) {
-	d_assert(d_fs.data_path, "failed to get data path\n");
 	return read_text(d_fmt("%s%s", d_fs.data_path, path));
 }
 
 unsigned char *d_data_read_bytes(const char *path, size_t *size) {
-	d_assert(d_fs.data_path, "failed to get data path\n");
 	return read_bytes(d_fmt("%s%s", d_fs.data_path, path), size);
 }
 
 bool d_data_is_file(const char *path) {
-	d_assert(d_fs.data_path, "failed to get data path\n");
 	struct stat sb;
 	bool is = stat(d_fmt("%s%s", d_fs.data_path, path), &sb) == 0 && S_ISREG(sb.st_mode);
 	return is;
 }
 
 bool d_data_is_dir(const char *path) {
-	d_assert(d_fs.data_path, "failed to get data path\n");
 	struct stat sb;
 	bool is = stat(d_fmt("%s%s", d_fs.data_path, path), &sb) == 0 && S_ISDIR(sb.st_mode);
 	return is;
 }
 
 void d_data_write_text(const char *path, const char *content) {
-	d_assert(d_fs.data_path, "failed to get data path\n");
 	write_text(d_fmt("%s%s", d_fs.data_path, path), content);
 }
 
 void d_data_write_bytes(const char *path, const unsigned char *content, size_t size) {
-	d_assert(d_fs.data_path, "failed to get data path\n");
 	write_bytes(d_fmt("%s%s", d_fs.data_path, path), content, size);
 }
 

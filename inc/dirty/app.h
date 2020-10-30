@@ -141,8 +141,8 @@ void d_assert(bool test, const char *fmt, ...);
 bool d_fullscreen();
 void d_set_fullscreen(bool b);
 
-bool d_mouse_relative();
-void d_set_mouse_relative(bool b);
+bool d_mouse_locked();
+void d_set_mouse_locked(bool b);
 
 bool d_mouse_hidden();
 void d_set_mouse_hidden(bool b);
