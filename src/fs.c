@@ -40,11 +40,6 @@ void d_fs_init(d_desc *desc) {
 
 }
 
-void d_fs_quit() {
-	free(d_fs.res_path);
-	free(d_fs.data_path);
-}
-
 static char *read_text(const char *path) {
 
 	FILE *file = fopen(path, "r");

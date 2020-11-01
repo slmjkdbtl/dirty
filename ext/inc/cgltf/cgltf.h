@@ -1,7 +1,7 @@
 /**
  * cgltf - a single-file glTF 2.0 parser written in C99.
  *
- * Version: 1.7
+ * Version: 1.8
  *
  * Website: https://github.com/jkuhlmann/cgltf
  *
@@ -408,6 +408,21 @@ typedef struct cgltf_ior
 	cgltf_float ior;
 } cgltf_ior;
 
+typedef struct cgltf_specular
+{
+	cgltf_texture_view specular_texture;
+	cgltf_float specular_color_factor[3];
+	cgltf_float specular_factor;
+} cgltf_specular;
+
+typedef struct cgltf_sheen
+{
+	cgltf_texture_view sheen_color_texture;
+	cgltf_float sheen_color_factor[3];
+	cgltf_texture_view sheen_roughness_texture;
+	cgltf_float sheen_roughness_factor;
+} cgltf_sheen;
+
 typedef struct cgltf_material
 {
 	char* name;
@@ -416,10 +431,14 @@ typedef struct cgltf_material
 	cgltf_bool has_clearcoat;
 	cgltf_bool has_transmission;
 	cgltf_bool has_ior;
+	cgltf_bool has_specular;
+	cgltf_bool has_sheen;
 	cgltf_pbr_metallic_roughness pbr_metallic_roughness;
 	cgltf_pbr_specular_glossiness pbr_specular_glossiness;
 	cgltf_clearcoat clearcoat;
 	cgltf_ior ior;
+	cgltf_specular specular;
+	cgltf_sheen sheen;
 	cgltf_transmission transmission;
 	cgltf_texture_view normal_texture;
 	cgltf_texture_view occlusion_texture;
@@ -1661,9 +1680,18 @@ void cgltf_free(cgltf_data* data)
 			cgltf_free_extensions(data, data->materials[i].clearcoat.clearcoat_roughness_texture.extensions, data->materials[i].clearcoat.clearcoat_roughness_texture.extensions_count);
 			cgltf_free_extensions(data, data->materials[i].clearcoat.clearcoat_normal_texture.extensions, data->materials[i].clearcoat.clearcoat_normal_texture.extensions_count);
 		}
+		if(data->materials[i].has_specular)
+		{
+			cgltf_free_extensions(data, data->materials[i].specular.specular_texture.extensions, data->materials[i].specular.specular_texture.extensions_count);
+		}
 		if(data->materials[i].has_transmission)
 		{
 			cgltf_free_extensions(data, data->materials[i].transmission.transmission_texture.extensions, data->materials[i].transmission.transmission_texture.extensions_count);
+		}
+		if(data->materials[i].has_sheen)
+		{
+			cgltf_free_extensions(data, data->materials[i].sheen.sheen_color_texture.extensions, data->materials[i].sheen.sheen_color_texture.extensions_count);
+			cgltf_free_extensions(data, data->materials[i].sheen.sheen_roughness_texture.extensions, data->materials[i].sheen.sheen_roughness_texture.extensions_count);
 		}
 
 		cgltf_free_extensions(data, data->materials[i].normal_texture.extensions, data->materials[i].normal_texture.extensions_count);
@@ -3288,6 +3316,9 @@ static int cgltf_parse_json_ior(jsmntok_t const* tokens, int i, const uint8_t* j
 	int size = tokens[i].size;
 	++i;
 
+	// Default values
+	out_ior->ior = 1.5f;
+
 	for (int j = 0; j < size; ++j)
 	{
 		CGLTF_CHECK_KEY(tokens[i]);
@@ -3297,6 +3328,48 @@ static int cgltf_parse_json_ior(jsmntok_t const* tokens, int i, const uint8_t* j
 			++i;
 			out_ior->ior = cgltf_json_to_float(tokens + i, json_chunk);
 			++i;
+		}
+		else
+		{
+			i = cgltf_skip_json(tokens, i+1);
+		}
+
+		if (i < 0)
+		{
+			return i;
+		}
+	}
+
+	return i;
+}
+
+static int cgltf_parse_json_specular(cgltf_options* options, jsmntok_t const* tokens, int i, const uint8_t* json_chunk, cgltf_specular* out_specular)
+{
+	CGLTF_CHECK_TOKTYPE(tokens[i], JSMN_OBJECT);
+	int size = tokens[i].size;
+	++i;
+
+	// Default values
+	out_specular->specular_factor = 1.0f;
+	cgltf_fill_float_array(out_specular->specular_color_factor, 3, 1.0f);
+
+	for (int j = 0; j < size; ++j)
+	{
+		CGLTF_CHECK_KEY(tokens[i]);
+
+		if (cgltf_json_strcmp(tokens+i, json_chunk, "specularFactor") == 0)
+		{
+			++i;
+			out_specular->specular_factor = cgltf_json_to_float(tokens + i, json_chunk);
+			++i;
+		}
+		else if (cgltf_json_strcmp(tokens+i, json_chunk, "specularColorFactor") == 0)
+		{
+			i = cgltf_parse_json_float_array(tokens, i + 1, json_chunk, out_specular->specular_color_factor, 3);
+		}
+		else if (cgltf_json_strcmp(tokens+i, json_chunk, "specularTexture") == 0)
+		{
+			i = cgltf_parse_json_texture_view(options, tokens, i + 1, json_chunk, &out_specular->specular_texture);
 		}
 		else
 		{
@@ -3331,6 +3404,48 @@ static int cgltf_parse_json_transmission(cgltf_options* options, jsmntok_t const
 		else if (cgltf_json_strcmp(tokens+i, json_chunk, "transmissionTexture") == 0)
 		{
 			i = cgltf_parse_json_texture_view(options, tokens, i + 1, json_chunk, &out_transmission->transmission_texture);
+		}
+		else
+		{
+			i = cgltf_skip_json(tokens, i+1);
+		}
+
+		if (i < 0)
+		{
+			return i;
+		}
+	}
+
+	return i;
+}
+
+static int cgltf_parse_json_sheen(cgltf_options* options, jsmntok_t const* tokens, int i, const uint8_t* json_chunk, cgltf_sheen* out_sheen)
+{
+	CGLTF_CHECK_TOKTYPE(tokens[i], JSMN_OBJECT);
+	int size = tokens[i].size;
+	++i;
+
+	for (int j = 0; j < size; ++j)
+	{
+		CGLTF_CHECK_KEY(tokens[i]);
+
+		if (cgltf_json_strcmp(tokens+i, json_chunk, "sheenColorFactor") == 0)
+		{
+			i = cgltf_parse_json_float_array(tokens, i + 1, json_chunk, out_sheen->sheen_color_factor, 3);
+		}
+		else if (cgltf_json_strcmp(tokens+i, json_chunk, "sheenColorTexture") == 0)
+		{
+			i = cgltf_parse_json_texture_view(options, tokens, i + 1, json_chunk, &out_sheen->sheen_color_texture);
+		}
+		else if (cgltf_json_strcmp(tokens+i, json_chunk, "sheenRoughnessFactor") == 0)
+		{
+			++i;
+			out_sheen->sheen_roughness_factor = cgltf_json_to_float(tokens + i, json_chunk);
+			++i;
+		}
+		else if (cgltf_json_strcmp(tokens+i, json_chunk, "sheenRoughnessTexture") == 0)
+		{
+			i = cgltf_parse_json_texture_view(options, tokens, i + 1, json_chunk, &out_sheen->sheen_roughness_texture);
 		}
 		else
 		{
@@ -3638,10 +3753,20 @@ static int cgltf_parse_json_material(cgltf_options* options, jsmntok_t const* to
 					out_material->has_ior = 1;
 					i = cgltf_parse_json_ior(tokens, i + 1, json_chunk, &out_material->ior);
 				}
+				else if (cgltf_json_strcmp(tokens+i, json_chunk, "KHR_materials_specular") == 0)
+				{
+					out_material->has_specular = 1;
+					i = cgltf_parse_json_specular(options, tokens, i + 1, json_chunk, &out_material->specular);
+				}
 				else if (cgltf_json_strcmp(tokens+i, json_chunk, "KHR_materials_transmission") == 0)
 				{
 					out_material->has_transmission = 1;
 					i = cgltf_parse_json_transmission(options, tokens, i + 1, json_chunk, &out_material->transmission);
+				}
+				else if (cgltf_json_strcmp(tokens+i, json_chunk, "KHR_materials_sheen") == 0)
+				{
+					out_material->has_sheen = 1;
+					i = cgltf_parse_json_sheen(options, tokens, i + 1, json_chunk, &out_material->sheen);
 				}
 				else
 				{
@@ -5242,7 +5367,12 @@ static int cgltf_fixup_pointers(cgltf_data* data)
 		CGLTF_PTRFIXUP(data->materials[i].clearcoat.clearcoat_roughness_texture.texture, data->textures, data->textures_count);
 		CGLTF_PTRFIXUP(data->materials[i].clearcoat.clearcoat_normal_texture.texture, data->textures, data->textures_count);
 
+		CGLTF_PTRFIXUP(data->materials[i].specular.specular_texture.texture, data->textures, data->textures_count);
+
 		CGLTF_PTRFIXUP(data->materials[i].transmission.transmission_texture.texture, data->textures, data->textures_count);
+
+		CGLTF_PTRFIXUP(data->materials[i].sheen.sheen_color_texture.texture, data->textures, data->textures_count);
+		CGLTF_PTRFIXUP(data->materials[i].sheen.sheen_roughness_texture.texture, data->textures, data->textures_count);
 	}
 
 	for (cgltf_size i = 0; i < data->buffer_views_count; ++i)

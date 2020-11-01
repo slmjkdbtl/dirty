@@ -51,7 +51,7 @@ static void frame() {
 
 void init() {
 
-	d_synth_wav(d_wav_square);
+	d_synth_wav(d_wav_tri);
 
 	d_envelope *e = d_synth_envelope();
 

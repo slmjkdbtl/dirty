@@ -99,6 +99,7 @@ void d_audio_init(d_desc *desc) {
 		.stream_cb = saudio_stream,
 		.sample_rate = D_SAMPLE_RATE,
 		.num_channels = CHANNELS,
+		.buffer_frames = SAMPLES,
 	});
 
 	d_audio.synth = d_make_synth();

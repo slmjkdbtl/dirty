@@ -16,7 +16,6 @@ void d_audio_init(d_desc *desc);
 void d_fs_init(d_desc *desc);
 void d_gfx_frame_end();
 void d_audio_quit();
-void d_fs_quit();
 
 typedef enum {
 	D_BTN_IDLE,
@@ -254,6 +253,7 @@ static void cleanup() {
 	if (d_app.desc.quit) {
 		d_app.desc.quit();
 	}
+	d_audio_quit();
 }
 
 static void fail() {
