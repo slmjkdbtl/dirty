@@ -1,9 +1,9 @@
 ABOUT
 
   'dirty' is a minimal toolkit for making games / interactive experiences.
-  https://dirty.enemyspy.xyz/
+  http://space55.xyz/dirty
 
-  written in C99, based on SDL2 and OpenGL
+  written in C99 and OpenGL
 
   supports both C lib usage and Lua scripting
 
@@ -15,7 +15,7 @@ BUILD
 
   $ make lua
 
-  will create 'dirty' Lua runtime binary under 'build/bin'
+  will create 'dirty' Lua runtime binary under 'build/bin', make sure lua is installed / linkable
 
   $ make run DEMO=?
 
@@ -25,9 +25,8 @@ USAGE
 
   C
 
-    1. have SDL2 available for linking
-    2. build and copy 'libdirty.a' to your link dir
-    3. copy 'inc/dirty' to your include dir and
+    1. build and copy 'libdirty.a' to your link dir
+    2. copy 'inc/dirty' to your include dir and
 
       #include <dirty/dirty.h>
 

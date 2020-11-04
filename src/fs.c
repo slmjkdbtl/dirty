@@ -147,7 +147,7 @@ static bool write_bytes(const char *path, const unsigned char *data, size_t size
 
 }
 
-static char **read_dir(const char *path) {
+static char **glob(const char *path, const char *ext) {
 
 	DIR *dir = opendir(path);
 
@@ -160,9 +160,11 @@ static char **read_dir(const char *path) {
 	int num = 0;
 
 	while ((entry = readdir(dir))) {
-		if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+		char *aext = d_extname(entry->d_name);
+		if (strcmp(ext, aext) == 0) {
 			num++;
 		}
+		free(aext);
 	}
 
 	rewinddir(dir);
@@ -170,11 +172,13 @@ static char **read_dir(const char *path) {
 	num = 0;
 
 	while ((entry = readdir(dir))) {
-		if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+		char *aext = d_extname(entry->d_name);
+		if (strcmp(ext, aext) == 0) {
 			list[num] = malloc(strlen(entry->d_name) + 1);
 			strcpy(list[num], entry->d_name);
 			num++;
 		}
+		free(aext);
 	}
 
 	list[num] = NULL;
@@ -199,8 +203,8 @@ unsigned char *d_read_bytes(const char *path, size_t *size) {
 	return read_bytes(d_fmt("%s%s", d_fs.res_path, path), size);
 }
 
-char **d_read_dir(const char *path) {
-	return read_dir(d_fmt("%s%s", d_fs.res_path, path));
+char **d_glob(const char *path, const char *ext) {
+	return glob(d_fmt("%s%s", d_fs.res_path, path), ext);
 }
 
 bool d_is_file(const char *path) {

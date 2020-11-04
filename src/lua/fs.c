@@ -36,14 +36,15 @@ static int l_is_dir(lua_State *L) {
 	return 1;
 }
 
-static int l_read_dir(lua_State *L) {
+static int l_glob(lua_State *L) {
 	const char *path = luaL_checkstring(L, 1);
-	char **list = d_read_dir(path);
+	const char *ext = luaL_checkstring(L, 2);
+	char **list = d_glob(path, ext);
 	lua_newtable(L);
 	for (int i = 0; list[i] != NULL; i++) {
 		lua_pushinteger(L, i + 1);
 		lua_pushstring(L, list[i]);
-		lua_settable(L, 2);
+		lua_settable(L, 3);
 	}
 	d_free_dir(list);
 	return 1;
@@ -112,7 +113,7 @@ void l_fs_init(lua_State *L) {
 	luaL_regfuncs(L, (luaL_Reg[]) {
 		{ "d_read_text", l_read_text, },
 		{ "d_read_bytes", l_read_bytes, },
-		{ "d_read_dir", l_read_dir, },
+		{ "d_glob", l_glob, },
 		{ "d_is_file", l_is_file, },
 		{ "d_is_dir", l_is_dir, },
 		{ "d_data_read_text", l_data_read_text, },
