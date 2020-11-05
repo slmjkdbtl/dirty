@@ -333,7 +333,7 @@ bool d_fullscreen() {
 	return sapp_is_fullscreen();
 }
 
-void d_set_mouse_locked(bool b) {
+void d_lock_mouse(bool b) {
 	sapp_lock_mouse(b);
 }
 
@@ -341,12 +341,20 @@ bool d_mouse_locked() {
 	return sapp_mouse_locked();
 }
 
-void d_set_mouse_hidden(bool b) {
+void d_hide_mouse(bool b) {
 	sapp_show_mouse(!b);
 }
 
 bool d_mouse_hidden() {
 	return !sapp_mouse_shown();
+}
+
+void d_show_keyboard(bool b) {
+	sapp_show_keyboard(b);
+}
+
+bool d_keyboard_shown() {
+	return false;
 }
 
 void d_set_title(const char *title) {

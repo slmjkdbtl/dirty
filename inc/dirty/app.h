@@ -142,13 +142,16 @@ bool d_fullscreen();
 void d_set_fullscreen(bool b);
 
 bool d_mouse_locked();
-void d_set_mouse_locked(bool b);
+void d_lock_mouse(bool b);
 
 bool d_mouse_hidden();
-void d_set_mouse_hidden(bool b);
+void d_hide_mouse(bool b);
 
 const char *d_title();
 void d_set_title(const char *title);
+
+bool d_keyboard_shown();
+void d_show_keyboard(bool b);
 
 int d_width();
 int d_height();

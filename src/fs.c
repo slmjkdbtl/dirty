@@ -26,16 +26,33 @@ void d_fs_init(d_desc *desc) {
 	if (desc->path) {
 		sprintf(d_fs.res_path, "%s/", desc->path);
 	} else {
-#ifdef __APPLE__
+#if defined(D_MACOS) || defined(D_IOS)
 		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 		const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
 		sprintf(d_fs.res_path, "%s/", res_path);
 		[pool drain];
+#elif defined(D_WINDOWS)
+		// TODO
+#elif defined(D_LINUX)
+		// TODO
 #endif
 	}
 
 	if (desc->org && desc->name) {
+		const char *home = getenv("HOME");
+#if defined(D_MACOS) || defined(D_IOS)
+		sprintf(d_fs.data_path, "%s/Library/Application Support/%s/%s/", home, desc->org, desc->name);
+#elif defined(D_WINDOWS)
+		SHGetKnownFolderPath(FOLDERID_RoamingAppData, KF_FLAG_CREATE, NULL, d_fs.data_path);
 		// TODO
+#elif defined(D_LINUX)
+		const char *xdg_data = getenv("XDG_DATA_HOME");
+		if (xdg_data) {
+			sprintf(d_fs.data_path, "%s/%s/%s/", xdg_data, desc->org, desc->name);
+		} else {
+			sprintf(d_fs.data_path, "%s/.local/share/%s/%s/", home, desc->org, desc->name);
+		}
+#endif
 	}
 
 }

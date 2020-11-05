@@ -178,7 +178,7 @@ static int l_mouse_locked(lua_State *L) {
 		return 1;
 	} else {
 		bool b = luaL_checkboolean(L, 1);
-		d_set_mouse_locked(b);
+		d_lock_mouse(b);
 		return 0;
 	}
 }
@@ -189,7 +189,18 @@ static int l_mouse_hidden(lua_State *L) {
 		return 1;
 	} else {
 		bool b = luaL_checkboolean(L, 1);
-		d_set_mouse_hidden(b);
+		d_hide_mouse(b);
+		return 0;
+	}
+}
+
+static int l_keyboard_shown(lua_State *L) {
+	if (lua_isnoneornil(L, 1)) {
+		lua_pushboolean(L, d_keyboard_shown());
+		return 1;
+	} else {
+		bool b = luaL_checkboolean(L, 1);
+		d_show_keyboard(b);
 		return 0;
 	}
 }
@@ -206,7 +217,19 @@ static int l_title(lua_State *L) {
 }
 
 static int l_os(lua_State *L) {
-	// TODO
+#if defined(D_MACOS)
+	lua_pushstring(L, "macos");
+#elif defined(D_IOS)
+	lua_pushstring(L, "ios");
+#elif defined(D_WEB)
+	lua_pushstring(L, "web");
+#elif defined(D_WINDOWS)
+	lua_pushstring(L, "windows");
+#elif defined(D_ANDROID)
+	lua_pushstring(L, "android");
+#elif defined(D_LINUX)
+	lua_pushstring(L, "linux");
+#endif
 	return 1;
 }
 
@@ -236,6 +259,7 @@ void l_app_init(lua_State *L, const char *path) {
 		{ "d_fullscreen", l_fullscreen, },
 		{ "d_mouse_locked", l_mouse_locked, },
 		{ "d_mouse_hidden", l_mouse_hidden, },
+		{ "d_keyboard_shown", l_keyboard_shown, },
 		{ "d_title", l_title, },
 		{ "d_os", l_os, },
 		{ NULL, NULL, },
