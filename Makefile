@@ -16,13 +16,12 @@ endif
 # programs / paths
 CC := clang
 AR := ar
+RANLIB := ranlib
 
 ifeq ($(TARGET),web)
 CC := emcc
-endif
-
-ifeq ($(TARGET),web)
 AR := emar
+RANLIB := emranlib
 endif
 
 ifeq ($(TARGET),ios)
@@ -40,7 +39,7 @@ LIB_PATH := build/lib/$(TARGET)
 INC_PATH := inc
 DEMO_PATH := demo
 EXT_INC_PATH := ext/inc
-EXT_LIB_PATH := ext/lib
+EXT_LIB_PATH := ext/lib/$(TARGET)
 LIB_TARGET := $(LIB_PATH)/libdirty.a
 BIN_TARGET := $(BIN_PATH)/dirty
 
@@ -51,8 +50,6 @@ C_FLAGS += -Wall
 C_FLAGS += -Wpedantic
 C_FLAGS += -std=c99
 C_FLAGS += -D SOKOL_IMPL
-C_FLAGS += -D SOKOL_GLCORE33
-C_FLAGS += -D SOKOL_NO_ENTRY
 
 ifeq ($(TARGET),macos)
 C_FLAGS += -ObjC
@@ -74,10 +71,9 @@ endif
 
 ifdef RELEASE
 C_FLAGS += -O3
-LD_FLAGS += -O3
 endif
 
-AR_FLAGS += -rcs
+AR_FLAGS += rc
 
 # files
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
@@ -123,6 +119,7 @@ $(BIN_TARGET): $(LUA_SRC_FILES) $(LIB_TARGET)
 $(LIB_TARGET): $(OBJ_FILES)
 	@mkdir -p $(LIB_PATH)
 	$(AR) $(AR_FLAGS) $(LIB_TARGET) $^
+	$(RANLIB) $(LIB_TARGET)
 
 $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
 	@mkdir -p $(OBJ_PATH)

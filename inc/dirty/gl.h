@@ -9,22 +9,22 @@
 #define GLES_SILENCE_DEPRECATION
 
 #if defined(D_MACOS)
-#include <OpenGL/gl.h>
+	#include <OpenGL/gl.h>
 #elif defined(D_IOS)
-#define GLES
-#include <OpenGLES/ES2/gl.h>
+	#define GLES
+	#include <OpenGLES/ES2/gl.h>
 #elif defined(D_LINUX)
-#include <GL/gl.h>
+	#include <GL/gl.h>
 #elif defined(D_ANDROID)
-#define GLES
-#include <GLES2/gl2.h>
+	#define GLES
+	#include <GLES2/gl2.h>
 #elif defined(D_WINDOWS)
-#include <GL/gl.h>
+	#include <GL/gl.h>
 #elif defined(D_WEB)
-#define GLES
-#include <GLES2/gl2.h>
+	#define GLES
+	#include <GLES2/gl2.h>
 #else
-#error platform not supported.
+	#error platform not supported
 #endif
 
 #endif

@@ -1,7 +1,6 @@
 // wengwengweng
 
 #include <string.h>
-#include <limits.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -10,7 +9,9 @@
 
 #include <dirty/dirty.h>
 
-#ifdef __APPLE__
+#define PATH_MAX 256
+
+#if defined(D_MACOS) || defined(D_IOS)
 #import <Foundation/Foundation.h>
 #endif
 
@@ -39,20 +40,27 @@ void d_fs_init(d_desc *desc) {
 	}
 
 	if (desc->org && desc->name) {
-		const char *home = getenv("HOME");
 #if defined(D_MACOS) || defined(D_IOS)
-		sprintf(d_fs.data_path, "%s/Library/Application Support/%s/%s/", home, desc->org, desc->name);
+		const char *home = getenv("HOME");
+		if (home) {
+			sprintf(d_fs.data_path, "%s/Library/Application Support", home);
+		}
 #elif defined(D_WINDOWS)
 		SHGetKnownFolderPath(FOLDERID_RoamingAppData, KF_FLAG_CREATE, NULL, d_fs.data_path);
 		// TODO
 #elif defined(D_LINUX)
+		const char *home = getenv("HOME");
 		const char *xdg_data = getenv("XDG_DATA_HOME");
 		if (xdg_data) {
-			sprintf(d_fs.data_path, "%s/%s/%s/", xdg_data, desc->org, desc->name);
-		} else {
-			sprintf(d_fs.data_path, "%s/.local/share/%s/%s/", home, desc->org, desc->name);
+			sprintf(d_fs.data_path, "%s", xdg_data);
+		} else if (home) {
+			sprintf(d_fs.data_path, "%s/.local/share", home);
 		}
 #endif
+		sprintf(d_fs.data_path, "%s/%s", d_fs.data_path, desc->org);
+		mkdir(d_fs.data_path, 0700);
+		sprintf(d_fs.data_path, "%s/%s/", d_fs.data_path, desc->name);
+		mkdir(d_fs.data_path, 0700);
 	}
 
 }
@@ -254,6 +262,7 @@ bool d_data_is_dir(const char *path) {
 	return is;
 }
 
+// TODO: recursive mkdir?
 void d_data_write_text(const char *path, const char *content) {
 	write_text(d_fmt("%s%s", d_fs.data_path, path), content);
 }

@@ -19,7 +19,7 @@
 #elif defined(__linux__) || defined(__unix__)
 	#define D_LINUX
 #else
-	#error "unknown platform"
+	#error platform not supported
 #endif
 
 #endif

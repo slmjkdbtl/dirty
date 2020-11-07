@@ -3,11 +3,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
-#include <sokol/sokol_app.h>
-#include <sokol/sokol_time.h>
+#include <ctype.h>
+#include <stdarg.h>
 
 #include <dirty/dirty.h>
+
+#if defined(D_MACOS) || defined(D_LINUX) || defined(D_WINDOWS)
+	#define SOKOL_GLCORE33
+#elif defined(D_IOS) || defined(D_ANDROID) || defined(D_WEB)
+	#define SOKOL_GLES2
+#endif
+
+#define SOKOL_NO_ENTRY
+#include <sokol/sokol_app.h>
+#include <sokol/sokol_time.h>
 
 #define NUM_TOUCHES 8
 

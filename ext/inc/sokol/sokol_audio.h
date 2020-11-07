@@ -1056,15 +1056,15 @@ _SOKOL_PRIVATE void* _saudio_alsa_cb(void* param) {
 }
 
 _SOKOL_PRIVATE bool _saudio_backend_init(void) {
-    int dir; unsigned int rate; 
+    int dir; unsigned int rate;
     int rc = snd_pcm_open(&_saudio.backend.device, "default", SND_PCM_STREAM_PLAYBACK, 0);
     if (rc < 0) {
         SOKOL_LOG("sokol_audio.h: snd_pcm_open() failed");
         return false;
     }
 
-    /* configuration works by restricting the 'configuration space' step 
-       by step, we require all parameters except the sample rate to 
+    /* configuration works by restricting the 'configuration space' step
+       by step, we require all parameters except the sample rate to
        match perfectly
     */
     snd_pcm_hw_params_t* params = 0;

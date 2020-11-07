@@ -1,7 +1,7 @@
 ABOUT
 
   'dirty' is a minimal toolkit for making games / interactive experiences.
-  http://space55.xyz/dirty
+  http://dirty.space55.xyz/
 
   written in C99 and OpenGL
 
@@ -51,6 +51,14 @@ DOC
 FACTS
 
   'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
+
+CREDITS
+
+  thanks to mighty:
+
+    - sokol
+    - stb
+    - lua
 
 CONTRIBUTION
 

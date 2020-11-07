@@ -7,7 +7,7 @@
 #include <dirty/dirty.h>
 
 #define CHANNELS 1
-#define SAMPLES 1024
+#define BUFFER_FRAMES 1024
 #define MAX_PLAYBACKS 256
 #define A4_FREQ 440
 #define A4_NOTE 69
@@ -99,7 +99,7 @@ void d_audio_init(d_desc *desc) {
 		.stream_cb = saudio_stream,
 		.sample_rate = D_SAMPLE_RATE,
 		.num_channels = CHANNELS,
-		.buffer_frames = SAMPLES,
+		.buffer_frames = BUFFER_FRAMES,
 	});
 
 	d_audio.synth = d_make_synth();
