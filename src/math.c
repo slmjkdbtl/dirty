@@ -303,13 +303,18 @@ const char *color_fmt(color c) {
 	return d_fmt("color(%.8g, %.8g, %.8g, %.8g)", c.r, c.g, c.b, c.a);
 }
 
-mat4 mat4f(float m[16]) {
+mat4 mat4f(
+	float m0, float m1, float m2, float m3,
+	float m4, float m5, float m6, float m7,
+	float m8, float m9, float m10, float m11,
+	float m12, float m13, float m14, float m15
+) {
 	return (mat4) {
 		.m = {
-			m[0], m[1], m[2], m[3],
-			m[4], m[5], m[6], m[7],
-			m[8], m[9], m[10], m[11],
-			m[12], m[13], m[14], m[15]
+			m0, m1, m2, m3,
+			m4, m5, m6, m7,
+			m8, m9, m10, m11,
+			m12, m13, m14, m15
 		},
 	};
 }
@@ -479,6 +484,23 @@ mat4 mat4_rot_z(float a) {
 			0.0, 0.0, 0.0, 1.0,
 		},
 	};
+}
+
+mat4 mat4_rot_quat(quat q) {
+	return mat4_mult(
+		mat4f(
+			q.w, q.z, -q.y, q.x,
+			-q.z, q.w, q.x, q.y,
+			q.y, -q.x, q.w, q.z,
+			-q.x, -q.y, -q.z, q.w
+		),
+		mat4f(
+			q.w, q.z, -q.y, -q.x,
+			-q.z, q.w, q.x, -q.y,
+			q.y, -q.x, q.w, -q.z,
+			q.x, q.y, q.z, q.w
+		)
+	);
 }
 
 mat4 mat4_ortho(float w, float h, float near, float far) {

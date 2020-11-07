@@ -468,28 +468,108 @@ void d_free_tex(d_tex *t) {
 	// ...
 // }
 
-// TODO
 d_model d_parse_model(const unsigned char *bytes, int size) {
 
 	cgltf_options options = {0};
 	cgltf_data *data = NULL;
 	cgltf_result res = cgltf_parse(&options, bytes, size, &data);
+	cgltf_load_buffers(&options, data, NULL);
 
 	d_assert(res == cgltf_result_success, "failed to parse gltf\n");
 	d_assert(data->scene->nodes_count >= 1, "empty gltf\n");
 
 	d_model model = {0};
-	cgltf_node *node = data->scene->nodes[0];
-	cgltf_mesh *mesh = node->mesh;
 
-	for (int i = 0; i < mesh->primitives_count; i++) {
-		cgltf_primitive *prim = &mesh->primitives[i];
-// 		cgltf_accessor *indices = prim->indices;
-		// TODO: why is the buffer view type invalid?
-		for (int j = 0; j < prim->attributes_count; j++) {
-// 			cgltf_attribute *attr = &prim->attributes[j];
-// 			cgltf_accessor *data = attr->data;
+	int num_textures = data->textures_count;
+	model.num_textures = num_textures;
+	model.textures = malloc(sizeof(d_tex) * num_textures);
+
+	// TODO
+// 	for (int i = 0; i < num_textures; i++) {
+// 		cgltf_texture *tex = &data->textures[i];
+// 		cgltf_image *img = tex->image;
+// 	}
+
+	cgltf_node *node = data->scene->nodes[0];
+
+	int num_children = node->children_count;
+
+	model.num_children = num_children;
+	model.children = malloc(sizeof(d_model) * num_children);
+
+	for (int i = 0; i < num_children; i++) {
+		// TODO
+	}
+
+	model.psr.pos = vec3f(node->translation[0], node->translation[1], node->translation[2]);
+	model.psr.scale = vec3f(node->scale[0], node->scale[1], node->scale[2]);
+	model.psr.rot = quatf(node->rotation[0], node->rotation[1], node->rotation[2], node->rotation[3]);
+
+	int num_meshes = node->mesh->primitives_count;
+	model.num_meshes = num_meshes;
+	model.meshes = malloc(sizeof(d_mesh) * num_meshes);
+
+	for (int i = 0; i < num_meshes; i++) {
+
+		cgltf_primitive *prim = &node->mesh->primitives[i];
+		int num_verts = prim->attributes[0].data->count;
+		d_vertex *verts = calloc(num_verts, sizeof(d_vertex));
+
+		for (int j = 0; j < num_verts; j++) {
+			verts[j].color = colorf(1.0, 1.0, 1.0, 1.0);
 		}
+
+		for (int j = 0; j < prim->attributes_count; j++) {
+
+			cgltf_attribute *attr = &prim->attributes[j];
+			cgltf_accessor *acc = attr->data;
+
+			d_assert(acc->count == num_verts, "bad gltf\n");
+
+			switch (attr->type) {
+				case cgltf_attribute_type_position:
+					d_assert(acc->type == cgltf_type_vec3, "gltf pos must be vec3\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, &verts[k].pos, 3);
+					}
+					break;
+				case cgltf_attribute_type_normal:
+					d_assert(acc->type == cgltf_type_vec3, "gltf normal must be vec3\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, &verts[k].normal, 3);
+					}
+					break;
+				case cgltf_attribute_type_texcoord:
+					d_assert(acc->type == cgltf_type_vec2, "gltf texcoord must be vec2\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, &verts[k].uv, 2);
+					}
+					break;
+				case cgltf_attribute_type_color:
+					d_assert(acc->type == cgltf_type_vec4, "gltf color must be vec4\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, &verts[k].color, 4);
+					}
+					break;
+				default:
+					break;
+			}
+
+		}
+
+		int num_indices = prim->indices->count;
+		d_index *indices = calloc(num_indices, sizeof(d_index));
+
+		for (int j = 0; j < prim->indices->count; j++) {
+			cgltf_accessor_read_uint(prim->indices, j, &indices[j], 1);
+		}
+
+		model.meshes[i] = d_make_mesh(verts, num_verts, indices, num_indices);
+
+	}
+
+	for (int i = 0; i < node->children_count; i++) {
+		cgltf_node *child = node->children[i];
 	}
 
 	cgltf_free(data);
@@ -849,6 +929,10 @@ void d_blend_mode(d_blend b) {
 	}
 }
 
+mat4 d_psr_mat4(d_psr psr) {
+	return mat4_mult(mat4_mult(mat4_translate(psr.pos), mat4_scale(psr.scale)), mat4_rot_quat(psr.rot));
+}
+
 void d_push() {
 	d_assert(d_gfx.t_stack_cnt < T_STACKS, "transform stack overflow\n");
 	d_gfx.t_stack[d_gfx.t_stack_cnt] = d_gfx.transform;
@@ -1060,6 +1144,17 @@ void d_draw_raw(
 void d_draw_mesh(const d_mesh *mesh) {
 	d_batch_flush(&d_gfx.batch);
 	d_draw(mesh->vbuf, mesh->ibuf, mesh->count);
+}
+
+void d_draw_model(const d_model *model) {
+	d_push();
+	for (int i = 0; i < model->num_meshes; i++) {
+		d_draw_mesh(&model->meshes[i]);
+	}
+	for (int i = 0; i < model->num_children; i++) {
+		d_draw_model(&model->children[i]);
+	}
+	d_pop();
 }
 
 void d_draw_tex(const d_tex *t, quad q, color c) {

@@ -160,7 +160,7 @@ color color_darken(color c, float a);
 bool color_eq(color, color);
 const char *color_fmt(color);
 
-mat4 mat4f(float[16]);
+mat4 mat4f(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float);
 mat4 mat4u();
 mat4 mat4_identity();
 mat4 mat4_mult(mat4, mat4);
@@ -176,6 +176,7 @@ mat4 mat4_view(vec3 pos, vec3 dir, vec3 up);
 mat4 mat4_rot_x(float);
 mat4 mat4_rot_y(float);
 mat4 mat4_rot_z(float);
+mat4 mat4_rot_quat(quat);
 const char *mat4_fmt(mat4);
 
 quat quatf(float, float, float, float);

@@ -45,6 +45,12 @@ typedef struct {
 	mat4 proj;
 } d_cam;
 
+typedef struct {
+	vec3 pos;
+	vec3 scale;
+	quat rot;
+} d_psr;
+
 // OpenGL shader
 typedef struct {
 	GLuint id;
@@ -82,10 +88,13 @@ typedef struct {
 } d_mesh;
 
 typedef struct d_model {
+	struct d_model *children;
+	d_psr psr;
+	int num_children;
 	d_mesh *meshes;
 	int num_meshes;
-	struct d_model *children;
-	int num_children;
+	d_tex *textures;
+	int num_textures;
 } d_model;
 
 // OpenGL framebuffer
@@ -228,6 +237,8 @@ mat4 d_transform();
 // get mouse position relative to current transform
 vec2 d_mouse_pos_t();
 
+mat4 d_psr_mat4(d_psr psr);
+
 // push transform stack
 void d_push();
 // pop transform stack
@@ -261,6 +272,7 @@ const d_font *d_cur_font();
 // draw
 void d_draw_raw(const d_vertex *vertices, int num_verts, const d_index *indices, int num_indices, const d_tex *tex);
 void d_draw_mesh(const d_mesh *mesh);
+void d_draw_model(const d_model *model);
 void d_draw_tex(const d_tex *tex, quad q, color c);
 void d_draw_text(const char *txt, float size, float wrap, d_origin orig, color c);
 void d_draw_ftext(const d_ftext *ftext);
