@@ -87,12 +87,17 @@ typedef struct {
 	int count;
 } d_mesh;
 
-typedef struct d_model {
-	struct d_model *children;
+typedef struct d_model_node {
 	d_psr psr;
+	struct d_model_node *children;
 	int num_children;
 	d_mesh *meshes;
 	int num_meshes;
+} d_model_node;
+
+typedef struct {
+	d_model_node *nodes;
+	int num_nodes;
 	d_tex *textures;
 	int num_textures;
 } d_model;

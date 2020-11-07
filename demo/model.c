@@ -13,6 +13,7 @@ void frame() {
 		d_quit();
 	}
 	d_scale(vec3f(500.0, 500.0, 500.0));
+// 	d_rot_y(d_time());
 	d_draw_model(&model);
 }
 
