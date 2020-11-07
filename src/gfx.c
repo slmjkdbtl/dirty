@@ -316,8 +316,6 @@ d_img d_make_img(const unsigned char *pixels, int width, int height) {
 d_img d_parse_img(const unsigned char *bytes, int size) {
 
 	int w, h;
-	// TODO: stand alone img doesn't need this
-	stbi_set_flip_vertically_on_load(true);
 	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, size, &w, &h, NULL, 4);
 	d_assert(data, "failed to parse image\n");
 
@@ -517,6 +515,7 @@ static void parse_gltf_node(cgltf_node *node, d_model_node *model) {
 					d_assert(acc->type == cgltf_type_vec2, "gltf texcoord must be vec2\n");
 					for(int k = 0; k < acc->count; k++) {
 						cgltf_accessor_read_float(acc, k, &verts[k].uv, 2);
+// 						verts[k].uv.y = 1.0 - verts[k].uv.y;
 					}
 					break;
 				case cgltf_attribute_type_color:
@@ -560,11 +559,11 @@ d_model d_parse_model(const unsigned char *bytes, int size) {
 	model.num_textures = num_textures;
 	model.textures = malloc(sizeof(d_tex) * num_textures);
 
-	// TODO
-// 	for (int i = 0; i < num_textures; i++) {
-// 		cgltf_texture *tex = &data->textures[i];
-// 		cgltf_image *img = tex->image;
-// 	}
+	for (int i = 0; i < num_textures; i++) {
+		cgltf_image *img = data->textures[i].image;
+		cgltf_buffer_view *view = img->buffer_view;
+		model.textures[i] = d_parse_tex(view->buffer->data + view->offset, view->size);
+	}
 
 	int num_nodes = data->scene->nodes_count;
 	model.num_nodes = num_nodes;
@@ -1173,9 +1172,16 @@ static void d_draw_model_node(const d_model_node *node) {
 }
 
 void d_draw_model(const d_model *model) {
+	d_batch_flush(&d_gfx.batch);
+	if (model->num_textures >= 1) {
+		d_set_tex(&model->textures[0]);
+	} else {
+		d_set_tex(NULL);
+	}
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_draw_model_node(&model->nodes[i]);
 	}
+	d_set_tex(NULL);
 }
 
 void d_draw_tex(const d_tex *t, quad q, color c) {
@@ -1183,10 +1189,10 @@ void d_draw_tex(const d_tex *t, quad q, color c) {
 	d_push();
 	d_scale(vec3f(t->width * q.w, t->height * q.h, 1.0));
 
-	vec2 uv0 = vec2f(q.x, 1.0 - q.y - q.h);
-	vec2 uv1 = vec2f(q.x, 1.0 - q.y);
-	vec2 uv2 = vec2f(q.x + q.w, 1.0 - q.y);
-	vec2 uv3 = vec2f(q.x + q.w, 1.0 - q.y - q.h);
+	vec2 uv0 = vec2f(q.x, q.y + q.h);
+	vec2 uv1 = vec2f(q.x, q.y);
+	vec2 uv2 = vec2f(q.x + q.w, q.y);
+	vec2 uv3 = vec2f(q.x + q.w, q.y + q.h);
 
 	d_vertex verts[] = {
 		{

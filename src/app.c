@@ -201,6 +201,7 @@ static void frame() {
 	d_app.wheel.x = 0.0;
 	d_app.wheel.y = 0.0;
 	d_app.resized = false;
+	d_app.mouse_dpos = vec2f(0.0, 0.0);
 	d_app.char_input = 0;
 
 }
