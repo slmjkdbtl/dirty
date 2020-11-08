@@ -85,7 +85,12 @@ void init() {
 		3, 6, 7,
 	};
 
-	cube = d_make_mesh(verts, 8, indices, 36);
+	cube = d_make_mesh(&(d_mesh_data) {
+		.verts = verts,
+		.num_verts = 8,
+		.indices = indices,
+		.num_indices = 36,
+	});
 
 }
 

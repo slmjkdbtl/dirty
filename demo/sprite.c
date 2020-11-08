@@ -2,7 +2,7 @@
 
 #include <dirty/dirty.h>
 
-d_tex tex;
+d_img img;
 
 void frame() {
 
@@ -10,12 +10,12 @@ void frame() {
 		d_quit();
 	}
 
-	d_draw_tex(&tex, quadu(), WHITE);
+	d_draw_img(&img, quadu(), WHITE);
 
 }
 
 void init() {
-	tex = d_load_tex("res/acid2.png");
+	img = d_load_img("res/acid2.png");
 }
 
 int main() {

@@ -118,7 +118,7 @@ typedef struct {
 	bool borderless;
 	bool hidpi;
 	color clear_color;
-	d_tex_conf tex_conf;
+	d_img_conf img_conf;
 	const char *path;
 	const char *org;
 	const char *name;

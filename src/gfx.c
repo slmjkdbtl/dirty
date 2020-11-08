@@ -107,8 +107,8 @@ void d_batch_flush(d_batch*);
 void d_free_batch(d_batch*);
 
 typedef struct {
-	d_tex default_tex;
-	const d_tex *tex_slots[TEX_SLOTS];
+	d_img default_img;
+	const d_img *img_slots[TEX_SLOTS];
 	d_font default_font;
 	const d_font *cur_font;
 	d_shader default_shader;
@@ -120,7 +120,7 @@ typedef struct {
 	mat4 t_stack[T_STACKS];
 	int t_stack_cnt;
 	d_batch batch;
-	d_tex_conf tex_conf;
+	d_img_conf img_conf;
 } d_gfx_ctx;
 
 static d_gfx_ctx d_gfx;
@@ -138,24 +138,24 @@ void d_gfx_init(d_desc *desc) {
 	glClearColor(c.r, c.g, c.b, c.a);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	// init default tex conf
-	d_gfx.tex_conf = desc->tex_conf;
+	// init default img conf
+	d_gfx.img_conf = desc->img_conf;
 
 	// init default shader
 	d_gfx.default_shader = d_make_shader(NULL, NULL);
 	d_gfx.cur_shader = &d_gfx.default_shader;
 
-	// init default tex
-	d_gfx.default_tex = d_make_tex(&(d_img_data) {
+	// init default img
+	d_gfx.default_img = d_make_img(&(d_img_data) {
 		.pixels = (unsigned char[]){ 255, 255, 255, 255, },
 		.width = 1,
 		.height = 1,
 	});
 
-	d_gfx.tex_slots[0] = &d_gfx.default_tex;
+	d_gfx.img_slots[0] = &d_gfx.default_img;
 
 	// init default font
-	d_gfx.default_font = d_make_font(d_parse_tex(unscii_png, unscii_png_len), 8, 8, D_ASCII_CHARS);
+	d_gfx.default_font = d_make_font(d_parse_img(unscii_png, unscii_png_len), 8, 8, D_ASCII_CHARS);
 	d_gfx.cur_font = &d_gfx.default_font;
 
 	// init default cam
@@ -367,7 +367,7 @@ void d_free_img_data(d_img_data *img) {
 	img->pixels = NULL;
 }
 
-void d_set_tex_conf(const d_tex_conf *conf) {
+void d_set_img_conf(const d_img_conf *conf) {
 
 	GLuint filter = GL_NEAREST;
 	GLuint wrap = GL_REPEAT;
@@ -409,13 +409,13 @@ void d_set_tex_conf(const d_tex_conf *conf) {
 
 }
 
-d_tex d_make_tex_ex(const d_img_data *data, d_tex_conf conf) {
+d_img d_make_img_ex(const d_img_data *data, d_img_conf conf) {
 
-	GLuint tex;
+	GLuint img;
 
-	glGenTextures(1, &tex);
+	glGenTextures(1, &img);
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, tex);
+	glBindTexture(GL_TEXTURE_2D, img);
 
 	glTexImage2D(
 		GL_TEXTURE_2D,
@@ -429,49 +429,49 @@ d_tex d_make_tex_ex(const d_img_data *data, d_tex_conf conf) {
 		data->pixels
 	);
 
-	d_set_tex_conf(&conf);
+	d_set_img_conf(&conf);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	return (d_tex) {
-		.id = tex,
+	return (d_img) {
+		.id = img,
 		.width = data->width,
 		.height = data->height,
 	};
 
 }
 
-d_tex d_make_tex(const d_img_data *data) {
-	return d_make_tex_ex(data, d_gfx.tex_conf);
+d_img d_make_img(const d_img_data *data) {
+	return d_make_img_ex(data, d_gfx.img_conf);
 }
 
-d_tex d_parse_tex_ex(const unsigned char *bytes, int size, d_tex_conf conf) {
+d_img d_parse_img_ex(const unsigned char *bytes, int size, d_img_conf conf) {
 
-	d_img_data img = d_parse_img_data(bytes, size);
-	d_tex tex = d_make_tex_ex(&img, conf);
-	d_free_img_data(&img);
+	d_img_data data = d_parse_img_data(bytes, size);
+	d_img img = d_make_img_ex(&data, conf);
+	d_free_img_data(&data);
 
-	return tex;
+	return img;
 
 }
 
-d_tex d_parse_tex(const unsigned char *bytes, int size) {
-	return d_parse_tex_ex(bytes, size, d_gfx.tex_conf);
+d_img d_parse_img(const unsigned char *bytes, int size) {
+	return d_parse_img_ex(bytes, size, d_gfx.img_conf);
 }
 
-d_tex d_load_tex_ex(const char *path, d_tex_conf conf) {
+d_img d_load_img_ex(const char *path, d_img_conf conf) {
 
-	d_img_data img = d_load_img_data(path);
-	d_tex tex = d_make_tex_ex(&img, conf);
-	d_free_img_data(&img);
+	d_img_data data = d_load_img_data(path);
+	d_img img = d_make_img_ex(&data, conf);
+	d_free_img_data(&data);
 
-	return tex;
+	return img;
 }
 
-d_tex d_load_tex(const char *path) {
-	return d_load_tex_ex(path, d_gfx.tex_conf);
+d_img d_load_img(const char *path) {
+	return d_load_img_ex(path, d_gfx.img_conf);
 }
 
-void d_free_tex(d_tex *t) {
+void d_free_img(d_img *t) {
 	glDeleteTextures(1, &t->id);
 	t->id = 0;
 }
@@ -577,14 +577,14 @@ d_model d_parse_model(const unsigned char *bytes, int size) {
 	d_model model = {0};
 
 	int num_textures = doc->textures_count;
-	model.num_textures = num_textures;
-	model.textures = malloc(sizeof(d_tex) * num_textures);
+	model.num_images = num_textures;
+	model.images = malloc(sizeof(d_img) * num_textures);
 
 	for (int i = 0; i < num_textures; i++) {
 		cgltf_image *img = doc->textures[i].image;
 		cgltf_buffer_view *view = img->buffer_view;
 		unsigned char *data = view->buffer->data;
-		model.textures[i] = d_parse_tex(data + view->offset, view->size);
+		model.images[i] = d_parse_img(data + view->offset, view->size);
 	}
 
 	int num_nodes = doc->scene->nodes_count;
@@ -624,26 +624,26 @@ void d_free_model(d_model *model) {
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_free_model_node(&model->nodes[i]);
 	}
-	for (int i = 0; i < model->num_textures; i++) {
-		d_free_tex(&model->textures[i]);
+	for (int i = 0; i < model->num_images; i++) {
+		d_free_img(&model->images[i]);
 	}
 	free(model->nodes);
-	free(model->textures);
+	free(model->images);
 }
 
-d_font d_make_font(d_tex tex, int gw, int gh, const char *chars) {
+d_font d_make_font(d_img img, int gw, int gh, const char *chars) {
 
 	d_font f = {0};
 
-	int cols = tex.width / gw;
-	int rows = tex.height / gh;
+	int cols = img.width / gw;
+	int rows = img.height / gh;
 	int count = cols * rows;
 
 	f.qw = 1.0 / cols;
 	f.qh = 1.0 / rows;
 	f.width = gw;
 	f.height = gh;
-	f.tex = tex;
+	f.img = img;
 
 	d_assert(count == strlen(chars), "invalid font\n");
 
@@ -659,7 +659,7 @@ d_font d_make_font(d_tex tex, int gw, int gh, const char *chars) {
 }
 
 void d_free_font(d_font *f) {
-	d_free_tex(&f->tex);
+	d_free_img(&f->img);
 }
 
 d_shader d_make_shader(const char *vs_src, const char *fs_src) {
@@ -771,11 +771,11 @@ void d_free_shader(d_shader *p) {
 }
 
 d_canvas d_make_canvas(int w, int h) {
-	return d_make_canvas_ex(w, h, d_gfx.tex_conf);
+	return d_make_canvas_ex(w, h, d_gfx.img_conf);
 }
 
 // TODO: depth stencil texture with GLES
-d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
+d_canvas d_make_canvas_ex(int w, int h, d_img_conf conf) {
 
 	unsigned char *buf = calloc(w * h * 4, sizeof(unsigned char));
 
@@ -785,14 +785,14 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 		.height = h,
 	};
 
-	d_tex ctex = d_make_tex_ex(&cimg_data, conf);
+	d_img cimg = d_make_img_ex(&cimg_data, conf);
 	d_free_img_data(&cimg_data);
 
-	GLuint dstex;
-	glGenTextures(1, &dstex);
+	GLuint dsimg;
+	glGenTextures(1, &dsimg);
 
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, dstex);
+	glBindTexture(GL_TEXTURE_2D, dsimg);
 
 #ifndef GLES
 	glTexImage2D(
@@ -808,7 +808,7 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 	);
 #endif
 
-	d_set_tex_conf(&conf);
+	d_set_img_conf(&conf);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -816,9 +816,9 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 	glGenFramebuffers(1, &fbuf);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, fbuf);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ctex.id, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, cimg.id, 0);
 #ifndef GLES
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, dstex, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, dsimg, 0);
 #endif
 	d_clear();
 
@@ -828,8 +828,8 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 
 	return (d_canvas) {
 		.fbuf = fbuf,
-		.ctex = ctex,
-		.dstex = dstex,
+		.cimg = cimg,
+		.dsimg = dsimg,
 		.width = w,
 		.height = h,
 	};
@@ -842,7 +842,7 @@ d_img_data d_canvas_capture(const d_canvas *c) {
 	unsigned char *pixels = calloc(c->width * c->height * 4, sizeof(unsigned char));
 
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, c->ctex.id);
+	glBindTexture(GL_TEXTURE_2D, c->cimg.id);
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 	glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -857,10 +857,10 @@ d_img_data d_canvas_capture(const d_canvas *c) {
 
 void d_free_canvas(d_canvas *c) {
 	glDeleteFramebuffers(1, &c->fbuf);
-	glDeleteTextures(1, &c->dstex);
+	glDeleteTextures(1, &c->dsimg);
 	c->fbuf = 0;
-	c->dstex = 0;
-	d_free_tex(&c->ctex);
+	c->dsimg = 0;
+	d_free_img(&c->cimg);
 }
 
 GLint d_uniform_loc(const char *name) {
@@ -894,12 +894,12 @@ void d_send_mat4(const char *name, mat4 m) {
 	glUniformMatrix4fv(d_uniform_loc(name), 1, GL_FALSE, &m.m[0]);
 }
 
-void d_send_tex(const char *name, int idx, const d_tex *tex) {
+void d_send_img(const char *name, int idx, const d_img *img) {
 	glUseProgram(d_gfx.cur_shader->id);
-	if (tex) {
+	if (img) {
 		glUniform1i(d_uniform_loc(name), idx + 1);
 	}
-	d_gfx.tex_slots[idx + 1] = tex;
+	d_gfx.img_slots[idx + 1] = img;
 }
 
 void d_clear() {
@@ -1121,9 +1121,9 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
 	glUseProgram(d_gfx.cur_shader->id);
 
-	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
+	for (int i = 0; d_gfx.img_slots[i] != NULL; i++) {
 		glActiveTexture(GL_TEXTURE0 + i);
-		glBindTexture(GL_TEXTURE_2D, d_gfx.tex_slots[i]->id);
+		glBindTexture(GL_TEXTURE_2D, d_gfx.img_slots[i]->id);
 	}
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 48, (void*)0);
@@ -1145,7 +1145,7 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-	for (int i = 0; d_gfx.tex_slots[i] != NULL; i++) {
+	for (int i = 0; d_gfx.img_slots[i] != NULL; i++) {
 		glActiveTexture(GL_TEXTURE0 + i);
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
@@ -1154,17 +1154,17 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 
 }
 
-static void d_set_tex(const d_tex *t) {
+static void d_set_img(const d_img *t) {
 	if (t) {
-		if (t->id != d_gfx.tex_slots[0]->id) {
+		if (t->id != d_gfx.img_slots[0]->id) {
 			d_batch_flush(&d_gfx.batch);
-			d_gfx.tex_slots[0] = t;
+			d_gfx.img_slots[0] = t;
 		}
 	} else {
-		if (d_gfx.tex_slots[0]->id != d_gfx.default_tex.id) {
+		if (d_gfx.img_slots[0]->id != d_gfx.default_img.id) {
 			d_batch_flush(&d_gfx.batch);
 		}
-		d_gfx.tex_slots[0] = &d_gfx.default_tex;
+		d_gfx.img_slots[0] = &d_gfx.default_img;
 	}
 }
 
@@ -1173,7 +1173,7 @@ void d_draw_raw(
 	int num_verts,
 	const d_index *indices,
 	int num_indices,
-	const d_tex *tex
+	const d_img *img
 ) {
 
 	d_vertex tverts[num_verts];
@@ -1183,7 +1183,7 @@ void d_draw_raw(
 		tverts[i].pos = mat4_mult_vec3(d_gfx.transform, verts[i].pos);
 	}
 
-	d_set_tex(tex);
+	d_set_img(img);
 	d_batch_push(&d_gfx.batch, tverts, num_verts, indices, num_indices);
 
 }
@@ -1208,18 +1208,18 @@ static void d_draw_model_node(const d_model_node *node) {
 
 void d_draw_model(const d_model *model) {
 	d_batch_flush(&d_gfx.batch);
-	if (model->num_textures >= 1) {
-		d_set_tex(&model->textures[0]);
+	if (model->num_images >= 1) {
+		d_set_img(&model->images[0]);
 	} else {
-		d_set_tex(NULL);
+		d_set_img(NULL);
 	}
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_draw_model_node(&model->nodes[i]);
 	}
-	d_set_tex(NULL);
+	d_set_img(NULL);
 }
 
-void d_draw_tex(const d_tex *t, quad q, color c) {
+void d_draw_img(const d_img *t, quad q, color c) {
 
 	d_push();
 	d_scale(vec3f(t->width * q.w, t->height * q.h, 1.0));
@@ -1274,7 +1274,7 @@ void d_draw_ftext(const d_ftext *ftext) {
 		d_push();
 		d_move_xy(ch.pos);
 		d_scale_xy(vec2f(ftext->scale, ftext->scale));
-		d_draw_tex(ftext->tex, ch.quad, ch.color);
+		d_draw_img(ftext->img, ch.quad, ch.color);
 		d_pop();
 	}
 
@@ -1291,7 +1291,7 @@ void d_draw_text(const char *text, float size, float wrap, d_origin orig, color 
 void d_draw_canvas(const d_canvas *canvas, color c) {
 	d_push();
 	d_scale_y(-1);
-	d_draw_tex(&canvas->ctex, quadu(), c);
+	d_draw_img(&canvas->cimg, quadu(), c);
 	d_pop();
 }
 
@@ -1397,12 +1397,12 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 
 	d_ftext ftext = {0};
 
-	const d_tex *tex = &d_gfx.cur_font->tex;
+	const d_img *img = &d_gfx.cur_font->img;
 	int len = strlen(text);
 	float qw = d_gfx.cur_font->qw;
 	float qh = d_gfx.cur_font->qh;
-	float scale = size / (qh * tex->height);
-	float gw = qw * tex->width * scale;
+	float scale = size / (qh * img->height);
+	float gw = qw * img->width * scale;
 	float gh = size;
 	vec2 offset = d_origin_pt(origin);
 
@@ -1477,7 +1477,7 @@ d_ftext d_fmt_text(const char *text, float size, float wrap, d_origin origin, co
 	ftext.len = actual_len;
 	ftext.width = text_width;
 	ftext.height = text_height;
-	ftext.tex = tex;
+	ftext.img = img;
 	ftext.cw = gw;
 	ftext.ch = gh;
 	ftext.scale = scale;

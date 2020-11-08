@@ -5,7 +5,7 @@
 
 #include "utils.h"
 
-d_tex_conf l_parse_tex_conf(lua_State *L, int index);
+d_img_conf l_parse_img_conf(lua_State *L, int index);
 
 typedef struct {
 	lua_State *lua;
@@ -54,7 +54,7 @@ static int l_run(lua_State *L) {
 		.borderless = lua_getfield(L, 1, "borderless") ? luaL_checkboolean(L, -1) : false,
 		.hidpi = lua_getfield(L, 1, "hidpi") ? luaL_checkboolean(L, -1) : false,
 		.clear_color = lua_getfield(L, 1, "clear_color") ? *(color*)luaL_checkudata(L, -1, "color") : colorf(0.0, 0.0, 0.0, 0.0),
-		.tex_conf = lua_getfield(L, 1, "tex_conf") ? l_parse_tex_conf(L, -1) : (d_tex_conf) {
+		.img_conf = lua_getfield(L, 1, "img_conf") ? l_parse_img_conf(L, -1) : (d_img_conf) {
 			.filter = D_NEAREST,
 			.wrap = D_REPEAT,
 		},

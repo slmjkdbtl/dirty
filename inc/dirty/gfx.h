@@ -24,14 +24,14 @@ typedef enum {
 typedef enum {
 	D_NEAREST,
 	D_LINEAR,
-} d_tex_filter;
+} d_img_filter;
 
 typedef enum {
 	D_REPEAT,
 	D_MIRRORED_REPEAT,
 	D_CLAMP_TO_EDGE,
 	D_CLAMP_TO_BORDER,
-} d_tex_wrap;
+} d_img_wrap;
 
 typedef enum {
 	D_BLEND_ALPHA,
@@ -79,11 +79,11 @@ typedef struct {
 	GLuint id;
 	int width;
 	int height;
-} d_tex;
+} d_img;
 
 // bitmap font
 typedef struct {
-	d_tex tex;
+	d_img img;
 	int height;
 	int width;
 	float qw;
@@ -131,24 +131,24 @@ typedef struct d_model_node {
 typedef struct {
 	d_model_node *nodes;
 	int num_nodes;
-	d_tex *textures;
-	int num_textures;
+	d_img *images;
+	int num_images;
 } d_model;
 
 // OpenGL framebuffer
 typedef struct {
 	GLuint fbuf;
-	d_tex ctex;
-	GLuint dstex;
+	d_img cimg;
+	GLuint dsimg;
 	int width;
 	int height;
 } d_canvas;
 
 // texture creation config
 typedef struct {
-	d_tex_filter filter;
-	d_tex_wrap wrap;
-} d_tex_conf;
+	d_img_filter filter;
+	d_img_wrap wrap;
+} d_img_conf;
 
 // formated character
 typedef struct {
@@ -161,7 +161,7 @@ typedef struct {
 typedef struct {
 	float width;
 	float height;
-	const d_tex *tex;
+	const d_img *img;
 	float scale;
 	int len;
 	float cw;
@@ -204,21 +204,21 @@ d_img_data d_load_img_data(const char *path);
 void d_img_data_save(d_img_data *img, const char *path);
 void d_free_img_data(d_img_data *img);
 
-// texture
-d_tex d_make_tex(const d_img_data *img);
-d_tex d_make_tex_ex(const d_img_data *img, d_tex_conf conf);
-d_tex d_parse_tex(const unsigned char *bytes, int size);
-d_tex d_parse_tex_ex(const unsigned char *bytes, int size, d_tex_conf conf);
-d_tex d_load_tex(const char *path);
-d_tex d_load_tex_ex(const char *path, d_tex_conf conf);
-void d_free_tex(d_tex *tex);
+// image
+d_img d_make_img(const d_img_data *img);
+d_img d_make_img_ex(const d_img_data *img, d_img_conf conf);
+d_img d_parse_img(const unsigned char *bytes, int size);
+d_img d_parse_img_ex(const unsigned char *bytes, int size, d_img_conf conf);
+d_img d_load_img(const char *path);
+d_img d_load_img_ex(const char *path, d_img_conf conf);
+void d_free_img(d_img *img);
 
 d_model d_parse_model(const unsigned char *bytes, int size);
 d_model d_load_model(const char *path);
 void d_free_model(d_model *model);
 
 // font
-d_font d_make_font(d_tex tex, int grid_width, int grid_height, const char *chars);
+d_font d_make_font(d_img img, int grid_width, int grid_height, const char *chars);
 void d_free_font(d_font *font);
 
 // shader
@@ -228,7 +228,7 @@ void d_free_shader(d_shader *shader);
 
 // canvas
 d_canvas d_make_canvas(int width, int height);
-d_canvas d_make_canvas_ex(int, int, d_tex_conf);
+d_canvas d_make_canvas_ex(int, int, d_img_conf);
 d_img_data d_canvas_capture(const d_canvas *canvas);
 void d_free_canvas(d_canvas *canvas);
 
@@ -238,8 +238,8 @@ void d_send_vec2(const char *name, vec2 val);
 void d_send_vec3(const char *name, vec3 val);
 void d_send_color(const char *name, color val);
 void d_send_mat4(const char *name, mat4 val);
-// send uniform tex to specified slot
-void d_send_tex(const char *name, int slot, const d_tex *tex);
+// send uniform img to specified slot
+void d_send_img(const char *name, int slot, const d_img *img);
 
 // clear all buffers
 void d_clear();
@@ -296,10 +296,10 @@ void d_use_canvas(const d_canvas *canvas);
 const d_font *d_cur_font();
 
 // draw
-void d_draw_raw(const d_vertex *vertices, int num_verts, const d_index *indices, int num_indices, const d_tex *tex);
+void d_draw_raw(const d_vertex *vertices, int num_verts, const d_index *indices, int num_indices, const d_img *img);
 void d_draw_mesh(const d_mesh *mesh);
 void d_draw_model(const d_model *model);
-void d_draw_tex(const d_tex *tex, quad q, color c);
+void d_draw_img(const d_img *img, quad q, color c);
 void d_draw_text(const char *txt, float size, float wrap, d_origin orig, color c);
 void d_draw_ftext(const d_ftext *ftext);
 void d_draw_canvas(const d_canvas *canvas, color c);
