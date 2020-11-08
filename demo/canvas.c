@@ -15,9 +15,9 @@ void frame() {
 	}
 
 	if (d_key_pressed(D_KEY_SPACE)) {
-		d_img i = d_canvas_capture(&canvas);
-		d_img_save(&i, "test.png");
-		d_free_img(&i);
+		d_img_data i = d_canvas_capture(&canvas);
+		d_img_data_save(&i, "test.png");
+		d_free_img_data(&i);
 	}
 
 	d_use_canvas(&canvas);

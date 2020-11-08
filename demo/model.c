@@ -15,6 +15,10 @@ void frame() {
 		d_quit();
 	}
 
+	if (d_key_pressed(D_KEY_SPACE)) {
+		rot = vec2f(0.0, 0.0);
+	}
+
 	if (d_mouse_down(D_MOUSE_LEFT)) {
 		vec2 dpos = d_mouse_dpos();
 		rot = vec2_add(rot, dpos);

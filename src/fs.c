@@ -172,6 +172,16 @@ static bool write_bytes(const char *path, const unsigned char *data, size_t size
 
 }
 
+static bool is_file(const char *path) {
+	struct stat sb;
+	return stat(path, &sb) == 0 && S_ISREG(sb.st_mode);
+}
+
+static bool is_dir(const char *path) {
+	struct stat sb;
+	return stat(path, &sb) == 0 && S_ISDIR(sb.st_mode);
+}
+
 static char **glob(const char *path, const char *ext) {
 
 	DIR *dir = opendir(path);
@@ -233,13 +243,11 @@ char **d_glob(const char *path, const char *ext) {
 }
 
 bool d_is_file(const char *path) {
-	struct stat sb;
-	return stat(d_fmt("%s%s", d_fs.res_path, path), &sb) == 0 && S_ISREG(sb.st_mode);
+	return is_file(d_fmt("%s%s", d_fs.res_path, path));
 }
 
 bool d_is_dir(const char *path) {
-	struct stat sb;
-	return stat(d_fmt("%s%s", d_fs.res_path, path), &sb) == 0 && S_ISDIR(sb.st_mode);
+	return is_dir(d_fmt("%s%s", d_fs.res_path, path));
 }
 
 char *d_data_read_text(const char *path) {
@@ -251,15 +259,11 @@ unsigned char *d_data_read_bytes(const char *path, size_t *size) {
 }
 
 bool d_data_is_file(const char *path) {
-	struct stat sb;
-	bool is = stat(d_fmt("%s%s", d_fs.data_path, path), &sb) == 0 && S_ISREG(sb.st_mode);
-	return is;
+	return is_file(d_fmt("%s%s", d_fs.data_path, path));
 }
 
 bool d_data_is_dir(const char *path) {
-	struct stat sb;
-	bool is = stat(d_fmt("%s%s", d_fs.data_path, path), &sb) == 0 && S_ISDIR(sb.st_mode);
-	return is;
+	return is_dir(d_fmt("%s%s", d_fs.data_path, path));
 }
 
 // TODO: recursive mkdir?

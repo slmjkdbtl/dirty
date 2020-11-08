@@ -1292,8 +1292,9 @@ inline int sapp_run(const sapp_desc& desc) { return sapp_run(&desc); }
     #else
         /* iOS or iOS Simulator */
         #define _SAPP_IOS (1)
-        #if !defined(SOKOL_METAL) && !defined(SOKOL_GLES3)
-        #error("sokol_app.h: unknown 3D API selected for iOS, must be SOKOL_METAL or SOKOL_GLES3")
+        // CHANGE
+        #if !defined(SOKOL_METAL) && !defined(SOKOL_GLES2) && !defined(SOKOL_GLES3)
+        #error("sokol_app.h: unknown 3D API selected for iOS, must be SOKOL_METAL, SOKOL_GLES2 or SOKOL_GLES3")
         #endif
     #endif
 #elif defined(__EMSCRIPTEN__)

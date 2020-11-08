@@ -336,8 +336,8 @@ static int l_free_canvas(lua_State *L) {
 
 static int l_canvas_capture(lua_State *L) {
 	d_canvas *c = luaL_checkudata(L, 1, "d_canvas");
-	d_img img = d_canvas_capture(c);
-	lua_pushudata(L, d_img, &img);
+	d_img_data img = d_canvas_capture(c);
+	lua_pushudata(L, d_img_data, &img);
 	return 1;
 }
 
@@ -370,29 +370,29 @@ static int l_canvas__index(lua_State *L) {
 
 }
 
-static int l_img_tex(lua_State *L) {
-	d_img *i = luaL_checkudata(L, 1, "d_img");
-	d_tex t = d_img_tex(i);
+static int l_make_tex(lua_State *L) {
+	d_img_data *i = luaL_checkudata(L, 1, "d_img_data");
+	d_tex t = d_make_tex(i);
 	lua_pushudata(L, d_tex, &t);
 	return 1;
 }
 
-static int l_img_save(lua_State *L) {
-	d_img *i = luaL_checkudata(L, 1, "d_img");
+static int l_img_data_save(lua_State *L) {
+	d_img_data *i = luaL_checkudata(L, 1, "d_img_data");
 	const char *path = luaL_checkstring(L, 2);
-	d_img_save(i, path);
+	d_img_data_save(i, path);
 	return 0;
 }
 
-static int l_free_img(lua_State *L) {
-	d_img *i = luaL_checkudata(L, 1, "d_img");
-	d_free_img(i);
+static int l_free_img_data(lua_State *L) {
+	d_img_data *i = luaL_checkudata(L, 1, "d_img_data");
+	d_free_img_data(i);
 	return 0;
 }
 
 static int l_img__index(lua_State *L) {
 
-	d_img *i = luaL_checkudata(L, 1, "d_img");
+	d_img_data *i = luaL_checkudata(L, 1, "d_img_data");
 	const char *arg = luaL_checkstring(L, 2);
 
 	if (streq(arg, "width")) {
@@ -402,13 +402,13 @@ static int l_img__index(lua_State *L) {
 		lua_pushinteger(L, i->height);
 		return 1;
 	} if (streq(arg, "free")) {
-		lua_pushcfunction(L, l_free_img);
+		lua_pushcfunction(L, l_free_img_data);
 		return 1;
 	} if (streq(arg, "wave")) {
-		lua_pushcfunction(L, l_img_save);
+		lua_pushcfunction(L, l_img_data_save);
 		return 1;
 	} else {
-		luaL_error(L, "unknown member '%s' of 'd_img'\n", arg);
+		luaL_error(L, "unknown member '%s' of 'd_img_data'\n", arg);
 	}
 
 	return 0;
@@ -468,9 +468,15 @@ static int l_make_mesh(lua_State *L) {
 	d_vertex *verts = l_parse_vertex_list(L, 1);
 	d_index *indices = l_parse_index_list(L, 2);
 
-	d_mesh m = d_make_mesh(verts, num_verts, indices, num_indices);
-	free(verts);
-	free(indices);
+	d_mesh_data data = (d_mesh_data) {
+		.verts = verts,
+		.num_verts = num_verts,
+		.indices = indices,
+		.num_indices = num_indices,
+	};
+
+	d_mesh m = d_make_mesh(&data);
+	d_free_mesh_data(&data);
 	lua_pushudata(L, d_mesh, &m);
 
 	return 1;
@@ -623,6 +629,19 @@ static int l_ftext__index(lua_State *L) {
 
 }
 
+static int l_load_model(lua_State *L) {
+	const char *path = luaL_checkstring(L, 1);
+	d_model m = d_load_model(path);
+	lua_pushudata(L, d_model, &m);
+	return 1;
+}
+
+static int l_model__index(lua_State *L) {
+	const char *arg = luaL_checkstring(L, 2);
+	luaL_error(L, "unknown member '%s' of 'd_model'\n", arg);
+	return 0;
+}
+
 static int l_draw_raw(lua_State *L) {
 
 	luaL_checktable(L, 1);
@@ -644,6 +663,12 @@ static int l_draw_raw(lua_State *L) {
 static int l_draw_mesh(lua_State *L) {
 	d_mesh *m = luaL_checkudata(L, 1, "d_mesh");
 	d_draw_mesh(m);
+	return 0;
+}
+
+static int l_draw_model(lua_State *L) {
+	d_model *m = luaL_checkudata(L, 1, "d_model");
+	d_draw_model(m);
 	return 0;
 }
 
@@ -800,9 +825,10 @@ void l_gfx_init(lua_State *L) {
 		{ "d_load_shader", l_load_shader, },
 		{ "d_make_canvas", l_make_canvas, },
 		{ "d_make_canvas_ex", l_make_canvas_ex, },
-		{ "d_img_tex", l_img_tex, },
+		{ "d_make_tex", l_make_tex, },
 		{ "d_load_tex", l_load_tex, },
 		{ "d_load_tex_ex", l_load_tex_ex, },
+		{ "d_load_model", l_load_model, },
 		{ "d_use_shader", l_use_shader, },
 		{ "d_use_canvas", l_use_canvas, },
 		{ "d_use_font", l_use_font, },
@@ -811,6 +837,7 @@ void l_gfx_init(lua_State *L) {
 		{ "d_fmt_text", l_fmt_text, },
 		{ "d_draw_raw", l_draw_raw, },
 		{ "d_draw_mesh", l_draw_mesh, },
+		{ "d_draw_model", l_draw_model, },
 		{ "d_draw_tex", l_draw_tex, },
 		{ "d_draw_text", l_draw_text, },
 		{ "d_draw_ftext", l_draw_ftext, },
@@ -875,7 +902,7 @@ void l_gfx_init(lua_State *L) {
 		{ NULL, NULL, },
 	});
 
-	luaL_regtype(L, "d_img", (luaL_Reg[]) {
+	luaL_regtype(L, "d_img_data", (luaL_Reg[]) {
 		{ "__index", l_img__index, },
 		{ NULL, NULL, },
 	});
@@ -892,6 +919,11 @@ void l_gfx_init(lua_State *L) {
 
 	luaL_regtype(L, "d_ftext", (luaL_Reg[]) {
 		{ "__index", l_ftext__index, },
+		{ NULL, NULL, },
+	});
+
+	luaL_regtype(L, "d_model", (luaL_Reg[]) {
+		{ "__index", l_model__index, },
 		{ NULL, NULL, },
 	});
 

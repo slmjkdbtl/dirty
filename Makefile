@@ -56,6 +56,7 @@ C_FLAGS += -ObjC
 endif
 
 ifeq ($(TARGET),ios)
+C_FLAGS += -ObjC
 C_FLAGS += -arch armv7
 C_FLAGS += -arch arm64
 endif

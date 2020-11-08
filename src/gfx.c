@@ -146,7 +146,12 @@ void d_gfx_init(d_desc *desc) {
 	d_gfx.cur_shader = &d_gfx.default_shader;
 
 	// init default tex
-	d_gfx.default_tex = d_make_tex((unsigned char[]){255, 255, 255, 255}, 1, 1);
+	d_gfx.default_tex = d_make_tex(&(d_img_data) {
+		.pixels = (unsigned char[]){ 255, 255, 255, 255, },
+		.width = 1,
+		.height = 1,
+	});
+
 	d_gfx.tex_slots[0] = &d_gfx.default_tex;
 
 	// init default font
@@ -178,19 +183,47 @@ void d_gfx_frame_end() {
 	glViewport(0, 0, d_width(), d_height());
 }
 
-d_mesh d_make_mesh(
-	const d_vertex *verts,
-	int num_verts,
-	const d_index *indices,
-	int num_indices
-) {
+box d_mesh_data_bbox(const d_mesh_data *data) {
+
+	vec3 min = vec3f(0.0, 0.0, 0.0);
+	vec3 max = vec3f(0.0, 0.0, 0.0);
+
+	for (int i = 0; i < data->num_verts; i++) {
+
+		vec3 p = data->verts[i].pos;
+
+		min.x = p.x < min.x ? p.x : min.x;
+		min.y = p.y < min.y ? p.y : min.y;
+		min.z = p.z < min.z ? p.z : min.z;
+
+		max.x = p.x > max.x ? p.x : max.x;
+		max.y = p.y > max.y ? p.y : max.y;
+		max.z = p.z > max.z ? p.z : max.z;
+
+	}
+
+	return (box) {
+		.p1 = min,
+		.p2 = max,
+	};
+
+}
+
+void d_free_mesh_data(d_mesh_data *data) {
+	free(data->verts);
+	data->verts = NULL;
+	free(data->indices);
+	data->indices = NULL;
+}
+
+d_mesh d_make_mesh(const d_mesh_data *data) {
 
 	// vertex buffer
 	GLuint vbuf;
 
 	glGenBuffers(1, &vbuf);
 	glBindBuffer(GL_ARRAY_BUFFER, vbuf);
-	glBufferData(GL_ARRAY_BUFFER, num_verts * sizeof(d_vertex), verts, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, data->num_verts * sizeof(d_vertex), data->verts, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	// index buffer
@@ -198,13 +231,13 @@ d_mesh d_make_mesh(
 
 	glGenBuffers(1, &ibuf);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, num_indices * sizeof(d_index), indices, GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, data->num_indices * sizeof(d_index), data->indices, GL_STATIC_DRAW);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
 	return (d_mesh) {
 		.vbuf = vbuf,
 		.ibuf = ibuf,
-		.count = num_indices,
+		.count = data->num_indices,
 	};
 
 }
@@ -302,47 +335,36 @@ void d_free_batch(d_batch *m) {
 	m->ibuf = 0;
 }
 
-d_img d_make_img(const unsigned char *pixels, int width, int height) {
-	int size = sizeof(unsigned char) * width * height * 4;
-	unsigned char *data = malloc(size);
-	memcpy(data, pixels, size);
-	return (d_img) {
-		.data = data,
-		.width = width,
-		.height = height,
-	};
-}
-
-d_img d_parse_img(const unsigned char *bytes, int size) {
+d_img_data d_parse_img_data(const unsigned char *bytes, int size) {
 
 	int w, h;
-	unsigned char *data = stbi_load_from_memory((unsigned char*)bytes, size, &w, &h, NULL, 4);
-	d_assert(data, "failed to parse image\n");
+	unsigned char *pixels = stbi_load_from_memory((unsigned char*)bytes, size, &w, &h, NULL, 4);
+	d_assert(pixels, "failed to parse image\n");
 
-	return (d_img) {
-		.data = data,
+	return (d_img_data) {
+		.pixels = pixels,
 		.width = w,
 		.height = h,
 	};
 
 }
 
-d_img d_load_img(const char *path) {
+d_img_data d_load_img_data(const char *path) {
 	size_t size;
 	unsigned char *bytes = d_read_bytes(path, &size);
-	d_img img = d_parse_img(bytes, size);
+	d_img_data img = d_parse_img_data(bytes, size);
 	free(bytes);
 	return img;
 }
 
-void d_img_save(d_img *img, const char *path) {
+void d_img_data_save(d_img_data *img, const char *path) {
 	stbi_flip_vertically_on_write(true);
-	stbi_write_png(path, img->width, img->height, 4, img->data, img->width * 4);
+	stbi_write_png(path, img->width, img->height, 4, img->pixels, img->width * 4);
 }
 
-void d_free_img(d_img *img) {
-	free(img->data);
-	img->data = NULL;
+void d_free_img_data(d_img_data *img) {
+	free(img->pixels);
+	img->pixels = NULL;
 }
 
 void d_set_tex_conf(const d_tex_conf *conf) {
@@ -387,7 +409,7 @@ void d_set_tex_conf(const d_tex_conf *conf) {
 
 }
 
-d_tex d_make_tex_ex(const unsigned char *data, int w, int h, d_tex_conf conf) {
+d_tex d_make_tex_ex(const d_img_data *data, d_tex_conf conf) {
 
 	GLuint tex;
 
@@ -399,12 +421,12 @@ d_tex d_make_tex_ex(const unsigned char *data, int w, int h, d_tex_conf conf) {
 		GL_TEXTURE_2D,
 		0,
 		GL_RGBA,
-		w,
-		h,
+		data->width,
+		data->height,
 		0,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
-		data
+		data->pixels
 	);
 
 	d_set_tex_conf(&conf);
@@ -412,29 +434,21 @@ d_tex d_make_tex_ex(const unsigned char *data, int w, int h, d_tex_conf conf) {
 
 	return (d_tex) {
 		.id = tex,
-		.width = w,
-		.height = h,
+		.width = data->width,
+		.height = data->height,
 	};
 
 }
 
-d_tex d_make_tex(const unsigned char *data, int w, int h) {
-	return d_make_tex_ex(data, w, h, d_gfx.tex_conf);
-}
-
-d_tex d_img_tex_ex(const d_img *img, d_tex_conf conf) {
-	return d_make_tex_ex(img->data, img->width, img->height, conf);
-}
-
-d_tex d_img_tex(const d_img *img) {
-	return d_img_tex_ex(img, d_gfx.tex_conf);
+d_tex d_make_tex(const d_img_data *data) {
+	return d_make_tex_ex(data, d_gfx.tex_conf);
 }
 
 d_tex d_parse_tex_ex(const unsigned char *bytes, int size, d_tex_conf conf) {
 
-	d_img img = d_parse_img(bytes, size);
-	d_tex tex = d_img_tex_ex(&img, conf);
-	d_free_img(&img);
+	d_img_data img = d_parse_img_data(bytes, size);
+	d_tex tex = d_make_tex_ex(&img, conf);
+	d_free_img_data(&img);
 
 	return tex;
 
@@ -446,9 +460,9 @@ d_tex d_parse_tex(const unsigned char *bytes, int size) {
 
 d_tex d_load_tex_ex(const char *path, d_tex_conf conf) {
 
-	d_img img = d_load_img(path);
-	d_tex tex = d_img_tex_ex(&img, conf);
-	d_free_img(&img);
+	d_img_data img = d_load_img_data(path);
+	d_tex tex = d_make_tex_ex(&img, conf);
+	d_free_img_data(&img);
 
 	return tex;
 }
@@ -502,26 +516,25 @@ static void parse_gltf_node(cgltf_node *node, d_model_node *model) {
 				case cgltf_attribute_type_position:
 					d_assert(acc->type == cgltf_type_vec3, "gltf pos must be vec3\n");
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, &verts[k].pos, 3);
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].pos, 3);
 					}
 					break;
 				case cgltf_attribute_type_normal:
 					d_assert(acc->type == cgltf_type_vec3, "gltf normal must be vec3\n");
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, &verts[k].normal, 3);
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].normal, 3);
 					}
 					break;
 				case cgltf_attribute_type_texcoord:
 					d_assert(acc->type == cgltf_type_vec2, "gltf texcoord must be vec2\n");
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, &verts[k].uv, 2);
-// 						verts[k].uv.y = 1.0 - verts[k].uv.y;
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].uv, 2);
 					}
 					break;
 				case cgltf_attribute_type_color:
 					d_assert(acc->type == cgltf_type_vec4, "gltf color must be vec4\n");
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, &verts[k].color, 4);
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].color, 4);
 					}
 					break;
 				default:
@@ -537,7 +550,15 @@ static void parse_gltf_node(cgltf_node *node, d_model_node *model) {
 			cgltf_accessor_read_uint(prim->indices, j, &indices[j], 1);
 		}
 
-		model->meshes[i] = d_make_mesh(verts, num_verts, indices, num_indices);
+		d_mesh_data data = (d_mesh_data) {
+			.verts = verts,
+			.num_verts = num_verts,
+			.indices = indices,
+			.num_indices = num_indices,
+		};
+
+		model->meshes[i] = d_make_mesh(&data);
+		d_free_mesh_data(&data);
 
 	}
 
@@ -546,34 +567,35 @@ static void parse_gltf_node(cgltf_node *node, d_model_node *model) {
 d_model d_parse_model(const unsigned char *bytes, int size) {
 
 	cgltf_options options = {0};
-	cgltf_data *data = NULL;
-	cgltf_result res = cgltf_parse(&options, bytes, size, &data);
-	cgltf_load_buffers(&options, data, NULL);
+	cgltf_data *doc = NULL;
+	cgltf_result res = cgltf_parse(&options, bytes, size, &doc);
+	cgltf_load_buffers(&options, doc, NULL);
 
 	d_assert(res == cgltf_result_success, "failed to parse gltf\n");
-	d_assert(data->scene->nodes_count >= 1, "empty gltf\n");
+	d_assert(doc->scene->nodes_count >= 1, "empty gltf\n");
 
 	d_model model = {0};
 
-	int num_textures = data->textures_count;
+	int num_textures = doc->textures_count;
 	model.num_textures = num_textures;
 	model.textures = malloc(sizeof(d_tex) * num_textures);
 
 	for (int i = 0; i < num_textures; i++) {
-		cgltf_image *img = data->textures[i].image;
+		cgltf_image *img = doc->textures[i].image;
 		cgltf_buffer_view *view = img->buffer_view;
-		model.textures[i] = d_parse_tex(view->buffer->data + view->offset, view->size);
+		unsigned char *data = view->buffer->data;
+		model.textures[i] = d_parse_tex(data + view->offset, view->size);
 	}
 
-	int num_nodes = data->scene->nodes_count;
+	int num_nodes = doc->scene->nodes_count;
 	model.num_nodes = num_nodes;
 	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
 
 	for (int i = 0; i < num_nodes; i++) {
-		parse_gltf_node(data->scene->nodes[i], &model.nodes[i]);
+		parse_gltf_node(doc->scene->nodes[i], &model.nodes[i]);
 	}
 
-	cgltf_free(data);
+	cgltf_free(doc);
 
 	return model;
 
@@ -756,8 +778,15 @@ d_canvas d_make_canvas(int w, int h) {
 d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 
 	unsigned char *buf = calloc(w * h * 4, sizeof(unsigned char));
-	d_tex ctex = d_make_tex_ex(buf, w, h, conf);
-	free(buf);
+
+	d_img_data cimg_data = (d_img_data) {
+		.pixels = buf,
+		.width = w,
+		.height = h,
+	};
+
+	d_tex ctex = d_make_tex_ex(&cimg_data, conf);
+	d_free_img_data(&cimg_data);
 
 	GLuint dstex;
 	glGenTextures(1, &dstex);
@@ -808,15 +837,21 @@ d_canvas d_make_canvas_ex(int w, int h, d_tex_conf conf) {
 }
 
 #ifndef GLES
-d_img d_canvas_capture(const d_canvas *c) {
-	unsigned char *buf = calloc(c->width * c->height * 4, sizeof(unsigned char));
+d_img_data d_canvas_capture(const d_canvas *c) {
+
+	unsigned char *pixels = calloc(c->width * c->height * 4, sizeof(unsigned char));
+
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, c->ctex.id);
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buf);
+	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
 	glBindTexture(GL_TEXTURE_2D, 0);
-	d_img img = d_make_img(buf, c->width, c->height);
-	free(buf);
-	return img;
+
+	return (d_img_data) {
+		.pixels = pixels,
+		.width = c->width,
+		.height = c->height,
+	};
+
 }
 #endif
 
@@ -1254,7 +1289,10 @@ void d_draw_text(const char *text, float size, float wrap, d_origin orig, color 
 }
 
 void d_draw_canvas(const d_canvas *canvas, color c) {
+	d_push();
+	d_scale_y(-1);
 	d_draw_tex(&canvas->ctex, quadu(), c);
+	d_pop();
 }
 
 void d_draw_rect(vec2 p1, vec2 p2, color c) {

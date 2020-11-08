@@ -39,6 +39,17 @@ typedef enum {
 	D_BLEND_REPLACE,
 } d_blend;
 
+// base vertex type
+typedef struct {
+	vec3 pos;
+	vec3 normal;
+	vec2 uv;
+	color color;
+} d_vertex;
+
+// base index type
+typedef unsigned int d_index;
+
 // a camera with projection and view matrices
 typedef struct {
 	mat4 view;
@@ -58,10 +69,10 @@ typedef struct {
 
 // image buffer
 typedef struct {
-	unsigned char *data;
+	unsigned char *pixels;
 	int width;
 	int height;
-} d_img;
+} d_img_data;
 
 // OpenGL texture
 typedef struct {
@@ -80,12 +91,34 @@ typedef struct {
 	vec2 map[128];
 } d_font;
 
+typedef struct {
+	d_vertex *verts;
+	int num_verts;
+	d_index *indices;
+	int num_indices;
+} d_mesh_data;
+
 // OpenGL vertex / index buffer
 typedef struct {
 	GLuint vbuf;
 	GLuint ibuf;
 	int count;
 } d_mesh;
+
+typedef struct d_model_node_data {
+	d_psr psr;
+	struct d_model_node_data *children;
+	int num_children;
+	d_mesh_data *meshes;
+	int num_meshes;
+} d_model_node_data;
+
+typedef struct {
+	d_model_node_data *nodes;
+	int num_nodes;
+	d_img_data *images;
+	int num_images;
+} d_model_data;
 
 typedef struct d_model_node {
 	d_psr psr;
@@ -116,17 +149,6 @@ typedef struct {
 	d_tex_filter filter;
 	d_tex_wrap wrap;
 } d_tex_conf;
-
-// base vertex type
-typedef struct {
-	vec3 pos;
-	vec3 normal;
-	vec2 uv;
-	color color;
-} d_vertex;
-
-// base index type
-typedef unsigned int d_index;
 
 // formated character
 typedef struct {
@@ -171,21 +193,20 @@ typedef struct {
 } d_sprite_data;
 
 // mesh
-d_mesh d_make_mesh(const d_vertex *vertices, int num_verts, const d_index *indices, int num_indices);
+box d_mesh_data_bbox(const d_mesh_data *data);
+void d_free_mesh_data(d_mesh_data *data);
+d_mesh d_make_mesh(const d_mesh_data *data);
 void d_free_mesh(d_mesh *mesh);
 
 // image
-d_img d_make_img(const unsigned char *pixels, int width, int height);
-d_img d_parse_img(const unsigned char *bytes, int size);
-d_img d_load_img(const char *path);
-void d_img_save(d_img *img, const char *path);
-void d_free_img(d_img *img);
+d_img_data d_parse_img_data(const unsigned char *bytes, int size);
+d_img_data d_load_img_data(const char *path);
+void d_img_data_save(d_img_data *img, const char *path);
+void d_free_img_data(d_img_data *img);
 
 // texture
-d_tex d_img_tex(const d_img *img);
-d_tex d_img_tex_ex(const d_img *img, d_tex_conf conf);
-d_tex d_make_tex(const unsigned char *pixels, int width, int height);
-d_tex d_make_tex_ex(const unsigned char *pixels, int width, int height, d_tex_conf conf);
+d_tex d_make_tex(const d_img_data *img);
+d_tex d_make_tex_ex(const d_img_data *img, d_tex_conf conf);
 d_tex d_parse_tex(const unsigned char *bytes, int size);
 d_tex d_parse_tex_ex(const unsigned char *bytes, int size, d_tex_conf conf);
 d_tex d_load_tex(const char *path);
@@ -208,7 +229,7 @@ void d_free_shader(d_shader *shader);
 // canvas
 d_canvas d_make_canvas(int width, int height);
 d_canvas d_make_canvas_ex(int, int, d_tex_conf);
-d_img d_canvas_capture(const d_canvas *canvas);
+d_img_data d_canvas_capture(const d_canvas *canvas);
 void d_free_canvas(d_canvas *canvas);
 
 // send uniform values
