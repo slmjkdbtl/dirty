@@ -476,24 +476,24 @@ void d_free_img(d_img *t) {
 	t->id = 0;
 }
 
-static void parse_gltf_node(cgltf_node *node, d_model_node *model) {
-
-	int num_children = node->children_count;
-
-	model->num_children = num_children;
-	model->children = malloc(sizeof(d_model_node) * num_children);
-
-	for (int i = 0; i < num_children; i++) {
-		parse_gltf_node(node->children[i], &model->children[i]);
-	}
+static void handle_cgltf_node_data(cgltf_node *node, d_model_node_data *model) {
 
 	model->psr.pos = vec3f(node->translation[0], node->translation[1], node->translation[2]);
 	model->psr.scale = vec3f(node->scale[0], node->scale[1], node->scale[2]);
 	model->psr.rot = quatf(node->rotation[0], node->rotation[1], node->rotation[2], node->rotation[3]);
 
+	int num_children = node->children_count;
+
+	model->num_children = num_children;
+	model->children = malloc(sizeof(d_model_node_data) * num_children);
+
+	for (int i = 0; i < num_children; i++) {
+		handle_cgltf_node_data(node->children[i], &model->children[i]);
+	}
+
 	int num_meshes = node->mesh->primitives_count;
 	model->num_meshes = num_meshes;
-	model->meshes = malloc(sizeof(d_mesh) * num_meshes);
+	model->meshes = malloc(sizeof(d_mesh_data) * num_meshes);
 
 	for (int i = 0; i < num_meshes; i++) {
 
@@ -550,21 +550,18 @@ static void parse_gltf_node(cgltf_node *node, d_model_node *model) {
 			cgltf_accessor_read_uint(prim->indices, j, &indices[j], 1);
 		}
 
-		d_mesh_data data = (d_mesh_data) {
+		model->meshes[i] = (d_mesh_data) {
 			.verts = verts,
 			.num_verts = num_verts,
 			.indices = indices,
 			.num_indices = num_indices,
 		};
 
-		model->meshes[i] = d_make_mesh(&data);
-		d_free_mesh_data(&data);
-
 	}
 
 }
 
-d_model d_parse_model(const unsigned char *bytes, int size) {
+d_model_data d_parse_model_data(const unsigned char *bytes, int size) {
 
 	cgltf_options options = {0};
 	cgltf_data *doc = NULL;
@@ -574,31 +571,110 @@ d_model d_parse_model(const unsigned char *bytes, int size) {
 	d_assert(res == cgltf_result_success, "failed to parse gltf\n");
 	d_assert(doc->scene->nodes_count >= 1, "empty gltf\n");
 
-	d_model model = {0};
+	d_model_data model = {0};
 
 	int num_textures = doc->textures_count;
 	model.num_images = num_textures;
-	model.images = malloc(sizeof(d_img) * num_textures);
+	model.images = malloc(sizeof(d_img_data) * num_textures);
 
 	for (int i = 0; i < num_textures; i++) {
 		cgltf_image *img = doc->textures[i].image;
 		cgltf_buffer_view *view = img->buffer_view;
 		unsigned char *data = view->buffer->data;
-		model.images[i] = d_parse_img(data + view->offset, view->size);
+		model.images[i] = d_parse_img_data(data + view->offset, view->size);
 	}
 
 	int num_nodes = doc->scene->nodes_count;
 	model.num_nodes = num_nodes;
-	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
+	model.nodes = malloc(sizeof(d_model_node_data) * num_nodes);
 
 	for (int i = 0; i < num_nodes; i++) {
-		parse_gltf_node(doc->scene->nodes[i], &model.nodes[i]);
+		handle_cgltf_node_data(doc->scene->nodes[i], &model.nodes[i]);
 	}
 
 	cgltf_free(doc);
 
 	return model;
 
+}
+
+d_model_data d_load_model_data(const char *path) {
+	size_t size;
+	unsigned char *bytes = d_read_bytes(path, &size);
+	d_model_data data = d_parse_model_data(bytes, size);
+	free(bytes);
+	return data;
+}
+
+static void d_free_model_node_data(d_model_node_data *node) {
+	for (int i = 0; i < node->num_meshes; i++) {
+		d_free_mesh_data(&node->meshes[i]);
+	}
+	for (int i = 0; i < node->num_children; i++) {
+		d_free_model_node_data(&node->children[i]);
+	}
+	free(node->children);
+	free(node->meshes);
+}
+
+void d_free_model_data(d_model_data *model) {
+	for (int i = 0; i < model->num_nodes; i++) {
+		d_free_model_node_data(&model->nodes[i]);
+	}
+	for (int i = 0; i < model->num_images; i++) {
+		d_free_img_data(&model->images[i]);
+	}
+	free(model->nodes);
+	free(model->images);
+}
+
+void handle_model_node_data(const d_model_node_data *data, d_model_node *node) {
+
+	node->psr = data->psr;
+
+	node->num_children = data->num_children;
+	node->children = malloc(sizeof(d_model_node) * data->num_children);
+
+	for (int i = 0; i < data->num_children; i++) {
+		handle_model_node_data(&data->children[i], &node->children[i]);
+	}
+
+	node->num_meshes = data->num_meshes;
+	node->meshes = malloc(sizeof(d_mesh) * data->num_meshes);
+
+	for (int i = 0; i < data->num_meshes; i++) {
+		node->meshes[i] = d_make_mesh(&data->meshes[i]);
+	}
+
+}
+
+d_model d_make_model(const d_model_data *data) {
+
+	d_model model = {0};
+
+	model.num_images = data->num_images;
+	model.images = malloc(sizeof(d_img) * data->num_images);
+
+	for (int i = 0; i < data->num_images; i++) {
+		model.images[i] = d_make_img(&data->images[i]);
+	}
+
+	model.num_nodes = data->num_nodes;
+	model.nodes = malloc(sizeof(d_model_node) * data->num_nodes);
+
+	for (int i = 0; i < data->num_nodes; i++) {
+		handle_model_node_data(&data->nodes[i], &model.nodes[i]);
+	}
+
+	return model;
+
+}
+
+d_model d_parse_model(const unsigned char *bytes, int size) {
+	d_model_data data = d_parse_model_data(bytes, size);
+	d_model model = d_make_model(&data);
+	d_free_model_data(&data);
+	return model;
 }
 
 d_model d_load_model(const char *path) {

@@ -213,6 +213,11 @@ d_img d_load_img(const char *path);
 d_img d_load_img_ex(const char *path, d_img_conf conf);
 void d_free_img(d_img *img);
 
+// model
+d_model_data d_parse_model_data(const unsigned char *bytes, int size);
+d_model_data d_load_model_data(const char *path);
+void d_free_model_data(d_model_data *data);
+d_model d_make_model(const d_model_data *data);
 d_model d_parse_model(const unsigned char *bytes, int size);
 d_model d_load_model(const char *path);
 void d_free_model(d_model *model);
