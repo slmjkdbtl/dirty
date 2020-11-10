@@ -133,6 +133,7 @@ typedef struct {
 	int num_nodes;
 	d_img *images;
 	int num_images;
+	box bbox;
 } d_model;
 
 // OpenGL framebuffer

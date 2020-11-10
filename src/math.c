@@ -6,9 +6,6 @@
 
 #include <dirty/dirty.h>
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
 vec2 vec2f(float x, float y) {
 	return (vec2) {
 		.x = x,
@@ -670,12 +667,20 @@ float radf(float d) {
     return d / (180.0 / D_PI);
 }
 
+int maxi(int a, int b) {
+	return a > b ? a : b;
+}
+
+int mini(int a, int b) {
+	return a < b ? a : b;
+}
+
 float clampf(float v, float low, float hi) {
-	return fmaxf(low, fmin(v, hi));
+	return fmaxf(low, fminf(v, hi));
 }
 
 int clampi(int v, int low, int hi) {
-	return MAX(low, MIN(v, hi));
+	return maxi(low, mini(v, hi));
 }
 
 float lerpf(float a, float b, float t) {

@@ -100,7 +100,7 @@ void d_gfx_init();
 void d_gfx_frame_end();
 
 void d_gl_check_errors();
-void d_draw(GLuint, GLuint, int);
+void d_draw(GLuint mode, GLuint vbuf, GLuint ibuf, int count);
 d_batch d_make_batch();
 void d_batch_push(d_batch*, const d_vertex*, int, const d_index*, int);
 void d_batch_flush(d_batch*);
@@ -189,17 +189,9 @@ box d_mesh_data_bbox(const d_mesh_data *data) {
 	vec3 max = vec3f(0.0, 0.0, 0.0);
 
 	for (int i = 0; i < data->num_verts; i++) {
-
 		vec3 p = data->verts[i].pos;
-
-		min.x = p.x < min.x ? p.x : min.x;
-		min.y = p.y < min.y ? p.y : min.y;
-		min.z = p.z < min.z ? p.z : min.z;
-
-		max.x = p.x > max.x ? p.x : max.x;
-		max.y = p.y > max.y ? p.y : max.y;
-		max.z = p.z > max.z ? p.z : max.z;
-
+		min = vec3_min(min, p);
+		max = vec3_max(max, p);
 	}
 
 	return (box) {
@@ -294,7 +286,7 @@ void d_batch_flush(d_batch *m) {
 
 	d_push();
 	d_gfx.transform = mat4u();
-	d_draw(m->vbuf, m->ibuf, m->num_indices);
+	d_draw(GL_TRIANGLES, m->vbuf, m->ibuf, m->num_indices);
 	d_pop();
 
 	m->num_verts = 0;
@@ -476,7 +468,7 @@ void d_free_img(d_img *t) {
 	t->id = 0;
 }
 
-static void handle_cgltf_node_data(cgltf_node *node, d_model_node_data *model) {
+static void parse_model_node_data(cgltf_node *node, d_model_node_data *model) {
 
 	model->psr.pos = vec3f(node->translation[0], node->translation[1], node->translation[2]);
 	model->psr.scale = vec3f(node->scale[0], node->scale[1], node->scale[2]);
@@ -488,7 +480,7 @@ static void handle_cgltf_node_data(cgltf_node *node, d_model_node_data *model) {
 	model->children = malloc(sizeof(d_model_node_data) * num_children);
 
 	for (int i = 0; i < num_children; i++) {
-		handle_cgltf_node_data(node->children[i], &model->children[i]);
+		parse_model_node_data(node->children[i], &model->children[i]);
 	}
 
 	int num_meshes = node->mesh->primitives_count;
@@ -589,7 +581,7 @@ d_model_data d_parse_model_data(const unsigned char *bytes, int size) {
 	model.nodes = malloc(sizeof(d_model_node_data) * num_nodes);
 
 	for (int i = 0; i < num_nodes; i++) {
-		handle_cgltf_node_data(doc->scene->nodes[i], &model.nodes[i]);
+		parse_model_node_data(doc->scene->nodes[i], &model.nodes[i]);
 	}
 
 	cgltf_free(doc);
@@ -604,6 +596,40 @@ d_model_data d_load_model_data(const char *path) {
 	d_model_data data = d_parse_model_data(bytes, size);
 	free(bytes);
 	return data;
+}
+
+static void d_model_node_data_bbox(const d_model_node_data *node, box *bbox, mat4 tp) {
+
+	mat4 t = mat4_mult(tp, d_psr_mat4(node->psr));
+
+	for (int i = 0; i < node->num_meshes; i++) {
+		d_mesh_data *mesh = &node->meshes[i];
+		for (int j = 0; j < mesh->num_verts; j++) {
+			vec3 p = mat4_mult_vec3(t, mesh->verts[j].pos);
+			bbox->p1 = vec3_min(bbox->p1, p);
+			bbox->p2 = vec3_max(bbox->p2, p);
+		}
+	}
+
+	for (int i = 0; i < node->num_children; i++) {
+		d_model_node_data_bbox(&node->children[i], bbox, t);
+	}
+
+}
+
+box d_model_data_bbox(const d_model_data *data) {
+
+	box bbox = (box) {
+		.p1 = vec3f(0.0, 0.0, 0.0),
+		.p2 = vec3f(0.0, 0.0, 0.0),
+	};
+
+	for (int i = 0; i < data->num_nodes; i++) {
+		d_model_node_data_bbox(&data->nodes[i], &bbox, mat4u());
+	}
+
+	return bbox;
+
 }
 
 static void d_free_model_node_data(d_model_node_data *node) {
@@ -628,7 +654,7 @@ void d_free_model_data(d_model_data *model) {
 	free(model->images);
 }
 
-void handle_model_node_data(const d_model_node_data *data, d_model_node *node) {
+static void d_make_model_node(const d_model_node_data *data, d_model_node *node) {
 
 	node->psr = data->psr;
 
@@ -636,7 +662,7 @@ void handle_model_node_data(const d_model_node_data *data, d_model_node *node) {
 	node->children = malloc(sizeof(d_model_node) * data->num_children);
 
 	for (int i = 0; i < data->num_children; i++) {
-		handle_model_node_data(&data->children[i], &node->children[i]);
+		d_make_model_node(&data->children[i], &node->children[i]);
 	}
 
 	node->num_meshes = data->num_meshes;
@@ -663,8 +689,10 @@ d_model d_make_model(const d_model_data *data) {
 	model.nodes = malloc(sizeof(d_model_node) * data->num_nodes);
 
 	for (int i = 0; i < data->num_nodes; i++) {
-		handle_model_node_data(&data->nodes[i], &model.nodes[i]);
+		d_make_model_node(&data->nodes[i], &model.nodes[i]);
 	}
+
+	model.bbox = d_model_data_bbox(data);
 
 	return model;
 
@@ -1120,6 +1148,10 @@ void d_rot_z(float a) {
 	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_rot_z(a));
 }
 
+void d_rot_q(quat q) {
+	d_gfx.transform = mat4_mult(d_gfx.transform, mat4_rot_quat(q));
+}
+
 void d_use_cam(const d_cam *cam) {
 	if (cam) {
 		d_gfx.cur_cam = cam;
@@ -1191,7 +1223,7 @@ vec2 d_mouse_pos_t() {
 	return mat4_mult_vec2(mat4_invert(d_transform()), d_mouse_pos());
 }
 
-void d_draw(GLuint vbuf, GLuint ibuf, int count) {
+void d_draw(GLuint mode, GLuint vbuf, GLuint ibuf, int count) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbuf);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
@@ -1216,7 +1248,7 @@ void d_draw(GLuint vbuf, GLuint ibuf, int count) {
 	d_send_mat4("u_proj", d_gfx.cur_cam->proj);
 	d_send_color("u_color", coloru());
 
-	glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT, 0);
+	glDrawElements(mode, count, GL_UNSIGNED_INT, 0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
@@ -1266,13 +1298,14 @@ void d_draw_raw(
 
 void d_draw_mesh(const d_mesh *mesh) {
 	d_batch_flush(&d_gfx.batch);
-	d_draw(mesh->vbuf, mesh->ibuf, mesh->count);
+	d_draw(GL_TRIANGLES, mesh->vbuf, mesh->ibuf, mesh->count);
 }
 
 static void d_draw_model_node(const d_model_node *node) {
 	d_push();
-	mat4 mat = d_psr_mat4(node->psr);
-	d_gfx.transform = mat4_mult(d_gfx.transform, mat);
+	d_move(node->psr.pos);
+	d_scale(node->psr.scale);
+	d_rot_q(node->psr.rot);
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_draw_mesh(&node->meshes[i]);
 	}
