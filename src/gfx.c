@@ -121,6 +121,8 @@ typedef struct {
 	int t_stack_cnt;
 	d_batch batch;
 	d_img_conf img_conf;
+	int draw_calls;
+	int draw_calls_last;
 } d_gfx_ctx;
 
 static d_gfx_ctx d_gfx;
@@ -180,6 +182,8 @@ void d_gfx_frame_end() {
 	d_gfx.transform = mat4u();
 	d_gfx.default_cam.proj = mat4_ortho(d_width(), d_height(), NEAR, FAR);
 	d_gfx.cur_cam = &d_gfx.default_cam;
+	d_gfx.draw_calls_last = d_gfx.draw_calls;
+	d_gfx.draw_calls = 0;
 	glViewport(0, 0, d_width(), d_height());
 }
 
@@ -1260,6 +1264,8 @@ void d_draw(GLuint mode, GLuint vbuf, GLuint ibuf, int count) {
 
 	glUseProgram(0);
 
+	d_gfx.draw_calls++;
+
 }
 
 static void d_set_img(const d_img *t) {
@@ -1810,5 +1816,9 @@ void d_free_sprite_data(d_sprite_data *data) {
 	free(data->anims);
 	data->frames = NULL;
 	data->anims = NULL;
+}
+
+int d_draw_calls() {
+	return d_gfx.draw_calls_last;
 }
 

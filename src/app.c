@@ -213,7 +213,7 @@ static void event(const sapp_event *e) {
 
 	switch (e->type) {
 		case SAPP_EVENTTYPE_KEY_DOWN:
-			if (d_key_down(key)) {
+			if (e->key_repeat) {
 				d_app.key_states[key] = D_BTN_RPRESSED;
 			} else {
 				d_app.key_states[key] = D_BTN_PRESSED;
@@ -266,10 +266,10 @@ static void cleanup() {
 	d_audio_quit();
 }
 
-static void fail() {
-// 	if (d_app.desc.err) {
-// 		d_app.desc.err();
-// 	}
+static void fail(const char *msg) {
+	if (d_app.desc.err) {
+		d_app.desc.err(msg);
+	}
 }
 
 void d_run(d_desc desc) {
@@ -376,19 +376,28 @@ const char *d_title() {
 }
 
 bool d_key_pressed(d_key k) {
-	return d_app.key_states[k] == D_BTN_PRESSED;
+	return
+		d_app.key_states[k] == D_BTN_PRESSED
+		;
 }
 
 bool d_key_rpressed(d_key k) {
-	return d_app.key_states[k] == D_BTN_PRESSED || d_app.key_states[k] == D_BTN_RPRESSED;
+	return
+		d_app.key_states[k] == D_BTN_PRESSED
+		|| d_app.key_states[k] == D_BTN_RPRESSED
+		;
+}
+
+bool d_key_down(d_key k) {
+	return
+		d_app.key_states[k] == D_BTN_PRESSED
+		|| d_app.key_states[k] == D_BTN_RPRESSED
+		|| d_app.key_states[k] == D_BTN_DOWN
+		;
 }
 
 bool d_key_released(d_key k) {
 	return d_app.key_states[k] == D_BTN_RELEASED;
-}
-
-bool d_key_down(d_key k) {
-	return d_app.key_states[k] == D_BTN_DOWN || d_app.key_states[k] == D_BTN_PRESSED;
 }
 
 bool d_key_mod(d_kmod kmod) {

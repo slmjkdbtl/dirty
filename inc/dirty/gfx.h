@@ -325,6 +325,7 @@ d_sprite_data d_parse_ase(const char *json);
 d_sprite_data d_load_ase(const char *path);
 void d_free_sprite_data(d_sprite_data *data);
 
+int d_draw_calls();
 const char *d_gl_version();
 const char *d_glsl_version();
 const char *d_gl_renderer();
