@@ -555,10 +555,12 @@ mat4 mat4_view(vec3 pos, vec3 dir, vec3 up) {
 
 const char *mat4_fmt(mat4 m) {
 	return d_fmt(
-		"mat4(%.8g, %.8g, %.8g, %.8g,\n"
+		"mat4(\n"
 		"     %.8g, %.8g, %.8g, %.8g,\n"
 		"     %.8g, %.8g, %.8g, %.8g,\n"
-		"     %.8g, %.8g, %.8g, %.8g)",
+		"     %.8g, %.8g, %.8g, %.8g,\n"
+		"     %.8g, %.8g, %.8g, %.8g,\n",
+		")",
 		m.m[0], m.m[1], m.m[2], m.m[3],
 		m.m[4], m.m[5], m.m[6], m.m[7],
 		m.m[8], m.m[9], m.m[10], m.m[11],

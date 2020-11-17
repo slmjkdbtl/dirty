@@ -5,10 +5,10 @@
 
 #if defined(__APPLE__)
 	#include <TargetConditionals.h>
-    #if defined(TARGET_OS_IPHONE) && !TARGET_OS_IPHONE
-		#define D_MACOS
-	#else
+    #if TARGET_OS_IPHONE
 		#define D_IOS
+	#else
+		#define D_MACOS
 	#endif
 #elif defined(__EMSCRIPTEN__)
 	#define D_WEB
@@ -19,7 +19,7 @@
 #elif defined(__linux__) || defined(__unix__)
 	#define D_LINUX
 #else
-	#error platform not supported
+	#error "platform not supported"
 #endif
 
 #endif

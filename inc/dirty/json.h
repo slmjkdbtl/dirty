@@ -1,5 +1,8 @@
 // wengwengweng
 
+#ifndef D_JSON_H
+#define D_JSON_H
+
 typedef struct {
 	void *tmp;
 } d_json;
@@ -30,4 +33,6 @@ void d_json_set_arr(d_json_obj *obj, const char *name, d_json_arr *arr);
 void d_json_set_num(d_json_obj *obj, const char *name, float num);
 void d_json_set_bool(d_json_obj *obj, const char *name, bool b);
 void d_json_set_str(d_json_obj *obj, const char *name, const char *str);
+
+#endif
 

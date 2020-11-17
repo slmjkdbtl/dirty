@@ -26,6 +26,8 @@ endif
 
 ifeq ($(TARGET),ios)
 CC := xcrun -sdk iphoneos clang
+AR := xcrun -sdk iphoneos ar
+RANLIB := xcrun -sdk iphoneos ranlib
 endif
 
 DEMO := tri

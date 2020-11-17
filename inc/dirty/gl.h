@@ -23,8 +23,6 @@
 #elif defined(D_WEB)
 	#define GLES
 	#include <GLES2/gl2.h>
-#else
-	#error platform not supported
 #endif
 
 #endif

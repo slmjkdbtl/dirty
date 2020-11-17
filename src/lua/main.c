@@ -22,7 +22,7 @@ void l_fs_init(lua_State *L);
 void l_json_init(lua_State *L);
 void l_extstd_init(lua_State *L);
 
-void run(const char *path) {
+void d_run_lua(const char *path) {
 
 	char dir[PATH_MAX];
 	char load_path[PATH_MAX];
@@ -60,9 +60,8 @@ void run(const char *path) {
 
 }
 
+// TODO: cleaner logic
 int main(int argc, char **argv) {
-
-	// TODO: cleaner logic?
 
 	char path[PATH_MAX];
 	getcwd(path, sizeof(path));
@@ -80,7 +79,7 @@ int main(int argc, char **argv) {
 		}
 
 		if (is_file(path)) {
-			run(path);
+			d_run_lua(path);
 			return EXIT_SUCCESS;
 		}
 
@@ -95,7 +94,7 @@ int main(int argc, char **argv) {
 	}
 
 	if (is_file(path)) {
-		run(path);
+		d_run_lua(path);
 		return EXIT_SUCCESS;
 	}
 
