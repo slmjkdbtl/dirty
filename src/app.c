@@ -14,6 +14,7 @@
 	#define SOKOL_GLES2
 #endif
 
+#define SOKOL_IMPL
 #define SOKOL_NO_ENTRY
 #include <sokol/sokol_app.h>
 #include <sokol/sokol_time.h>

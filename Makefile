@@ -30,6 +30,12 @@ AR := xcrun -sdk iphoneos ar
 RANLIB := xcrun -sdk iphoneos ranlib
 endif
 
+ifeq ($(TARGET),iossim)
+CC := xcrun -sdk iphonesimulator clang
+AR := xcrun -sdk iphonesimulator ar
+RANLIB := xcrun -sdk iphonesimulator ranlib
+endif
+
 DEMO := tri
 
 SRC_PATH := src
@@ -46,37 +52,41 @@ LIB_TARGET := $(LIB_PATH)/libdirty.a
 BIN_TARGET := $(BIN_PATH)/dirty
 
 # flags
-C_FLAGS += -I $(INC_PATH)
-C_FLAGS += -I $(EXT_INC_PATH)
-C_FLAGS += -Wall
-C_FLAGS += -Wpedantic
-C_FLAGS += -std=c99
-C_FLAGS += -D SOKOL_IMPL
+CFLAGS += -I $(INC_PATH)
+CFLAGS += -I $(EXT_INC_PATH)
+CFLAGS += -Wall
+CFLAGS += -Wpedantic
+CFLAGS += -std=c99
 
 ifeq ($(TARGET),macos)
-C_FLAGS += -ObjC
+CFLAGS += -ObjC
 endif
 
 ifeq ($(TARGET),ios)
-C_FLAGS += -ObjC
-C_FLAGS += -arch armv7
-C_FLAGS += -arch arm64
+CFLAGS += -ObjC
+CFLAGS += -arch armv7
+CFLAGS += -arch arm64
 endif
 
-LD_FLAGS += -L $(EXT_LIB_PATH)
+ifeq ($(TARGET),iossim)
+CFLAGS += -ObjC
+CFLAGS += -arch x86_64
+endif
+
+LDFLAGS += -L $(EXT_LIB_PATH)
 
 ifeq ($(TARGET),macos)
-LD_FLAGS += -framework Cocoa
-LD_FLAGS += -framework QuartzCore
-LD_FLAGS += -framework OpenGL
-LD_FLAGS += -framework AudioToolbox
+LDFLAGS += -framework Cocoa
+LDFLAGS += -framework QuartzCore
+LDFLAGS += -framework OpenGL
+LDFLAGS += -framework AudioToolbox
 endif
 
 ifdef RELEASE
-C_FLAGS += -O3
+CFLAGS += -O3
 endif
 
-AR_FLAGS += rc
+ARFLAGS := rc
 
 # files
 SRC_FILES := $(wildcard $(SRC_PATH)/*.c)
@@ -87,10 +97,7 @@ DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
 DEMOS := $(patsubst $(DEMO_PATH)/%.c, %, $(DEMO_FILES))
 DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(DEMO_BIN_PATH)/%, $(DEMO_FILES))
 
-INSTALL_TOP := /usr/local
-INSTALL_BIN := $(INSTALL_TOP)/bin
-INSTALL_INC := $(INSTALL_TOP)/include
-INSTALL_LIB := $(INSTALL_TOP)/lib
+PREFIX := /usr/local
 
 .PHONY: lib
 lib: $(LIB_TARGET)
@@ -113,20 +120,20 @@ run-lua: $(BIN_TARGET) $(DEMO_PATH)/$(DEMO).lua
 
 $(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c $(LIB_TARGET)
 	@mkdir -p $(DEMO_BIN_PATH)
-	$(CC) $(C_FLAGS) -L $(LIB_PATH) -ldirty $(LD_FLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -L $(LIB_PATH) -ldirty $(LDFLAGS) -o $@ $^
 
 $(BIN_TARGET): $(LUA_SRC_FILES) $(LIB_TARGET)
 	@mkdir -p $(BIN_PATH)
-	$(CC) $(C_FLAGS) -L $(LIB_PATH) -ldirty -llua $(LD_FLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -L $(LIB_PATH) -ldirty -llua $(LDFLAGS) -o $@ $^
 
 $(LIB_TARGET): $(OBJ_FILES)
 	@mkdir -p $(LIB_PATH)
-	$(AR) $(AR_FLAGS) $(LIB_TARGET) $^
+	$(AR) $(ARFLAGS) $(LIB_TARGET) $^
 	$(RANLIB) $(LIB_TARGET)
 
 $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
 	@mkdir -p $(OBJ_PATH)
-	$(CC) $(C_FLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: res
 res:
@@ -135,12 +142,12 @@ res:
 
 .PHONY: install
 install: $(LIB_TARGET)
-	cp $(LIB_TARGET) $(INSTALL_LIB)
-	cp -r $(INC_PATH)/* $(INSTALL_INC)
+	cp $(LIB_TARGET) $(PREFIX)/lib
+	cp -r $(INC_PATH)/* $(PREFIX)/include
 
 .PHONY: install-lua
 install-lua: $(BIN_TARGET)
-	install $(BIN_TARGET) $(INSTALL_BIN)
+	install $(BIN_TARGET) $(PREFIX)/bin
 
 .PHONY: clean
 clean:

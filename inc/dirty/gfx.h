@@ -64,7 +64,7 @@ typedef struct {
 
 // OpenGL shader
 typedef struct {
-	GLuint id;
+	unsigned int id;
 } d_shader;
 
 // image buffer
@@ -76,7 +76,7 @@ typedef struct {
 
 // OpenGL texture
 typedef struct {
-	GLuint id;
+	unsigned int id;
 	int width;
 	int height;
 } d_img;
@@ -100,8 +100,8 @@ typedef struct {
 
 // OpenGL vertex / index buffer
 typedef struct {
-	GLuint vbuf;
-	GLuint ibuf;
+	unsigned int vbuf;
+	unsigned int ibuf;
 	int count;
 } d_mesh;
 
@@ -138,9 +138,9 @@ typedef struct {
 
 // OpenGL framebuffer
 typedef struct {
-	GLuint fbuf;
+	unsigned int fbuf;
 	d_img cimg;
-	GLuint dsimg;
+	unsigned int dsimg;
 	int width;
 	int height;
 } d_canvas;

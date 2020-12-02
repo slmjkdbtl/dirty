@@ -1,6 +1,7 @@
 // wengwengweng
 
 #include <math.h>
+#define SOKOL_IMPL
 #include <sokol/sokol_audio.h>
 #include <stb/stb_vorbis.c>
 

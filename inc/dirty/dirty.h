@@ -5,7 +5,7 @@
 //   - app     windowing / input
 //   - gfx     anything visual
 //   - audio   anything audio
-//   - math    math types / algorithms
+//   - math    math types / calcs
 //   - fs      file system helpers
 //
 //   each .h file contains doc for specific modules
@@ -22,7 +22,6 @@
 //
 //     int main() {
 //         d_run((d_desc) {
-//             .title = "basic",
 //             .frame = frame,
 //         });
 //     }
@@ -36,7 +35,7 @@
 //   d_load_*(): create object from file
 //   d_free_*(): free object memory
 //   d_*_ex(): do something with extra config
-//   d_*_m(): the resource returned must be freed
+//   d_*_a(): the resource returned must be freed
 //
 //   function / type names are mostly self explanatory
 
@@ -50,8 +49,8 @@
 #include "app.h"
 #include "audio.h"
 #include "fs.h"
-#include "json.h"
 #include "utils.h"
+#include "lua.h"
 
 #endif
 
