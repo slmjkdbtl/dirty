@@ -112,13 +112,12 @@ typedef struct {
 	const char *title;
 	int width;
 	int height;
+	float scale;
 	bool fullscreen;
 	bool vsync;
 	bool resizable;
 	bool borderless;
 	bool hidpi;
-	color clear_color;
-	d_img_conf img_conf;
 	const char *path;
 	const char *org;
 	const char *name;

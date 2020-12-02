@@ -172,8 +172,6 @@ static void init() {
 
 static void frame() {
 
-	d_clear();
-
 	if (d_app.desc.frame) {
 		d_app.desc.frame();
 	}
@@ -230,8 +228,8 @@ static void event(const sapp_event *e) {
 			d_app.mouse_states[mouse] = D_BTN_RELEASED;
 			break;
 		case SAPP_EVENTTYPE_MOUSE_MOVE:
-			d_app.mouse_pos.x = (float)e->mouse_x - d_width() / 2.0;
-			d_app.mouse_pos.y = d_height() / 2.0 - (float)e->mouse_y;
+			d_app.mouse_pos.x = e->mouse_x / d_app.desc.scale;
+			d_app.mouse_pos.y = e->mouse_y / d_app.desc.scale;
 			d_app.mouse_dpos.x = (float)e->mouse_dx;
 			d_app.mouse_dpos.y = -(float)e->mouse_dy;
 			break;
@@ -278,6 +276,7 @@ void d_run(d_desc desc) {
 	desc.title = desc.title ? desc.title : "";
 	desc.width = desc.width ? desc.width : 640;
 	desc.height = desc.height ? desc.height : 480;
+	desc.scale = desc.scale ? desc.scale : 1.0;
 
 	d_app.desc = desc;
 
@@ -289,8 +288,8 @@ void d_run(d_desc desc) {
 		.event_cb = event,
 		.cleanup_cb = cleanup,
 		.fail_cb = fail,
-		.width = desc.width,
-		.height = desc.height,
+		.width = desc.width * desc.scale,
+		.height = desc.height * desc.scale,
 		.high_dpi = desc.hidpi,
 		.window_title = desc.title,
 		.fullscreen = desc.fullscreen,
@@ -425,11 +424,11 @@ bool d_mouse_down(d_mouse k) {
 }
 
 int d_width() {
-	return sapp_width();
+	return d_app.desc.width;
 }
 
 int d_height() {
-	return sapp_height();
+	return d_app.desc.height;
 }
 
 vec2 d_mouse_pos() {

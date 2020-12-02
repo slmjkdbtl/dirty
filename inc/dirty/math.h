@@ -10,15 +10,6 @@
 
 #include <stdbool.h>
 
-#define WHITE colorf(1.0, 1.0, 1.0, 1.0)
-#define BLACK colorf(0.0, 0.0, 0.0, 1.0)
-#define RED colorf(1.0, 0.0, 0.0, 1.0)
-#define GREEN colorf(0.0, 1.0, 0.0, 1.0)
-#define BLUE colorf(0.0, 0.0, 1.0, 1.0)
-#define CYAN colorf(0.0, 1.0, 1.0, 1.0)
-#define YELLOW colorf(1.0, 1.0, 0.0, 1.0)
-#define MAGENTA colorf(1.0, 0.0, 1.0, 1.0)
-
 #define D_PI 3.14
 
 typedef struct {
@@ -40,10 +31,10 @@ typedef struct {
 } vec4;
 
 typedef struct {
-	float r;
-	float g;
-	float b;
-	float a;
+	unsigned char r;
+	unsigned char g;
+	unsigned char b;
+	unsigned char a;
 } color;
 
 typedef struct {
@@ -152,11 +143,7 @@ const char *vec3_fmt(vec3);
 vec4 vec4f(float, float, float, float);
 vec4 vec4u();
 
-color colorf(float, float, float, float);
-color colori(int, float);
-color coloru();
-color color_invert(color);
-color color_darken(color c, float a);
+color colori(unsigned char, unsigned char, unsigned char, unsigned char);
 bool color_eq(color, color);
 const char *color_fmt(color);
 

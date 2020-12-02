@@ -252,7 +252,7 @@ vec4 vec4u() {
 	return vec4f(0.0, 0.0, 0.0, 1.0);
 }
 
-color colorf(float r, float g, float b, float a) {
+color colori(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
 	return (color) {
 		.r = r,
 		.g = g,
@@ -261,34 +261,12 @@ color colorf(float r, float g, float b, float a) {
 	};
 }
 
-color colori(int hex, float a) {
+color colorix(int hex, unsigned char a) {
 	return (color) {
-		.r = ((hex >> 16) & 0xff) / 255.0,
-		.g = ((hex >> 8) & 0xff) / 255.0,
-		.b = ((hex) & 0xff) / 255.0,
+		.r = ((hex >> 16) & 0xff),
+		.g = ((hex >> 8) & 0xff),
+		.b = ((hex) & 0xff),
 		.a = a,
-	};
-}
-
-color coloru() {
-	return colorf(1.0, 1.0, 1.0, 1.0);
-}
-
-color color_invert(color c) {
-	return (color) {
-		.r = 1.0 - c.r,
-		.g = 1.0 - c.g,
-		.b = 1.0 - c.b,
-		.a = c.a,
-	};
-}
-
-color color_darken(color c, float a) {
-	return (color) {
-		.r = c.r - a,
-		.g = c.g - a,
-		.b = c.b - a,
-		.a = c.a,
 	};
 }
 
@@ -297,7 +275,7 @@ bool color_eq(color c1, color c2) {
 }
 
 const char *color_fmt(color c) {
-	return d_fmt("color(%.8g, %.8g, %.8g, %.8g)", c.r, c.g, c.b, c.a);
+	return d_fmt("color(%d, %d, %d, %d)", c.r, c.g, c.b, c.a);
 }
 
 mat4 mat4f(
