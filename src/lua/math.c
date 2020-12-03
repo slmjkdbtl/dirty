@@ -402,16 +402,16 @@ static int l_color(lua_State *L) {
 		return 1;
 	} else if (num_args == 1 || num_args == 2) {
 		int rgb = luaL_checkinteger(L, 1);
-		float a = luaL_optnumber(L, 2, 1.0);
-		color c = colori(rgb, a);
+		unsigned char a = luaL_optinteger(L, 2, 255);
+		color c = colorx(rgb, a);
 		lua_pushudata(L, color, &c);
 		return 1;
 	} else if (num_args == 3 || num_args == 4) {
-		float r = luaL_checknumber(L, 1);
-		float g = luaL_checknumber(L, 2);
-		float b = luaL_checknumber(L, 3);
-		float a = luaL_optnumber(L, 4, 1.0);
-		color c = colorf(r, g, b, a);
+		unsigned char r = luaL_checkinteger(L, 1);
+		unsigned char g = luaL_checkinteger(L, 2);
+		unsigned char b = luaL_checkinteger(L, 3);
+		unsigned char a = luaL_optinteger(L, 4, 255);
+		color c = colori(r, g, b, a);
 		lua_pushudata(L, color, &c);
 		return 1;
 	} else {
@@ -420,21 +420,6 @@ static int l_color(lua_State *L) {
 
 	return 1;
 
-}
-
-static int l_color_invert(lua_State *L) {
-	color *c = luaL_checkudata(L, 1, "color");
-	color res = color_invert(*c);
-	lua_pushudata(L, color, &res);
-	return 1;
-}
-
-static int l_color_darken(lua_State *L) {
-	color *c = luaL_checkudata(L, 1, "color");
-	float i = luaL_checknumber(L, 2);
-	color res = color_darken(*c, i);
-	lua_pushudata(L, color, &res);
-	return 1;
 }
 
 static int l_color__index(lua_State *L) {
@@ -453,12 +438,6 @@ static int l_color__index(lua_State *L) {
 		return 1;
 	} else if (streq(arg, "a")) {
 		lua_pushnumber(L, c->a);
-		return 1;
-	} else if (streq(arg, "invert")) {
-		lua_pushcfunction(L, l_color_invert);
-		return 1;
-	} else if (streq(arg, "darken")) {
-		lua_pushcfunction(L, l_color_darken);
 		return 1;
 	} else {
 		luaL_error(L, "unknown member '%s' of 'color'\n", arg);

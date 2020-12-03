@@ -261,7 +261,16 @@ color colori(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 	};
 }
 
-color colorix(int hex, unsigned char a) {
+color coloru() {
+	return (color) {
+		.r = 255,
+		.g = 255,
+		.b = 255,
+		.a = 255,
+	};
+}
+
+color colorx(int hex, unsigned char a) {
 	return (color) {
 		.r = ((hex >> 16) & 0xff),
 		.g = ((hex >> 8) & 0xff),

@@ -144,6 +144,8 @@ vec4 vec4f(float, float, float, float);
 vec4 vec4u();
 
 color colori(unsigned char, unsigned char, unsigned char, unsigned char);
+color colorx(int, unsigned char);
+color coloru();
 bool color_eq(color, color);
 const char *color_fmt(color);
 

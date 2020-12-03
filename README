@@ -1,9 +1,9 @@
 ABOUT
 
-  'dirty' is a minimal toolkit for making games / interactive experiences.
+  'dirty' is a minimal toolkit for making games / interactive experiences
   http://space55.xyz/dirty
 
-  written in C99 and OpenGL
+  written in C99
 
   supports both C lib usage and Lua scripting
 

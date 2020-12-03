@@ -16,8 +16,9 @@ void frame() {
 	}
 
 	d_clear();
-// 	d_draw_rect(vec2f(100, 100), d_mouse_pos(), colori(255, 255, 255, 255));
+	d_draw_rect(vec2f(100, 100), d_mouse_pos(), colori(255, 255, 255, 255));
 	d_draw_img(&img, vec2f(0, 0));
+	d_draw_circle(d_mouse_pos(), 6, colori(0, 255, 255 ,255));
 
 }
 

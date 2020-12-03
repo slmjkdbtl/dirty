@@ -5,8 +5,6 @@
 
 #include "utils.h"
 
-d_img_conf l_parse_img_conf(lua_State *L, int index);
-
 typedef struct {
 	lua_State *lua;
 	int init_ref;
@@ -48,16 +46,12 @@ static int l_run(lua_State *L) {
 		.title = lua_getfield(L, 1, "title") ? luaL_checkstring(L, -1) : NULL,
 		.width = lua_getfield(L, 1, "width") ? luaL_checkinteger(L, -1) : 0,
 		.height = lua_getfield(L, 1, "height") ? luaL_checkinteger(L, -1) : 0,
+		.scale = lua_getfield(L, 1, "scale") ? luaL_checknumber(L, -1) : 1.0,
 		.vsync = lua_getfield(L, 1, "vsync") ? luaL_checkboolean(L, -1) : true,
 		.fullscreen = lua_getfield(L, 1, "fullscreen") ? luaL_checkboolean(L, -1) : false,
 		.resizable = lua_getfield(L, 1, "resizable") ? luaL_checkboolean(L, -1) : false,
 		.borderless = lua_getfield(L, 1, "borderless") ? luaL_checkboolean(L, -1) : false,
 		.hidpi = lua_getfield(L, 1, "hidpi") ? luaL_checkboolean(L, -1) : false,
-		.clear_color = lua_getfield(L, 1, "clear_color") ? *(color*)luaL_checkudata(L, -1, "color") : colorf(0.0, 0.0, 0.0, 0.0),
-		.img_conf = lua_getfield(L, 1, "img_conf") ? l_parse_img_conf(L, -1) : (d_img_conf) {
-			.filter = D_NEAREST,
-			.wrap = D_REPEAT,
-		},
 		.org = lua_getfield(L, 1, "org") ? luaL_checkstring(L, -1) : NULL,
 		.name = lua_getfield(L, 1, "name") ? luaL_checkstring(L, -1) : NULL,
 		.path = l_app.path,

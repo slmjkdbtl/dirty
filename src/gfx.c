@@ -41,9 +41,6 @@ static const char *fs_src =
 "uniform sampler2D u_tex;"
 "void main() {"
 	"gl_FragColor = texture2D(u_tex, v_uv);"
-	"if (gl_FragColor.a == 0.0) {"
-		"discard;"
-	"}"
 "}"
 ;
 
@@ -52,14 +49,18 @@ typedef struct {
 	GLuint gl_vbuf;
 	GLuint gl_ibuf;
 	GLuint gl_tex;
-	d_img canvas;
+	d_img img;
+	d_img *cur_img;
+	d_blend blend;
 } d_gfx_ctx;
 
 static d_gfx_ctx d_gfx;
 
 void d_gfx_init(d_desc *desc) {
 
-	d_gfx.canvas = d_make_img(desc->width, desc->height);
+	d_gfx.img = d_make_img(desc->width, desc->height);
+	d_gfx.cur_img = &d_gfx.img;
+	d_gfx.blend = D_ALPHA;
 
 	// program
 	GLchar info_log[512];
@@ -151,12 +152,12 @@ void d_gfx_init(d_desc *desc) {
 		GL_TEXTURE_2D,
 		0,
 		GL_RGBA,
-		d_gfx.canvas.width,
-		d_gfx.canvas.height,
+		d_gfx.img.width,
+		d_gfx.img.height,
 		0,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
-		d_gfx.canvas.pixels
+		d_gfx.img.pixels
 	);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -164,7 +165,7 @@ void d_gfx_init(d_desc *desc) {
 	// init gl
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	glViewport(0, 0, d_gfx.canvas.width * desc->scale, d_gfx.canvas.height * desc->scale);
+	glViewport(0, 0, d_gfx.img.width * desc->scale, d_gfx.img.height * desc->scale);
 
 }
 
@@ -181,11 +182,11 @@ void d_gfx_frame_end() {
 		0,
 		0,
 		0,
-		d_gfx.canvas.width,
-		d_gfx.canvas.height,
+		d_gfx.cur_img->width,
+		d_gfx.cur_img->height,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
-		d_gfx.canvas.pixels
+		d_gfx.cur_img->pixels
 	);
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 16, (void*)0);
@@ -232,6 +233,27 @@ d_img d_load_img(const char *path) {
 	return img;
 }
 
+void d_img_set(d_img *img, int x, int y, color c) {
+	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
+		return;
+	}
+	int i = (int)(y * img->width + x);
+	img->pixels[i] = c;
+}
+
+color d_img_get(const d_img *img, int x, int y) {
+	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
+		return colori(0, 0, 0, 0);
+	}
+	int i = (int)(y * img->width + x);
+	return img->pixels[i];
+}
+
+void d_img_save(const d_img *img, const char *path) {
+// 	stbi_flip_vertically_on_write(true);
+	stbi_write_png(path, img->width, img->height, 4, (unsigned char *)img->pixels, img->width * 4);
+}
+
 void d_free_img(d_img *img) {
 	free(img->pixels);
 	img->pixels = NULL;
@@ -239,43 +261,95 @@ void d_free_img(d_img *img) {
 	img->height = 0;
 }
 
-static int get_index(vec2 p) {
-	return (int)(p.y * d_gfx.canvas.width + p.x);
+d_font d_make_font(d_img img, int gw, int gh, const char *chars) {
+
+	d_font f = {0};
+
+	int cols = img.width / gw;
+	int rows = img.height / gh;
+	int count = cols * rows;
+
+	f.qw = 1.0 / cols;
+	f.qh = 1.0 / rows;
+	f.width = gw;
+	f.height = gh;
+	f.img = img;
+
+	d_assert(count == strlen(chars), "invalid font\n");
+
+	for (int i = 0; i < count; i++) {
+		f.map[(int)chars[i]] = (vec2) {
+			.x = (i % cols) * f.qw,
+			.y = (i / cols) * f.qh,
+		};
+	}
+
+	return f;
+
+}
+
+void d_free_font(d_font *f) {
+	d_free_img(&f->img);
 }
 
 void d_clear() {
-	memset(d_gfx.canvas.pixels, 0, sizeof(color) * d_gfx.canvas.width * d_gfx.canvas.height);
+	memset(d_gfx.cur_img->pixels, 0, sizeof(color) * d_gfx.cur_img->width * d_gfx.cur_img->height);
 }
 
 void d_set_pixel(vec2 p, color c) {
-	if (p.x < 0 || p.x >= d_gfx.canvas.width || p.y < 0 || p.y >= d_gfx.canvas.height) {
-		return;
+	switch (d_gfx.blend) {
+		case D_REPLACE:
+			d_img_set(d_gfx.cur_img, p.x, p.y, c);
+			break;
+		case D_ALPHA: {
+			if (c.a == 255) {
+				d_img_set(d_gfx.cur_img, p.x, p.y, c);
+			} else if (c.a != 0) {
+				color rc = d_img_get(d_gfx.cur_img, p.x, p.y);
+				float a = (float)c.a / 255.0;
+				c.r = (float)rc.r * (1.0 - a) + (float)c.r * a;
+				c.g = (float)rc.g * (1.0 - a) + (float)c.g * a;
+				c.b = (float)rc.b * (1.0 - a) + (float)c.b * a;
+				c.a = (float)rc.a * (1.0 - a) + (float)c.a * a;
+				d_img_set(d_gfx.cur_img, p.x, p.y, c);
+			}
+			break;
+		}
 	}
-	int i = get_index(p);
-	d_gfx.canvas.pixels[i] = c;
 }
 
 color d_get_pixel(vec2 p) {
-	if (p.x < 0 || p.x >= d_gfx.canvas.width || p.y < 0 || p.y >= d_gfx.canvas.height) {
-		return colori(0, 0, 0, 0);
-	}
-	int i = get_index(p);
-	return d_gfx.canvas.pixels[i];
+	return d_img_get(d_gfx.cur_img, p.x, p.y);
 }
 
 void d_draw_img(const d_img *img, vec2 pos) {
-	for (int x = 0; x < img->width; x++) {
-		for (int y = 0; y < img->height; y++) {
-			d_set_pixel(vec2f(x + pos.x, y + pos.y), img->pixels[y * img->width + x]);
+	d_draw_imgq(img, quadf(0.0, 0.0, 1.0, 1.0), pos);
+}
+
+void d_draw_imgq(const d_img *img, quad q, vec2 pos) {
+	for (int x = img->width * q.x; x < img->width * (q.x + q.w); x++) {
+		for (int y = img->width * q.y; y < img->height * (q.y + q.h); y++) {
+			color c = img->pixels[y * img->width + x];
+			d_set_pixel(vec2f(x + pos.x, y + pos.y), c);
 		}
 	}
 }
 
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
+
+	if (c.a == 0) {
+		return;
+	}
+
 	// TODO
+
 }
 
 void d_draw_rect(vec2 p1, vec2 p2, color c) {
+
+	if (c.a == 0) {
+		return;
+	}
 
 	int x1 = p1.x < p2.x ? p1.x : p2.x;
 	int x2 = p1.x > p2.x ? p1.x : p2.x;
@@ -290,7 +364,29 @@ void d_draw_rect(vec2 p1, vec2 p2, color c) {
 
 }
 
+void d_draw_circle(vec2 center, float r, color c) {
+
+	if (c.a == 0) {
+		return;
+	}
+
+	for (int i = center.x - r; i <= center.x + r; i++) {
+		for (int j = center.y - r; j <= center.y + r; j++) {
+			vec2 p = vec2f(i, j);
+			float d = vec2_dist(p, center);
+			if (d <= r) {
+				d_set_pixel(p, c);
+			}
+		}
+	}
+
+}
+
 void d_draw_line(vec2 p1, vec2 p2, color c) {
+
+	if (c.a == 0) {
+		return;
+	}
 
 	int dx = p2.x - p1.x;
 	int dy = p2.y - p1.y;
@@ -320,5 +416,13 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 		}
 	}
 
+}
+
+void d_set_blend(d_blend b) {
+	d_gfx.blend = b;
+}
+
+d_img *d_canvas() {
+	return d_gfx.cur_img;
 }
 
