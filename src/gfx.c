@@ -250,7 +250,6 @@ color d_img_get(const d_img *img, int x, int y) {
 }
 
 void d_img_save(const d_img *img, const char *path) {
-// 	stbi_flip_vertically_on_write(true);
 	stbi_write_png(path, img->width, img->height, 4, (unsigned char *)img->pixels, img->width * 4);
 }
 
@@ -296,29 +295,40 @@ void d_clear() {
 	memset(d_gfx.cur_img->pixels, 0, sizeof(color) * d_gfx.cur_img->width * d_gfx.cur_img->height);
 }
 
-void d_set_pixel(vec2 p, color c) {
+void d_put(vec2 p, color c) {
 	switch (d_gfx.blend) {
-		case D_REPLACE:
-			d_img_set(d_gfx.cur_img, p.x, p.y, c);
-			break;
 		case D_ALPHA: {
 			if (c.a == 255) {
 				d_img_set(d_gfx.cur_img, p.x, p.y, c);
 			} else if (c.a != 0) {
 				color rc = d_img_get(d_gfx.cur_img, p.x, p.y);
-				float a = (float)c.a / 255.0;
-				c.r = (float)rc.r * (1.0 - a) + (float)c.r * a;
-				c.g = (float)rc.g * (1.0 - a) + (float)c.g * a;
-				c.b = (float)rc.b * (1.0 - a) + (float)c.b * a;
-				c.a = (float)rc.a * (1.0 - a) + (float)c.a * a;
-				d_img_set(d_gfx.cur_img, p.x, p.y, c);
+				d_img_set(d_gfx.cur_img, p.x, p.y, (color) {
+					.r = (rc.r * (255 - c.a) + c.r * c.a) / 255,
+					.g = (rc.g * (255 - c.a) + c.g * c.a) / 255,
+					.b = (rc.b * (255 - c.a) + c.b * c.a) / 255,
+					.a = (rc.a * (255 - c.a) + c.a * c.a) / 255,
+				});
 			}
 			break;
 		}
+		case D_REPLACE:
+			d_img_set(d_gfx.cur_img, p.x, p.y, c);
+			break;
+		case D_ADD:
+			if (c.a != 0) {
+				color rc = d_img_get(d_gfx.cur_img, p.x, p.y);
+				d_img_set(d_gfx.cur_img, p.x, p.y, (color) {
+					.r = (rc.r * rc.a + c.r * c.a) / 255,
+					.g = (rc.g * rc.a + c.g * c.a) / 255,
+					.b = (rc.b * rc.a + c.b * c.a) / 255,
+					.a = (rc.a * rc.a + c.a * c.a) / 255,
+				});
+			}
+			break;
 	}
 }
 
-color d_get_pixel(vec2 p) {
+color d_look(vec2 p) {
 	return d_img_get(d_gfx.cur_img, p.x, p.y);
 }
 
@@ -330,7 +340,7 @@ void d_draw_imgq(const d_img *img, quad q, vec2 pos) {
 	for (int x = img->width * q.x; x < img->width * (q.x + q.w); x++) {
 		for (int y = img->width * q.y; y < img->height * (q.y + q.h); y++) {
 			color c = img->pixels[y * img->width + x];
-			d_set_pixel(vec2f(x + pos.x, y + pos.y), c);
+			d_put(vec2f(x + pos.x, y + pos.y), c);
 		}
 	}
 }
@@ -358,7 +368,7 @@ void d_draw_rect(vec2 p1, vec2 p2, color c) {
 
 	for (int i = x1; i < x2; i++) {
 		for (int j = y1; j < y2; j++) {
-			d_set_pixel(vec2f(i, j), c);
+			d_put(vec2f(i, j), c);
 		}
 	}
 
@@ -375,7 +385,7 @@ void d_draw_circle(vec2 center, float r, color c) {
 			vec2 p = vec2f(i, j);
 			float d = vec2_dist(p, center);
 			if (d <= r) {
-				d_set_pixel(p, c);
+				d_put(p, c);
 			}
 		}
 	}
@@ -398,7 +408,7 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 
 	if (adx > ady) {
 		for(int x = p1.x, y = p1.y; sx < 0 ? x >= p2.x : x <= p2.x; x += sx) {
-			d_set_pixel(vec2f(x, y), c);
+			d_put(vec2f(x, y), c);
 			eps += ady;
 			if ((eps << 1) >= adx) {
 				y += sy;
@@ -407,7 +417,7 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 		}
 	} else {
 		for(int x = p1.x, y = p1.y; sy < 0 ? y >= p2.y : y <= p2.y; y += sy) {
-			d_set_pixel(vec2f(x, y), c);
+			d_put(vec2f(x, y), c);
 			eps += adx;
 			if ((eps << 1) >= ady) {
 				x += sx;
@@ -420,6 +430,14 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 
 void d_set_blend(d_blend b) {
 	d_gfx.blend = b;
+}
+
+void d_drawon(d_img *img) {
+	if (img) {
+		d_gfx.cur_img = img;
+	} else {
+		d_gfx.cur_img = &d_gfx.img;
+	}
 }
 
 d_img *d_canvas() {

@@ -24,6 +24,7 @@ typedef enum {
 typedef enum {
 	D_REPLACE,
 	D_ALPHA,
+	D_ADD,
 } d_blend;
 
 typedef struct {
@@ -54,8 +55,8 @@ void d_free_font(d_font *font);
 
 void d_clear();
 void d_set_blend(d_blend b);
-void d_set_pixel(vec2 p, color c);
-color d_get_pixel(vec2 p);
+void d_put(vec2 p, color c);
+color d_look(vec2 p);
 void d_draw_img(const d_img *img, vec2 pos);
 void d_draw_imgq(const d_img *img, quad q, vec2 pos);
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
@@ -63,6 +64,7 @@ void d_draw_rect(vec2 p1, vec2 p2, color c);
 void d_draw_circle(vec2 center, float r, color c);
 void d_draw_line(vec2 p1, vec2 p2, color c);
 
+void d_drawon(d_img *img);
 d_img *d_canvas();
 
 #endif
