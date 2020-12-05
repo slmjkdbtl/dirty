@@ -144,6 +144,7 @@ vec4 vec4f(float, float, float, float);
 vec4 vec4u();
 
 color colori(unsigned char, unsigned char, unsigned char, unsigned char);
+color colorf(float, float, float, float);
 color colorx(unsigned long hex);
 color color_mix(color c1, color c2);
 color coloru();

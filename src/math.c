@@ -261,12 +261,12 @@ color colori(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 	};
 }
 
-color coloru() {
+color colorf(float r, float g, float b, float a) {
 	return (color) {
-		.r = 255,
-		.g = 255,
-		.b = 255,
-		.a = 255,
+		.r = r * 255,
+		.g = g * 255,
+		.b = b * 255,
+		.a = a * 255,
 	};
 }
 
@@ -276,6 +276,15 @@ color colorx(unsigned long hex) {
 		.g = ((hex >> 16) & 0xff),
 		.b = ((hex >> 8) & 0xff),
 		.a = ((hex >> 0) & 0xff),
+	};
+}
+
+color coloru() {
+	return (color) {
+		.r = 255,
+		.g = 255,
+		.b = 255,
+		.a = 255,
 	};
 }
 

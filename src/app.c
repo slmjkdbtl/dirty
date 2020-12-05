@@ -21,6 +21,32 @@
 
 #define NUM_TOUCHES 8
 
+static const char *vs_src =
+#ifndef GLES
+"#version 120\n"
+#endif
+"attribute vec2 a_pos;"
+"attribute vec2 a_uv;"
+"varying vec2 v_uv;"
+"void main() {"
+	"v_uv = a_uv;"
+	"gl_Position = vec4(a_pos, 0.0, 1.0);"
+"}"
+;
+
+static const char *fs_src =
+#ifndef GLES
+"#version 120\n"
+#else
+"precision mediump float;"
+#endif
+"varying vec2 v_uv;"
+"uniform sampler2D u_tex;"
+"void main() {"
+	"gl_FragColor = texture2D(u_tex, v_uv);"
+"}"
+;
+
 void d_gfx_init(d_desc *desc);
 void d_audio_init(d_desc *desc);
 void d_fs_init(d_desc *desc);
@@ -42,6 +68,7 @@ typedef struct {
 } d_touch_state;
 
 typedef struct {
+
 	d_desc desc;
 	float time;
 	float dt;
@@ -53,6 +80,12 @@ typedef struct {
 	d_touch_state touches[NUM_TOUCHES];
 	bool resized;
 	char char_input;
+
+	GLuint gl_prog;
+	GLuint gl_vbuf;
+	GLuint gl_ibuf;
+	GLuint gl_tex;
+
 } d_app_t;
 
 static d_app_t d_app;
@@ -159,6 +192,111 @@ void d_process_btn(d_btn *b) {
 }
 
 static void init() {
+
+	// program
+	GLchar info_log[512];
+	GLint success = 0;
+
+	// vertex shader
+	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+
+	glShaderSource(vs, 1, &vs_src, 0);
+	glCompileShader(vs);
+
+	glGetShaderiv(vs, GL_COMPILE_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		glGetShaderInfoLog(vs, 512, NULL, info_log);
+		d_fail("%s", info_log);
+	}
+
+	// fragment shader
+	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+
+	glShaderSource(fs, 1, &fs_src, 0);
+	glCompileShader(fs);
+
+	glGetShaderiv(fs, GL_COMPILE_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		glGetShaderInfoLog(fs, 512, NULL, info_log);
+		d_fail("%s", info_log);
+	}
+
+	// program
+	d_app.gl_prog = glCreateProgram();
+
+	glAttachShader(d_app.gl_prog, vs);
+	glAttachShader(d_app.gl_prog, fs);
+
+	glBindAttribLocation(d_app.gl_prog, 0, "a_pos");
+	glBindAttribLocation(d_app.gl_prog, 1, "a_uv");
+
+	glLinkProgram(d_app.gl_prog);
+
+	glDetachShader(d_app.gl_prog, vs);
+	glDetachShader(d_app.gl_prog, fs);
+	glDeleteShader(vs);
+	glDeleteShader(fs);
+
+	glGetProgramiv(d_app.gl_prog, GL_LINK_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		glGetProgramInfoLog(d_app.gl_prog, 512, NULL, info_log);
+		d_fail("%s", info_log);
+	}
+
+	float verts[] = {
+		-1.0,  1.0, 0.0, 0.0,
+		 1.0,  1.0, 1.0, 0.0,
+		 1.0, -1.0, 1.0, 1.0,
+		-1.0, -1.0, 0.0, 1.0,
+	};
+
+	unsigned int indices[] = {
+		0, 1, 2,
+		0, 2, 3,
+	};
+
+	// vbuf
+	glGenBuffers(1, &d_app.gl_vbuf);
+	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// ibuf
+	glGenBuffers(1, &d_app.gl_ibuf);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, d_app.gl_ibuf);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	// tex
+	glGenTextures(1, &d_app.gl_tex);
+	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_RGBA,
+		d_width(),
+		d_height(),
+		0,
+		GL_RGBA,
+		GL_UNSIGNED_BYTE,
+		NULL
+	);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	// init gl
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	glViewport(0, 0, sapp_width(), sapp_height());
 
 	d_gfx_init(&d_app.desc);
 	d_audio_init(&d_app.desc);
@@ -323,6 +461,40 @@ void d_assert(bool test, const char *fmt, ...) {
 		fflush(stderr);
 		exit(EXIT_FAILURE);
 	}
+}
+
+void d_present(color *pixels) {
+
+	glClear(GL_COLOR_BUFFER_BIT);
+	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, d_app.gl_ibuf);
+	glUseProgram(d_app.gl_prog);
+	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
+
+	glTexSubImage2D(
+		GL_TEXTURE_2D,
+		0,
+		0,
+		0,
+		d_width(),
+		d_height(),
+		GL_RGBA,
+		GL_UNSIGNED_BYTE,
+		pixels
+	);
+
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 16, (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16, (void*)8);
+	glEnableVertexAttribArray(1);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glUseProgram(0);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
 }
 
 float d_time() {

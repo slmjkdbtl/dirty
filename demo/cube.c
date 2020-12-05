@@ -10,9 +10,9 @@ void frame() {
 		d_quit();
 	}
 
-	d_rot_x(radf(-45.0));
-	d_rot_y(radf(-45.0));
-	d_scale(vec3f(90.0, 90.0, 90.0));
+// 	d_rot_x(radf(-45.0));
+// 	d_rot_y(radf(-45.0));
+// 	d_scale(vec3f(90.0, 90.0, 90.0));
 	d_draw_mesh(&cube);
 
 }
@@ -85,12 +85,12 @@ void init() {
 		3, 6, 7,
 	};
 
-	cube = d_make_mesh(&(d_mesh_data) {
+	cube = (d_mesh) {
 		.verts = verts,
 		.num_verts = 8,
 		.indices = indices,
 		.num_indices = 36,
-	});
+	};
 
 }
 
@@ -99,6 +99,9 @@ int main() {
 		.title = "cube",
 		.init = init,
 		.frame = frame,
+		.width = 240,
+		.height = 240,
+		.scale = 2,
 	});
 }
 

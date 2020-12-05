@@ -1,9 +1,13 @@
 // wengwengweng
 
-#include <stdlib.h>
+#include <math.h>
 #include <dirty/dirty.h>
 
-d_shader shader;
+d_img img;
+
+void init() {
+	img = d_make_img(d_width(), d_height());
+}
 
 void frame() {
 
@@ -11,15 +15,18 @@ void frame() {
 		d_quit();
 	}
 
-	d_use_shader(&shader);
-	d_send_f("u_time", d_time());
-	d_draw_rect(d_coord(D_TOP_LEFT), d_coord(D_BOT_RIGHT), WHITE);
-	d_use_shader(NULL);
+	for (int x = 0; x < img.width; x++) {
+		for (int y = 0; y < img.height; y++) {
+			vec2 uv = vec2f((float)x / (float)img.width - 0.5, (float)y / (float)img.height - 0.5);
+			float angle = atan2(uv.y, uv.x);
+			float dis = vec2_len(uv);
+			float c = sin(dis * 48.0 + d_time() * 8 + angle);
+			d_img_set(&img, x, y, colori(c * 255, c * 255, c * 255, 255));
+		}
+	}
 
-}
+	d_draw_img(&img, vec2f(0, 0));
 
-void init() {
-	shader = d_load_shader(NULL, "res/spiral.frag");
 }
 
 int main() {
@@ -27,6 +34,9 @@ int main() {
 		.title = "shader",
 		.init = init,
 		.frame = frame,
+		.width = 240,
+		.height = 240,
+		.scale = 2,
 	});
 }
 

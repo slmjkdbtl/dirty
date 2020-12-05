@@ -28,6 +28,21 @@ typedef enum {
 } d_blend;
 
 typedef struct {
+	vec3 pos;
+	vec3 normal;
+	vec2 uv;
+	color color;
+} d_vertex;
+
+typedef unsigned int d_index;
+
+typedef struct {
+	vec3 pos;
+	vec3 scale;
+	quat rot;
+} d_psr;
+
+typedef struct {
 	color *pixels;
 	int width;
 	int height;
@@ -40,8 +55,32 @@ typedef struct {
 
 typedef struct {
 	d_imgs imgs;
+	int width;
+	int height;
 	int map[128];
 } d_font;
+
+typedef struct {
+	d_vertex *verts;
+	int num_verts;
+	d_index *indices;
+	int num_indices;
+} d_mesh;
+
+typedef struct d_model_node {
+	d_psr psr;
+	struct d_model_node *children;
+	int num_children;
+	d_mesh *meshes;
+	int num_meshes;
+} d_model_node;
+
+typedef struct {
+	d_model_node *nodes;
+	int num_nodes;
+	d_img *images;
+	int num_images;
+} d_model;
 
 d_img d_make_img(int w, int h);
 d_img d_parse_img(const unsigned char *bytes, int size);
@@ -56,17 +95,27 @@ void d_free_imgs(d_imgs *imgs);
 d_font d_make_font(d_img img, int gw, int gh, const char *chars);
 void d_free_font(d_font *font);
 
+void d_free_mesh(d_mesh *mesh);
+
+mat4 d_psr_mat4(d_psr psr);
+
+// model
+d_model d_parse_model(const unsigned char *bytes, int size);
+d_model d_load_model(const char *path);
+void d_free_model(d_model *model);
+
 void d_clear();
 void d_set_blend(d_blend b);
 void d_put(vec2 p, color c);
 color d_peek(vec2 p);
 void d_draw_img(const d_img *img, vec2 pos);
-// void d_draw_imgq(const d_img *img, quad q, vec2 pos);
 void d_draw_text(const char *text, vec2 pos);
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
 void d_draw_circle(vec2 center, float r, color c);
 void d_draw_line(vec2 p1, vec2 p2, color c);
+void d_draw_mesh(const d_mesh *mesh);
+void d_draw_model(const d_model *model);
 
 void d_drawon(d_img *img);
 d_img *d_canvas();

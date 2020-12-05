@@ -12,45 +12,15 @@
 
 #include <dirty/dirty.h>
 
-#include "utils.h"
-// http://pelulamu.net/unscii/
 #include "res/unscii.png.h"
 
-#define T_STACKS 16
+void d_present(color *pixels);
 
-static const char *vs_src =
-#ifndef GLES
-"#version 120\n"
-#endif
-"attribute vec2 a_pos;"
-"attribute vec2 a_uv;"
-"varying vec2 v_uv;"
-"void main() {"
-	"v_uv = a_uv;"
-	"gl_Position = vec4(a_pos, 0.0, 1.0);"
-"}"
-;
-
-static const char *fs_src =
-#ifndef GLES
-"#version 120\n"
-#else
-"precision mediump float;"
-#endif
-"varying vec2 v_uv;"
-"uniform sampler2D u_tex;"
-"void main() {"
-	"gl_FragColor = texture2D(u_tex, v_uv);"
-"}"
-;
+#define MAX_TSTACK 16
 
 typedef struct {
-	GLuint gl_prog;
-	GLuint gl_vbuf;
-	GLuint gl_ibuf;
-	GLuint gl_tex;
-	d_img def_img;
-	d_img *cur_img;
+	d_img def_canvas;
+	d_img *cur_canvas;
 	d_blend blend;
 	d_font def_font;
 	d_font *cur_font;
@@ -59,152 +29,17 @@ typedef struct {
 static d_gfx_ctx d_gfx;
 
 void d_gfx_init(d_desc *desc) {
-
-	d_gfx.def_img = d_make_img(desc->width, desc->height);
-	d_gfx.cur_img = &d_gfx.def_img;
-	d_gfx.blend = D_ALPHA;
+	d_gfx.def_canvas = d_make_img(desc->width, desc->height);
+	d_gfx.cur_canvas = &d_gfx.def_canvas;
 	d_gfx.def_font = d_make_font(d_parse_img(unscii_png, unscii_png_len), 8, 8, D_ASCII_CHARS);
 	d_gfx.cur_font = &d_gfx.def_font;
-
-	// program
-	GLchar info_log[512];
-	GLint success = 0;
-
-	// vertex shader
-	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-
-	glShaderSource(vs, 1, &vs_src, 0);
-	glCompileShader(vs);
-
-	glGetShaderiv(vs, GL_COMPILE_STATUS, &success);
-
-	if (success == GL_FALSE) {
-		glGetShaderInfoLog(vs, 512, NULL, info_log);
-		d_fail("%s", info_log);
-	}
-
-	// fragment shader
-	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
-
-	glShaderSource(fs, 1, &fs_src, 0);
-	glCompileShader(fs);
-
-	glGetShaderiv(fs, GL_COMPILE_STATUS, &success);
-
-	if (success == GL_FALSE) {
-		glGetShaderInfoLog(fs, 512, NULL, info_log);
-		d_fail("%s", info_log);
-	}
-
-	// program
-	d_gfx.gl_prog = glCreateProgram();
-
-	glAttachShader(d_gfx.gl_prog, vs);
-	glAttachShader(d_gfx.gl_prog, fs);
-
-	glBindAttribLocation(d_gfx.gl_prog, 0, "a_pos");
-	glBindAttribLocation(d_gfx.gl_prog, 1, "a_uv");
-
-	glLinkProgram(d_gfx.gl_prog);
-
-	glDetachShader(d_gfx.gl_prog, vs);
-	glDetachShader(d_gfx.gl_prog, fs);
-	glDeleteShader(vs);
-	glDeleteShader(fs);
-
-	glGetProgramiv(d_gfx.gl_prog, GL_LINK_STATUS, &success);
-
-	if (success == GL_FALSE) {
-		glGetProgramInfoLog(d_gfx.gl_prog, 512, NULL, info_log);
-		d_fail("%s", info_log);
-	}
-
-	float verts[] = {
-		-1.0,  1.0, 0.0, 0.0,
-		 1.0,  1.0, 1.0, 0.0,
-		 1.0, -1.0, 1.0, 1.0,
-		-1.0, -1.0, 0.0, 1.0,
-	};
-
-	unsigned int indices[] = {
-		0, 1, 2,
-		0, 2, 3,
-	};
-
-	// vbuf
-	glGenBuffers(1, &d_gfx.gl_vbuf);
-	glBindBuffer(GL_ARRAY_BUFFER, d_gfx.gl_vbuf);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	// ibuf
-	glGenBuffers(1, &d_gfx.gl_ibuf);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, d_gfx.gl_ibuf);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-
-	// tex
-	glGenTextures(1, &d_gfx.gl_tex);
-	glBindTexture(GL_TEXTURE_2D, d_gfx.gl_tex);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-	glTexImage2D(
-		GL_TEXTURE_2D,
-		0,
-		GL_RGBA,
-		d_gfx.def_img.width,
-		d_gfx.def_img.height,
-		0,
-		GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		d_gfx.def_img.pixels
-	);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	// init gl
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	glViewport(0, 0, d_gfx.def_img.width * desc->scale, d_gfx.def_img.height * desc->scale);
-
+	d_gfx.blend = D_ALPHA;
 }
 
+void d_present2(color *pixels);
+
 void d_gfx_frame_end() {
-
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	glBindBuffer(GL_ARRAY_BUFFER, d_gfx.gl_vbuf);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, d_gfx.gl_ibuf);
-	glUseProgram(d_gfx.gl_prog);
-	glBindTexture(GL_TEXTURE_2D, d_gfx.gl_tex);
-
-	glTexSubImage2D(
-		GL_TEXTURE_2D,
-		0,
-		0,
-		0,
-		d_gfx.cur_img->width,
-		d_gfx.cur_img->height,
-		GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		d_gfx.cur_img->pixels
-	);
-
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 16, (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16, (void*)8);
-	glEnableVertexAttribArray(1);
-
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glUseProgram(0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
+	d_present(d_gfx.cur_canvas->pixels);
 }
 
 d_img d_make_img(int w, int h) {
@@ -258,15 +93,6 @@ d_imgs d_img_slice(const d_img *img, int w, int h) {
 	};
 }
 
-void d_free_imgs(d_imgs *imgs) {
-	for (int i = 0; i < imgs->num_imgs; i++) {
-		d_free_img(&imgs->imgs[i]);
-	}
-	free(imgs->imgs);
-	imgs->imgs = NULL;
-	imgs->num_imgs = 0;
-}
-
 void d_img_set(d_img *img, int x, int y, color c) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
@@ -294,9 +120,20 @@ void d_free_img(d_img *img) {
 	img->height = 0;
 }
 
+void d_free_imgs(d_imgs *imgs) {
+	for (int i = 0; i < imgs->num_imgs; i++) {
+		d_free_img(&imgs->imgs[i]);
+	}
+	free(imgs->imgs);
+	imgs->imgs = NULL;
+	imgs->num_imgs = 0;
+}
+
 d_font d_make_font(d_img img, int gw, int gh, const char *chars) {
 
 	d_font f = {0};
+	f.width = gw;
+	f.height = gh;
 	f.imgs = d_img_slice(&img, gw, gh);
 
 	int num_chars = strlen(chars);
@@ -315,18 +152,216 @@ void d_free_font(d_font *f) {
 	d_free_imgs(&f->imgs);
 }
 
+void d_free_mesh(d_mesh *m) {
+	free(m->verts);
+	m->num_verts = 0;
+	free(m->indices);
+	m->num_indices = 0;
+}
+
+static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
+
+	model->psr.pos = vec3f(node->translation[0], node->translation[1], node->translation[2]);
+	model->psr.scale = vec3f(node->scale[0], node->scale[1], node->scale[2]);
+	model->psr.rot = quatf(node->rotation[0], node->rotation[1], node->rotation[2], node->rotation[3]);
+
+	int num_children = node->children_count;
+
+	model->num_children = num_children;
+	model->children = malloc(sizeof(d_model_node) * num_children);
+
+	for (int i = 0; i < num_children; i++) {
+		d_parse_model_node(node->children[i], &model->children[i]);
+	}
+
+	int num_meshes = node->mesh->primitives_count;
+	model->num_meshes = num_meshes;
+	model->meshes = malloc(sizeof(d_mesh) * num_meshes);
+
+	for (int i = 0; i < num_meshes; i++) {
+
+		cgltf_primitive *prim = &node->mesh->primitives[i];
+		int num_verts = prim->attributes[0].data->count;
+		d_vertex *verts = calloc(num_verts, sizeof(d_vertex));
+
+		for (int j = 0; j < num_verts; j++) {
+			verts[j].color = coloru();
+		}
+
+		for (int j = 0; j < prim->attributes_count; j++) {
+
+			cgltf_attribute *attr = &prim->attributes[j];
+			cgltf_accessor *acc = attr->data;
+			float color_tmp[4];
+
+			d_assert(acc->count == num_verts, "bad gltf\n");
+
+			switch (attr->type) {
+				case cgltf_attribute_type_position:
+					d_assert(acc->type == cgltf_type_vec3, "gltf pos must be vec3\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].pos, 3);
+					}
+					break;
+				case cgltf_attribute_type_normal:
+					d_assert(acc->type == cgltf_type_vec3, "gltf normal must be vec3\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].normal, 3);
+					}
+					break;
+				case cgltf_attribute_type_texcoord:
+					d_assert(acc->type == cgltf_type_vec2, "gltf texcoord must be vec2\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].uv, 2);
+					}
+					break;
+				case cgltf_attribute_type_color:
+					d_assert(acc->type == cgltf_type_vec4, "gltf color must be vec4\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, color_tmp, 4);
+						verts[k].color = colorf(color_tmp[0], color_tmp[1], color_tmp[2], color_tmp[3]);
+					}
+					break;
+				default:
+					break;
+			}
+
+		}
+
+		int num_indices = prim->indices->count;
+		d_index *indices = calloc(num_indices, sizeof(d_index));
+
+		for (int j = 0; j < prim->indices->count; j++) {
+			cgltf_accessor_read_uint(prim->indices, j, &indices[j], 1);
+		}
+
+		model->meshes[i] = (d_mesh) {
+			.verts = verts,
+			.num_verts = num_verts,
+			.indices = indices,
+			.num_indices = num_indices,
+		};
+
+	}
+
+}
+d_model d_parse_model(const unsigned char *bytes, int size) {
+
+	cgltf_options options = {0};
+	cgltf_data *doc = NULL;
+	cgltf_result res = cgltf_parse(&options, bytes, size, &doc);
+	cgltf_load_buffers(&options, doc, NULL);
+
+	d_assert(res == cgltf_result_success, "failed to parse gltf\n");
+	d_assert(doc->scene->nodes_count >= 1, "empty gltf\n");
+
+	d_model model = {0};
+
+	int num_textures = doc->textures_count;
+	model.num_images = num_textures;
+	model.images = malloc(sizeof(d_img) * num_textures);
+
+	for (int i = 0; i < num_textures; i++) {
+		cgltf_image *img = doc->textures[i].image;
+		cgltf_buffer_view *view = img->buffer_view;
+		unsigned char *data = view->buffer->data;
+		model.images[i] = d_parse_img(data + view->offset, view->size);
+	}
+
+	int num_nodes = doc->scene->nodes_count;
+	model.num_nodes = num_nodes;
+	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
+
+	for (int i = 0; i < num_nodes; i++) {
+		d_parse_model_node(doc->scene->nodes[i], &model.nodes[i]);
+	}
+
+	cgltf_free(doc);
+
+	return model;
+
+}
+
+d_model d_load_model(const char *path) {
+	size_t size;
+	unsigned char *bytes = d_read_bytes(path, &size);
+	d_model data = d_parse_model(bytes, size);
+	free(bytes);
+	return data;
+}
+
+static void d_model_node_bbox(const d_model_node *node, box *bbox, mat4 tp) {
+
+	mat4 t = mat4_mult(tp, d_psr_mat4(node->psr));
+
+	for (int i = 0; i < node->num_meshes; i++) {
+		d_mesh *mesh = &node->meshes[i];
+		for (int j = 0; j < mesh->num_verts; j++) {
+			vec3 p = mat4_mult_vec3(t, mesh->verts[j].pos);
+			bbox->p1 = vec3_min(bbox->p1, p);
+			bbox->p2 = vec3_max(bbox->p2, p);
+		}
+	}
+
+	for (int i = 0; i < node->num_children; i++) {
+		d_model_node_bbox(&node->children[i], bbox, t);
+	}
+
+}
+
+box d_model_bbox(const d_model *data) {
+
+	box bbox = (box) {
+		.p1 = vec3f(0.0, 0.0, 0.0),
+		.p2 = vec3f(0.0, 0.0, 0.0),
+	};
+
+	for (int i = 0; i < data->num_nodes; i++) {
+		d_model_node_bbox(&data->nodes[i], &bbox, mat4u());
+	}
+
+	return bbox;
+
+}
+
+static void d_free_model_node(d_model_node *node) {
+	for (int i = 0; i < node->num_meshes; i++) {
+		d_free_mesh(&node->meshes[i]);
+	}
+	for (int i = 0; i < node->num_children; i++) {
+		d_free_model_node(&node->children[i]);
+	}
+	free(node->children);
+	free(node->meshes);
+}
+
+void d_free_model(d_model *model) {
+	for (int i = 0; i < model->num_nodes; i++) {
+		d_free_model_node(&model->nodes[i]);
+	}
+	for (int i = 0; i < model->num_images; i++) {
+		d_free_img(&model->images[i]);
+	}
+	free(model->nodes);
+	free(model->images);
+}
+
+mat4 d_psr_mat4(d_psr psr) {
+	return mat4_mult(mat4_mult(mat4_translate(psr.pos), mat4_scale(psr.scale)), mat4_rot_quat(psr.rot));
+}
+
 void d_clear() {
-	memset(d_gfx.cur_img->pixels, 0, sizeof(color) * d_gfx.cur_img->width * d_gfx.cur_img->height);
+	memset(d_gfx.cur_canvas->pixels, 0, sizeof(color) * d_gfx.cur_canvas->width * d_gfx.cur_canvas->height);
 }
 
 void d_put(vec2 p, color c) {
 	switch (d_gfx.blend) {
 		case D_ALPHA: {
 			if (c.a == 255) {
-				d_img_set(d_gfx.cur_img, p.x, p.y, c);
+				d_img_set(d_gfx.cur_canvas, p.x, p.y, c);
 			} else if (c.a != 0) {
-				color rc = d_img_get(d_gfx.cur_img, p.x, p.y);
-				d_img_set(d_gfx.cur_img, p.x, p.y, (color) {
+				color rc = d_img_get(d_gfx.cur_canvas, p.x, p.y);
+				d_img_set(d_gfx.cur_canvas, p.x, p.y, (color) {
 					.r = (rc.r * (255 - c.a) + c.r * c.a) / 255,
 					.g = (rc.g * (255 - c.a) + c.g * c.a) / 255,
 					.b = (rc.b * (255 - c.a) + c.b * c.a) / 255,
@@ -336,12 +371,12 @@ void d_put(vec2 p, color c) {
 			break;
 		}
 		case D_REPLACE:
-			d_img_set(d_gfx.cur_img, p.x, p.y, c);
+			d_img_set(d_gfx.cur_canvas, p.x, p.y, c);
 			break;
 		case D_ADD:
 			if (c.a != 0) {
-				color rc = d_img_get(d_gfx.cur_img, p.x, p.y);
-				d_img_set(d_gfx.cur_img, p.x, p.y, (color) {
+				color rc = d_img_get(d_gfx.cur_canvas, p.x, p.y);
+				d_img_set(d_gfx.cur_canvas, p.x, p.y, (color) {
 					.r = (rc.r * rc.a + c.r * c.a) / 255,
 					.g = (rc.g * rc.a + c.g * c.a) / 255,
 					.b = (rc.b * rc.a + c.b * c.a) / 255,
@@ -353,7 +388,7 @@ void d_put(vec2 p, color c) {
 }
 
 color d_peek(vec2 p) {
-	return d_img_get(d_gfx.cur_img, p.x, p.y);
+	return d_img_get(d_gfx.cur_canvas, p.x, p.y);
 }
 
 void d_draw_img(const d_img *img, vec2 pos) {
@@ -363,19 +398,6 @@ void d_draw_img(const d_img *img, vec2 pos) {
 		}
 	}
 }
-
-// void d_draw_img(const d_img *img, vec2 pos) {
-// 	d_draw_imgq(img, quadf(0.0, 0.0, 1.0, 1.0), pos);
-// }
-
-// void d_draw_imgq(const d_img *img, quad q, vec2 pos) {
-// 	for (int x = img->width * q.x; x < img->width * (q.x + q.w); x++) {
-// 		for (int y = img->width * q.y; y < img->height * (q.y + q.h); y++) {
-// 			color c = img->pixels[y * img->width + x];
-// 			d_put(vec2f(x + pos.x, y + pos.y), c);
-// 		}
-// 	}
-// }
 
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
 
@@ -475,19 +497,27 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 
 }
 
+void d_draw_mesh(const d_mesh *mesh) {
+	// TODO
+}
+
+void d_draw_model(const d_model *model) {
+	// TODO
+}
+
 void d_set_blend(d_blend b) {
 	d_gfx.blend = b;
 }
 
 void d_drawon(d_img *img) {
 	if (img) {
-		d_gfx.cur_img = img;
+		d_gfx.cur_canvas = img;
 	} else {
-		d_gfx.cur_img = &d_gfx.def_img;
+		d_gfx.cur_canvas = &d_gfx.def_canvas;
 	}
 }
 
 d_img *d_canvas() {
-	return d_gfx.cur_img;
+	return d_gfx.cur_canvas;
 }
 
