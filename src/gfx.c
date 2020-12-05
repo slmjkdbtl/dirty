@@ -49,18 +49,22 @@ typedef struct {
 	GLuint gl_vbuf;
 	GLuint gl_ibuf;
 	GLuint gl_tex;
-	d_img img;
+	d_img def_img;
 	d_img *cur_img;
 	d_blend blend;
+	d_font def_font;
+	d_font *cur_font;
 } d_gfx_ctx;
 
 static d_gfx_ctx d_gfx;
 
 void d_gfx_init(d_desc *desc) {
 
-	d_gfx.img = d_make_img(desc->width, desc->height);
-	d_gfx.cur_img = &d_gfx.img;
+	d_gfx.def_img = d_make_img(desc->width, desc->height);
+	d_gfx.cur_img = &d_gfx.def_img;
 	d_gfx.blend = D_ALPHA;
+	d_gfx.def_font = d_make_font(d_parse_img(unscii_png, unscii_png_len), 8, 8, D_ASCII_CHARS);
+	d_gfx.cur_font = &d_gfx.def_font;
 
 	// program
 	GLchar info_log[512];
@@ -152,12 +156,12 @@ void d_gfx_init(d_desc *desc) {
 		GL_TEXTURE_2D,
 		0,
 		GL_RGBA,
-		d_gfx.img.width,
-		d_gfx.img.height,
+		d_gfx.def_img.width,
+		d_gfx.def_img.height,
 		0,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
-		d_gfx.img.pixels
+		d_gfx.def_img.pixels
 	);
 
 	glBindTexture(GL_TEXTURE_2D, 0);
@@ -165,7 +169,7 @@ void d_gfx_init(d_desc *desc) {
 	// init gl
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	glViewport(0, 0, d_gfx.img.width * desc->scale, d_gfx.img.height * desc->scale);
+	glViewport(0, 0, d_gfx.def_img.width * desc->scale, d_gfx.def_img.height * desc->scale);
 
 }
 
@@ -233,6 +237,36 @@ d_img d_load_img(const char *path) {
 	return img;
 }
 
+d_imgs d_img_slice(const d_img *img, int w, int h) {
+	int cols = img->width / w;
+	int rows = img->height / h;
+	int num_imgs = cols * rows;
+	d_img *imgs = malloc(sizeof(d_img) * num_imgs);
+	for (int i = 0; i < num_imgs; i++) {
+		int ox = i % cols * w;
+		int oy = i / cols * h;
+		imgs[i] = d_make_img(w, h);
+		for (int x = 0; x < w; x++) {
+			for (int y = 0; y < h; y++) {
+				d_img_set(&imgs[i], x, y, d_img_get(img, x + ox, y + oy));
+			}
+		}
+	}
+	return (d_imgs) {
+		.imgs = imgs,
+		.num_imgs = num_imgs,
+	};
+}
+
+void d_free_imgs(d_imgs *imgs) {
+	for (int i = 0; i < imgs->num_imgs; i++) {
+		d_free_img(&imgs->imgs[i]);
+	}
+	free(imgs->imgs);
+	imgs->imgs = NULL;
+	imgs->num_imgs = 0;
+}
+
 void d_img_set(d_img *img, int x, int y, color c) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
@@ -263,32 +297,22 @@ void d_free_img(d_img *img) {
 d_font d_make_font(d_img img, int gw, int gh, const char *chars) {
 
 	d_font f = {0};
+	f.imgs = d_img_slice(&img, gw, gh);
 
-	int cols = img.width / gw;
-	int rows = img.height / gh;
-	int count = cols * rows;
+	int num_chars = strlen(chars);
 
-	f.qw = 1.0 / cols;
-	f.qh = 1.0 / rows;
-	f.width = gw;
-	f.height = gh;
-	f.img = img;
-
-	d_assert(count == strlen(chars), "invalid font\n");
-
-	for (int i = 0; i < count; i++) {
-		f.map[(int)chars[i]] = (vec2) {
-			.x = (i % cols) * f.qw,
-			.y = (i / cols) * f.qh,
-		};
+	for (int i = 0; i < num_chars; i++) {
+		f.map[(int)chars[i]] = i;
 	}
+
+	d_free_img(&img);
 
 	return f;
 
 }
 
 void d_free_font(d_font *f) {
-	d_free_img(&f->img);
+	d_free_imgs(&f->imgs);
 }
 
 void d_clear() {
@@ -328,22 +352,30 @@ void d_put(vec2 p, color c) {
 	}
 }
 
-color d_look(vec2 p) {
+color d_peek(vec2 p) {
 	return d_img_get(d_gfx.cur_img, p.x, p.y);
 }
 
 void d_draw_img(const d_img *img, vec2 pos) {
-	d_draw_imgq(img, quadf(0.0, 0.0, 1.0, 1.0), pos);
-}
-
-void d_draw_imgq(const d_img *img, quad q, vec2 pos) {
-	for (int x = img->width * q.x; x < img->width * (q.x + q.w); x++) {
-		for (int y = img->width * q.y; y < img->height * (q.y + q.h); y++) {
-			color c = img->pixels[y * img->width + x];
-			d_put(vec2f(x + pos.x, y + pos.y), c);
+	for (int x = 0; x < img->width; x++) {
+		for (int y = 0; y < img->height; y++) {
+			d_put(vec2f(x + pos.x, y + pos.y), img->pixels[y * img->width + x]);
 		}
 	}
 }
+
+// void d_draw_img(const d_img *img, vec2 pos) {
+// 	d_draw_imgq(img, quadf(0.0, 0.0, 1.0, 1.0), pos);
+// }
+
+// void d_draw_imgq(const d_img *img, quad q, vec2 pos) {
+// 	for (int x = img->width * q.x; x < img->width * (q.x + q.w); x++) {
+// 		for (int y = img->width * q.y; y < img->height * (q.y + q.h); y++) {
+// 			color c = img->pixels[y * img->width + x];
+// 			d_put(vec2f(x + pos.x, y + pos.y), c);
+// 		}
+// 	}
+// }
 
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
 
@@ -392,6 +424,21 @@ void d_draw_circle(vec2 center, float r, color c) {
 
 }
 
+void d_draw_text(const char *text, vec2 pos) {
+
+	int num_chars = strlen(text);
+	d_font *font = d_gfx.cur_font;
+	int ox = 0;
+
+	for (int i = 0; i < num_chars; i++) {
+		int ii = font->map[(int)text[i]];
+		d_img *img = &font->imgs.imgs[ii];
+		d_draw_img(img, vec2f(pos.x + ox, pos.y));
+		ox += img->width;
+	}
+
+}
+
 void d_draw_line(vec2 p1, vec2 p2, color c) {
 
 	if (c.a == 0) {
@@ -436,7 +483,7 @@ void d_drawon(d_img *img) {
 	if (img) {
 		d_gfx.cur_img = img;
 	} else {
-		d_gfx.cur_img = &d_gfx.img;
+		d_gfx.cur_img = &d_gfx.def_img;
 	}
 }
 

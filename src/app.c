@@ -228,8 +228,8 @@ static void event(const sapp_event *e) {
 			d_app.mouse_states[mouse] = D_BTN_RELEASED;
 			break;
 		case SAPP_EVENTTYPE_MOUSE_MOVE:
-			d_app.mouse_pos.x = e->mouse_x / d_app.desc.scale;
-			d_app.mouse_pos.y = e->mouse_y / d_app.desc.scale;
+			d_app.mouse_pos.x = e->mouse_x * d_width() / sapp_width();
+			d_app.mouse_pos.y = e->mouse_y * d_height() / sapp_height();
 			d_app.mouse_dpos.x = (float)e->mouse_dx;
 			d_app.mouse_dpos.y = -(float)e->mouse_dy;
 			break;

@@ -1,12 +1,14 @@
 // wengwengweng
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <dirty/dirty.h>
 
 d_img img;
+vec2 pos;
 
 void init() {
-	img = d_load_img("res/acid2.png");
+	img = d_load_img("res/wizard.png");
 }
 
 void frame() {
@@ -15,13 +17,18 @@ void frame() {
 		d_quit();
 	}
 
-	d_set_blend(D_REPLACE);
+	if (d_mouse_pressed(D_MOUSE_LEFT)) {
+		pos = d_mouse_pos();
+	}
+
+// 	d_set_blend(D_REPLACE);
 
 	d_clear();
-	d_draw_img(&img, vec2f(0, 0));
+	d_draw_img(&img, pos);
 	// TODO: not replacing
 	d_draw_rect(vec2f(0, 0), d_mouse_pos(), colori(0, 0, 255, 0));
 	d_draw_circle(d_mouse_pos(), 3, colori(0, 255, 255 ,255));
+	d_draw_text("oh hi", vec2f(0, 0));
 	printf("%f\n", 1.0 / d_dt());
 
 }

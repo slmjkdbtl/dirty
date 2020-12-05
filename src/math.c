@@ -270,12 +270,21 @@ color coloru() {
 	};
 }
 
-color colorx(int hex, unsigned char a) {
+color colorx(unsigned long hex) {
 	return (color) {
-		.r = ((hex >> 16) & 0xff),
-		.g = ((hex >> 8) & 0xff),
-		.b = ((hex) & 0xff),
-		.a = a,
+		.r = ((hex >> 24) & 0xff),
+		.g = ((hex >> 16) & 0xff),
+		.b = ((hex >> 8) & 0xff),
+		.a = ((hex >> 0) & 0xff),
+	};
+}
+
+color color_mix(color c1, color c2) {
+	return (color) {
+		.r = c1.r * c2.r / 255,
+		.g = c1.g * c2.g / 255,
+		.b = c1.b * c2.b / 255,
+		.a = c1.a * c2.a / 255,
 	};
 }
 
