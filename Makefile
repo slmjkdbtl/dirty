@@ -79,6 +79,8 @@ ifeq ($(TARGET),macos)
 LDFLAGS += -framework Cocoa
 LDFLAGS += -framework QuartzCore
 LDFLAGS += -framework OpenGL
+LDFLAGS += -framework Metal
+LDFLAGS += -framework MetalKit
 LDFLAGS += -framework AudioToolbox
 endif
 
@@ -139,6 +141,7 @@ $(OBJ_PATH)/%.o: $(SRC_PATH)/%.c
 res:
 	rm -rf src/res
 	sh scripts/cres.sh res src/res
+	sokol-shdc --input res/quad.glsl --output src/res/quad.h --slang glsl330:glsl300es:hlsl5:metal_macos:metal_ios:metal_sim
 
 .PHONY: install
 install: $(LIB_TARGET)

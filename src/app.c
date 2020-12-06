@@ -1,54 +1,16 @@
 // wengwengweng
 
-#ifndef D_CUSTOM
+#ifndef D_SOKOL
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <stdarg.h>
-
-#include <dirty/dirty.h>
-
-#if defined(D_MACOS) || defined(D_LINUX) || defined(D_WINDOWS)
-	#define SOKOL_GLCORE33
-#elif defined(D_IOS) || defined(D_ANDROID) || defined(D_WEB)
-	#define SOKOL_GLES2
-#endif
+#import <Cocoa/Cocoa.h>
 
 #define SOKOL_IMPL
-#define SOKOL_NO_ENTRY
-#include <sokol/sokol_app.h>
-#include <sokol/sokol_gfx.h>
 #include <sokol/sokol_time.h>
+#include <dirty/dirty.h>
+#include <OpenGL/gl.h>
 
+#define GL_SILENCE_DEPRECATION
 #define NUM_TOUCHES 8
-
-static const char *vs_src =
-#ifndef GLES
-"#version 120\n"
-#endif
-"attribute vec2 a_pos;"
-"attribute vec2 a_uv;"
-"varying vec2 v_uv;"
-"void main() {"
-	"v_uv = a_uv;"
-	"gl_Position = vec4(a_pos, 0.0, 1.0);"
-"}"
-;
-
-static const char *fs_src =
-#ifndef GLES
-"#version 120\n"
-#else
-"precision mediump float;"
-#endif
-"varying vec2 v_uv;"
-"uniform sampler2D u_tex;"
-"void main() {"
-	"gl_FragColor = texture2D(u_tex, v_uv);"
-"}"
-;
 
 void d_gfx_init(d_desc *desc);
 void d_audio_init(d_desc *desc);
@@ -71,7 +33,6 @@ typedef struct {
 } d_touch_state;
 
 typedef struct {
-
 	d_desc desc;
 	float time;
 	float dt;
@@ -83,107 +44,145 @@ typedef struct {
 	d_touch_state touches[NUM_TOUCHES];
 	bool resized;
 	char char_input;
-
-	GLuint gl_prog;
-	GLuint gl_vbuf;
-	GLuint gl_ibuf;
+	color *buf;
+#if defined(D_GL)
 	GLuint gl_tex;
-
+#endif
 } d_app_t;
 
 static d_app_t d_app;
 
-static d_mouse sapp_mouse_to_d(sapp_mousebutton btn) {
-	switch (btn) {
-		case SAPP_MOUSEBUTTON_LEFT: return D_MOUSE_LEFT;
-		case SAPP_MOUSEBUTTON_RIGHT: return D_MOUSE_RIGHT;
-		case SAPP_MOUSEBUTTON_MIDDLE: return D_MOUSE_MIDDLE;
-		default: return D_MOUSE_NONE;
-	}
-	return D_MOUSE_NONE;
-}
+@interface WindowDelegate:NSObject<NSWindowDelegate>
+@end
 
-static d_key sapp_key_to_d(sapp_keycode code) {
-	switch (code) {
-		case SAPP_KEYCODE_A: return D_KEY_A;
-		case SAPP_KEYCODE_B: return D_KEY_B;
-		case SAPP_KEYCODE_C: return D_KEY_C;
-		case SAPP_KEYCODE_D: return D_KEY_D;
-		case SAPP_KEYCODE_E: return D_KEY_E;
-		case SAPP_KEYCODE_F: return D_KEY_F;
-		case SAPP_KEYCODE_G: return D_KEY_G;
-		case SAPP_KEYCODE_H: return D_KEY_H;
-		case SAPP_KEYCODE_I: return D_KEY_I;
-		case SAPP_KEYCODE_J: return D_KEY_J;
-		case SAPP_KEYCODE_K: return D_KEY_K;
-		case SAPP_KEYCODE_L: return D_KEY_L;
-		case SAPP_KEYCODE_M: return D_KEY_M;
-		case SAPP_KEYCODE_N: return D_KEY_N;
-		case SAPP_KEYCODE_O: return D_KEY_O;
-		case SAPP_KEYCODE_P: return D_KEY_P;
-		case SAPP_KEYCODE_Q: return D_KEY_Q;
-		case SAPP_KEYCODE_R: return D_KEY_R;
-		case SAPP_KEYCODE_S: return D_KEY_S;
-		case SAPP_KEYCODE_T: return D_KEY_T;
-		case SAPP_KEYCODE_U: return D_KEY_U;
-		case SAPP_KEYCODE_V: return D_KEY_V;
-		case SAPP_KEYCODE_W: return D_KEY_W;
-		case SAPP_KEYCODE_X: return D_KEY_X;
-		case SAPP_KEYCODE_Y: return D_KEY_Y;
-		case SAPP_KEYCODE_Z: return D_KEY_Z;
-		case SAPP_KEYCODE_1: return D_KEY_1;
-		case SAPP_KEYCODE_2: return D_KEY_2;
-		case SAPP_KEYCODE_3: return D_KEY_3;
-		case SAPP_KEYCODE_4: return D_KEY_4;
-		case SAPP_KEYCODE_5: return D_KEY_5;
-		case SAPP_KEYCODE_6: return D_KEY_6;
-		case SAPP_KEYCODE_7: return D_KEY_7;
-		case SAPP_KEYCODE_8: return D_KEY_8;
-		case SAPP_KEYCODE_9: return D_KEY_9;
-		case SAPP_KEYCODE_0: return D_KEY_0;
-		case SAPP_KEYCODE_MINUS: return D_KEY_MINUS;
-		case SAPP_KEYCODE_EQUAL: return D_KEY_EQUAL;
-		case SAPP_KEYCODE_SPACE: return D_KEY_SPACE;
-		case SAPP_KEYCODE_COMMA: return D_KEY_COMMA;
-		case SAPP_KEYCODE_PERIOD: return D_KEY_PERIOD;
-		case SAPP_KEYCODE_SLASH: return D_KEY_SLASH;
-		case SAPP_KEYCODE_LEFT_BRACKET: return D_KEY_LBRACKET;
-		case SAPP_KEYCODE_RIGHT_BRACKET: return D_KEY_RBRACKET;
-		case SAPP_KEYCODE_BACKSLASH: return D_KEY_BACKSLASH;
-		case SAPP_KEYCODE_SEMICOLON: return D_KEY_SEMICOLON;
-		case SAPP_KEYCODE_ENTER: return D_KEY_ENTER;
-		case SAPP_KEYCODE_ESCAPE: return D_KEY_ESC;
-		case SAPP_KEYCODE_BACKSPACE: return D_KEY_BACKSPACE;
-		case SAPP_KEYCODE_TAB: return D_KEY_TAB;
-		case SAPP_KEYCODE_APOSTROPHE: return D_KEY_QUOTE;
-		case SAPP_KEYCODE_GRAVE_ACCENT: return D_KEY_BACKQUOTE;
-		case SAPP_KEYCODE_F1: return D_KEY_F1;
-		case SAPP_KEYCODE_F2: return D_KEY_F2;
-		case SAPP_KEYCODE_F3: return D_KEY_F3;
-		case SAPP_KEYCODE_F4: return D_KEY_F4;
-		case SAPP_KEYCODE_F5: return D_KEY_F5;
-		case SAPP_KEYCODE_F6: return D_KEY_F6;
-		case SAPP_KEYCODE_F7: return D_KEY_F7;
-		case SAPP_KEYCODE_F8: return D_KEY_F8;
-		case SAPP_KEYCODE_F9: return D_KEY_F9;
-		case SAPP_KEYCODE_F10: return D_KEY_F10;
-		case SAPP_KEYCODE_F11: return D_KEY_F11;
-		case SAPP_KEYCODE_F12: return D_KEY_F12;
-		case SAPP_KEYCODE_RIGHT: return D_KEY_RIGHT;
-		case SAPP_KEYCODE_LEFT: return D_KEY_LEFT;
-		case SAPP_KEYCODE_DOWN: return D_KEY_DOWN;
-		case SAPP_KEYCODE_UP: return D_KEY_UP;
-		case SAPP_KEYCODE_LEFT_CONTROL: return D_KEY_LCTRL;
-		case SAPP_KEYCODE_RIGHT_CONTROL: return D_KEY_RCTRL;
-		case SAPP_KEYCODE_LEFT_ALT: return D_KEY_LALT;
-		case SAPP_KEYCODE_RIGHT_ALT: return D_KEY_RALT;
-		case SAPP_KEYCODE_LEFT_SUPER: return D_KEY_LMETA;
-		case SAPP_KEYCODE_RIGHT_SUPER: return D_KEY_RMETA;
-		case SAPP_KEYCODE_LEFT_SHIFT: return D_KEY_LSHIFT;
-		case SAPP_KEYCODE_RIGHT_SHIFT: return D_KEY_RSHIFT;
-		default: return D_KEY_NONE;
+@implementation WindowDelegate
+- (void)windowWillClose:(NSNotification*)noti {
+	[NSApp terminate:nil];
+}
+- (void)windowDidResize:(NSNotification*)noti {
+	printf("resize\n");
+}
+- (void)windowDidMiniaturize:(NSNotification*)noti {
+	printf("mini\n");
+}
+- (void)windowDidDeminiaturize:(NSNotification*)noti {
+	printf("demini\n");
+}
+@end
+
+@interface Window:NSWindow
+@end
+
+@implementation Window
+- (void)keyDown:(NSEvent*)event {
+	printf("key down\n");
+}
+- (void)keyUp:(NSEvent*)event {
+	printf("key up\n");
+}
+- (void)mouseDown:(NSEvent*)event {
+	printf("mouse down\n");
+}
+- (void)mouseUp:(NSEvent*)event {
+	printf("mouse up\n");
+}
+- (void)rightMouseDown:(NSEvent*)event {
+	printf("right mouse down\n");
+}
+- (void)rightMouseUp:(NSEvent*)event {
+	printf("right mouse up\n");
+}
+- (void)mouseMoved:(NSEvent*)event {
+// 	printf("mouse moved\n");
+}
+- (void)mouseEntered:(NSEvent*)event {
+	printf("mouse entered\n");
+}
+- (void)mouseExited:(NSEvent*)event {
+	printf("mouse exited\n");
+}
+- (void)scrollWheel:(NSEvent*)event {
+	printf("wheel\n");
+}
+@end
+
+#if defined(D_GL)
+@interface View:NSOpenGLView
+#else
+@interface View:NSView
+#endif
+@end
+
+@implementation View
+- (void)drawRect:(NSRect)rect {
+
+	if (!d_app.buf) {
+		return;
 	}
-	return D_KEY_NONE;
+
+	int w = d_app.desc.width;
+	int h = d_app.desc.height;
+
+#if defined(D_GL)
+
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
+
+	glTexSubImage2D(
+		GL_TEXTURE_2D,
+		0,
+		0,
+		0,
+		w,
+		h,
+		GL_RGBA,
+		GL_UNSIGNED_BYTE,
+		d_app.buf
+	);
+
+	glBegin(GL_QUADS);
+	glTexCoord2f(0, 0); glVertex2f(-1, 1);
+	glTexCoord2f(1, 0); glVertex2f(1, 1);
+	glTexCoord2f(1, 1); glVertex2f(1, -1);
+	glTexCoord2f(0, 1); glVertex2f(-1, -1);
+	glEnd();
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glFlush();
+
+#elif defined(D_NOGPU)
+
+	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
+	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, d_app.buf, w * h * 4, NULL);
+
+	CGImageRef img = CGImageCreate(
+		w,
+		h,
+		8,
+		32,
+		4 * w,
+		rgb,
+		kCGBitmapByteOrderDefault | kCGImageAlphaLast,
+		provider,
+		NULL,
+		false,
+		kCGRenderingIntentDefault
+	);
+
+	CGContextDrawImage(ctx, rect, img);
+
+	CGColorSpaceRelease(rgb);
+	CGDataProviderRelease(provider);
+	CGImageRelease(img);
+
+#endif
+
+}
+@end
+
+void d_present(color *canvas) {
+	d_app.buf = canvas;
 }
 
 void d_process_btn(d_btn *b) {
@@ -194,84 +193,70 @@ void d_process_btn(d_btn *b) {
 	}
 }
 
-static void init() {
-
-	// program
-	GLchar info_log[512];
-	GLint success = 0;
-
-	// vertex shader
-	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
-
-	glShaderSource(vs, 1, &vs_src, 0);
-	glCompileShader(vs);
-
-	glGetShaderiv(vs, GL_COMPILE_STATUS, &success);
-
-	if (success == GL_FALSE) {
-		glGetShaderInfoLog(vs, 512, NULL, info_log);
-		d_fail("%s", info_log);
+static void poll() {
+	@autoreleasepool {
+		for (;;) {
+			NSEvent *event = [NSApp
+				nextEventMatchingMask:NSEventMaskAny
+				untilDate:[NSDate distantPast]
+				inMode:NSDefaultRunLoopMode
+				dequeue:YES
+			];
+			if (event == nil) {
+				break;
+			}
+			[NSApp sendEvent:event];
+		}
 	}
+}
 
-	// fragment shader
-	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+void d_run(d_desc desc) {
 
-	glShaderSource(fs, 1, &fs_src, 0);
-	glCompileShader(fs);
+	d_app.desc = desc;
+	int w = desc.width;
+	int h = desc.height;
 
-	glGetShaderiv(fs, GL_COMPILE_STATUS, &success);
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-	if (success == GL_FALSE) {
-		glGetShaderInfoLog(fs, 512, NULL, info_log);
-		d_fail("%s", info_log);
-	}
+	[NSApplication sharedApplication];
+	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+	[NSApp activateIgnoringOtherApps:YES];
 
-	// program
-	d_app.gl_prog = glCreateProgram();
+	NSUInteger window_style =
+		NSWindowStyleMaskTitled
+		| NSWindowStyleMaskClosable
+		| NSWindowStyleMaskResizable
+		| NSWindowStyleMaskMiniaturizable
+		;
 
-	glAttachShader(d_app.gl_prog, vs);
-	glAttachShader(d_app.gl_prog, fs);
+	NSWindow *window = [[Window alloc]
+		initWithContentRect: NSMakeRect(0, 0, w * desc.scale, h * desc.scale)
+		styleMask: window_style
+		backing: NSBackingStoreBuffered
+		defer: NO
+	];
 
-	glBindAttribLocation(d_app.gl_prog, 0, "a_pos");
-	glBindAttribLocation(d_app.gl_prog, 1, "a_uv");
+	[window autorelease];
+	[window setAcceptsMouseMovedEvents:YES];
+	[window setTitle:@"hi"];
+	[window center];
+	[window setContentView:[[View alloc] init]];
+	[window makeFirstResponder:[window contentView]];
+	[window setDelegate:[[WindowDelegate alloc] init]];
+	[window makeKeyAndOrderFront:nil];
 
-	glLinkProgram(d_app.gl_prog);
+#if defined(D_GL)
 
-	glDetachShader(d_app.gl_prog, vs);
-	glDetachShader(d_app.gl_prog, fs);
-	glDeleteShader(vs);
-	glDeleteShader(fs);
+	NSOpenGLContext* ctx = [[window contentView] openGLContext];
+	GLint swapInt = 1;
+	[ctx setValues:&swapInt forParameter:NSOpenGLContextParameterSwapInterval];
+// 	[[window contentView] setWantsBestResolutionOpenGLSurface:YES];
+	[ctx makeCurrentContext];
 
-	glGetProgramiv(d_app.gl_prog, GL_LINK_STATUS, &success);
-
-	if (success == GL_FALSE) {
-		glGetProgramInfoLog(d_app.gl_prog, 512, NULL, info_log);
-		d_fail("%s", info_log);
-	}
-
-	float verts[] = {
-		-1.0,  1.0, 0.0, 0.0,
-		 1.0,  1.0, 1.0, 0.0,
-		 1.0, -1.0, 1.0, 1.0,
-		-1.0, -1.0, 0.0, 1.0,
-	};
-
-	unsigned int indices[] = {
-		0, 1, 2,
-		0, 2, 3,
-	};
-
-	// vbuf
-	glGenBuffers(1, &d_app.gl_vbuf);
-	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-	// ibuf
-	glGenBuffers(1, &d_app.gl_ibuf);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, d_app.gl_ibuf);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	glViewport(0, 0, 640, 480);
+	glEnable(GL_TEXTURE_2D);
 
 	// tex
 	glGenTextures(1, &d_app.gl_tex);
@@ -286,8 +271,8 @@ static void init() {
 		GL_TEXTURE_2D,
 		0,
 		GL_RGBA,
-		d_width(),
-		d_height(),
+		desc.width,
+		desc.height,
 		0,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
@@ -296,150 +281,30 @@ static void init() {
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
-	// init gl
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	glViewport(0, 0, sapp_width(), sapp_height());
+#endif
 
 	d_gfx_init(&d_app.desc);
 	d_audio_init(&d_app.desc);
 	d_fs_init(&d_app.desc);
-
-	if (d_app.desc.init) {
-		d_app.desc.init();
-	}
-
-}
-
-static void frame() {
-
-	if (d_app.desc.frame) {
-		d_app.desc.frame();
-	}
-
-	d_gfx_frame_end();
-
-	// time
-	float time = stm_sec(stm_now());
-
-	d_app.dt = time - d_app.time;
-	d_app.time = time;
-
-	// reset input states
-	for (int i = 0; i < _D_NUM_KEYS; i++) {
-		d_process_btn(&d_app.key_states[i]);
-	}
-
-	for (int i = 0; i < _D_NUM_MOUSE; i++) {
-		d_process_btn(&d_app.mouse_states[i]);
-	}
-
-	for (int i = 0; i < NUM_TOUCHES; i++) {
-		d_process_btn(&d_app.touches[i].state);
-	}
-
-	d_app.wheel.x = 0.0;
-	d_app.wheel.y = 0.0;
-	d_app.resized = false;
-	d_app.mouse_dpos = vec2f(0.0, 0.0);
-	d_app.char_input = 0;
-
-}
-
-static void event(const sapp_event *e) {
-
-	d_key key = sapp_key_to_d(e->key_code);
-	d_mouse mouse = sapp_mouse_to_d(e->mouse_button);
-
-	switch (e->type) {
-		case SAPP_EVENTTYPE_KEY_DOWN:
-			if (e->key_repeat) {
-				d_app.key_states[key] = D_BTN_RPRESSED;
-			} else {
-				d_app.key_states[key] = D_BTN_PRESSED;
-			}
-			break;
-		case SAPP_EVENTTYPE_KEY_UP:
-			d_app.key_states[key] = D_BTN_RELEASED;
-			break;
-		case SAPP_EVENTTYPE_MOUSE_DOWN:
-			d_app.mouse_states[mouse] = D_BTN_PRESSED;
-			break;
-		case SAPP_EVENTTYPE_MOUSE_UP:
-			d_app.mouse_states[mouse] = D_BTN_RELEASED;
-			break;
-		case SAPP_EVENTTYPE_MOUSE_MOVE:
-			d_app.mouse_pos.x = e->mouse_x * d_width() / sapp_width();
-			d_app.mouse_pos.y = e->mouse_y * d_height() / sapp_height();
-			d_app.mouse_dpos.x = (float)e->mouse_dx;
-			d_app.mouse_dpos.y = -(float)e->mouse_dy;
-			break;
-		case SAPP_EVENTTYPE_MOUSE_SCROLL:
-			d_app.wheel.x = -e->scroll_x;
-			d_app.wheel.y = -e->scroll_y;
-			break;
-		case SAPP_EVENTTYPE_CHAR:
-			if (isprint(e->char_code)) {
-				d_app.char_input = e->char_code;
-			}
-			break;
-		case SAPP_EVENTTYPE_TOUCHES_BEGAN:
-			break;
-		case SAPP_EVENTTYPE_TOUCHES_MOVED:
-			break;
-		case SAPP_EVENTTYPE_TOUCHES_ENDED:
-		case SAPP_EVENTTYPE_TOUCHES_CANCELLED:
-			break;
-		case SAPP_EVENTTYPE_RESIZED:
-			d_app.resized = true;
-			break;
-		default:
-			break;
-	}
-
-}
-
-static void cleanup() {
-	if (d_app.desc.quit) {
-		d_app.desc.quit();
-	}
-	d_audio_quit();
-}
-
-static void fail(const char *msg) {
-	if (d_app.desc.err) {
-		d_app.desc.err(msg);
-	}
-}
-
-void d_run(d_desc desc) {
-
-	desc.title = desc.title ? desc.title : "";
-	desc.width = desc.width ? desc.width : 640;
-	desc.height = desc.height ? desc.height : 480;
-	desc.scale = desc.scale ? desc.scale : 1.0;
-
-	d_app.desc = desc;
-
+	desc.init();
 	stm_setup();
 
-	sapp_run(&(sapp_desc) {
-		.init_cb = init,
-		.frame_cb = frame,
-		.event_cb = event,
-		.cleanup_cb = cleanup,
-		.fail_cb = fail,
-		.width = desc.width * desc.scale,
-		.height = desc.height * desc.scale,
-		.high_dpi = desc.hidpi,
-		.window_title = desc.title,
-		.fullscreen = desc.fullscreen,
-	});
+	while (1) {
+		poll();
+		desc.frame();
+		d_gfx_frame_end();
+		[[window contentView] setNeedsDisplay:YES];
+		float time = stm_sec(stm_now());
+		d_app.dt = time - d_app.time;
+		d_app.time = time;
+	}
+
+	[pool drain];
 
 }
 
 void d_quit() {
-	sapp_quit();
+	[NSApp terminate:nil];
 }
 
 void d_fail(const char *fmt, ...) {
@@ -466,40 +331,6 @@ void d_assert(bool test, const char *fmt, ...) {
 	}
 }
 
-void d_present(color *pixels) {
-
-	glClear(GL_COLOR_BUFFER_BIT);
-	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, d_app.gl_ibuf);
-	glUseProgram(d_app.gl_prog);
-	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
-
-	glTexSubImage2D(
-		GL_TEXTURE_2D,
-		0,
-		0,
-		0,
-		d_width(),
-		d_height(),
-		GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		pixels
-	);
-
-	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 16, (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16, (void*)8);
-	glEnableVertexAttribArray(1);
-
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glUseProgram(0);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-}
-
 float d_time() {
 	return d_app.time;
 }
@@ -509,33 +340,27 @@ float d_dt() {
 }
 
 void d_set_fullscreen(bool b) {
-	if (d_fullscreen() != b) {
-		sapp_toggle_fullscreen();
-	}
 }
 
 bool d_fullscreen() {
-	return sapp_is_fullscreen();
+	return false;
 }
 
 void d_lock_mouse(bool b) {
-	sapp_lock_mouse(b);
 }
 
 bool d_mouse_locked() {
-	return sapp_mouse_locked();
+	return false;
 }
 
 void d_hide_mouse(bool b) {
-	sapp_show_mouse(!b);
 }
 
 bool d_mouse_hidden() {
-	return !sapp_mouse_shown();
+	return false;
 }
 
 void d_show_keyboard(bool b) {
-	sapp_show_keyboard(b);
 }
 
 bool d_keyboard_shown() {
@@ -543,7 +368,6 @@ bool d_keyboard_shown() {
 }
 
 void d_set_title(const char *title) {
-	sapp_set_window_title(title);
 }
 
 const char *d_title() {
@@ -658,6 +482,7 @@ vec2 d_wheel() {
 char d_input() {
 	return d_app.char_input;
 }
+
 
 #endif
 

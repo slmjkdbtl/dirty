@@ -1300,8 +1300,7 @@ inline int sapp_run(const sapp_desc& desc) { return sapp_run(&desc); }
     #else
         /* iOS or iOS Simulator */
         #define _SAPP_IOS (1)
-        // CHANGE
-        #if !defined(SOKOL_METAL) && !defined(SOKOL_GLES2) && !defined(SOKOL_GLES3)
+        #if !defined(SOKOL_METAL) && !defined(SOKOL_GLES3)
         #error("sokol_app.h: unknown 3D API selected for iOS, must be SOKOL_METAL or SOKOL_GLES3")
         #endif
     #endif
@@ -1557,7 +1556,7 @@ inline int sapp_run(const sapp_desc& desc) { return sapp_run(&desc); }
     @end
 #elif defined(SOKOL_GLCORE33)
     @interface _sapp_macos_view : NSOpenGLView
-    // CHANGE
+    - (void)timerFired:(id)sender;
     @end
 #endif // SOKOL_GLCORE33
 
@@ -2768,26 +2767,6 @@ _SOKOL_PRIVATE void _sapp_macos_discard_state(void) {
     _SAPP_OBJC_RELEASE(_sapp.macos.window);
 }
 
-// CHANGE
-_SOKOL_PRIVATE void _sapp_macos_poll() {
-    @autoreleasepool {
-        for (;;) {
-            NSEvent* event = [NSApp
-                nextEventMatchingMask:NSEventMaskAny
-                untilDate:[NSDate distantPast]
-                inMode:NSDefaultRunLoopMode
-                dequeue:YES
-            ];
-            if (event == nil) {
-                break;
-            }
-            [NSApp sendEvent:event];
-        }
-    }
-}
-
-_SOKOL_PRIVATE void _sapp_macos_frame(void);
-
 _SOKOL_PRIVATE void _sapp_macos_run(const sapp_desc* desc) {
     _sapp_init_state(desc);
     _sapp_macos_init_keytable();
@@ -2797,14 +2776,8 @@ _SOKOL_PRIVATE void _sapp_macos_run(const sapp_desc* desc) {
     NSApp.delegate = _sapp.macos.app_dlg;
     [NSApp activateIgnoringOtherApps:YES];
     [NSApp run];
-    // CHANGE
-    NSOpenGLContext* ctx = [_sapp.macos.view openGLContext];
-    [ctx makeCurrentContext];
-    while (!_sapp.quit_ordered) {
-        _sapp_macos_poll();
-        _sapp_macos_frame();
-        [[_sapp.macos.view openGLContext] flushBuffer];
-    }
+    // NOTE: [NSApp run] never returns, instead cleanup code
+    // must be put into applicationWillTerminate
 }
 
 /* MacOS entry function */
@@ -3047,8 +3020,7 @@ _SOKOL_PRIVATE void _sapp_macos_frame(void) {
         int i = 0;
         attrs[i++] = NSOpenGLPFAAccelerated;
         attrs[i++] = NSOpenGLPFADoubleBuffer;
-        // CHANGE
-        attrs[i++] = NSOpenGLPFAOpenGLProfile; attrs[i++] = NSOpenGLProfileVersionLegacy;
+        attrs[i++] = NSOpenGLPFAOpenGLProfile; attrs[i++] = NSOpenGLProfileVersion3_2Core;
         attrs[i++] = NSOpenGLPFAColorSize; attrs[i++] = 24;
         attrs[i++] = NSOpenGLPFAAlphaSize; attrs[i++] = 8;
         attrs[i++] = NSOpenGLPFADepthSize; attrs[i++] = 24;
@@ -3079,7 +3051,14 @@ _SOKOL_PRIVATE void _sapp_macos_frame(void) {
 
         _sapp.macos.window.contentView = _sapp.macos.view;
         [_sapp.macos.window makeFirstResponder:_sapp.macos.view];
-        // CHANGE
+
+        NSTimer* timer_obj = [NSTimer timerWithTimeInterval:0.001
+            target:_sapp.macos.view
+            selector:@selector(timerFired:)
+            userInfo:nil
+            repeats:YES];
+        [[NSRunLoop currentRunLoop] addTimer:timer_obj forMode:NSDefaultRunLoopMode];
+        timer_obj = nil;
     #endif
     _sapp.valid = true;
     if (_sapp.fullscreen) {
@@ -3091,8 +3070,6 @@ _SOKOL_PRIVATE void _sapp_macos_frame(void) {
     }
     [_sapp.macos.window makeKeyAndOrderFront:nil];
     _sapp_macos_update_dimensions();
-    // CHANGE
-    [NSApp stop:nil];
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender {
@@ -3224,7 +3201,10 @@ _SOKOL_PRIVATE void _sapp_macos_frame(void) {
     _sapp_macos_update_dimensions();
     [super reshape];
 }
-// CHANGE
+- (void)timerFired:(id)sender {
+    _SOKOL_UNUSED(sender);
+    [self setNeedsDisplay:YES];
+}
 - (void)prepareOpenGL {
     [super prepareOpenGL];
     GLint swapInt = 1;
