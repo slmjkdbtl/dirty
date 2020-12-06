@@ -20,6 +20,10 @@ void frame() {
 		d_quit();
 	}
 
+	if (d_key_pressed(D_KEY_F)) {
+		d_set_fullscreen(!d_fullscreen());
+	}
+
 	if (d_mouse_pressed(D_MOUSE_LEFT)) {
 		pos = d_mouse_pos();
 	}
@@ -27,14 +31,15 @@ void frame() {
 // 	d_set_blend(D_REPLACE);
 
 	d_clear();
-// 	for (int i = 0; i < 4000; i++) {
+// 	for (int i = 0; i < 1000; i++) {
 		d_draw_img(&img, pos);
 // 	}
 	// TODO: not replacing
-	d_draw_rect(vec2f(0, 0), d_mouse_pos(), colori(0, 0, 255, 0));
+// 	d_draw_rect(vec2f(0, 0), d_mouse_pos(), colori(0, 0, 255, 100));
 	d_draw_circle(d_mouse_pos(), 3, colori(0, 255, 255 ,255));
 	d_draw_text("oh hi", vec2f(0, 0));
-// 	printf("%f\n", 1 / d_dt());
+
+	d_set_title(d_fmt("%d", d_fps()));
 
 }
 

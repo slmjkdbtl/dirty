@@ -115,8 +115,6 @@ typedef struct {
 	float scale;
 	bool fullscreen;
 	bool vsync;
-	bool resizable;
-	bool borderless;
 	bool hidpi;
 	const char *path;
 	const char *org;
@@ -146,7 +144,6 @@ void d_lock_mouse(bool b);
 bool d_mouse_hidden();
 void d_hide_mouse(bool b);
 
-const char *d_title();
 void d_set_title(const char *title);
 
 bool d_keyboard_shown();
@@ -157,10 +154,9 @@ int d_height();
 
 // TIME
 
-// get total run time
 float d_time();
-// get delta time since last frame
 float d_dt();
+int d_fps();
 
 // INPUT
 

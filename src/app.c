@@ -54,12 +54,80 @@ typedef struct {
 	bool resized;
 	char char_input;
 	color *buf;
+	float fps_timer;
+	int fps;
 #if defined(D_OPENGL)
 	GLuint gl_tex;
+#endif
+#if defined(D_MACOS)
+	NSWindow *window;
 #endif
 } d_app_t;
 
 static d_app_t d_app;
+
+#if defined(D_OPENGL)
+
+void d_opengl_init() {
+
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	glViewport(0, 0, 640, 480);
+	glEnable(GL_TEXTURE_2D);
+
+	glGenTextures(1, &d_app.gl_tex);
+	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_RGBA,
+		d_width(),
+		d_height(),
+		0,
+		GL_RGBA,
+		GL_UNSIGNED_BYTE,
+		NULL
+	);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+}
+
+void d_opengl_blit() {
+
+	glClear(GL_COLOR_BUFFER_BIT);
+	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
+
+	glTexSubImage2D(
+		GL_TEXTURE_2D,
+		0,
+		0,
+		0,
+		d_width(),
+		d_height(),
+		GL_RGBA,
+		GL_UNSIGNED_BYTE,
+		d_app.buf
+	);
+
+	glBegin(GL_QUADS);
+	glTexCoord2f(0, 0); glVertex2f(-1, 1);
+	glTexCoord2f(1, 0); glVertex2f(1, 1);
+	glTexCoord2f(1, 1); glVertex2f(1, -1);
+	glTexCoord2f(0, 1); glVertex2f(-1, -1);
+	glEnd();
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glFlush();
+
+}
+
+#endif
 
 d_key d_translate_key(unsigned short k) {
 	switch (k) {
@@ -143,14 +211,13 @@ d_key d_translate_key(unsigned short k) {
 	return D_KEY_NONE;
 }
 
-@interface NSAppDelegate : NSObject<NSApplicationDelegate>
-@end
+// @interface AppDelegate : NSObject<NSApplicationDelegate>
+// @end
 
-@implementation NSAppDelegate
-- (void)applicationDidFinishLaunching:(NSNotification*)noti {
-// 	[window toggleFullScreen:self];
-}
-@end
+// @implementation AppDelegate
+// - (void)applicationDidFinishLaunching:(NSNotification*)noti {
+// }
+// @end
 
 @interface WindowDelegate : NSObject<NSWindowDelegate>
 @end
@@ -160,14 +227,17 @@ d_key d_translate_key(unsigned short k) {
 	[NSApp terminate:nil];
 }
 - (void)windowDidResize:(NSNotification*)noti {
+	NSSize size = d_app.window.contentView.frame.size;
+	d_app.window_width = size.width;
+	d_app.window_height = size.height;
 	d_app.resized = true;
 }
-- (NSSize)windowWillResize:(NSWindow*)window toSize:(NSSize)size {
-	NSSize vsize = window.contentView.frame.size;
-	d_app.window_width = vsize.width;
-	d_app.window_height = vsize.height;
-	return size;
-}
+// - (NSSize)windowWillResize:(NSWindow*)window toSize:(NSSize)size {
+// 	NSSize vsize = window.contentView.frame.size;
+// 	d_app.window_width = vsize.width;
+// 	d_app.window_height = vsize.height;
+// 	return size;
+// }
 - (void)windowDidMiniaturize:(NSNotification*)noti {
 	// TODO
 }
@@ -225,69 +295,6 @@ d_key d_translate_key(unsigned short k) {
 @interface View:NSView
 #endif
 @end
-
-#if defined(D_OPENGL)
-
-void d_opengl_init() {
-
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	glViewport(0, 0, 640, 480);
-	glEnable(GL_TEXTURE_2D);
-
-	glGenTextures(1, &d_app.gl_tex);
-	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-	glTexImage2D(
-		GL_TEXTURE_2D,
-		0,
-		GL_RGBA,
-		d_width(),
-		d_height(),
-		0,
-		GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		NULL
-	);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-}
-
-void d_opengl_blit() {
-
-	glClear(GL_COLOR_BUFFER_BIT);
-	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
-
-	glTexSubImage2D(
-		GL_TEXTURE_2D,
-		0,
-		0,
-		0,
-		d_width(),
-		d_height(),
-		GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		d_app.buf
-	);
-
-	glBegin(GL_QUADS);
-	glTexCoord2f(0, 0); glVertex2f(-1, 1);
-	glTexCoord2f(1, 0); glVertex2f(1, 1);
-	glTexCoord2f(1, 1); glVertex2f(1, -1);
-	glTexCoord2f(0, 1); glVertex2f(-1, -1);
-	glEnd();
-	glBindTexture(GL_TEXTURE_2D, 0);
-	glFlush();
-
-}
-
-#endif
 
 @implementation View
 - (void)drawRect:(NSRect)rect {
@@ -361,10 +368,11 @@ void d_run(d_desc desc) {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
 	[NSApplication sharedApplication];
+// 	[NSApp setDelegate:[[AppDelegate alloc] init]];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 	[NSApp activateIgnoringOtherApps:YES];
 
-	NSUInteger window_style =
+	NSUInteger style =
 		NSWindowStyleMaskTitled
 		| NSWindowStyleMaskClosable
 		| NSWindowStyleMaskResizable
@@ -373,7 +381,7 @@ void d_run(d_desc desc) {
 
 	NSWindow *window = [[Window alloc]
 		initWithContentRect: NSMakeRect(0, 0, d_app.window_width, d_app.window_height)
-		styleMask: window_style
+		styleMask: style
 		backing: NSBackingStoreBuffered
 		defer: NO
 	];
@@ -386,6 +394,8 @@ void d_run(d_desc desc) {
 	[window makeFirstResponder:[window contentView]];
 	[window setDelegate:[[WindowDelegate alloc] init]];
 	[window makeKeyAndOrderFront:nil];
+
+	d_app.window = window;
 
 #if defined(D_OPENGL)
 
@@ -437,8 +447,6 @@ void d_run(d_desc desc) {
 		d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
 		d_app.mouse_pos = mpos;
 
-// 		printf("%f\n", window.contentView.frame.size.width);
-
 		if (d_app.desc.frame) {
 			d_app.desc.frame();
 		}
@@ -451,6 +459,13 @@ void d_run(d_desc desc) {
 
 		d_app.dt = time - d_app.time;
 		d_app.time = time;
+
+		d_app.fps_timer += d_app.dt;
+
+		if (d_app.fps_timer >= 1.0) {
+			d_app.fps_timer = 0.0;
+			d_app.fps = (int)(1.0 / d_app.dt);
+		}
 
 		// reset input states
 		for (int i = 0; i < _D_NUM_KEYS; i++) {
@@ -513,39 +528,49 @@ float d_dt() {
 	return d_app.dt;
 }
 
+int d_fps() {
+	return d_app.fps;
+}
+
 void d_set_fullscreen(bool b) {
+	if (b != d_fullscreen()) {
+		[d_app.window toggleFullScreen:nil];
+	}
 }
 
 bool d_fullscreen() {
-	return false;
+	return [d_app.window styleMask] & NSWindowStyleMaskFullScreen;
 }
 
+// TODO
 void d_lock_mouse(bool b) {
 }
 
+// TODO
 bool d_mouse_locked() {
 	return false;
 }
 
+// TODO
 void d_hide_mouse(bool b) {
 }
 
+// TODO
 bool d_mouse_hidden() {
 	return false;
 }
 
+// TODO
 void d_show_keyboard(bool b) {
 }
 
+// TODO
 bool d_keyboard_shown() {
 	return false;
 }
 
 void d_set_title(const char *title) {
-}
-
-const char *d_title() {
-	return "";
+	[d_app.window setTitle:[NSString stringWithUTF8String:title]];
 }
 
 bool d_key_pressed(d_key k) {
