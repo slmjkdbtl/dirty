@@ -5,6 +5,17 @@
 
 d_img img;
 
+color spiral(color oc, int x, int y, int w, int h) {
+
+	vec2 uv = vec2f((float)x / (float)w - 0.5, (float)y / (float)h - 0.5);
+	float angle = atan2(uv.y, uv.x);
+	float dis = vec2_len(uv);
+	float c = sin(dis * 48.0 + d_time() * 8 + angle);
+
+	return colori(c * 255, c * 255, c * 255, 255);
+
+}
+
 void init() {
 	img = d_make_img(d_width(), d_height());
 }
@@ -15,16 +26,7 @@ void frame() {
 		d_quit();
 	}
 
-	for (int x = 0; x < img.width; x++) {
-		for (int y = 0; y < img.height; y++) {
-			vec2 uv = vec2f((float)x / (float)img.width - 0.5, (float)y / (float)img.height - 0.5);
-			float angle = atan2(uv.y, uv.x);
-			float dis = vec2_len(uv);
-			float c = sin(dis * 48.0 + d_time() * 8 + angle);
-			d_img_set(&img, x, y, colori(c * 255, c * 255, c * 255, 255));
-		}
-	}
-
+	d_img_shade(&img, spiral);
 	d_draw_img(&img, vec2f(0, 0));
 
 }

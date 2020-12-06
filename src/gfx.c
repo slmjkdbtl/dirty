@@ -91,6 +91,14 @@ d_imgs d_img_slice(const d_img *img, int w, int h) {
 	};
 }
 
+void d_img_shade(d_img *img, color (*shade)(color, int, int, int, int)) {
+	for (int i = 0; i < img->width * img->height; i++) {
+		int x = i % img->width;
+		int y = i / img->height;
+		img->pixels[i] = shade(img->pixels[i], x, y, img->width, img->height);
+	}
+}
+
 void d_img_set(d_img *img, int x, int y, color c) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;

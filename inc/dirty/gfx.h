@@ -88,6 +88,7 @@ d_img d_load_img(const char *path);
 void d_img_set(d_img *img, int x, int y, color c);
 color d_img_get(const d_img *img, int x, int y);
 void d_img_save(const d_img *img, const char *path);
+void d_img_shade(d_img *img, color (*shade)(color c, int x, int y, int w, int h));
 void d_free_img(d_img *img);
 d_imgs d_img_slice(const d_img *img, int w, int h);
 void d_free_imgs(d_imgs *imgs);
