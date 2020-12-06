@@ -1,5 +1,7 @@
 // wengwengweng
 
+#ifndef D_CUSTOM
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -17,6 +19,7 @@
 #define SOKOL_IMPL
 #define SOKOL_NO_ENTRY
 #include <sokol/sokol_app.h>
+#include <sokol/sokol_gfx.h>
 #include <sokol/sokol_time.h>
 
 #define NUM_TOUCHES 8
@@ -655,4 +658,6 @@ vec2 d_wheel() {
 char d_input() {
 	return d_app.char_input;
 }
+
+#endif
 

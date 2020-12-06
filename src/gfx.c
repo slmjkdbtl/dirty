@@ -36,8 +36,6 @@ void d_gfx_init(d_desc *desc) {
 	d_gfx.blend = D_ALPHA;
 }
 
-void d_present2(color *pixels);
-
 void d_gfx_frame_end() {
 	d_present(d_gfx.cur_canvas->pixels);
 }

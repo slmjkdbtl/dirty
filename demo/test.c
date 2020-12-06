@@ -8,6 +8,7 @@ vec2 pos;
 
 void d_run2(d_desc);
 float d_dt2();
+float d_time2();
 
 void init() {
 	img = d_load_img("res/wizard.png");
@@ -33,8 +34,7 @@ void frame() {
 	d_draw_rect(vec2f(0, 0), d_mouse_pos(), colori(0, 0, 255, 0));
 	d_draw_circle(d_mouse_pos(), 3, colori(0, 255, 255 ,255));
 	d_draw_text("oh hi", vec2f(0, 0));
-// 	printf("%f\n", d_dt2());
-	printf("%f\n", 1.0 / d_dt());
+	printf("%f\n", 1 / d_dt());
 
 }
 
