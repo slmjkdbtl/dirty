@@ -27,6 +27,12 @@ typedef enum {
 	D_ADD,
 } d_blend;
 
+typedef enum {
+	D_EDGE,
+	D_REPEAT,
+	D_BORDER,
+} d_wrap;
+
 typedef struct {
 	vec3 pos;
 	vec3 normal;
@@ -86,9 +92,11 @@ d_img d_make_img(int w, int h);
 d_img d_parse_img(const unsigned char *bytes, int size);
 d_img d_load_img(const char *path);
 void d_img_set(d_img *img, int x, int y, color c);
+void d_img_set_ex(d_img *img, int x, int y, color c, d_blend blend);
 color d_img_get(const d_img *img, int x, int y);
+color d_img_get_ex(const d_img *img, int x, int y, d_wrap wrap);
+void d_img_fill(d_img *img, color c);
 void d_img_save(const d_img *img, const char *path);
-void d_img_shade(d_img *img, color (*shade)(color c, int x, int y, int w, int h));
 void d_free_img(d_img *img);
 d_imgs d_img_slice(const d_img *img, int w, int h);
 void d_free_imgs(d_imgs *imgs);
@@ -100,7 +108,6 @@ void d_free_mesh(d_mesh *mesh);
 
 mat4 d_psr_mat4(d_psr psr);
 
-// model
 d_model d_parse_model(const unsigned char *bytes, int size);
 d_model d_load_model(const char *path);
 void d_free_model(d_model *model);

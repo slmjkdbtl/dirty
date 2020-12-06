@@ -24,16 +24,19 @@ typedef struct {
 	d_blend blend;
 	d_font def_font;
 	d_font *cur_font;
+	color clear_color;
 } d_gfx_ctx;
 
 static d_gfx_ctx d_gfx;
 
 void d_gfx_init(d_desc *desc) {
-	d_gfx.def_canvas = d_make_img(desc->width, desc->height);
+	d_gfx.def_canvas = d_make_img(d_width(), d_height());
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
 	d_gfx.def_font = d_make_font(d_parse_img(unscii_png, unscii_png_len), 8, 8, D_ASCII_CHARS);
 	d_gfx.cur_font = &d_gfx.def_font;
 	d_gfx.blend = D_ALPHA;
+	d_gfx.clear_color = desc->clear_color;
+	d_clear();
 }
 
 void d_gfx_frame_end() {
@@ -91,28 +94,80 @@ d_imgs d_img_slice(const d_img *img, int w, int h) {
 	};
 }
 
-void d_img_shade(d_img *img, color (*shade)(color, int, int, int, int)) {
-	for (int i = 0; i < img->width * img->height; i++) {
-		int x = i % img->width;
-		int y = i / img->height;
-		img->pixels[i] = shade(img->pixels[i], x, y, img->width, img->height);
-	}
-}
-
-void d_img_set(d_img *img, int x, int y, color c) {
+void d_img_set_ex(d_img *img, int x, int y, color c, d_blend blend) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
 	int i = (int)(y * img->width + x);
-	img->pixels[i] = c;
+	switch (blend) {
+		case D_ALPHA: {
+			if (c.a == 255) {
+				img->pixels[i] = c;
+			} else if (c.a != 0) {
+				color rc = d_img_get(d_gfx.cur_canvas, x, y);
+				img->pixels[i] = (color) {
+					.r = (rc.r * (255 - c.a) + c.r * c.a) / 255,
+					.g = (rc.g * (255 - c.a) + c.g * c.a) / 255,
+					.b = (rc.b * (255 - c.a) + c.b * c.a) / 255,
+					.a = (rc.a * (255 - c.a) + c.a * c.a) / 255,
+				};
+			}
+			break;
+		}
+		case D_REPLACE:
+			img->pixels[i] = c;
+			break;
+		case D_ADD:
+			if (c.a != 0) {
+				color rc = d_img_get(d_gfx.cur_canvas, x, y);
+				img->pixels[i] = (color) {
+					.r = (rc.r * rc.a + c.r * c.a) / 255,
+					.g = (rc.g * rc.a + c.g * c.a) / 255,
+					.b = (rc.b * rc.a + c.b * c.a) / 255,
+					.a = (rc.a * rc.a + c.a * c.a) / 255,
+				};
+			}
+			break;
+	}
+}
+
+void d_img_set(d_img *img, int x, int y, color c) {
+	d_img_set_ex(img, x, y, c, D_REPLACE);
+}
+
+color d_img_get_ex(const d_img *img, int x, int y, d_wrap wrap) {
+	switch (wrap) {
+		case D_BORDER:
+			if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
+				return colori(0, 0, 0, 0);
+			} else {
+				return img->pixels[(int)(y * img->width + x)];
+			}
+		case D_EDGE: {
+			int xx = clampi(x, 0, img->width - 1);
+			int yy = clampi(y, 0, img->height - 1);
+			return img->pixels[(int)(yy * img->width + xx)];
+		}
+		case D_REPEAT: {
+			int xx = x % img->width;
+			int yy = y % img->height;
+			return img->pixels[(int)(yy * img->width + xx)];
+		}
+	}
 }
 
 color d_img_get(const d_img *img, int x, int y) {
-	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
-		return colori(0, 0, 0, 0);
+	return d_img_get_ex(img, x, y, D_BORDER);
+}
+
+void d_img_fill(d_img *img, color c) {
+	if (c.r == 0 && c.g == 0 && c.b == 0 && c.a == 0) {
+		memset(img->pixels, 0, sizeof(color) * img->width * img->height);
+	} else {
+		for (int i = 0; i < img->width * img->height; i++) {
+			img->pixels[i] = c;
+		}
 	}
-	int i = (int)(y * img->width + x);
-	return img->pixels[i];
 }
 
 void d_img_save(const d_img *img, const char *path) {
@@ -357,40 +412,11 @@ mat4 d_psr_mat4(d_psr psr) {
 }
 
 void d_clear() {
-	memset(d_gfx.cur_canvas->pixels, 0, sizeof(color) * d_gfx.cur_canvas->width * d_gfx.cur_canvas->height);
+	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
 }
 
 void d_put(vec2 p, color c) {
-	switch (d_gfx.blend) {
-		case D_ALPHA: {
-			if (c.a == 255) {
-				d_img_set(d_gfx.cur_canvas, p.x, p.y, c);
-			} else if (c.a != 0) {
-				color rc = d_img_get(d_gfx.cur_canvas, p.x, p.y);
-				d_img_set(d_gfx.cur_canvas, p.x, p.y, (color) {
-					.r = (rc.r * (255 - c.a) + c.r * c.a) / 255,
-					.g = (rc.g * (255 - c.a) + c.g * c.a) / 255,
-					.b = (rc.b * (255 - c.a) + c.b * c.a) / 255,
-					.a = (rc.a * (255 - c.a) + c.a * c.a) / 255,
-				});
-			}
-			break;
-		}
-		case D_REPLACE:
-			d_img_set(d_gfx.cur_canvas, p.x, p.y, c);
-			break;
-		case D_ADD:
-			if (c.a != 0) {
-				color rc = d_img_get(d_gfx.cur_canvas, p.x, p.y);
-				d_img_set(d_gfx.cur_canvas, p.x, p.y, (color) {
-					.r = (rc.r * rc.a + c.r * c.a) / 255,
-					.g = (rc.g * rc.a + c.g * c.a) / 255,
-					.b = (rc.b * rc.a + c.b * c.a) / 255,
-					.a = (rc.a * rc.a + c.a * c.a) / 255,
-				});
-			}
-			break;
-	}
+	d_img_set_ex(d_gfx.cur_canvas, p.x, p.y, c, d_gfx.blend);
 }
 
 color d_peek(vec2 p) {

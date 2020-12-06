@@ -108,7 +108,6 @@ typedef struct {
 	void (*init)();
 	void (*frame)();
 	void (*quit)();
-	void (*err)(const char *msg);
 	const char *title;
 	int width;
 	int height;
@@ -119,21 +118,16 @@ typedef struct {
 	const char *path;
 	const char *org;
 	const char *name;
+	color clear_color;
 	void *udata;
 } d_desc;
 
 typedef int d_touch;
 
-// LIFECYCLE
-
-// init app
 void d_run(d_desc desc);
 void d_quit();
-// quit with error message
 void d_fail(const char *fmt, ...);
 void d_assert(bool test, const char *fmt, ...);
-
-// SETTINGS
 
 bool d_fullscreen();
 void d_set_fullscreen(bool b);
@@ -151,16 +145,13 @@ void d_show_keyboard(bool b);
 
 int d_width();
 int d_height();
-
-// TIME
+int d_win_width();
+int d_win_height();
 
 float d_time();
 float d_dt();
 int d_fps();
 
-// INPUT
-
-// checking for events processed last frame
 bool d_key_pressed(d_key k);
 bool d_key_rpressed(d_key k);
 bool d_key_released(d_key k);
@@ -175,7 +166,6 @@ vec2 d_wheel();
 bool d_resized();
 char d_input();
 
-// querying input state
 bool d_mouse_down(d_mouse m);
 bool d_key_down(d_key k);
 bool d_key_mod(d_kmod kmod);
