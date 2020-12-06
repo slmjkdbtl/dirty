@@ -2,6 +2,12 @@
 
 #ifndef D_SOKOL
 
+#if !defined(D_OPENGL) && !defined(D_METAL) && !defined(D_NOGPU)
+#error "must define a blit method (D_OPENGL, D_METAL, D_NOGPU)"
+#endif
+
+#define GL_SILENCE_DEPRECATION
+
 #import <Cocoa/Cocoa.h>
 
 #define SOKOL_IMPL
@@ -9,7 +15,6 @@
 #include <dirty/dirty.h>
 #include <OpenGL/gl.h>
 
-#define GL_SILENCE_DEPRECATION
 #define NUM_TOUCHES 8
 
 void d_gfx_init(d_desc *desc);
@@ -36,6 +41,10 @@ typedef struct {
 	d_desc desc;
 	float time;
 	float dt;
+	int width;
+	int height;
+	int window_width;
+	int window_height;
 	vec2 mouse_pos;
 	vec2 mouse_dpos;
 	vec2 wheel;
@@ -45,14 +54,105 @@ typedef struct {
 	bool resized;
 	char char_input;
 	color *buf;
-#if defined(D_GL)
+#if defined(D_OPENGL)
 	GLuint gl_tex;
 #endif
 } d_app_t;
 
 static d_app_t d_app;
 
-@interface WindowDelegate:NSObject<NSWindowDelegate>
+d_key d_translate_key(unsigned short k) {
+	switch (k) {
+		case 0x1D: return D_KEY_0;
+		case 0x12: return D_KEY_1;
+		case 0x13: return D_KEY_2;
+		case 0x14: return D_KEY_3;
+		case 0x15: return D_KEY_4;
+		case 0x17: return D_KEY_5;
+		case 0x16: return D_KEY_6;
+		case 0x1A: return D_KEY_7;
+		case 0x1C: return D_KEY_8;
+		case 0x19: return D_KEY_9;
+		case 0x00: return D_KEY_A;
+		case 0x0B: return D_KEY_B;
+		case 0x08: return D_KEY_C;
+		case 0x02: return D_KEY_D;
+		case 0x0E: return D_KEY_E;
+		case 0x03: return D_KEY_F;
+		case 0x05: return D_KEY_G;
+		case 0x04: return D_KEY_H;
+		case 0x22: return D_KEY_I;
+		case 0x26: return D_KEY_J;
+		case 0x28: return D_KEY_K;
+		case 0x25: return D_KEY_L;
+		case 0x2E: return D_KEY_M;
+		case 0x2D: return D_KEY_N;
+		case 0x1F: return D_KEY_O;
+		case 0x23: return D_KEY_P;
+		case 0x0C: return D_KEY_Q;
+		case 0x0F: return D_KEY_R;
+		case 0x01: return D_KEY_S;
+		case 0x11: return D_KEY_T;
+		case 0x20: return D_KEY_U;
+		case 0x09: return D_KEY_V;
+		case 0x0D: return D_KEY_W;
+		case 0x07: return D_KEY_X;
+		case 0x10: return D_KEY_Y;
+		case 0x06: return D_KEY_Z;
+		case 0x27: return D_KEY_QUOTE;
+		case 0x2A: return D_KEY_BACKSLASH;
+		case 0x2B: return D_KEY_COMMA;
+		case 0x18: return D_KEY_EQUAL;
+		case 0x32: return D_KEY_BACKQUOTE;
+		case 0x21: return D_KEY_LBRACKET;
+		case 0x1B: return D_KEY_MINUS;
+		case 0x2F: return D_KEY_PERIOD;
+		case 0x1E: return D_KEY_RBRACKET;
+		case 0x29: return D_KEY_SEMICOLON;
+		case 0x2C: return D_KEY_SLASH;
+		case 0x33: return D_KEY_BACKSPACE;
+		case 0x7D: return D_KEY_DOWN;
+		case 0x24: return D_KEY_ENTER;
+		case 0x35: return D_KEY_ESC;
+		case 0x7A: return D_KEY_F1;
+		case 0x78: return D_KEY_F2;
+		case 0x63: return D_KEY_F3;
+		case 0x76: return D_KEY_F4;
+		case 0x60: return D_KEY_F5;
+		case 0x61: return D_KEY_F6;
+		case 0x62: return D_KEY_F7;
+		case 0x64: return D_KEY_F8;
+		case 0x65: return D_KEY_F9;
+		case 0x6D: return D_KEY_F10;
+		case 0x67: return D_KEY_F11;
+		case 0x6F: return D_KEY_F12;
+		case 0x7B: return D_KEY_LEFT;
+		case 0x3A: return D_KEY_LALT;
+		case 0x3B: return D_KEY_LCTRL;
+		case 0x38: return D_KEY_LSHIFT;
+		case 0x37: return D_KEY_LMETA;
+		case 0x7C: return D_KEY_RIGHT;
+		case 0x3D: return D_KEY_RALT;
+		case 0x3E: return D_KEY_RCTRL;
+		case 0x3C: return D_KEY_RSHIFT;
+		case 0x36: return D_KEY_RMETA;
+		case 0x31: return D_KEY_SPACE;
+		case 0x30: return D_KEY_TAB;
+		case 0x7E: return D_KEY_UP;
+	}
+	return D_KEY_NONE;
+}
+
+@interface NSAppDelegate : NSObject<NSApplicationDelegate>
+@end
+
+@implementation NSAppDelegate
+- (void)applicationDidFinishLaunching:(NSNotification*)noti {
+// 	[window toggleFullScreen:self];
+}
+@end
+
+@interface WindowDelegate : NSObject<NSWindowDelegate>
 @end
 
 @implementation WindowDelegate
@@ -60,13 +160,19 @@ static d_app_t d_app;
 	[NSApp terminate:nil];
 }
 - (void)windowDidResize:(NSNotification*)noti {
-	printf("resize\n");
+	d_app.resized = true;
+}
+- (NSSize)windowWillResize:(NSWindow*)window toSize:(NSSize)size {
+	NSSize vsize = window.contentView.frame.size;
+	d_app.window_width = vsize.width;
+	d_app.window_height = vsize.height;
+	return size;
 }
 - (void)windowDidMiniaturize:(NSNotification*)noti {
-	printf("mini\n");
+	// TODO
 }
 - (void)windowDidDeminiaturize:(NSNotification*)noti {
-	printf("demini\n");
+	// TODO
 }
 @end
 
@@ -75,58 +181,87 @@ static d_app_t d_app;
 
 @implementation Window
 - (void)keyDown:(NSEvent*)event {
-	printf("key down\n");
+	d_key k = d_translate_key(event.keyCode);
+	if (k) {
+		if (event.ARepeat) {
+			d_app.key_states[k] = D_BTN_RPRESSED;
+		} else {
+			d_app.key_states[k] = D_BTN_PRESSED;
+		}
+	}
 }
 - (void)keyUp:(NSEvent*)event {
-	printf("key up\n");
+	d_key k = d_translate_key(event.keyCode);
+	if (k) {
+		d_app.key_states[k] = D_BTN_RELEASED;
+	}
 }
 - (void)mouseDown:(NSEvent*)event {
-	printf("mouse down\n");
+	d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_PRESSED;
 }
 - (void)mouseUp:(NSEvent*)event {
-	printf("mouse up\n");
+	d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_RELEASED;
 }
 - (void)rightMouseDown:(NSEvent*)event {
-	printf("right mouse down\n");
+	d_app.mouse_states[D_MOUSE_RIGHT] = D_BTN_PRESSED;
 }
 - (void)rightMouseUp:(NSEvent*)event {
-	printf("right mouse up\n");
-}
-- (void)mouseMoved:(NSEvent*)event {
-// 	printf("mouse moved\n");
+	d_app.mouse_states[D_MOUSE_RIGHT] = D_BTN_RELEASED;
 }
 - (void)mouseEntered:(NSEvent*)event {
-	printf("mouse entered\n");
+	// TODO
 }
 - (void)mouseExited:(NSEvent*)event {
-	printf("mouse exited\n");
+	// TODO
 }
 - (void)scrollWheel:(NSEvent*)event {
-	printf("wheel\n");
+	// TODO
 }
 @end
 
-#if defined(D_GL)
+#if defined(D_OPENGL)
 @interface View:NSOpenGLView
 #else
 @interface View:NSView
 #endif
 @end
 
-@implementation View
-- (void)drawRect:(NSRect)rect {
+#if defined(D_OPENGL)
 
-	if (!d_app.buf) {
-		return;
-	}
+void d_opengl_init() {
 
-	int w = d_app.desc.width;
-	int h = d_app.desc.height;
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	glViewport(0, 0, 640, 480);
+	glEnable(GL_TEXTURE_2D);
 
-#if defined(D_GL)
+	glGenTextures(1, &d_app.gl_tex);
+	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glTexImage2D(
+		GL_TEXTURE_2D,
+		0,
+		GL_RGBA,
+		d_width(),
+		d_height(),
+		0,
+		GL_RGBA,
+		GL_UNSIGNED_BYTE,
+		NULL
+	);
+
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+}
+
+void d_opengl_blit() {
 
 	glClear(GL_COLOR_BUFFER_BIT);
-
 	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
 
 	glTexSubImage2D(
@@ -134,8 +269,8 @@ static d_app_t d_app;
 		0,
 		0,
 		0,
-		w,
-		h,
+		d_width(),
+		d_height(),
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
 		d_app.buf
@@ -150,9 +285,26 @@ static d_app_t d_app;
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glFlush();
 
+}
+
+#endif
+
+@implementation View
+- (void)drawRect:(NSRect)rect {
+
+	if (!d_app.buf) {
+		return;
+	}
+
+#if defined(D_OPENGL)
+	d_opengl_blit();
 #elif defined(D_NOGPU)
 
+	int w = d_width();
+	int h = d_height();
+
 	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
+	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
 	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
 	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, d_app.buf, w * h * 4, NULL);
 
@@ -193,28 +345,18 @@ void d_process_btn(d_btn *b) {
 	}
 }
 
-static void poll() {
-	@autoreleasepool {
-		for (;;) {
-			NSEvent *event = [NSApp
-				nextEventMatchingMask:NSEventMaskAny
-				untilDate:[NSDate distantPast]
-				inMode:NSDefaultRunLoopMode
-				dequeue:YES
-			];
-			if (event == nil) {
-				break;
-			}
-			[NSApp sendEvent:event];
-		}
-	}
-}
-
 void d_run(d_desc desc) {
 
+	desc.title = desc.title ? desc.title : "";
+	desc.width = desc.width ? desc.width : 640;
+	desc.height = desc.height ? desc.height : 480;
+	desc.scale = desc.scale ? desc.scale : 1.0;
+
 	d_app.desc = desc;
-	int w = desc.width;
-	int h = desc.height;
+	d_app.width = desc.width;
+	d_app.height = desc.height;
+	d_app.window_width = desc.width * desc.scale;
+	d_app.window_height = desc.height * desc.scale;
 
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
@@ -230,7 +372,7 @@ void d_run(d_desc desc) {
 		;
 
 	NSWindow *window = [[Window alloc]
-		initWithContentRect: NSMakeRect(0, 0, w * desc.scale, h * desc.scale)
+		initWithContentRect: NSMakeRect(0, 0, d_app.window_width, d_app.window_height)
 		styleMask: window_style
 		backing: NSBackingStoreBuffered
 		defer: NO
@@ -238,48 +380,29 @@ void d_run(d_desc desc) {
 
 	[window autorelease];
 	[window setAcceptsMouseMovedEvents:YES];
-	[window setTitle:@"hi"];
+	[window setTitle:[NSString stringWithUTF8String:desc.title]];
 	[window center];
 	[window setContentView:[[View alloc] init]];
 	[window makeFirstResponder:[window contentView]];
 	[window setDelegate:[[WindowDelegate alloc] init]];
 	[window makeKeyAndOrderFront:nil];
 
-#if defined(D_GL)
+#if defined(D_OPENGL)
 
 	NSOpenGLContext* ctx = [[window contentView] openGLContext];
-	GLint swapInt = 1;
-	[ctx setValues:&swapInt forParameter:NSOpenGLContextParameterSwapInterval];
-// 	[[window contentView] setWantsBestResolutionOpenGLSurface:YES];
+
+	if (desc.vsync) {
+		GLint swapInt = 1;
+		[ctx setValues:&swapInt forParameter:NSOpenGLContextParameterSwapInterval];
+	}
+
+	if (desc.hidpi) {
+		[[window contentView] setWantsBestResolutionOpenGLSurface:YES];
+	}
+
 	[ctx makeCurrentContext];
 
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	glViewport(0, 0, 640, 480);
-	glEnable(GL_TEXTURE_2D);
-
-	// tex
-	glGenTextures(1, &d_app.gl_tex);
-	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-
-	glTexImage2D(
-		GL_TEXTURE_2D,
-		0,
-		GL_RGBA,
-		desc.width,
-		desc.height,
-		0,
-		GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		NULL
-	);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
+	d_opengl_init();
 
 #endif
 
@@ -290,13 +413,64 @@ void d_run(d_desc desc) {
 	stm_setup();
 
 	while (1) {
-		poll();
-		desc.frame();
+
+		@autoreleasepool {
+			while (1) {
+				NSEvent *event = [NSApp
+					nextEventMatchingMask:NSEventMaskAny
+					untilDate:[NSDate distantPast]
+					inMode:NSDefaultRunLoopMode
+					dequeue:YES
+				];
+				if (event == nil) {
+					break;
+				}
+				[NSApp sendEvent:event];
+			}
+		}
+
+		NSPoint ompos = [window mouseLocationOutsideOfEventStream];
+		vec2 mpos = vec2f(
+			ompos.x * d_app.width / d_app.window_width,
+			d_app.height - ompos.y * d_app.height / d_app.window_height
+		);
+		d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
+		d_app.mouse_pos = mpos;
+
+// 		printf("%f\n", window.contentView.frame.size.width);
+
+		if (d_app.desc.frame) {
+			d_app.desc.frame();
+		}
+
 		d_gfx_frame_end();
 		[[window contentView] setNeedsDisplay:YES];
+
+		// time
 		float time = stm_sec(stm_now());
+
 		d_app.dt = time - d_app.time;
 		d_app.time = time;
+
+		// reset input states
+		for (int i = 0; i < _D_NUM_KEYS; i++) {
+			d_process_btn(&d_app.key_states[i]);
+		}
+
+		for (int i = 0; i < _D_NUM_MOUSE; i++) {
+			d_process_btn(&d_app.mouse_states[i]);
+		}
+
+		for (int i = 0; i < NUM_TOUCHES; i++) {
+			d_process_btn(&d_app.touches[i].state);
+		}
+
+		d_app.wheel.x = 0.0;
+		d_app.wheel.y = 0.0;
+		d_app.resized = false;
+		d_app.mouse_dpos = vec2f(0.0, 0.0);
+		d_app.char_input = 0;
+
 	}
 
 	[pool drain];
@@ -423,11 +597,11 @@ bool d_mouse_down(d_mouse k) {
 }
 
 int d_width() {
-	return d_app.desc.width;
+	return d_app.width;
 }
 
 int d_height() {
-	return d_app.desc.height;
+	return d_app.height;
 }
 
 vec2 d_mouse_pos() {
@@ -482,7 +656,6 @@ vec2 d_wheel() {
 char d_input() {
 	return d_app.char_input;
 }
-
 
 #endif
 
