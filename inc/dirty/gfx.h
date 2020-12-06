@@ -22,15 +22,15 @@ typedef enum {
 } d_origin;
 
 typedef enum {
-	D_REPLACE,
 	D_ALPHA,
+	D_REPLACE,
 	D_ADD,
 } d_blend;
 
 typedef enum {
+	D_BORDER,
 	D_EDGE,
 	D_REPEAT,
-	D_BORDER,
 } d_wrap;
 
 typedef struct {
@@ -114,8 +114,9 @@ void d_free_model(d_model *model);
 
 void d_clear();
 void d_set_blend(d_blend b);
-void d_put(vec2 p, color c);
-color d_peek(vec2 p);
+void d_set_wrap(d_wrap w);
+void d_put(int x, int y, color c);
+color d_peek(int x, int y);
 void d_draw_img(const d_img *img, vec2 pos);
 void d_draw_text(const char *text, vec2 pos);
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);

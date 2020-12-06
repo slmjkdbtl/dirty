@@ -21,10 +21,11 @@ void d_present(color *pixels);
 typedef struct {
 	d_img def_canvas;
 	d_img *cur_canvas;
-	d_blend blend;
 	d_font def_font;
 	d_font *cur_font;
 	color clear_color;
+	d_blend blend;
+	d_wrap wrap;
 } d_gfx_ctx;
 
 static d_gfx_ctx d_gfx;
@@ -35,6 +36,7 @@ void d_gfx_init(d_desc *desc) {
 	d_gfx.def_font = d_make_font(d_parse_img(unscii_png, unscii_png_len), 8, 8, D_ASCII_CHARS);
 	d_gfx.cur_font = &d_gfx.def_font;
 	d_gfx.blend = D_ALPHA;
+	d_gfx.wrap = D_BORDER;
 	d_gfx.clear_color = desc->clear_color;
 	d_clear();
 }
@@ -94,6 +96,43 @@ d_imgs d_img_slice(const d_img *img, int w, int h) {
 	};
 }
 
+// #define d_img_set_ex(img, x, y, c, blend) { \
+// 	if ((x) < 0 || (x) >= (img)->width || (y) < 0 || (y) >= (img)->height) { \
+// 		return; \
+// 	} \
+// 	int i = (int)((y) * (img)->width + (x)); \
+// 	switch (blend) { \
+// 		case D_ALPHA: { \
+// 			if (c.a == 255) { \
+// 				(img)->pixels[i] = c; \
+// 			} else if (c.a != 0) { \
+// 				color rc = (img)->pixels[i]; \
+// 				(img)->pixels[i] = (color) { \
+// 					.r = (rc.r * (255 - c.a) + c.r * c.a) / 255, \
+// 					.g = (rc.g * (255 - c.a) + c.g * c.a) / 255, \
+// 					.b = (rc.b * (255 - c.a) + c.b * c.a) / 255, \
+// 					.a = (rc.a * (255 - c.a) + c.a * c.a) / 255, \
+// 				}; \
+// 			} \
+// 			break; \
+// 		} \
+// 		case D_REPLACE: \
+// 			(img)->pixels[i] = c; \
+// 			break; \
+// 		case D_ADD: \
+// 			if (c.a != 0) { \
+// 				color rc = (img)->pixels[i]; \
+// 				(img)->pixels[i] = (color) { \
+// 					.r = (rc.r * rc.a + c.r * c.a) / 255, \
+// 					.g = (rc.g * rc.a + c.g * c.a) / 255, \
+// 					.b = (rc.b * rc.a + c.b * c.a) / 255, \
+// 					.a = (rc.a * rc.a + c.a * c.a) / 255, \
+// 				}; \
+// 			} \
+// 			break; \
+// 	} \
+// }
+
 void d_img_set_ex(d_img *img, int x, int y, color c, d_blend blend) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
@@ -104,7 +143,7 @@ void d_img_set_ex(d_img *img, int x, int y, color c, d_blend blend) {
 			if (c.a == 255) {
 				img->pixels[i] = c;
 			} else if (c.a != 0) {
-				color rc = d_img_get(d_gfx.cur_canvas, x, y);
+				color rc = img->pixels[i];
 				img->pixels[i] = (color) {
 					.r = (rc.r * (255 - c.a) + c.r * c.a) / 255,
 					.g = (rc.g * (255 - c.a) + c.g * c.a) / 255,
@@ -119,7 +158,7 @@ void d_img_set_ex(d_img *img, int x, int y, color c, d_blend blend) {
 			break;
 		case D_ADD:
 			if (c.a != 0) {
-				color rc = d_img_get(d_gfx.cur_canvas, x, y);
+				color rc = img->pixels[i];
 				img->pixels[i] = (color) {
 					.r = (rc.r * rc.a + c.r * c.a) / 255,
 					.g = (rc.g * rc.a + c.g * c.a) / 255,
@@ -415,37 +454,27 @@ void d_clear() {
 	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
 }
 
-void d_put(vec2 p, color c) {
-	d_img_set_ex(d_gfx.cur_canvas, p.x, p.y, c, d_gfx.blend);
+void d_put(int x, int y, color c) {
+	d_img_set_ex(d_gfx.cur_canvas, x, y, c, d_gfx.blend);
 }
 
-color d_peek(vec2 p) {
-	return d_img_get(d_gfx.cur_canvas, p.x, p.y);
+color d_peek(int x, int y) {
+	return d_img_get_ex(d_gfx.cur_canvas, x, y, d_gfx.wrap);
 }
 
 void d_draw_img(const d_img *img, vec2 pos) {
 	for (int x = 0; x < img->width; x++) {
 		for (int y = 0; y < img->height; y++) {
-			d_put(vec2f(x + pos.x, y + pos.y), img->pixels[y * img->width + x]);
+			d_put(x + pos.x, y + pos.y, img->pixels[y * img->width + x]);
 		}
 	}
 }
 
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
-
-	if (c.a == 0) {
-		return;
-	}
-
 	// TODO
-
 }
 
 void d_draw_rect(vec2 p1, vec2 p2, color c) {
-
-	if (c.a == 0) {
-		return;
-	}
 
 	int x1 = p1.x < p2.x ? p1.x : p2.x;
 	int x2 = p1.x > p2.x ? p1.x : p2.x;
@@ -454,7 +483,7 @@ void d_draw_rect(vec2 p1, vec2 p2, color c) {
 
 	for (int i = x1; i < x2; i++) {
 		for (int j = y1; j < y2; j++) {
-			d_put(vec2f(i, j), c);
+			d_put(i, j, c);
 		}
 	}
 
@@ -462,16 +491,12 @@ void d_draw_rect(vec2 p1, vec2 p2, color c) {
 
 void d_draw_circle(vec2 center, float r, color c) {
 
-	if (c.a == 0) {
-		return;
-	}
-
 	for (int i = center.x - r; i <= center.x + r; i++) {
 		for (int j = center.y - r; j <= center.y + r; j++) {
 			vec2 p = vec2f(i, j);
 			float d = vec2_dist(p, center);
 			if (d <= r) {
-				d_put(p, c);
+				d_put(p.x, p.y, c);
 			}
 		}
 	}
@@ -495,10 +520,6 @@ void d_draw_text(const char *text, vec2 pos) {
 
 void d_draw_line(vec2 p1, vec2 p2, color c) {
 
-	if (c.a == 0) {
-		return;
-	}
-
 	int dx = p2.x - p1.x;
 	int dy = p2.y - p1.y;
 	int adx = abs(dx);
@@ -509,7 +530,7 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 
 	if (adx > ady) {
 		for(int x = p1.x, y = p1.y; sx < 0 ? x >= p2.x : x <= p2.x; x += sx) {
-			d_put(vec2f(x, y), c);
+			d_put(x, y, c);
 			eps += ady;
 			if ((eps << 1) >= adx) {
 				y += sy;
@@ -518,7 +539,7 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 		}
 	} else {
 		for(int x = p1.x, y = p1.y; sy < 0 ? y >= p2.y : y <= p2.y; y += sy) {
-			d_put(vec2f(x, y), c);
+			d_put(x, y, c);
 			eps += adx;
 			if ((eps << 1) >= ady) {
 				x += sx;
@@ -539,6 +560,10 @@ void d_draw_model(const d_model *model) {
 
 void d_set_blend(d_blend b) {
 	d_gfx.blend = b;
+}
+
+void d_set_wrap(d_wrap w) {
+	d_gfx.wrap = w;
 }
 
 void d_drawon(d_img *img) {

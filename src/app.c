@@ -6,8 +6,6 @@
 #error "must define a blit method (D_OPENGL, D_METAL, D_NOGPU)"
 #endif
 
-#define GL_SILENCE_DEPRECATION
-
 #define SOKOL_IMPL
 #include <sokol/sokol_time.h>
 #include <dirty/dirty.h>
@@ -24,23 +22,23 @@
 #if defined(D_MACOS)
 	#include <OpenGL/gl.h>
 #elif defined(D_IOS)
-	#define GLES
+	#define D_GLES
 	#include <OpenGLES/ES2/gl.h>
 #elif defined(D_LINUX)
 	#include <GL/gl.h>
 #elif defined(D_ANDROID)
-	#define GLES
+	#define D_GLES
 	#include <GLES2/gl2.h>
 #elif defined(D_WINDOWS)
 	#include <GL/gl.h>
 #elif defined(D_WEB)
-	#define GLES
+	#define D_GLES
 	#include <GLES2/gl2.h>
 #endif
 
 #endif // D_OPENGL
 
-#define NUM_TOUCHES 8
+#define D_NUM_TOUCHES 8
 
 void d_gfx_init(d_desc *desc);
 void d_audio_init(d_desc *desc);
@@ -74,7 +72,7 @@ typedef struct {
 	vec2 wheel;
 	d_btn key_states[_D_NUM_KEYS];
 	d_btn mouse_states[_D_NUM_MOUSE];
-	d_touch_state touches[NUM_TOUCHES];
+	d_touch_state touches[D_NUM_TOUCHES];
 	bool resized;
 	char char_input;
 	color *buf;
@@ -499,7 +497,7 @@ static void d_frame() {
 		d_process_btn(&d_app.mouse_states[i]);
 	}
 
-	for (int i = 0; i < NUM_TOUCHES; i++) {
+	for (int i = 0; i < D_NUM_TOUCHES; i++) {
 		d_process_btn(&d_app.touches[i].state);
 	}
 
@@ -707,27 +705,27 @@ bool d_mouse_moved() {
 }
 
 bool d_touch_pressed(d_touch t) {
-	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].state == D_BTN_PRESSED;
 }
 
 bool d_touch_released(d_touch t) {
-	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].state == D_BTN_RELEASED;
 }
 
 bool d_touch_moved(d_touch t) {
-	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].dpos.x != 0.0 || d_app.touches[t].dpos.x != 0.0;
 }
 
 vec2 d_touch_pos(d_touch t) {
-	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].pos;
 }
 
 vec2 d_touch_dpos(d_touch t) {
-	d_assert(t < NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].dpos;
 }
 
