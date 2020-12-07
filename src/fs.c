@@ -29,7 +29,7 @@ void d_fs_init(d_desc *desc) {
 	} else {
 #if defined(D_MACOS) || defined(D_IOS)
 		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-		const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
+		const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
 		sprintf(d_fs.res_path, "%s/", res_path);
 		[pool drain];
 #elif defined(D_WINDOWS)

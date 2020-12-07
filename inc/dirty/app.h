@@ -104,6 +104,11 @@ typedef enum {
 	_D_NUM_MOUSE,
 } d_mouse;
 
+typedef enum {
+	D_STRETCH,
+	D_LETTERBOX,
+} d_scale_mode;
+
 typedef struct {
 	void (*init)();
 	void (*frame)();
@@ -112,9 +117,11 @@ typedef struct {
 	int width;
 	int height;
 	float scale;
+	d_scale_mode scale_mode;
 	bool fullscreen;
 	bool vsync;
 	bool hidpi;
+	bool touch_is_mouse;
 	const char *path;
 	const char *org;
 	const char *name;
@@ -122,7 +129,7 @@ typedef struct {
 	void *udata;
 } d_desc;
 
-typedef int d_touch;
+typedef unsigned char d_touch;
 
 void d_run(d_desc desc);
 void d_quit();

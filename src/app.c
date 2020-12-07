@@ -1,9 +1,11 @@
 // wengwengweng
 
+// TODO: scale strategies
+
 #ifndef D_SOKOL
 
-#if !defined(D_OPENGL) && !defined(D_METAL) && !defined(D_NOGPU)
-#error "must define a blit method (D_OPENGL, D_METAL, D_NOGPU)"
+#if !defined(D_OPENGL) && !defined(D_METAL) && !defined(D_COREGRAPHICS)
+#error "must define a blit method (D_OPENGL, D_METAL, D_COREGRAPHICS)"
 #endif
 
 #define SOKOL_IMPL
@@ -36,6 +38,8 @@
 
 #if defined(D_MACOS)
 #import <Cocoa/Cocoa.h>
+#elif defined(D_IOS)
+#import <UIKit/UIKit.h>
 #endif
 
 #define D_NUM_TOUCHES 8
@@ -55,6 +59,7 @@ typedef enum {
 } d_btn;
 
 typedef struct {
+	uintptr_t id;
 	vec2 pos;
 	vec2 dpos;
 	d_btn state;
@@ -84,13 +89,11 @@ typedef struct {
 #if defined(D_OPENGL)
 	GLuint gl_tex;
 #endif
-#if defined(D_MACOS)
-	NSWindow *window;
-#endif
 } d_app_t;
 
 static d_app_t d_app;
 
+// OpenGL ------------------------------------------------------
 #if defined(D_OPENGL)
 
 static void d_opengl_init() {
@@ -154,6 +157,7 @@ static void d_opengl_blit() {
 
 #endif // D_OPENGL
 
+// macOS -------------------------------------------------------
 #if defined(D_MACOS)
 
 static d_key d_macos_key(unsigned short k) {
@@ -238,39 +242,46 @@ static d_key d_macos_key(unsigned short k) {
 	return D_KEY_NONE;
 }
 
-// @interface AppDelegate : NSObject<NSApplicationDelegate>
+// @interface DAppDelegate : NSObject<NSApplicationDelegate>
 // @end
 
-// @implementation AppDelegate
+// @implementation DAppDelegate
 // - (void)applicationDidFinishLaunching:(NSNotification*)noti {
 // }
 // @end
 
-@interface WindowDelegate : NSObject<NSWindowDelegate>
+@interface DWindowDelegate : NSObject<NSWindowDelegate>
 @end
 
-@implementation WindowDelegate
+@implementation DWindowDelegate
 - (void)windowWillClose:(NSNotification*)noti {
 	[NSApp terminate:nil];
 }
 - (void)windowDidResize:(NSNotification*)noti {
-	NSSize size = d_app.window.contentView.frame.size;
+	NSSize size = [[[NSApp mainWindow] contentView] frame].size;
 	d_app.win_width = size.width;
 	d_app.win_height = size.height;
 	d_app.resized = true;
 }
-- (void)windowDidMiniaturize:(NSNotification*)noti {
-	// TODO
-}
-- (void)windowDidDeminiaturize:(NSNotification*)noti {
-	// TODO
-}
 @end
 
-@interface Window:NSWindow
+#if defined(D_OPENGL)
+@interface DView : NSOpenGLView
+#else
+@interface DView : NSView
+#endif
 @end
 
-@implementation Window
+@implementation DView
+// - (BOOL)isOpaque {
+// 	return YES;
+// }
+- (BOOL)canBecomeKeyView {
+	return YES;
+}
+- (BOOL)acceptsFirstResponder {
+	return YES;
+}
 - (void)keyDown:(NSEvent*)event {
 	d_key k = d_macos_key(event.keyCode);
 	if (k) {
@@ -302,16 +313,6 @@ static d_key d_macos_key(unsigned short k) {
 - (void)scrollWheel:(NSEvent*)event {
 	d_app.wheel = vec2f(event.scrollingDeltaX, event.scrollingDeltaY);
 }
-@end
-
-#if defined(D_OPENGL)
-@interface View:NSOpenGLView
-#else
-@interface View:NSView
-#endif
-@end
-
-@implementation View
 - (void)drawRect:(NSRect)rect {
 
 	if (!d_app.buf) {
@@ -320,7 +321,7 @@ static d_key d_macos_key(unsigned short k) {
 
 #if defined(D_OPENGL)
 	d_opengl_blit();
-#elif defined(D_NOGPU)
+#elif defined(D_COREGRAPHICS)
 
 	int w = d_width();
 	int h = d_height();
@@ -350,7 +351,7 @@ static d_key d_macos_key(unsigned short k) {
 	CGDataProviderRelease(provider);
 	CGImageRelease(img);
 
-#endif // D_NOGPU
+#endif // D_COREGRAPHICS
 
 }
 @end
@@ -360,11 +361,11 @@ static void d_macos_init(const d_desc *desc) {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
 	[NSApplication sharedApplication];
-// 	[NSApp setDelegate:[[AppDelegate alloc] init]];
+// 	[NSApp setDelegate:[[DAppDelegate alloc] init]];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 	[NSApp activateIgnoringOtherApps:YES];
 
-	NSWindow *window = [[Window alloc]
+	NSWindow *window = [[NSWindow alloc]
 		initWithContentRect: NSMakeRect(0, 0, d_app.win_width, d_app.win_height)
 		styleMask:
 			NSWindowStyleMaskTitled
@@ -381,12 +382,10 @@ static void d_macos_init(const d_desc *desc) {
 
 	[window setAcceptsMouseMovedEvents:YES];
 	[window center];
-	[window setContentView:[[View alloc] init]];
+	[window setContentView:[[DView alloc] init]];
 	[window makeFirstResponder:[window contentView]];
-	[window setDelegate:[[WindowDelegate alloc] init]];
+	[window setDelegate:[[DWindowDelegate alloc] init]];
 	[window makeKeyAndOrderFront:nil];
-
-	d_app.window = window;
 
 #if defined(D_OPENGL)
 
@@ -429,7 +428,7 @@ static void d_macos_frame() {
 		[NSApp sendEvent:event];
 	}
 
-	NSPoint ompos = [d_app.window mouseLocationOutsideOfEventStream];
+	NSPoint ompos = [[NSApp mainWindow] mouseLocationOutsideOfEventStream];
 	vec2 mpos = vec2f(
 		ompos.x * d_app.width / d_app.win_width,
 		d_app.height - ompos.y * d_app.height / d_app.win_height
@@ -442,12 +441,122 @@ static void d_macos_frame() {
 	}
 
 	d_gfx_frame_end();
-	[[d_app.window contentView] setNeedsDisplay:YES];
+	[[[NSApp mainWindow] contentView] setNeedsDisplay:YES];
 	[pool drain];
 
 }
 
 #endif // D_MACOS
+
+// iOS ---------------------------------------------------------
+#if defined(D_IOS)
+
+static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
+	for (UITouch *touch in touches) {
+		uintptr_t id = (uintptr_t)touch;
+		CGPoint pos = [touch locationInView:[touch view]];
+		if (state == D_BTN_PRESSED) {
+			d_touch_state t = (d_touch_state) {
+				.id = id,
+				.pos = vec2f(pos.x, pos.y),
+				.dpos = vec2f(0.0, 0.0),
+				.state = state,
+			};
+		}
+		// TODO
+	}
+}
+
+@interface DView : UIView
+@end
+
+@implementation DView
+- (void)drawRect:(CGRect)rect {
+
+	int w = d_width();
+	int h = d_height();
+
+	d_img dimg = d_make_img(w, h);
+	d_img_fill(&dimg, colori(0, 255, 255, 255));
+
+	CGContextRef ctx = UIGraphicsGetCurrentContext();
+	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
+	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, dimg.pixels, w * h * 4, NULL);
+
+	CGImageRef img = CGImageCreate(
+		w,
+		h,
+		8,
+		32,
+		4 * w,
+		rgb,
+		kCGBitmapByteOrderDefault | kCGImageAlphaLast,
+		provider,
+		NULL,
+		false,
+		kCGRenderingIntentDefault
+	);
+
+	CGContextDrawImage(ctx, rect, img);
+
+	CGColorSpaceRelease(rgb);
+	CGDataProviderRelease(provider);
+	CGImageRelease(img);
+	d_free_img(&dimg);
+
+}
+
+- (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+	d_ios_touch(D_BTN_PRESSED, touches, event);
+}
+- (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+	d_ios_touch(D_BTN_DOWN, touches, event);
+}
+- (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+	d_ios_touch(D_BTN_RELEASED, touches, event);
+}
+- (void)touchesCancelled:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
+	d_ios_touch(D_BTN_RELEASED, touches, event);
+}
+@end
+
+@interface DAppDelegate : UIResponder<UIApplicationDelegate>
+@property (strong, nonatomic) UIWindow *window;
+@end
+
+@implementation DAppDelegate
+- (BOOL)application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary*)launchOptions {
+
+	// TODO: nothing drawn
+
+    CGRect screen_rect = [[UIScreen mainScreen] bounds];
+	UIWindow *window = [[UIWindow alloc] initWithFrame:screen_rect];
+	d_app.win_width = screen_rect.size.width;
+	d_app.win_height = screen_rect.size.height;
+
+	UIViewController *view_ctrl = [[UIViewController alloc] init];
+	DView *view = [[DView alloc] init];
+	view_ctrl.view = view;
+	window.rootViewController = view_ctrl;
+	window.backgroundColor = [UIColor whiteColor];
+	[window makeKeyAndVisible];
+	self.window = window;
+
+	return YES;
+
+}
+@end
+
+static void d_ios_init(const d_desc *desc) {
+	UIApplicationMain(0, nil, nil, NSStringFromClass([DAppDelegate class]));
+}
+
+static void d_ios_frame() {
+	// TODO
+}
+
+#endif // D_IOS
 
 void d_present(color *canvas) {
 	d_app.buf = canvas;
@@ -465,6 +574,8 @@ static void d_frame() {
 
 #if defined(D_MACOS)
 	d_macos_frame();
+#elif defined(D_IOS)
+	d_ios_frame();
 #endif
 
 	// time
@@ -513,6 +624,8 @@ void d_run(d_desc desc) {
 
 #if defined(D_MACOS)
 	d_macos_init(&desc);
+#elif defined(D_IOS)
+	d_ios_init(&desc);
 #endif
 
 	d_gfx_init(&desc);
@@ -575,14 +688,14 @@ int d_fps() {
 void d_set_fullscreen(bool b) {
 	if (b != d_fullscreen()) {
 #if defined(D_MACOS)
-		[d_app.window toggleFullScreen:nil];
+		[[NSApp mainWindow] toggleFullScreen:nil];
 #endif
 	}
 }
 
 bool d_fullscreen() {
 #if defined(D_MACOS)
-	return [d_app.window styleMask] & NSWindowStyleMaskFullScreen;
+	return [[NSApp mainWindow] styleMask] & NSWindowStyleMaskFullScreen;
 #endif
 	return false;
 }
@@ -617,7 +730,7 @@ bool d_keyboard_shown() {
 void d_set_title(const char *title) {
 #if defined(D_MACOS)
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	[d_app.window setTitle:[NSString stringWithUTF8String:title]];
+	[[NSApp mainWindow] setTitle:[NSString stringWithUTF8String:title]];
 	[pool drain];
 #endif
 }
@@ -741,7 +854,7 @@ char d_input() {
 
 bool d_active() {
 #if defined(D_MACOS)
-	return [d_app.window isMainWindow];
+	return [[NSApp mainWindow] isMainWindow];
 #endif
 }
 
