@@ -26,9 +26,9 @@ void frame() {
 
 	d_clear();
 
-	for (int i = 0; i < 2000; i++) {
+// 	for (int i = 0; i < 1000; i++) {
 		d_draw_img(&img, pos);
-	}
+// 	}
 	d_draw_rect(vec2f(0, 0), d_mouse_pos(), colori(0, 0, 255, 100));
 	d_draw_circle(d_mouse_pos(), 3, colori(0, 255, 255 ,255));
 	d_draw_text("oh hi", vec2f(0, 0));

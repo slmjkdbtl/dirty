@@ -165,6 +165,7 @@ bool d_scrolled();
 vec2 d_wheel();
 bool d_resized();
 char d_input();
+bool d_active();
 
 bool d_mouse_down(d_mouse m);
 bool d_key_down(d_key k);

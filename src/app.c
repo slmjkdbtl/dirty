@@ -10,10 +10,6 @@
 #include <sokol/sokol_time.h>
 #include <dirty/dirty.h>
 
-#if defined(D_MACOS)
-#import <Cocoa/Cocoa.h>
-#endif
-
 #if defined(D_OPENGL)
 
 #define GL_SILENCE_DEPRECATION
@@ -37,6 +33,10 @@
 #endif
 
 #endif // D_OPENGL
+
+#if defined(D_MACOS)
+#import <Cocoa/Cocoa.h>
+#endif
 
 #define D_NUM_TOUCHES 8
 
@@ -97,7 +97,6 @@ static void d_opengl_init() {
 
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	glViewport(0, 0, 640, 480);
 	glEnable(GL_BLEND);
 	glEnable(GL_TEXTURE_2D);
 
@@ -300,14 +299,8 @@ static d_key d_macos_key(unsigned short k) {
 - (void)rightMouseUp:(NSEvent*)event {
 	d_app.mouse_states[D_MOUSE_RIGHT] = D_BTN_RELEASED;
 }
-- (void)mouseEntered:(NSEvent*)event {
-	// TODO
-}
-- (void)mouseExited:(NSEvent*)event {
-	// TODO
-}
 - (void)scrollWheel:(NSEvent*)event {
-	// TODO
+	d_app.wheel = vec2f(event.scrollingDeltaX, event.scrollingDeltaY);
 }
 @end
 
@@ -371,25 +364,22 @@ static void d_macos_init(const d_desc *desc) {
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 	[NSApp activateIgnoringOtherApps:YES];
 
-	NSUInteger style =
-		NSWindowStyleMaskTitled
-		| NSWindowStyleMaskClosable
-		| NSWindowStyleMaskResizable
-		| NSWindowStyleMaskMiniaturizable
-		;
-
 	NSWindow *window = [[Window alloc]
 		initWithContentRect: NSMakeRect(0, 0, d_app.win_width, d_app.win_height)
-		styleMask: style
+		styleMask:
+			NSWindowStyleMaskTitled
+			| NSWindowStyleMaskClosable
+			| NSWindowStyleMaskResizable
+			| NSWindowStyleMaskMiniaturizable
 		backing: NSBackingStoreBuffered
 		defer: NO
 	];
 
-	[window autorelease];
-	[window setAcceptsMouseMovedEvents:YES];
 	if (desc->title) {
 		[window setTitle:[NSString stringWithUTF8String:desc->title]];
 	}
+
+	[window setAcceptsMouseMovedEvents:YES];
 	[window center];
 	[window setContentView:[[View alloc] init]];
 	[window makeFirstResponder:[window contentView]];
@@ -402,6 +392,7 @@ static void d_macos_init(const d_desc *desc) {
 
 	NSOpenGLContext* ctx = [[window contentView] openGLContext];
 
+	// TODO: no effect
 	if (desc->vsync) {
 		GLint swapInt = 1;
 		[ctx setValues:&swapInt forParameter:NSOpenGLContextParameterSwapInterval];
@@ -423,19 +414,19 @@ static void d_macos_init(const d_desc *desc) {
 
 static void d_macos_frame() {
 
-	@autoreleasepool {
-		while (1) {
-			NSEvent *event = [NSApp
-				nextEventMatchingMask:NSEventMaskAny
-				untilDate:[NSDate distantPast]
-				inMode:NSDefaultRunLoopMode
-				dequeue:YES
-			];
-			if (event == nil) {
-				break;
-			}
-			[NSApp sendEvent:event];
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+	while (1) {
+		NSEvent *event = [NSApp
+			nextEventMatchingMask:NSEventMaskAny
+			untilDate:[NSDate distantPast]
+			inMode:NSDefaultRunLoopMode
+			dequeue:YES
+		];
+		if (!event) {
+			break;
 		}
+		[NSApp sendEvent:event];
 	}
 
 	NSPoint ompos = [d_app.window mouseLocationOutsideOfEventStream];
@@ -452,6 +443,7 @@ static void d_macos_frame() {
 
 	d_gfx_frame_end();
 	[[d_app.window contentView] setNeedsDisplay:YES];
+	[pool drain];
 
 }
 
@@ -624,7 +616,9 @@ bool d_keyboard_shown() {
 
 void d_set_title(const char *title) {
 #if defined(D_MACOS)
+	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	[d_app.window setTitle:[NSString stringWithUTF8String:title]];
+	[pool drain];
 #endif
 }
 
@@ -743,6 +737,12 @@ vec2 d_wheel() {
 
 char d_input() {
 	return d_app.char_input;
+}
+
+bool d_active() {
+#if defined(D_MACOS)
+	return [d_app.window isMainWindow];
+#endif
 }
 
 #endif

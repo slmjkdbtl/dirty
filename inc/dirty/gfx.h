@@ -97,6 +97,7 @@ color d_img_get(const d_img *img, int x, int y);
 color d_img_get_ex(const d_img *img, int x, int y, d_wrap wrap);
 void d_img_fill(d_img *img, color c);
 void d_img_save(const d_img *img, const char *path);
+d_img d_img_clone(const d_img *img);
 void d_free_img(d_img *img);
 d_imgs d_img_slice(const d_img *img, int w, int h);
 void d_free_imgs(d_imgs *imgs);

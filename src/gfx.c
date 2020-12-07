@@ -213,6 +213,12 @@ void d_img_save(const d_img *img, const char *path) {
 	stbi_write_png(path, img->width, img->height, 4, (unsigned char *)img->pixels, img->width * 4);
 }
 
+d_img d_img_clone(const d_img *img) {
+	d_img img2 = d_make_img(img->width, img->height);
+	memcpy(img2.pixels, img->pixels, img->width * img->height * sizeof(color));
+	return img2;
+}
+
 void d_free_img(d_img *img) {
 	free(img->pixels);
 	img->pixels = NULL;

@@ -270,7 +270,7 @@ color colorf(float r, float g, float b, float a) {
 	};
 }
 
-color colorx(unsigned long hex) {
+color colorx(unsigned int hex) {
 	return (color) {
 		.r = ((hex >> 24) & 0xff),
 		.g = ((hex >> 16) & 0xff),
