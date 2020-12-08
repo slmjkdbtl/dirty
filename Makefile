@@ -120,6 +120,7 @@ run: $(DEMO_BIN_PATH)/$(DEMO)
 run-lua: $(BIN_TARGET) $(DEMO_PATH)/$(DEMO).lua
 	./$(BIN_TARGET) $(DEMO_PATH)/$(DEMO).lua
 
+# TODO: $^ also includes $(LIB_TARGET)
 $(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c $(LIB_TARGET)
 	@mkdir -p $(DEMO_BIN_PATH)
 	$(CC) $(CFLAGS) -L $(LIB_PATH) -ldirty $(LDFLAGS) -o $@ $^

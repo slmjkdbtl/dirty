@@ -2,17 +2,25 @@
 
 // TODO: scale strategies
 
-#ifndef D_SOKOL
-
-#if !defined(D_OPENGL) && !defined(D_METAL) && !defined(D_COREGRAPHICS)
-#error "must define a blit method (D_OPENGL, D_METAL, D_COREGRAPHICS)"
-#endif
-
+#include <stdio.h>
+#include <stdarg.h>
 #define SOKOL_IMPL
 #include <sokol/sokol_time.h>
 #include <dirty/dirty.h>
 
-#if defined(D_OPENGL)
+#if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL) && !defined(D_WGPU) && !defined(D_D3D11)
+#error "must define a blit method (D_CPU, D_GL, D_METAL, D_WGPU, D_D3D11)"
+#endif
+
+#if defined(D_METAL) && !defined(D_MACOS) && !defined(D_IOS)
+#error "D_METAL is only on macOS or iOS"
+#elif defined(D_WGPU) && !defined(D_WEB)
+#error "D_WGPU is only on web"
+#elif defined(D_D3D11) && !defined(D_WINDOWS)
+#error "D_D3D11 is only on windows"
+#endif
+
+#if defined(D_GL)
 
 #define GL_SILENCE_DEPRECATION
 #define GLES_SILENCE_DEPRECATION
@@ -34,12 +42,19 @@
 	#include <GLES2/gl2.h>
 #endif
 
-#endif // D_OPENGL
+#endif // D_GL
 
 #if defined(D_MACOS)
-#import <Cocoa/Cocoa.h>
+	#import <Cocoa/Cocoa.h>
+	#if defined(D_METAL)
+		#import <Metal/Metal.h>
+		#import <MetalKit/MetalKit.h>
+	#endif
 #elif defined(D_IOS)
-#import <UIKit/UIKit.h>
+	#import <UIKit/UIKit.h>
+#elif defined(D_WEB)
+	#include <emscripten/emscripten.h>
+	#include <emscripten/html5.h>
 #endif
 
 #define D_NUM_TOUCHES 8
@@ -66,6 +81,8 @@ typedef struct {
 } d_touch_state;
 
 typedef struct {
+	d_desc desc;
+	color *buf;
 	float time;
 	float dt;
 	int width;
@@ -80,21 +97,79 @@ typedef struct {
 	d_touch_state touches[D_NUM_TOUCHES];
 	bool resized;
 	char char_input;
-	color *buf;
 	float fps_timer;
 	int fps;
-	void (*init)();
-	void (*frame)();
-	void (*quit)();
-#if defined(D_OPENGL)
+#if defined(D_GL)
 	GLuint gl_tex;
 #endif
 } d_app_t;
 
 static d_app_t d_app;
 
-// OpenGL ------------------------------------------------------
-#if defined(D_OPENGL)
+void d_present(color *canvas) {
+	d_app.buf = canvas;
+}
+
+static void d_process_btn(d_btn *b) {
+	if (*b == D_BTN_PRESSED || *b == D_BTN_RPRESSED) {
+		*b = D_BTN_DOWN;
+	} else if (*b == D_BTN_RELEASED) {
+		*b = D_BTN_IDLE;
+	}
+}
+
+static void d_app_init() {
+
+	d_gfx_init(&d_app.desc);
+	d_audio_init(&d_app.desc);
+	d_fs_init(&d_app.desc);
+	stm_setup();
+
+	if (d_app.desc.init) {
+		d_app.desc.init();
+	}
+
+}
+
+static void d_app_frame_end() {
+
+	// time
+	float time = stm_sec(stm_now());
+
+	d_app.dt = time - d_app.time;
+	d_app.time = time;
+
+	d_app.fps_timer += d_app.dt;
+
+	if (d_app.fps_timer >= 1.0) {
+		d_app.fps_timer = 0.0;
+		d_app.fps = (int)(1.0 / d_app.dt);
+	}
+
+	// reset input states
+	for (int i = 0; i < _D_NUM_KEYS; i++) {
+		d_process_btn(&d_app.key_states[i]);
+	}
+
+	for (int i = 0; i < _D_NUM_MOUSE; i++) {
+		d_process_btn(&d_app.mouse_states[i]);
+	}
+
+	for (int i = 0; i < D_NUM_TOUCHES; i++) {
+		d_process_btn(&d_app.touches[i].state);
+	}
+
+	d_app.wheel.x = 0.0;
+	d_app.wheel.y = 0.0;
+	d_app.resized = false;
+	d_app.mouse_dpos = vec2f(0.0, 0.0);
+	d_app.char_input = 0;
+
+}
+
+// -------------------------------------------------------------
+// OpenGL
+#if defined(D_GL)
 
 static void d_opengl_init() {
 
@@ -155,9 +230,10 @@ static void d_opengl_blit() {
 
 }
 
-#endif // D_OPENGL
+#endif // D_GL
 
-// macOS -------------------------------------------------------
+// -------------------------------------------------------------
+// macOS
 #if defined(D_MACOS)
 
 static d_key d_macos_key(unsigned short k) {
@@ -242,13 +318,18 @@ static d_key d_macos_key(unsigned short k) {
 	return D_KEY_NONE;
 }
 
-// @interface DAppDelegate : NSObject<NSApplicationDelegate>
-// @end
+@interface DAppDelegate : NSObject<NSApplicationDelegate>
+-(void) drawLoop:(NSTimer*) timer;
+@end
 
-// @implementation DAppDelegate
-// - (void)applicationDidFinishLaunching:(NSNotification*)noti {
-// }
-// @end
+@implementation DAppDelegate
+- (void)applicationDidFinishLaunching:(NSNotification*)noti {
+	[NSTimer scheduledTimerWithTimeInterval:0.001 target:self selector:@selector(drawLoop:) userInfo:nil repeats:YES];
+}
+-(void) drawLoop:(NSTimer*) timer {
+	[[[NSApp mainWindow] contentView] setNeedsDisplay:YES];
+}
+@end
 
 @interface DWindowDelegate : NSObject<NSWindowDelegate>
 @end
@@ -265,9 +346,11 @@ static d_key d_macos_key(unsigned short k) {
 }
 @end
 
-#if defined(D_OPENGL)
+#if defined(D_GL)
 @interface DView : NSOpenGLView
-#else
+#elif defined(D_METAL)
+@interface DView : MTKView
+#elif defined(D_CPU)
 @interface DView : NSView
 #endif
 @end
@@ -315,13 +398,29 @@ static d_key d_macos_key(unsigned short k) {
 }
 - (void)drawRect:(NSRect)rect {
 
+	NSPoint ompos = [[NSApp mainWindow] mouseLocationOutsideOfEventStream];
+	vec2 mpos = vec2f(
+		ompos.x * d_app.width / d_app.win_width,
+		d_app.height - ompos.y * d_app.height / d_app.win_height
+	);
+	d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
+	d_app.mouse_pos = mpos;
+
+	if (d_app.desc.frame) {
+		d_app.desc.frame();
+	}
+
+	d_gfx_frame_end();
+
 	if (!d_app.buf) {
 		return;
 	}
 
-#if defined(D_OPENGL)
+#if defined(D_GL)
 	d_opengl_blit();
-#elif defined(D_COREGRAPHICS)
+#elif defined(D_METAL)
+	// TODO
+#elif defined(D_CPU)
 
 	int w = d_width();
 	int h = d_height();
@@ -351,17 +450,17 @@ static d_key d_macos_key(unsigned short k) {
 	CGDataProviderRelease(provider);
 	CGImageRelease(img);
 
-#endif // D_COREGRAPHICS
+#endif // D_CPU
+
+	d_app_frame_end();
 
 }
 @end
 
-static void d_macos_init(const d_desc *desc) {
-
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+static void d_macos_run(const d_desc *desc) {
 
 	[NSApplication sharedApplication];
-// 	[NSApp setDelegate:[[DAppDelegate alloc] init]];
+	[NSApp setDelegate:[[DAppDelegate alloc] init]];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 	[NSApp activateIgnoringOtherApps:YES];
 
@@ -382,76 +481,56 @@ static void d_macos_init(const d_desc *desc) {
 
 	[window setAcceptsMouseMovedEvents:YES];
 	[window center];
-	[window setContentView:[[DView alloc] init]];
-	[window makeFirstResponder:[window contentView]];
 	[window setDelegate:[[DWindowDelegate alloc] init]];
 	[window makeKeyAndOrderFront:nil];
 
-#if defined(D_OPENGL)
+	DView *view = [[DView alloc] init];
+	[window setContentView:view];
+	[window makeFirstResponder:view];
 
-	NSOpenGLContext* ctx = [[window contentView] openGLContext];
+#if defined(D_GL)
 
-	// TODO: no effect
-	if (desc->vsync) {
-		GLint swapInt = 1;
-		[ctx setValues:&swapInt forParameter:NSOpenGLContextParameterSwapInterval];
-	}
+	NSOpenGLContext* ctx = [view openGLContext];
 
 	if (desc->hidpi) {
 		[[window contentView] setWantsBestResolutionOpenGLSurface:YES];
 	}
 
+	[ctx setValues:&desc->vsync forParameter:NSOpenGLContextParameterSwapInterval];
 	[ctx makeCurrentContext];
 
 	d_opengl_init();
 
-#endif // D_OPENGL
+#elif defined(D_METAL)
 
-	[pool drain];
+	// TODO
+	view.preferredFramesPerSecond = 60;
 
-}
+#endif // D_METAL
 
-static void d_macos_frame() {
+	d_app_init();
 
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-
-	while (1) {
-		NSEvent *event = [NSApp
-			nextEventMatchingMask:NSEventMaskAny
-			untilDate:[NSDate distantPast]
-			inMode:NSDefaultRunLoopMode
-			dequeue:YES
-		];
-		if (!event) {
-			break;
-		}
-		[NSApp sendEvent:event];
-	}
-
-	NSPoint ompos = [[NSApp mainWindow] mouseLocationOutsideOfEventStream];
-	vec2 mpos = vec2f(
-		ompos.x * d_app.width / d_app.win_width,
-		d_app.height - ompos.y * d_app.height / d_app.win_height
-	);
-	d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
-	d_app.mouse_pos = mpos;
-
-	if (d_app.frame) {
-		d_app.frame();
-	}
-
-	d_gfx_frame_end();
-	[[[NSApp mainWindow] contentView] setNeedsDisplay:YES];
-	[pool drain];
+	[NSApp run];
 
 }
 
 #endif // D_MACOS
 
-// iOS ---------------------------------------------------------
+// -------------------------------------------------------------
+// iOS
 #if defined(D_IOS)
 
 static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
+
+	if (d_app.desc.touch_is_mouse) {
+		int cnt = [touches count];
+		if (cnt == 1) {
+			d_app.mouse_states[D_MOUSE_LEFT] = state;
+		} else if (cnt == 2) {
+			d_app.mouse_states[D_MOUSE_RIGHT] = state;
+		}
+	}
+
 	for (UITouch *touch in touches) {
 		uintptr_t id = (uintptr_t)touch;
 		CGPoint pos = [touch locationInView:[touch view]];
@@ -465,9 +544,14 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 		}
 		// TODO
 	}
+
 }
 
+#if defined(D_CPU)
 @interface DView : UIView
+#elif defined(D_METAL)
+@interface DView : MTKView
+#endif
 @end
 
 @implementation DView
@@ -505,6 +589,8 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 	CGImageRelease(img);
 	d_free_img(&dimg);
 
+	d_app_frame_end();
+
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
@@ -521,16 +607,16 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 }
 @end
 
-@interface DAppDelegate : UIResponder<UIApplicationDelegate>
+@interface DAppDelegate : NSObject<UIApplicationDelegate>
 @property (strong, nonatomic) UIWindow *window;
 @end
 
 @implementation DAppDelegate
-- (BOOL)application:(UIApplication*)application didFinishLaunchingWithOptions:(NSDictionary*)launchOptions {
+- (BOOL)application:(UIApplication*)app didFinishLaunchingWithOptions:(NSDictionary*)opt {
 
 	// TODO: nothing drawn
 
-    CGRect screen_rect = [[UIScreen mainScreen] bounds];
+	CGRect screen_rect = [[UIScreen mainScreen] bounds];
 	UIWindow *window = [[UIWindow alloc] initWithFrame:screen_rect];
 	d_app.win_width = screen_rect.size.width;
 	d_app.win_height = screen_rect.size.height;
@@ -543,103 +629,50 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 	[window makeKeyAndVisible];
 	self.window = window;
 
+	d_app_init();
+
 	return YES;
 
 }
 @end
 
-static void d_ios_init(const d_desc *desc) {
+static void d_ios_run(const d_desc *desc) {
 	UIApplicationMain(0, nil, nil, NSStringFromClass([DAppDelegate class]));
-}
-
-static void d_ios_frame() {
-	// TODO
 }
 
 #endif // D_IOS
 
-void d_present(color *canvas) {
-	d_app.buf = canvas;
+
+// -------------------------------------------------------------
+// Web
+#if defined(D_WEB)
+
+EM_JS(void, d_web_init, (const d_desc *desc), {
+	// TODO
+});
+
+void d_web_run(const d_desc *desc) {
+// 	emscripten_set_main_loop(func, 60, true);
 }
 
-void d_process_btn(d_btn *b) {
-	if (*b == D_BTN_PRESSED || *b == D_BTN_RPRESSED) {
-		*b = D_BTN_DOWN;
-	} else if (*b == D_BTN_RELEASED) {
-		*b = D_BTN_IDLE;
-	}
-}
-
-static void d_frame() {
-
-#if defined(D_MACOS)
-	d_macos_frame();
-#elif defined(D_IOS)
-	d_ios_frame();
-#endif
-
-	// time
-	float time = stm_sec(stm_now());
-
-	d_app.dt = time - d_app.time;
-	d_app.time = time;
-
-	d_app.fps_timer += d_app.dt;
-
-	if (d_app.fps_timer >= 1.0) {
-		d_app.fps_timer = 0.0;
-		d_app.fps = (int)(1.0 / d_app.dt);
-	}
-
-	// reset input states
-	for (int i = 0; i < _D_NUM_KEYS; i++) {
-		d_process_btn(&d_app.key_states[i]);
-	}
-
-	for (int i = 0; i < _D_NUM_MOUSE; i++) {
-		d_process_btn(&d_app.mouse_states[i]);
-	}
-
-	for (int i = 0; i < D_NUM_TOUCHES; i++) {
-		d_process_btn(&d_app.touches[i].state);
-	}
-
-	d_app.wheel.x = 0.0;
-	d_app.wheel.y = 0.0;
-	d_app.resized = false;
-	d_app.mouse_dpos = vec2f(0.0, 0.0);
-	d_app.char_input = 0;
-
-}
+#endif // D_WEB
 
 void d_run(d_desc desc) {
 
+	d_app.desc = desc;
 	float scale = desc.scale ? desc.scale : 1.0;
-	d_app.init = desc.init;
-	d_app.frame = desc.frame;
 	d_app.width = desc.width ? desc.width : 640;
 	d_app.height = desc.height ? desc.height : 480;
 	d_app.win_width = d_app.width * scale;
 	d_app.win_height = d_app.height * scale;
 
 #if defined(D_MACOS)
-	d_macos_init(&desc);
+	d_macos_run(&desc);
 #elif defined(D_IOS)
-	d_ios_init(&desc);
+	d_ios_run(&desc);
+#elif defined(D_WEB)
+	d_web_run(&desc);
 #endif
-
-	d_gfx_init(&desc);
-	d_audio_init(&desc);
-	d_fs_init(&desc);
-	stm_setup();
-
-	if (d_app.init) {
-		d_app.init();
-	}
-
-	while (1) {
-		d_frame();
-	}
 
 }
 
@@ -686,16 +719,18 @@ int d_fps() {
 }
 
 void d_set_fullscreen(bool b) {
-	if (b != d_fullscreen()) {
 #if defined(D_MACOS)
+	if (b != d_fullscreen()) {
 		[[NSApp mainWindow] toggleFullScreen:nil];
-#endif
 	}
+#endif
 }
 
 bool d_fullscreen() {
 #if defined(D_MACOS)
 	return [[NSApp mainWindow] styleMask] & NSWindowStyleMaskFullScreen;
+#elif defined(D_IOS)
+	return true;
 #endif
 	return false;
 }
@@ -715,15 +750,6 @@ void d_hide_mouse(bool b) {
 
 // TODO
 bool d_mouse_hidden() {
-	return false;
-}
-
-// TODO
-void d_show_keyboard(bool b) {
-}
-
-// TODO
-bool d_keyboard_shown() {
 	return false;
 }
 
@@ -857,6 +883,4 @@ bool d_active() {
 	return [[NSApp mainWindow] isMainWindow];
 #endif
 }
-
-#endif
 
