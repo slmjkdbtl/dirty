@@ -534,11 +534,14 @@ static void d_macos_run(const d_desc *desc) {
 static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 
 	if (d_app.desc.touch_is_mouse) {
-		int cnt = [touches count];
-		if (cnt == 1) {
+		if ([touches count] == 1) {
+			UITouch *t = [[touches allObjects] objectAtIndex:0];
+			CGPoint pos = [t locationInView:[t view]];
 			d_app.mouse_states[D_MOUSE_LEFT] = state;
-		} else if (cnt == 2) {
-			d_app.mouse_states[D_MOUSE_RIGHT] = state;
+			d_app.mouse_pos = vec2f(
+				pos.x * d_app.width / d_app.win_width,
+				pos.y * d_app.height / d_app.win_height
+			);
 		}
 	}
 
@@ -560,12 +563,16 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 
 #if defined(D_CPU)
 @interface DView : UIView
+-(void)draw;
 #elif defined(D_METAL)
 @interface DView : MTKView
 #endif
 @end
 
 @implementation DView
+-(void)draw {
+	[super setNeedsDisplay];
+}
 - (void)drawRect:(CGRect)rect {
 
 	d_app_frame();
@@ -616,6 +623,7 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 
 @interface DAppDelegate : NSObject<UIApplicationDelegate>
 -(void)loop:(NSTimer*) timer;
+@property (strong, nonatomic) DView *view;
 @property (strong, nonatomic) UIWindow *window;
 @end
 
@@ -633,23 +641,24 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 	window.rootViewController = view_ctrl;
 	[window makeKeyAndVisible];
 	self.window = window;
+	self.view = view;
 
 	d_app_init();
 
-// 	[NSTimer
-// 		scheduledTimerWithTimeInterval:0.001
-// 		target:self
-// 		selector:@selector(loop:)
-// 		userInfo:nil
-// 		repeats:YES
-// 	];
+	[NSTimer
+		scheduledTimerWithTimeInterval:0.001
+		target:self
+		selector:@selector(loop:)
+		userInfo:nil
+		repeats:YES
+	];
 
 	return YES;
 
 }
 -(void)loop:(NSTimer*)timer {
 	// TODO: unrecognized selector?
-// 	[[[self.window rootViewController] view] setNeedsDisplay:YES];
+	[self.view draw];
 }
 @end
 
