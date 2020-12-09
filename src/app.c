@@ -99,6 +99,7 @@ typedef struct {
 	char char_input;
 	float fps_timer;
 	int fps;
+	bool quit;
 #if defined(D_GL)
 	GLuint gl_tex;
 #endif
@@ -131,7 +132,13 @@ static void d_app_init() {
 
 }
 
-static void d_app_frame_end() {
+static void d_app_frame() {
+
+	if (d_app.desc.frame) {
+		d_app.desc.frame();
+	}
+
+	d_gfx_frame_end();
 
 	// time
 	float time = stm_sec(stm_now());
@@ -319,14 +326,20 @@ static d_key d_macos_key(unsigned short k) {
 }
 
 @interface DAppDelegate : NSObject<NSApplicationDelegate>
--(void) drawLoop:(NSTimer*) timer;
+-(void)loop:(NSTimer*) timer;
 @end
 
 @implementation DAppDelegate
 - (void)applicationDidFinishLaunching:(NSNotification*)noti {
-	[NSTimer scheduledTimerWithTimeInterval:0.001 target:self selector:@selector(drawLoop:) userInfo:nil repeats:YES];
+	[NSTimer
+		scheduledTimerWithTimeInterval:0.001
+		target:self
+		selector:@selector(loop:)
+		userInfo:nil
+		repeats:YES
+	];
 }
--(void) drawLoop:(NSTimer*) timer {
+-(void)loop:(NSTimer*)timer {
 	[[[NSApp mainWindow] contentView] setNeedsDisplay:YES];
 }
 @end
@@ -406,11 +419,7 @@ static d_key d_macos_key(unsigned short k) {
 	d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
 	d_app.mouse_pos = mpos;
 
-	if (d_app.desc.frame) {
-		d_app.desc.frame();
-	}
-
-	d_gfx_frame_end();
+	d_app_frame();
 
 	if (!d_app.buf) {
 		return;
@@ -452,7 +461,9 @@ static d_key d_macos_key(unsigned short k) {
 
 #endif // D_CPU
 
-	d_app_frame_end();
+	if (d_app.quit) {
+		[NSApp terminate:nil];
+	}
 
 }
 @end
@@ -493,7 +504,7 @@ static void d_macos_run(const d_desc *desc) {
 	NSOpenGLContext* ctx = [view openGLContext];
 
 	if (desc->hidpi) {
-		[[window contentView] setWantsBestResolutionOpenGLSurface:YES];
+		[view setWantsBestResolutionOpenGLSurface:YES];
 	}
 
 	[ctx setValues:&desc->vsync forParameter:NSOpenGLContextParameterSwapInterval];
@@ -557,16 +568,15 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 @implementation DView
 - (void)drawRect:(CGRect)rect {
 
+	d_app_frame();
+
 	int w = d_width();
 	int h = d_height();
-
-	d_img dimg = d_make_img(w, h);
-	d_img_fill(&dimg, colori(0, 255, 255, 255));
 
 	CGContextRef ctx = UIGraphicsGetCurrentContext();
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
 	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
-	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, dimg.pixels, w * h * 4, NULL);
+	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, d_app.buf, w * h * 4, NULL);
 
 	CGImageRef img = CGImageCreate(
 		w,
@@ -587,9 +597,6 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 	CGColorSpaceRelease(rgb);
 	CGDataProviderRelease(provider);
 	CGImageRelease(img);
-	d_free_img(&dimg);
-
-	d_app_frame_end();
 
 }
 
@@ -608,13 +615,12 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 @end
 
 @interface DAppDelegate : NSObject<UIApplicationDelegate>
+-(void)loop:(NSTimer*) timer;
 @property (strong, nonatomic) UIWindow *window;
 @end
 
 @implementation DAppDelegate
 - (BOOL)application:(UIApplication*)app didFinishLaunchingWithOptions:(NSDictionary*)opt {
-
-	// TODO: nothing drawn
 
 	CGRect screen_rect = [[UIScreen mainScreen] bounds];
 	UIWindow *window = [[UIWindow alloc] initWithFrame:screen_rect];
@@ -625,14 +631,25 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 	DView *view = [[DView alloc] init];
 	view_ctrl.view = view;
 	window.rootViewController = view_ctrl;
-	window.backgroundColor = [UIColor whiteColor];
 	[window makeKeyAndVisible];
 	self.window = window;
 
 	d_app_init();
 
+// 	[NSTimer
+// 		scheduledTimerWithTimeInterval:0.001
+// 		target:self
+// 		selector:@selector(loop:)
+// 		userInfo:nil
+// 		repeats:YES
+// 	];
+
 	return YES;
 
+}
+-(void)loop:(NSTimer*)timer {
+	// TODO: unrecognized selector?
+// 	[[[self.window rootViewController] view] setNeedsDisplay:YES];
 }
 @end
 
@@ -677,9 +694,7 @@ void d_run(d_desc desc) {
 }
 
 void d_quit() {
-#if defined(D_MACOS)
-	[NSApp terminate:nil];
-#endif
+	d_app.quit = true;
 }
 
 void d_fail(const char *fmt, ...) {

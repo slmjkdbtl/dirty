@@ -16,7 +16,7 @@
 
 void d_present(color *pixels);
 
-#define MAX_TSTACK 16
+#define D_MAX_TSTACK 16
 
 typedef struct {
 	d_img def_canvas;
