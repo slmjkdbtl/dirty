@@ -77,7 +77,6 @@ LDFLAGS += -L $(EXT_LIB_PATH)
 
 ifeq ($(TARGET),macos)
 LDFLAGS += -framework Cocoa
-LDFLAGS += -framework QuartzCore
 LDFLAGS += -framework OpenGL
 LDFLAGS += -framework Metal
 LDFLAGS += -framework MetalKit

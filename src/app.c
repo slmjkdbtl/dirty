@@ -4,8 +4,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-#define SOKOL_IMPL
-#include <sokol/sokol_time.h>
+#include <sys/time.h>
 #include <dirty/dirty.h>
 
 #if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL) && !defined(D_WGPU) && !defined(D_D3D11)
@@ -65,6 +64,32 @@ void d_fs_init(d_desc *desc);
 void d_gfx_frame_end();
 void d_audio_quit();
 
+#if defined(D_MACOS)
+@interface DAppDelegate : NSObject<NSApplicationDelegate>
+-(void)loop:(NSTimer*) timer;
+@end
+@interface DWindowDelegate : NSObject<NSWindowDelegate>
+@end
+#if defined(D_GL)
+@interface DView : NSOpenGLView
+#elif defined(D_METAL)
+@interface DView : MTKView
+#elif defined(D_CPU)
+@interface DView : NSView
+#endif
+@end
+#elif defined(D_IOS)
+#if defined(D_CPU)
+@interface DView : UIView
+#elif defined(D_METAL)
+@interface DView : MTKView
+#endif
+@end
+@interface DAppDelegate : NSObject<UIApplicationDelegate>
+-(void)loop:(NSTimer*) timer;
+@end
+#endif
+
 typedef enum {
 	D_BTN_IDLE,
 	D_BTN_PRESSED,
@@ -81,8 +106,10 @@ typedef struct {
 } d_touch_state;
 
 typedef struct {
+
 	d_desc desc;
 	color *buf;
+	struct timeval start_time;
 	float time;
 	float dt;
 	int width;
@@ -100,9 +127,19 @@ typedef struct {
 	float fps_timer;
 	int fps;
 	bool quit;
+
+#if defined(D_MACOS)
+	NSWindow *window;
+	DView *view;
+#elif defined(D_IOS)
+	UIWindow *window;
+	DView *view;
+#endif
+
 #if defined(D_GL)
 	GLuint gl_tex;
 #endif
+
 } d_app_t;
 
 static d_app_t d_app;
@@ -124,7 +161,7 @@ static void d_app_init() {
 	d_gfx_init(&d_app.desc);
 	d_audio_init(&d_app.desc);
 	d_fs_init(&d_app.desc);
-	stm_setup();
+	gettimeofday(&d_app.start_time, NULL);
 
 	if (d_app.desc.init) {
 		d_app.desc.init();
@@ -141,11 +178,11 @@ static void d_app_frame() {
 	d_gfx_frame_end();
 
 	// time
-	float time = stm_sec(stm_now());
-
-	d_app.dt = time - d_app.time;
-	d_app.time = time;
-
+	struct timeval time;
+	gettimeofday(&time, NULL);
+	float t = (float)(time.tv_sec - d_app.start_time.tv_sec) + (float)(time.tv_usec - d_app.start_time.tv_usec) / 1000000.0;
+	d_app.dt = t - d_app.time;
+	d_app.time = t;
 	d_app.fps_timer += d_app.dt;
 
 	if (d_app.fps_timer >= 1.0) {
@@ -325,12 +362,54 @@ static d_key d_macos_key(unsigned short k) {
 	return D_KEY_NONE;
 }
 
-@interface DAppDelegate : NSObject<NSApplicationDelegate>
--(void)loop:(NSTimer*) timer;
-@end
-
 @implementation DAppDelegate
 - (void)applicationDidFinishLaunching:(NSNotification*)noti {
+
+	NSWindow *window = [[NSWindow alloc]
+		initWithContentRect: NSMakeRect(0, 0, d_app.win_width, d_app.win_height)
+		styleMask:
+			NSWindowStyleMaskTitled
+			| NSWindowStyleMaskClosable
+			| NSWindowStyleMaskResizable
+			| NSWindowStyleMaskMiniaturizable
+		backing: NSBackingStoreBuffered
+		defer: NO
+	];
+
+	d_app.window = window;
+
+	if (d_app.desc.title) {
+		[window setTitle:[NSString stringWithUTF8String:d_app.desc.title]];
+	}
+
+	[window setAcceptsMouseMovedEvents:YES];
+	[window center];
+	[window setDelegate:[[DWindowDelegate alloc] init]];
+	DView *view = [[DView alloc] init];
+	d_app.view = view;
+	[window setContentView:view];
+	[window makeKeyAndOrderFront:nil];
+	[window makeFirstResponder:view];
+
+#if defined(D_GL)
+
+	NSOpenGLContext* ctx = [view openGLContext];
+
+	if (d_app.desc.hidpi) {
+		[view setWantsBestResolutionOpenGLSurface:YES];
+	}
+
+	[ctx setValues:(int*)&d_app.desc.vsync forParameter:NSOpenGLContextParameterSwapInterval];
+	[ctx makeCurrentContext];
+
+	d_opengl_init();
+
+#elif defined(D_METAL)
+	// TODO
+#endif // D_METAL
+
+	d_app_init();
+
 	[NSTimer
 		scheduledTimerWithTimeInterval:0.001
 		target:self
@@ -338,34 +417,23 @@ static d_key d_macos_key(unsigned short k) {
 		userInfo:nil
 		repeats:YES
 	];
+
+}
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender {
+	return YES;
 }
 -(void)loop:(NSTimer*)timer {
-	[[[NSApp mainWindow] contentView] setNeedsDisplay:YES];
+	[d_app.view setNeedsDisplay:YES];
 }
-@end
-
-@interface DWindowDelegate : NSObject<NSWindowDelegate>
 @end
 
 @implementation DWindowDelegate
-- (void)windowWillClose:(NSNotification*)noti {
-	[NSApp terminate:nil];
-}
 - (void)windowDidResize:(NSNotification*)noti {
-	NSSize size = [[[NSApp mainWindow] contentView] frame].size;
+	NSSize size = [d_app.view frame].size;
 	d_app.win_width = size.width;
 	d_app.win_height = size.height;
 	d_app.resized = true;
 }
-@end
-
-#if defined(D_GL)
-@interface DView : NSOpenGLView
-#elif defined(D_METAL)
-@interface DView : MTKView
-#elif defined(D_CPU)
-@interface DView : NSView
-#endif
 @end
 
 @implementation DView
@@ -411,7 +479,7 @@ static d_key d_macos_key(unsigned short k) {
 }
 - (void)drawRect:(NSRect)rect {
 
-	NSPoint ompos = [[NSApp mainWindow] mouseLocationOutsideOfEventStream];
+	NSPoint ompos = [d_app.window mouseLocationOutsideOfEventStream];
 	vec2 mpos = vec2f(
 		ompos.x * d_app.width / d_app.win_width,
 		d_app.height - ompos.y * d_app.height / d_app.win_height
@@ -420,10 +488,6 @@ static d_key d_macos_key(unsigned short k) {
 	d_app.mouse_pos = mpos;
 
 	d_app_frame();
-
-	if (!d_app.buf) {
-		return;
-	}
 
 #if defined(D_GL)
 	d_opengl_blit();
@@ -469,60 +533,11 @@ static d_key d_macos_key(unsigned short k) {
 @end
 
 static void d_macos_run(const d_desc *desc) {
-
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:[[DAppDelegate alloc] init]];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 	[NSApp activateIgnoringOtherApps:YES];
-
-	NSWindow *window = [[NSWindow alloc]
-		initWithContentRect: NSMakeRect(0, 0, d_app.win_width, d_app.win_height)
-		styleMask:
-			NSWindowStyleMaskTitled
-			| NSWindowStyleMaskClosable
-			| NSWindowStyleMaskResizable
-			| NSWindowStyleMaskMiniaturizable
-		backing: NSBackingStoreBuffered
-		defer: NO
-	];
-
-	if (desc->title) {
-		[window setTitle:[NSString stringWithUTF8String:desc->title]];
-	}
-
-	[window setAcceptsMouseMovedEvents:YES];
-	[window center];
-	[window setDelegate:[[DWindowDelegate alloc] init]];
-	[window makeKeyAndOrderFront:nil];
-
-	DView *view = [[DView alloc] init];
-	[window setContentView:view];
-	[window makeFirstResponder:view];
-
-#if defined(D_GL)
-
-	NSOpenGLContext* ctx = [view openGLContext];
-
-	if (desc->hidpi) {
-		[view setWantsBestResolutionOpenGLSurface:YES];
-	}
-
-	[ctx setValues:&desc->vsync forParameter:NSOpenGLContextParameterSwapInterval];
-	[ctx makeCurrentContext];
-
-	d_opengl_init();
-
-#elif defined(D_METAL)
-
-	// TODO
-	view.preferredFramesPerSecond = 60;
-
-#endif // D_METAL
-
-	d_app_init();
-
 	[NSApp run];
-
 }
 
 #endif // D_MACOS
@@ -531,11 +546,13 @@ static void d_macos_run(const d_desc *desc) {
 // iOS
 #if defined(D_IOS)
 
-static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
+static void d_ios_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
+
+	NSArray<UITouch*> *touches = [tset allObjects];
 
 	if (d_app.desc.touch_is_mouse) {
 		if ([touches count] == 1) {
-			UITouch *t = [[touches allObjects] objectAtIndex:0];
+			UITouch *t = touches[0];
 			CGPoint pos = [t locationInView:[t view]];
 			d_app.mouse_states[D_MOUSE_LEFT] = state;
 			d_app.mouse_pos = vec2f(
@@ -561,17 +578,16 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 
 }
 
-#if defined(D_CPU)
-@interface DView : UIView
-#elif defined(D_METAL)
-@interface DView : MTKView
-#endif
-@end
-
 @implementation DView
 - (void)drawRect:(CGRect)rect {
 
 	d_app_frame();
+
+#if defined(D_GL)
+	d_opengl_blit();
+#elif defined(D_METAL)
+	// TODO
+#elif defined(D_CPU)
 
 	int w = d_width();
 	int h = d_height();
@@ -604,6 +620,8 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 	CGDataProviderRelease(provider);
 	CGImageRelease(img);
 
+#endif // D_CPU
+
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
@@ -620,27 +638,21 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 }
 @end
 
-@interface DAppDelegate : NSObject<UIApplicationDelegate>
--(void)loop:(NSTimer*) timer;
-@property (strong, nonatomic) DView *view;
-@property (strong, nonatomic) UIWindow *window;
-@end
-
 @implementation DAppDelegate
 - (BOOL)application:(UIApplication*)app didFinishLaunchingWithOptions:(NSDictionary*)opt {
 
 	CGRect screen_rect = [[UIScreen mainScreen] bounds];
 	UIWindow *window = [[UIWindow alloc] initWithFrame:screen_rect];
+	d_app.window = window;
 	d_app.win_width = screen_rect.size.width;
 	d_app.win_height = screen_rect.size.height;
 
 	UIViewController *view_ctrl = [[UIViewController alloc] init];
 	DView *view = [[DView alloc] init];
+	d_app.view = view;
 	view_ctrl.view = view;
 	window.rootViewController = view_ctrl;
 	[window makeKeyAndVisible];
-	self.window = window;
-	self.view = view;
 
 	d_app_init();
 
@@ -656,7 +668,7 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 
 }
 -(void)loop:(NSTimer*)timer {
-	[self.view setNeedsDisplay];
+	[d_app.view setNeedsDisplay];
 }
 @end
 
@@ -666,6 +678,15 @@ static void d_ios_run(const d_desc *desc) {
 
 #endif // D_IOS
 
+// -------------------------------------------------------------
+// Linux
+#if defined(D_LINUX)
+
+static void d_linux_run(const d_desc *desc) {
+	// TODO
+}
+
+#endif // D_LINUX
 
 // -------------------------------------------------------------
 // Web
@@ -694,6 +715,8 @@ void d_run(d_desc desc) {
 	d_macos_run(&desc);
 #elif defined(D_IOS)
 	d_ios_run(&desc);
+#elif defined(D_LINUX)
+	d_linux_run(&desc);
 #elif defined(D_WEB)
 	d_web_run(&desc);
 #endif
@@ -743,14 +766,14 @@ int d_fps() {
 void d_set_fullscreen(bool b) {
 #if defined(D_MACOS)
 	if (b != d_fullscreen()) {
-		[[NSApp mainWindow] toggleFullScreen:nil];
+		[d_app.window toggleFullScreen:nil];
 	}
 #endif
 }
 
 bool d_fullscreen() {
 #if defined(D_MACOS)
-	return [[NSApp mainWindow] styleMask] & NSWindowStyleMaskFullScreen;
+	return [d_app.window styleMask] & NSWindowStyleMaskFullScreen;
 #elif defined(D_IOS)
 	return true;
 #endif
@@ -778,7 +801,7 @@ bool d_mouse_hidden() {
 void d_set_title(const char *title) {
 #if defined(D_MACOS)
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	[[NSApp mainWindow] setTitle:[NSString stringWithUTF8String:title]];
+	[d_app.window setTitle:[NSString stringWithUTF8String:title]];
 	[pool drain];
 #endif
 }
@@ -902,7 +925,7 @@ char d_input() {
 
 bool d_active() {
 #if defined(D_MACOS)
-	return [[NSApp mainWindow] isMainWindow];
+	return [d_app.window isMainWindow];
 #endif
 }
 
