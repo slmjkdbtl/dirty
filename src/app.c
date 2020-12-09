@@ -563,16 +563,12 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 
 #if defined(D_CPU)
 @interface DView : UIView
--(void)draw;
 #elif defined(D_METAL)
 @interface DView : MTKView
 #endif
 @end
 
 @implementation DView
--(void)draw {
-	[super setNeedsDisplay];
-}
 - (void)drawRect:(CGRect)rect {
 
 	d_app_frame();
@@ -599,6 +595,9 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 		kCGRenderingIntentDefault
 	);
 
+	// TODO: why is it up side down
+	CGContextTranslateCTM(ctx, 0, rect.size.height);
+	CGContextScaleCTM(ctx, 1.0, -1.0);
 	CGContextDrawImage(ctx, rect, img);
 
 	CGColorSpaceRelease(rgb);
@@ -657,8 +656,7 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *touches, UIEvent *event) {
 
 }
 -(void)loop:(NSTimer*)timer {
-	// TODO: unrecognized selector?
-	[self.view draw];
+	[self.view setNeedsDisplay];
 }
 @end
 
