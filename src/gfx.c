@@ -30,7 +30,7 @@ typedef struct {
 
 static d_gfx_ctx d_gfx;
 
-void d_gfx_init(d_desc *desc) {
+void d_gfx_init(const d_desc *desc) {
 	d_gfx.def_canvas = d_make_img(d_width(), d_height());
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
 	d_gfx.def_font = d_make_font(d_parse_img(unscii_png, unscii_png_len), 8, 8, D_ASCII_CHARS);

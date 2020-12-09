@@ -22,7 +22,7 @@ typedef struct {
 
 static d_fs_ctx d_fs;
 
-void d_fs_init(d_desc *desc) {
+void d_fs_init(const d_desc *desc) {
 
 	if (desc->path) {
 		sprintf(d_fs.res_path, "%s/", desc->path);

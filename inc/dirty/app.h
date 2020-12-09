@@ -106,7 +106,8 @@ typedef enum {
 
 typedef enum {
 	D_STRETCH,
-	D_LETTERBOX,
+	D_FIT_BIG,
+	D_FIT_SMALL,
 } d_scale_mode;
 
 typedef struct {

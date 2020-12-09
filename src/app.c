@@ -43,12 +43,13 @@
 
 #endif // D_GL
 
+#if defined(D_METAL)
+	#import <Metal/Metal.h>
+	#import <MetalKit/MetalKit.h>
+#endif
+
 #if defined(D_MACOS)
 	#import <Cocoa/Cocoa.h>
-	#if defined(D_METAL)
-		#import <Metal/Metal.h>
-		#import <MetalKit/MetalKit.h>
-	#endif
 #elif defined(D_IOS)
 	#import <UIKit/UIKit.h>
 #elif defined(D_WEB)
@@ -56,20 +57,22 @@
 	#include <emscripten/html5.h>
 #endif
 
-#define D_NUM_TOUCHES 8
+#define D_MAX_TOUCHES 8
 
-void d_gfx_init(d_desc *desc);
-void d_audio_init(d_desc *desc);
-void d_fs_init(d_desc *desc);
+void d_gfx_init(const d_desc *desc);
+void d_audio_init(const d_desc *desc);
+void d_fs_init(const d_desc *desc);
 void d_gfx_frame_end();
-void d_audio_quit();
 
 #if defined(D_MACOS)
+
 @interface DAppDelegate : NSObject<NSApplicationDelegate>
--(void)loop:(NSTimer*) timer;
+	-(void)loop:(NSTimer*) timer;
 @end
+
 @interface DWindowDelegate : NSObject<NSWindowDelegate>
 @end
+
 #if defined(D_GL)
 @interface DView : NSOpenGLView
 #elif defined(D_METAL)
@@ -78,16 +81,20 @@ void d_audio_quit();
 @interface DView : NSView
 #endif
 @end
+
 #elif defined(D_IOS)
+
 #if defined(D_CPU)
 @interface DView : UIView
 #elif defined(D_METAL)
 @interface DView : MTKView
 #endif
 @end
+
 @interface DAppDelegate : NSObject<UIApplicationDelegate>
--(void)loop:(NSTimer*) timer;
+	-(void)loop:(NSTimer*) timer;
 @end
+
 #endif
 
 typedef enum {
@@ -121,7 +128,8 @@ typedef struct {
 	vec2 wheel;
 	d_btn key_states[_D_NUM_KEYS];
 	d_btn mouse_states[_D_NUM_MOUSE];
-	d_touch_state touches[D_NUM_TOUCHES];
+	d_touch_state touches[D_MAX_TOUCHES];
+	int num_touches;
 	bool resized;
 	char char_input;
 	float fps_timer;
@@ -199,8 +207,13 @@ static void d_app_frame() {
 		d_process_btn(&d_app.mouse_states[i]);
 	}
 
-	for (int i = 0; i < D_NUM_TOUCHES; i++) {
+	for (int i = 0; i < d_app.num_touches; i++) {
 		d_process_btn(&d_app.touches[i].state);
+		if (d_app.touches[i].state == D_BTN_IDLE) {
+			d_app.touches[i] = d_app.touches[d_app.num_touches - 1];
+			d_app.num_touches--;
+			i--;
+		}
 	}
 
 	d_app.wheel.x = 0.0;
@@ -215,7 +228,7 @@ static void d_app_frame() {
 // OpenGL
 #if defined(D_GL)
 
-static void d_opengl_init() {
+static void d_gl_init() {
 
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -246,8 +259,9 @@ static void d_opengl_init() {
 
 }
 
-static void d_opengl_blit() {
+static void d_gl_blit() {
 
+	glViewport(0, 0, d_win_width(), d_win_height());
 	glClear(GL_COLOR_BUFFER_BIT);
 	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
 
@@ -367,8 +381,8 @@ static d_key d_macos_key(unsigned short k) {
 
 	NSWindow *window = [[NSWindow alloc]
 		initWithContentRect: NSMakeRect(0, 0, d_app.win_width, d_app.win_height)
-		styleMask:
-			NSWindowStyleMaskTitled
+		styleMask: 0
+			| NSWindowStyleMaskTitled
 			| NSWindowStyleMaskClosable
 			| NSWindowStyleMaskResizable
 			| NSWindowStyleMaskMiniaturizable
@@ -402,7 +416,7 @@ static d_key d_macos_key(unsigned short k) {
 	[ctx setValues:(int*)&d_app.desc.vsync forParameter:NSOpenGLContextParameterSwapInterval];
 	[ctx makeCurrentContext];
 
-	d_opengl_init();
+	d_gl_init();
 
 #elif defined(D_METAL)
 	// TODO
@@ -490,7 +504,7 @@ static d_key d_macos_key(unsigned short k) {
 	d_app_frame();
 
 #if defined(D_GL)
-	d_opengl_blit();
+	d_gl_blit();
 #elif defined(D_METAL)
 	// TODO
 #elif defined(D_CPU)
@@ -564,16 +578,39 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
 
 	for (UITouch *touch in touches) {
 		uintptr_t id = (uintptr_t)touch;
-		CGPoint pos = [touch locationInView:[touch view]];
-		if (state == D_BTN_PRESSED) {
-			d_touch_state t = (d_touch_state) {
-				.id = id,
-				.pos = vec2f(pos.x, pos.y),
-				.dpos = vec2f(0.0, 0.0),
-				.state = state,
-			};
+		CGPoint cpos = [touch locationInView:[touch view]];
+		vec2 pos = vec2f(cpos.x, cpos.y);
+		switch (state) {
+			case D_BTN_PRESSED:
+				if (d_app.num_touches < D_MAX_TOUCHES) {
+					d_app.touches[d_app.num_touches++] = (d_touch_state) {
+						.id = id,
+						.pos = pos,
+						.dpos = vec2f(0.0, 0.0),
+						.state = D_BTN_PRESSED,
+					};
+				}
+				break;
+			case D_BTN_DOWN:
+				for (int i = 0; i < d_app.num_touches; i++) {
+					d_touch_state *t = &d_app.touches[i];
+					if (t->id == id) {
+						t->dpos = vec2_sub(pos, t->pos);
+						t->pos = pos;
+					}
+				}
+				break;
+			case D_BTN_RELEASED:
+				for (int i = 0; i < d_app.num_touches; i++) {
+					d_touch_state *t = &d_app.touches[i];
+					if (t->id == id) {
+						t->state = D_BTN_RELEASED;
+					}
+				}
+				break;
+			default:
+				break;
 		}
-		// TODO
 	}
 
 }
@@ -584,7 +621,7 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
 	d_app_frame();
 
 #if defined(D_GL)
-	d_opengl_blit();
+	d_gl_blit();
 #elif defined(D_METAL)
 	// TODO
 #elif defined(D_CPU)
@@ -883,27 +920,27 @@ bool d_mouse_moved() {
 }
 
 bool d_touch_pressed(d_touch t) {
-	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_MAX_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].state == D_BTN_PRESSED;
 }
 
 bool d_touch_released(d_touch t) {
-	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_MAX_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].state == D_BTN_RELEASED;
 }
 
 bool d_touch_moved(d_touch t) {
-	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_MAX_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].dpos.x != 0.0 || d_app.touches[t].dpos.x != 0.0;
 }
 
 vec2 d_touch_pos(d_touch t) {
-	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_MAX_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].pos;
 }
 
 vec2 d_touch_dpos(d_touch t) {
-	d_assert(t < D_NUM_TOUCHES, "touch not found: %d\n", t);
+	d_assert(t < D_MAX_TOUCHES, "touch not found: %d\n", t);
 	return d_app.touches[t].dpos;
 }
 
@@ -927,5 +964,6 @@ bool d_active() {
 #if defined(D_MACOS)
 	return [d_app.window isMainWindow];
 #endif
+	return true;
 }
 

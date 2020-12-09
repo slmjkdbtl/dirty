@@ -1,17 +1,25 @@
 // wengwengweng
 
 #include <math.h>
-#define SOKOL_IMPL
-#include <sokol/sokol_audio.h>
-#include <stb/stb_vorbis.c>
 
 #include <dirty/dirty.h>
 
-#define CHANNELS 1
-#define BUFFER_FRAMES 1024
-#define MAX_PLAYBACKS 256
-#define A4_FREQ 440
-#define A4_NOTE 69
+#if defined(D_MACOS) || defined(D_IOS)
+	#define D_COREAUDIO
+#endif
+
+#if defined(D_COREAUDIO)
+	#include <AudioToolbox/AudioToolbox.h>
+#endif
+
+#include <stb/stb_vorbis.c>
+
+#define D_SAMPLE_RATE 44100
+#define D_NUM_CHANNELS 1
+#define D_BUFFER_FRAMES 1024
+#define D_MAX_PLAYBACKS 256
+#define D_A4_FREQ 440
+#define D_A4_NOTE 69
 #define D_SYNTH_NOTES 128
 #define D_SYNTH_BUF_SIZE 44100
 
@@ -31,10 +39,13 @@ d_synth d_make_synth();
 float d_synth_next();
 
 typedef struct {
-	d_playback playbacks[MAX_PLAYBACKS];
+	d_playback playbacks[D_MAX_PLAYBACKS];
 	int num_playbacks;
 	float (*user_stream)();
 	d_synth synth;
+#if defined(D_COREAUDIO)
+	AudioQueueRef audio_queue;
+#endif
 } d_audio_ctx;
 
 static d_audio_ctx d_audio;
@@ -88,27 +99,44 @@ static float d_audio_next() {
 
 }
 
-static void saudio_stream(float *buffer, int num_frames, int num_channels) {
+static void d_stream_cb(float *buffer, int num_frames, int num_channels) {
 	for (int i = 0; i < num_frames; i++) {
 		buffer[i] = clampf(d_audio_next(), -1.0, 1.0);
 	}
 }
 
-void d_audio_init(d_desc *desc) {
+#if defined(D_COREAUDIO)
 
-	saudio_setup(&(saudio_desc) {
-		.stream_cb = saudio_stream,
-		.sample_rate = D_SAMPLE_RATE,
-		.num_channels = CHANNELS,
-		.buffer_frames = BUFFER_FRAMES,
-	});
+static void d_coreaudio_cb(void *udata, AudioQueueRef queue, AudioQueueBufferRef buffer) {
+}
 
-	d_audio.synth = d_make_synth();
+void d_coreaudio_init() {
+
+	AudioStreamBasicDescription fmt = {
+		.mSampleRate = D_SAMPLE_RATE,
+		.mFormatID = kAudioFormatLinearPCM,
+		.mFormatFlags = 0
+			| kLinearPCMFormatFlagIsFloat
+			| kAudioFormatFlagIsPacked
+			,
+		.mFramesPerPacket = 1,
+		.mChannelsPerFrame = D_NUM_CHANNELS,
+		.mBytesPerFrame = sizeof(float) * D_NUM_CHANNELS,
+		.mBytesPerPacket = fmt.mBytesPerFrame,
+		.mBitsPerChannel = 32,
+	};
+
+	OSStatus res = AudioQueueNewOutput(&fmt, d_coreaudio_cb, 0, NULL, NULL, 0, &d_audio.audio_queue);
 
 }
 
-void d_audio_quit() {
-	saudio_shutdown();
+#endif // CoreAudio
+
+void d_audio_init(const d_desc *desc) {
+#if defined(D_COREAUDIO)
+	d_coreaudio_init();
+#endif
+	d_audio.synth = d_make_synth();
 }
 
 void d_stream(float (*f)()) {
@@ -224,7 +252,7 @@ float d_playback_time(d_playback *pb) {
 }
 
 float d_note_freq(int n) {
-	return A4_FREQ * pow(powf(2.0, 1.0 / 12.0), n - A4_NOTE);
+	return D_A4_FREQ * pow(powf(2.0, 1.0 / 12.0), n - D_A4_NOTE);
 }
 
 float d_wav_sin(float freq, float t) {
