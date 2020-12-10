@@ -738,92 +738,134 @@ static void d_uikit_run(const d_desc *desc) {
 // Linux
 #if defined(D_X11)
 
+static d_key d_x11_key(unsigned short k) {
+	printf("%d\n", k);
+	switch (k) {
+		case 0x3d: return D_KEY_ESC;
+	}
+	return D_KEY_NONE;
+}
+
 static void d_x11_run(const d_desc *desc) {
 
-	Display *display = XOpenDisplay(NULL);
-	int screen = DefaultScreen(display);
-	Visual *visual = DefaultVisual(display, screen);
-	GC gc = DefaultGC(display,screen);
-	unsigned int depth = DefaultDepth(display, screen);
+	Display *dis = XOpenDisplay(NULL);
+	d_app.display = dis;
+	int screen = XDefaultScreen(dis);
+	Visual *visual = XDefaultVisual(dis, screen);
+	GC gc = XDefaultGC(dis,screen);
+	unsigned int depth = XDefaultDepth(dis, screen);
+	XSetWindowAttributes attrs;
 
-	d_app.display = display;
-
-	Window window = XCreateSimpleWindow(
-		display,
-		RootWindow(display, screen),
+	Window window = XCreateWindow(
+		dis,
+		XDefaultRootWindow(dis),
 		0,
 		0,
 		d_app.win_width,
 		d_app.win_height,
 		0,
-		BlackPixel(display, screen),
-		WhitePixel(display, screen)
+		depth,
+		InputOutput,
+		visual,
+		CWBackPixel | CWBorderPixel | CWBackingStore,
+		&attrs
 	);
 
-	Atom del_window = XInternAtom(display, "WM_DELETE_WINDOW", 0);
-	XSetWMProtocols(display, window, &del_window, 1);
+	d_app.window = window;
+	Atom del_window = XInternAtom(dis, "WM_DELETE_WINDOW", 0);
+	XSetWMProtocols(dis, window, &del_window, 1);
 
-	XSelectInput(display, window, ExposureMask | KeyPressMask | KeyReleaseMask);
-	XMapWindow(display, window);
+	XSelectInput(dis, window, ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask);
+	XMapWindow(dis, window);
+
+	if (desc->title) {
+		XStoreName(dis, window, desc->title);
+	}
 
 	d_app_init();
 
-	XEvent event;
-
 	while (!d_app.quit) {
 
-		XNextEvent(display, &event);
+		int count = XPending(dis);
 
-		switch (event.type) {
-			case KeyPress:
-				break;
-			case ClientMessage:
-				d_app.quit = true;
-				break;
-			case Expose: {
+		while (count--) {
 
-				d_app_frame();
+			XEvent event;
+			XNextEvent(dis, &event);
 
-				// TODO: it's drawing in BGRA
-				// TODO: scale
-				// TODO: better fix?
-
-				d_img img = d_make_img(d_app.win_width, d_app.win_height);
-
-				for (int x = 0; x < img.width; x++) {
-					for (int y = 0; y < img.height; y++) {
-						int xx = x * d_app.width / img.width;
-						int yy = y * d_app.height / img.height;
-						int i = yy * d_app.width + xx;
-						color c = d_app.buf[i];
-						d_img_set(&img, x, y, colori(c.b, c.g, c.r, c.a));
+			switch (event.type) {
+				case KeyPress: {
+					d_key k = d_x11_key(event.xkey.keycode);
+					if (k) {
+						d_app.key_states[k] = D_BTN_PRESSED;
 					}
+					break;
 				}
-
-				XImage *ximg = XCreateImage(
-					display,
-					visual,
-					depth,
-					ZPixmap,
-					0,
-					(char*)img.pixels,
-					img.width,
-					img.height,
-					32,
-					0
-				);
-
-				XPutImage(display, window, gc, ximg, 0, 0, 0, 0, img.width, img.height);
-				free(ximg);
-				d_free_img(&img);
-
+				case KeyRelease: {
+					d_key k = d_x11_key(event.xkey.keycode);
+					if (k) {
+						d_app.key_states[k] = D_BTN_RELEASED;
+					}
+					break;
+				}
+				case ButtonPress:
+					d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_PRESSED;
+					break;
+				case ButtonRelease:
+					d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_RELEASED;
+					break;
+				case MotionNotify:
+					d_app.mouse_pos = vec2f(
+						event.xmotion.x * d_app.width / d_app.win_width,
+						event.xmotion.y * d_app.height / d_app.win_height
+					);
+					break;
+				case ClientMessage:
+					d_app.quit = true;
+					break;
 			}
 		}
 
+		d_app_frame();
+
+		// TODO: it's drawing in BGRA
+		// TODO: scale
+		// TODO: better fix? this is very slow
+
+		d_img img = d_make_img(d_app.win_width, d_app.win_height);
+
+		for (int x = 0; x < img.width; x++) {
+			for (int y = 0; y < img.height; y++) {
+				int xx = x * d_app.width / img.width;
+				int yy = y * d_app.height / img.height;
+				int i = yy * d_app.width + xx;
+				color c = d_app.buf[i];
+				d_img_set(&img, x, y, colori(c.b, c.g, c.r, c.a));
+			}
+		}
+
+		XImage *ximg = XCreateImage(
+			dis,
+			visual,
+			depth,
+			ZPixmap,
+			0,
+			(char*)img.pixels,
+			img.width,
+			img.height,
+			32,
+			0
+		);
+
+		// TODO: this is slow af
+		XPutImage(dis, window, gc, ximg, 0, 0, 0, 0, img.width, img.height);
+		XFree(ximg);
+		d_free_img(&img);
+
 	}
 
-	XDestroyWindow(display, window);
-	XCloseDisplay(display);
+	XDestroyWindow(dis, window);
+	XCloseDisplay(dis);
 
 }
 
@@ -944,6 +986,8 @@ void d_set_title(const char *title) {
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	[d_app.window setTitle:[NSString stringWithUTF8String:title]];
 	[pool drain];
+#elif defined(D_X11)
+	XStoreName(d_app.display, d_app.window, title);
 #endif
 }
 
