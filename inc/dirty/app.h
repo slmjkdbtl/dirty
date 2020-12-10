@@ -4,9 +4,7 @@
 #define D_APP_H
 
 #include <stdbool.h>
-
-#include "gfx.h"
-#include "math.h"
+#include "platform.h"
 
 typedef enum {
 	D_KEY_NONE,

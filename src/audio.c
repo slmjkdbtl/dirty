@@ -1,15 +1,24 @@
 // wengwengweng
 
 #include <math.h>
-
 #include <dirty/dirty.h>
 
 #if defined(D_MACOS) || defined(D_IOS)
 	#define D_COREAUDIO
+#elif defined(D_LINUX)
+	#define D_ALSA
+#elif defined(D_ANDROID)
+	#define D_AAUDIO
+#elif defined(D_WEB)
+	#define D_WEBAUDIO
 #endif
 
 #if defined(D_COREAUDIO)
 	#include <AudioToolbox/AudioToolbox.h>
+#elif defined(D_ALSA)
+	#include <alsa/asoundlib.h>
+#elif defined(D_WEBAUDIO)
+	#include <emscripten/emscripten.h>
 #endif
 
 #include <stb/stb_vorbis.c>

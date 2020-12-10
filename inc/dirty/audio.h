@@ -3,6 +3,9 @@
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
 
+#include <stdbool.h>
+#include "platform.h"
+
 #define D_SAMPLE_RATE 44100
 #define D_MAX_EFFECTS 8
 

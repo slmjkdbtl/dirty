@@ -19,6 +19,18 @@
 #error "D_D3D11 is only on windows"
 #endif
 
+#if !defined(D_COCOA) && !defined(D_UIKIT) && !defined(D_X11) && !defined(D_CANVAS)
+#if defined(D_MACOS)
+	#define D_COCOA
+#elif defined(D_IOS)
+	#define D_UIKIT
+#elif defined(D_LINUX)
+	#define D_X11
+#elif defined(D_WEB)
+	#define D_CANVAS
+#endif
+#endif
+
 #if defined(D_GL)
 
 #define GL_SILENCE_DEPRECATION
@@ -48,13 +60,17 @@
 	#import <MetalKit/MetalKit.h>
 #endif
 
-#if defined(D_MACOS)
+#if defined(D_COCOA)
 	#import <Cocoa/Cocoa.h>
-#elif defined(D_IOS)
+#elif defined(D_UIKIT)
 	#import <UIKit/UIKit.h>
-#elif defined(D_WEB)
+#elif defined(D_CANVAS)
 	#include <emscripten/emscripten.h>
 	#include <emscripten/html5.h>
+#elif defined(D_X11)
+	#include <X11/Xlib.h>
+#elif defined(D_WAYLAND)
+	#include <wayland-client.h>
 #endif
 
 #define D_MAX_TOUCHES 8
@@ -64,7 +80,7 @@ void d_audio_init(const d_desc *desc);
 void d_fs_init(const d_desc *desc);
 void d_gfx_frame_end();
 
-#if defined(D_MACOS)
+#if defined(D_COCOA)
 
 @interface DAppDelegate : NSObject<NSApplicationDelegate>
 	-(void)loop:(NSTimer*) timer;
@@ -82,7 +98,7 @@ void d_gfx_frame_end();
 #endif
 @end
 
-#elif defined(D_IOS)
+#elif defined(D_UIKIT)
 
 #if defined(D_CPU)
 @interface DView : UIView
@@ -136,21 +152,24 @@ typedef struct {
 	int fps;
 	bool quit;
 
-#if defined(D_MACOS)
+#if defined(D_COCOA)
 	NSWindow *window;
 	DView *view;
-#elif defined(D_IOS)
+#elif defined(D_UIKIT)
 	UIWindow *window;
 	DView *view;
+#elif defined(D_X11)
+	Display *display;
+	Window window;
 #endif
 
 #if defined(D_GL)
 	GLuint gl_tex;
 #endif
 
-} d_app_t;
+} d_app_ctx;
 
-static d_app_t d_app;
+static d_app_ctx d_app;
 
 void d_present(color *canvas) {
 	d_app.buf = canvas;
@@ -292,9 +311,9 @@ static void d_gl_blit() {
 
 // -------------------------------------------------------------
 // macOS
-#if defined(D_MACOS)
+#if defined(D_COCOA)
 
-static d_key d_macos_key(unsigned short k) {
+static d_key d_cocoa_key(unsigned short k) {
 	switch (k) {
 		case 0x1D: return D_KEY_0;
 		case 0x12: return D_KEY_1;
@@ -461,7 +480,7 @@ static d_key d_macos_key(unsigned short k) {
 	return YES;
 }
 - (void)keyDown:(NSEvent*)event {
-	d_key k = d_macos_key(event.keyCode);
+	d_key k = d_cocoa_key(event.keyCode);
 	if (k) {
 		if (event.ARepeat) {
 			d_app.key_states[k] = D_BTN_RPRESSED;
@@ -471,7 +490,7 @@ static d_key d_macos_key(unsigned short k) {
 	}
 }
 - (void)keyUp:(NSEvent*)event {
-	d_key k = d_macos_key(event.keyCode);
+	d_key k = d_cocoa_key(event.keyCode);
 	if (k) {
 		d_app.key_states[k] = D_BTN_RELEASED;
 	}
@@ -546,7 +565,7 @@ static d_key d_macos_key(unsigned short k) {
 }
 @end
 
-static void d_macos_run(const d_desc *desc) {
+static void d_cocoa_run(const d_desc *desc) {
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:[[DAppDelegate alloc] init]];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -554,13 +573,13 @@ static void d_macos_run(const d_desc *desc) {
 	[NSApp run];
 }
 
-#endif // D_MACOS
+#endif // D_COCOA
 
 // -------------------------------------------------------------
 // iOS
-#if defined(D_IOS)
+#if defined(D_UIKIT)
 
-static void d_ios_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
+static void d_uikit_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
 
 	NSArray<UITouch*> *touches = [tset allObjects];
 
@@ -662,16 +681,16 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-	d_ios_touch(D_BTN_PRESSED, touches, event);
+	d_uikit_touch(D_BTN_PRESSED, touches, event);
 }
 - (void)touchesMoved:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-	d_ios_touch(D_BTN_DOWN, touches, event);
+	d_uikit_touch(D_BTN_DOWN, touches, event);
 }
 - (void)touchesEnded:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-	d_ios_touch(D_BTN_RELEASED, touches, event);
+	d_uikit_touch(D_BTN_RELEASED, touches, event);
 }
 - (void)touchesCancelled:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
-	d_ios_touch(D_BTN_RELEASED, touches, event);
+	d_uikit_touch(D_BTN_RELEASED, touches, event);
 }
 @end
 
@@ -709,25 +728,89 @@ static void d_ios_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
 }
 @end
 
-static void d_ios_run(const d_desc *desc) {
+static void d_uikit_run(const d_desc *desc) {
 	UIApplicationMain(0, nil, nil, NSStringFromClass([DAppDelegate class]));
 }
 
-#endif // D_IOS
+#endif // D_UIKIT
 
 // -------------------------------------------------------------
 // Linux
-#if defined(D_LINUX)
+#if defined(D_X11)
 
-static void d_linux_run(const d_desc *desc) {
-	// TODO
+static void d_x11_run(const d_desc *desc) {
+
+	Display *display = XOpenDisplay(NULL);
+	int screen = DefaultScreen(display);
+	Visual *visual = DefaultVisual(display, screen);
+	GC gc = DefaultGC(display,screen);
+	unsigned int depth = DefaultDepth(display, screen);
+	d_app.display = display;
+
+	Window window = XCreateSimpleWindow(
+		display,
+		RootWindow(display, screen),
+		0,
+		0,
+		d_app.win_width,
+		d_app.win_height,
+		0,
+		BlackPixel(display, screen),
+		WhitePixel(display, screen)
+	);
+
+	Atom del_window = XInternAtom(display, "WM_DELETE_WINDOW", 0);
+	XSetWMProtocols(display, window, &del_window, 1);
+
+	XSelectInput(display, window, ExposureMask | KeyPressMask | KeyReleaseMask);
+	XMapWindow(display, window);
+
+	XEvent event;
+
+	d_app_init();
+
+	while (!d_app.quit) {
+
+		XNextEvent(display, &event);
+
+		switch (event.type) {
+			case KeyPress:
+				break;
+			case ClientMessage:
+				d_app.quit = true;
+				break;
+			case Expose: {
+				d_app_frame();
+				XImage *img = XCreateImage(
+					display,
+					visual,
+					depth,
+					ZPixmap,
+					0,
+					d_app.buf,
+					d_app.width,
+					d_app.height,
+					32,
+					0
+				);
+				// TODO: 0.5x scaled, hidpi?
+				// TODO: it's drawing in BGRA
+				XPutImage(display, window, gc, img, 0, 0, 0, 0, d_app.win_width, d_app.win_height);
+			}
+		}
+
+	}
+
+	XDestroyWindow(display, window);
+	XCloseDisplay(display);
+
 }
 
 #endif // D_LINUX
 
 // -------------------------------------------------------------
 // Web
-#if defined(D_WEB)
+#if defined(D_CANVAS)
 
 EM_JS(void, d_web_init, (const d_desc *desc), {
 	// TODO
@@ -737,7 +820,7 @@ void d_web_run(const d_desc *desc) {
 // 	emscripten_set_main_loop(func, 60, true);
 }
 
-#endif // D_WEB
+#endif // D_CANVAS
 
 void d_run(d_desc desc) {
 
@@ -748,14 +831,14 @@ void d_run(d_desc desc) {
 	d_app.win_width = d_app.width * scale;
 	d_app.win_height = d_app.height * scale;
 
-#if defined(D_MACOS)
-	d_macos_run(&desc);
-#elif defined(D_IOS)
-	d_ios_run(&desc);
-#elif defined(D_LINUX)
-	d_linux_run(&desc);
-#elif defined(D_WEB)
-	d_web_run(&desc);
+#if defined(D_COCOA)
+	d_cocoa_run(&desc);
+#elif defined(D_UIKIT)
+	d_uikit_run(&desc);
+#elif defined(D_X11)
+	d_x11_run(&desc);
+#elif defined(D_CANVAS)
+	d_canvas_run(&desc);
 #endif
 
 }
@@ -801,7 +884,7 @@ int d_fps() {
 }
 
 void d_set_fullscreen(bool b) {
-#if defined(D_MACOS)
+#if defined(D_COCOA)
 	if (b != d_fullscreen()) {
 		[d_app.window toggleFullScreen:nil];
 	}
@@ -809,9 +892,9 @@ void d_set_fullscreen(bool b) {
 }
 
 bool d_fullscreen() {
-#if defined(D_MACOS)
+#if defined(D_COCOA)
 	return [d_app.window styleMask] & NSWindowStyleMaskFullScreen;
-#elif defined(D_IOS)
+#elif defined(D_UIKIT)
 	return true;
 #endif
 	return false;
@@ -836,7 +919,7 @@ bool d_mouse_hidden() {
 }
 
 void d_set_title(const char *title) {
-#if defined(D_MACOS)
+#if defined(D_COCOA)
 	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 	[d_app.window setTitle:[NSString stringWithUTF8String:title]];
 	[pool drain];
@@ -961,7 +1044,7 @@ char d_input() {
 }
 
 bool d_active() {
-#if defined(D_MACOS)
+#if defined(D_COCOA)
 	return [d_app.window isMainWindow];
 #endif
 	return true;
