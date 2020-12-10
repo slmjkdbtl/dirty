@@ -69,6 +69,9 @@
 	#include <emscripten/html5.h>
 #elif defined(D_X11)
 	#include <X11/Xlib.h>
+	#if defined(D_GL)
+		#include <GL/glx.h>
+	#endif
 #elif defined(D_WAYLAND)
 	#include <wayland-client.h>
 #endif
@@ -752,7 +755,6 @@ static void d_x11_run(const d_desc *desc) {
 	d_app.display = dis;
 	int screen = XDefaultScreen(dis);
 	Visual *visual = XDefaultVisual(dis, screen);
-	GC gc = XDefaultGC(dis,screen);
 	unsigned int depth = XDefaultDepth(dis, screen);
 	XSetWindowAttributes attrs;
 
@@ -781,6 +783,35 @@ static void d_x11_run(const d_desc *desc) {
 	if (desc->title) {
 		XStoreName(dis, window, desc->title);
 	}
+
+#if defined(D_GL)
+
+	GLint glx_attrs[] = {
+		GLX_RGBA,
+		GLX_DOUBLEBUFFER,
+		GLX_DEPTH_SIZE,     24,
+		GLX_STENCIL_SIZE,   8,
+		GLX_RED_SIZE,       8,
+		GLX_GREEN_SIZE,     8,
+		GLX_BLUE_SIZE,      8,
+		GLX_DEPTH_SIZE,     24,
+		GLX_STENCIL_SIZE,   8,
+		GLX_SAMPLE_BUFFERS, 0,
+		GLX_SAMPLES,        0,
+		None
+	};
+
+	XVisualInfo *glxvis = glXChooseVisual(dis, screen, glx_attrs);
+	GLXContext glx = glXCreateContext(dis, glxvis, NULL, GL_TRUE);
+	glXMakeCurrent(dis, window, glx);
+
+	d_gl_init();
+
+#elif defined(D_CPU)
+
+	GC gc = XDefaultGC(dis,screen);
+
+#endif
 
 	d_app_init();
 
@@ -827,11 +858,13 @@ static void d_x11_run(const d_desc *desc) {
 		}
 
 		d_app_frame();
+		usleep(16000);
 
 		// TODO: it's drawing in BGRA
 		// TODO: scale
 		// TODO: better fix? this is very slow
 
+#if defined(D_CPU)
 		d_img img = d_make_img(d_app.win_width, d_app.win_height);
 
 		for (int x = 0; x < img.width; x++) {
@@ -862,6 +895,12 @@ static void d_x11_run(const d_desc *desc) {
 		XFree(ximg);
 		d_free_img(&img);
 
+#elif defined(D_GL)
+
+// 		d_gl_blit();
+
+#endif
+
 	}
 
 	XDestroyWindow(dis, window);
@@ -869,7 +908,7 @@ static void d_x11_run(const d_desc *desc) {
 
 }
 
-#endif // D_LINUX
+#endif // D_X11
 
 // -------------------------------------------------------------
 // Web
