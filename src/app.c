@@ -745,6 +745,7 @@ static void d_x11_run(const d_desc *desc) {
 	Visual *visual = DefaultVisual(display, screen);
 	GC gc = DefaultGC(display,screen);
 	unsigned int depth = DefaultDepth(display, screen);
+
 	d_app.display = display;
 
 	Window window = XCreateSimpleWindow(
@@ -765,9 +766,9 @@ static void d_x11_run(const d_desc *desc) {
 	XSelectInput(display, window, ExposureMask | KeyPressMask | KeyReleaseMask);
 	XMapWindow(display, window);
 
-	XEvent event;
-
 	d_app_init();
+
+	XEvent event;
 
 	while (!d_app.quit) {
 
@@ -780,22 +781,42 @@ static void d_x11_run(const d_desc *desc) {
 				d_app.quit = true;
 				break;
 			case Expose: {
+
 				d_app_frame();
-				XImage *img = XCreateImage(
+
+				// TODO: it's drawing in BGRA
+				// TODO: scale
+				// TODO: better fix?
+
+				d_img img = d_make_img(d_app.win_width, d_app.win_height);
+
+				for (int x = 0; x < img.width; x++) {
+					for (int y = 0; y < img.height; y++) {
+						int xx = x * d_app.width / img.width;
+						int yy = y * d_app.height / img.height;
+						int i = yy * d_app.width + xx;
+						color c = d_app.buf[i];
+						d_img_set(&img, x, y, colori(c.b, c.g, c.r, c.a));
+					}
+				}
+
+				XImage *ximg = XCreateImage(
 					display,
 					visual,
 					depth,
 					ZPixmap,
 					0,
-					d_app.buf,
-					d_app.width,
-					d_app.height,
+					(char*)img.pixels,
+					img.width,
+					img.height,
 					32,
 					0
 				);
-				// TODO: 0.5x scaled, hidpi?
-				// TODO: it's drawing in BGRA
-				XPutImage(display, window, gc, img, 0, 0, 0, 0, d_app.win_width, d_app.win_height);
+
+				XPutImage(display, window, gc, ximg, 0, 0, 0, 0, img.width, img.height);
+				free(ximg);
+				d_free_img(&img);
+
 			}
 		}
 
