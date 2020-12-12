@@ -1,22 +1,19 @@
 // wengwengweng
 
 // TODO: scale strategies
+// TODO: try CVDisplayLink?
 
 #include <stdio.h>
 #include <stdarg.h>
 #include <sys/time.h>
 #include <dirty/dirty.h>
 
-#if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL) && !defined(D_WGPU) && !defined(D_D3D11)
-#error "must define a blit method (D_CPU, D_GL, D_METAL, D_WGPU, D_D3D11)"
+#if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL)
+#error "must define a blit method (D_CPU, D_GL, D_METAL)"
 #endif
 
 #if defined(D_METAL) && !defined(D_MACOS) && !defined(D_IOS)
-#error "D_METAL is only on macOS or iOS"
-#elif defined(D_WGPU) && !defined(D_WEB)
-#error "D_WGPU is only on web"
-#elif defined(D_D3D11) && !defined(D_WINDOWS)
-#error "D_D3D11 is only on windows"
+#error "D_METAL is only for macOS or iOS"
 #endif
 
 #if !defined(D_COCOA) && !defined(D_UIKIT) && !defined(D_X11) && !defined(D_CANVAS)
@@ -77,6 +74,19 @@
 #endif
 
 #define D_MAX_TOUCHES 8
+#define TXT(src) #src
+
+static float quad_verts[] = {
+	-1, -1, 0, 0,
+	-1, 1, 1, 0,
+	1, -1, 1, 1,
+	1, 1, 0, 1,
+};
+
+static unsigned int quad_indices[] = {
+	0, 1, 2,
+	0, 2, 3,
+};
 
 void d_gfx_init(const d_desc *desc);
 void d_audio_init(const d_desc *desc);
@@ -96,7 +106,7 @@ void d_gfx_frame_end();
 @interface DView : NSOpenGLView
 #elif defined(D_METAL)
 @interface DView : MTKView
-#elif defined(D_CPU)
+#else
 @interface DView : NSView
 #endif
 @end
@@ -164,6 +174,13 @@ typedef struct {
 #elif defined(D_X11)
 	Display *display;
 	Window window;
+#endif
+
+#if defined(D_METAL)
+	id<MTLDevice> mtl_dev;
+	id<MTLCommandQueue> mtl_queue;
+	id<MTLTexture> mtl_tex;
+	id<MTLRenderPipelineState> mtl_pip;
 #endif
 
 #if defined(D_GL)
@@ -313,7 +330,150 @@ static void d_gl_blit() {
 #endif // D_GL
 
 // -------------------------------------------------------------
-// macOS
+// Metal
+#if defined(D_METAL)
+
+static const char *shader_src = TXT(
+
+using namespace metal;
+
+struct VertexIn {
+	float2 pos;
+	float2 uv;
+};
+
+struct VertexOut {
+	float4 pos [[position]];
+	float2 uv;
+};
+
+vertex VertexOut vert(
+	const device VertexIn *verts [[ buffer(0) ]],
+	unsigned int vid [[ vertex_id ]]
+) {
+	VertexOut out;
+	VertexIn in = verts[vid];
+	out.pos = float4(in.pos, 0.0, 1.0);
+	out.uv.x = (float) (vid / 2);
+	out.uv.y = 1.0 - (float) (vid % 2);
+	return out;
+}
+
+fragment float4 frag(
+	VertexOut in [[ stage_in ]],
+	texture2d<half> tex [[ texture(0) ]]
+) {
+	constexpr sampler textureSampler(mag_filter::nearest, min_filter::nearest);
+	const half4 colorSample = tex.sample(textureSampler, in.uv);
+	return float4(colorSample);
+}
+
+);
+
+static void d_mtl_init() {
+
+	id<MTLDevice> dev = MTLCreateSystemDefaultDevice();
+	id<MTLCommandQueue> queue = [dev newCommandQueue];
+
+	NSError *err = NULL;
+
+	id<MTLLibrary> lib = [dev
+		newLibraryWithSource:[NSString stringWithUTF8String:shader_src]
+		options:nil
+		error:&err
+	];
+
+	if (err) {
+		fprintf(stderr, "%s\n", [err.localizedDescription UTF8String]);
+	}
+
+	MTLRenderPipelineDescriptor *pip_desc = [[MTLRenderPipelineDescriptor alloc] init];
+	pip_desc.vertexFunction = [lib newFunctionWithName:@"vert"];
+	pip_desc.fragmentFunction = [lib newFunctionWithName:@"frag"];
+	pip_desc.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm;
+
+	id<MTLRenderPipelineState> pip = [dev
+		newRenderPipelineStateWithDescriptor:pip_desc
+		error:&err
+	];
+
+	if (err) {
+		fprintf(stderr, "%s\n", [err.localizedDescription UTF8String]);
+	}
+
+    MTLTextureDescriptor *tex_desc = [MTLTextureDescriptor
+		texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+		width:d_app.width
+		height:d_app.height
+		mipmapped:false
+	];
+
+	id<MTLTexture> tex = [dev newTextureWithDescriptor:tex_desc];
+
+	d_app.mtl_dev = dev;
+	d_app.mtl_queue = queue;
+	d_app.mtl_pip = pip;
+	d_app.mtl_tex = tex;
+	d_app.view.device = dev;
+
+}
+
+static void d_mtl_blit() {
+
+	id<MTLCommandBuffer> cmd_buf = [d_app.mtl_queue commandBuffer];
+	MTLRenderPassDescriptor *desc = [d_app.view currentRenderPassDescriptor];
+
+	MTLRegion region = {
+		{ 0, 0, 0 },
+		{ d_app.width, d_app.height, 1 }
+	};
+
+	[d_app.mtl_tex
+		replaceRegion:region
+		mipmapLevel:0
+		withBytes:d_app.buf
+		bytesPerRow:d_app.width * 4
+	];
+
+	id<MTLRenderCommandEncoder> encoder = [cmd_buf
+		renderCommandEncoderWithDescriptor:desc
+	];
+
+	[encoder
+		setVertexBytes:quad_verts
+		length:sizeof(quad_verts)
+		atIndex:0
+	];
+
+	[encoder
+		setRenderPipelineState:d_app.mtl_pip
+	];
+
+	[encoder
+		setFragmentTexture:d_app.mtl_tex
+		atIndex:0
+	];
+
+	[encoder
+		drawPrimitives:MTLPrimitiveTypeTriangleStrip
+		vertexStart:0
+		vertexCount:4
+	];
+
+	[encoder endEncoding];
+
+	[cmd_buf
+		presentDrawable:[d_app.view currentDrawable]
+	];
+
+	[cmd_buf commit];
+
+}
+
+#endif
+
+// -------------------------------------------------------------
+// Cocoa
 #if defined(D_COCOA)
 
 static d_key d_cocoa_key(unsigned short k) {
@@ -399,17 +559,18 @@ static d_key d_cocoa_key(unsigned short k) {
 }
 
 @implementation DAppDelegate
-- (void)applicationDidFinishLaunching:(NSNotification*)noti {
+- (void)applicationDidFinishLaunching:(NSNotification *)noti {
 
 	NSWindow *window = [[NSWindow alloc]
-		initWithContentRect: NSMakeRect(0, 0, d_app.win_width, d_app.win_height)
-		styleMask: 0
+		initWithContentRect:NSMakeRect(0, 0, d_app.win_width, d_app.win_height)
+		styleMask:
+			0
 			| NSWindowStyleMaskTitled
 			| NSWindowStyleMaskClosable
 			| NSWindowStyleMaskResizable
 			| NSWindowStyleMaskMiniaturizable
-		backing: NSBackingStoreBuffered
-		defer: NO
+		backing:NSBackingStoreBuffered
+		defer:NO
 	];
 
 	d_app.window = window;
@@ -429,19 +590,23 @@ static d_key d_cocoa_key(unsigned short k) {
 
 #if defined(D_GL)
 
-	NSOpenGLContext* ctx = [view openGLContext];
+	NSOpenGLContext *ctx = [view openGLContext];
 
 	if (d_app.desc.hidpi) {
 		[view setWantsBestResolutionOpenGLSurface:YES];
 	}
 
-	[ctx setValues:(int*)&d_app.desc.vsync forParameter:NSOpenGLContextParameterSwapInterval];
+	[ctx
+		setValues:(int*)&d_app.desc.vsync
+		forParameter:NSOpenGLContextParameterSwapInterval
+	];
+
 	[ctx makeCurrentContext];
 
 	d_gl_init();
 
 #elif defined(D_METAL)
-	// TODO
+	d_mtl_init();
 #endif // D_METAL
 
 	d_app_init();
@@ -528,7 +693,7 @@ static d_key d_cocoa_key(unsigned short k) {
 #if defined(D_GL)
 	d_gl_blit();
 #elif defined(D_METAL)
-	// TODO
+	d_mtl_blit();
 #elif defined(D_CPU)
 
 	int w = d_width();
@@ -579,7 +744,7 @@ static void d_cocoa_run(const d_desc *desc) {
 #endif // D_COCOA
 
 // -------------------------------------------------------------
-// iOS
+// UIKit
 #if defined(D_UIKIT)
 
 static void d_uikit_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
@@ -738,11 +903,10 @@ static void d_uikit_run(const d_desc *desc) {
 #endif // D_UIKIT
 
 // -------------------------------------------------------------
-// Linux
+// X11
 #if defined(D_X11)
 
 static d_key d_x11_key(unsigned short k) {
-	printf("%d\n", k);
 	switch (k) {
 		case 0x3d: return D_KEY_ESC;
 	}
@@ -914,11 +1078,7 @@ static void d_x11_run(const d_desc *desc) {
 // Web
 #if defined(D_CANVAS)
 
-EM_JS(void, d_web_init, (const d_desc *desc), {
-	// TODO
-});
-
-void d_web_run(const d_desc *desc) {
+static void d_canvas_run(const d_desc *desc) {
 // 	emscripten_set_main_loop(func, 60, true);
 }
 
@@ -949,6 +1109,7 @@ void d_quit() {
 	d_app.quit = true;
 }
 
+// TODO: use macros to reduce repeat?
 void d_fail(const char *fmt, ...) {
 	d_quit();
 	va_list args;

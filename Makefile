@@ -83,6 +83,29 @@ LDFLAGS += -framework MetalKit
 LDFLAGS += -framework AudioToolbox
 endif
 
+ifeq ($(TARGET),ios)
+LDFLAGS += -framework Foundation
+LDFLAGS += -framework CoreGraphics
+LDFLAGS += -framework UIKit
+LDFLAGS += -framework Metal
+LDFLAGS += -framework MetalKit
+LDFLAGS += -framework AudioToolbox
+endif
+
+ifeq ($(TARGET),iossim)
+LDFLAGS += -framework Foundation
+LDFLAGS += -framework CoreGraphics
+LDFLAGS += -framework UIKit
+LDFLAGS += -framework Metal
+LDFLAGS += -framework MetalKit
+LDFLAGS += -framework AudioToolbox
+endif
+
+ifeq ($(TARGET),linux)
+LDFLAGS += -lx11
+LDFLAGS += -lGL
+endif
+
 ifdef RELEASE
 CFLAGS += -O3
 endif
@@ -106,10 +129,6 @@ lib: $(LIB_TARGET)
 .PHONY: lua
 lua: $(BIN_TARGET)
 
-.PHONY: demos
-demos: $(DEMO_TARGETS)
-	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
-
 .PHONY: run
 run: $(DEMO_BIN_PATH)/$(DEMO)
 	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
@@ -118,6 +137,13 @@ run: $(DEMO_BIN_PATH)/$(DEMO)
 .PHONY: run-lua
 run-lua: $(BIN_TARGET) $(DEMO_PATH)/$(DEMO).lua
 	./$(BIN_TARGET) $(DEMO_PATH)/$(DEMO).lua
+
+.PHONY: demo
+demo: $(DEMO_BIN_PATH)/$(DEMO)
+
+.PHONY: demos
+demos: $(DEMO_TARGETS)
+	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
 
 # TODO: $^ also includes $(LIB_TARGET)
 $(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c $(LIB_TARGET)

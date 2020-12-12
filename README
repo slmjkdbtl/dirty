@@ -1,11 +1,26 @@
 ABOUT
 
-  'dirty' is a minimal toolkit for making games / interactive experiences
+  'dirty' is a minimal toolkit for making games
   http://space55.xyz/dirty
 
-  written in C99
+  supported platforms:
 
-  supports both C lib usage and Lua scripting
+    - macOS
+    - iOS
+    - Browser (todo)
+    - Linux (wip)
+    - Android (todo)
+
+RENDERING
+
+  everything is software rendered to a plain pixel array, so it's best
+  for low-res stuff
+
+  #define to specify blitting method:
+
+    - D_CPU (native CPU renderer)
+    - D_GL (OpenGL / OpenGLES / WebGL)
+    - D_METAL (Metal, only on macOS and iOS)
 
 BUILD
 
@@ -15,7 +30,8 @@ BUILD
 
   $ make lua
 
-  will create 'dirty' Lua runtime binary under 'build/bin', make sure lua is installed / linkable
+  will create 'dirty' Lua runtime binary under 'build/bin', make sure
+  lua is installed and linkable
 
   $ make run DEMO=?
 
@@ -50,7 +66,7 @@ DOC
 
 FACTS
 
-  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti' (duh)
+  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
 
 CONTRIBUTION
 
