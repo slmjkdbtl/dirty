@@ -63,7 +63,6 @@
 	#import <UIKit/UIKit.h>
 #elif defined(D_CANVAS)
 	#include <emscripten/emscripten.h>
-	#include <emscripten/html5.h>
 #elif defined(D_X11)
 	#include <X11/Xlib.h>
 	#if defined(D_GL)
@@ -82,8 +81,6 @@ static float quad_verts[] = {
 	1, -1, 1, 1,
 	1, 1, 1, 0,
 };
-
-static float quad_stride = 4;
 
 void d_gfx_init(const d_desc *desc);
 void d_audio_init(const d_desc *desc);
@@ -363,8 +360,8 @@ static void d_gl_init() {
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	glTexImage2D(
 		GL_TEXTURE_2D,
@@ -382,7 +379,7 @@ static void d_gl_init() {
 
 	// init gl
 	glViewport(0, 0, d_win_width(), d_win_height());
-	glClearColor(0.0, 0.0, 1.0, 1.0);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 }
@@ -1169,41 +1166,67 @@ static void d_x11_run(const d_desc *desc) {
 #if defined(D_CANVAS)
 
 EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
+
 	window.dirty = {};
+
+	const name = UTF8ToString(root);
 	const canvas = document.createElement("canvas");
-#if defined(D_CPU)
-	const ctx = canvas.getContext("2d");
-#elif defined(D_GL)
-	const ctx = canvas.getContext("webgl");
-#endif
-	document.body.appendChild(canvas);
+	dirty.canvas = canvas;
 	canvas.width = w;
 	canvas.height = h;
-	dirty.canvas = canvas;
+	canvas.id = "dirty";
+	canvas.style = "image-rendering: pixelated; image-rendering: crisp-edges;";
+
+	if (name) {
+		document.getElementById(name).appendChild(canvas);
+	} else {
+		document.body.appendChild(canvas);
+	}
+
+#if defined(D_CPU)
+
+	const ctx = canvas.getContext("2d");
+
 	dirty.ctx = ctx;
+	ctx.imageSmoothingEnabled = false;
+
+#elif defined(D_GL)
+
+	const gl = canvas.getContext("webgl");
+
+	dirty.gl = gl;
+	gl.clearColor(0.0, 0.0, 0.0, 0.0);
+	gl.clear(gl.COLOR_BUFFER_BIT);
+
+#endif
+
 })
 
 EM_JS(void, d_js_canvas_frame, (const color *buf, int w, int h), {
+
 	const canvas = dirty.canvas;
+
+#if defined(D_CPU)
+
 	const ctx = dirty.ctx;
-// 	const data = new ImageData(new Uint8ClampedArray(buf), w, h);
-// 	ctx.putImageData(data, 0, 0, 0, 0, canvas.width, canvas.height);
+	const data = new ImageData(new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4), w, h);
+	ctx.putImageData(data, 0, 0, 0, 0, canvas.width, canvas.height);
+	ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
+	ctx.drawImage(ctx.canvas, 0, 0);
+
+#elif defined(D_GL)
+	// TODO
+#endif
+
 })
 
 static void d_canvas_loop() {
 	d_app_frame();
-#if defined(D_CPU)
 	d_js_canvas_frame(d_app.buf, d_app.width, d_app.height);
-#elif defined(D_GL)
-	d_gl_blit();
-#endif
 }
 
 static void d_canvas_run(const d_desc *desc) {
 	d_js_canvas_init(desc->canvas_root, d_app.win_width, d_app.win_height);
-#if defined(D_GL)
-	d_gl_init();
-#endif
 	d_app_init();
 	emscripten_set_main_loop(d_canvas_loop, 0, true);
 }
