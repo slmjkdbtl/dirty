@@ -73,6 +73,10 @@ CFLAGS += -ObjC
 CFLAGS += -arch x86_64
 endif
 
+ifdef RELEASE
+CFLAGS += -O3
+endif
+
 LDFLAGS += -L $(EXT_LIB_PATH)
 
 ifeq ($(TARGET),macos)
@@ -106,8 +110,8 @@ LDFLAGS += -lx11
 LDFLAGS += -lGL
 endif
 
-ifdef RELEASE
-CFLAGS += -O3
+ifeq ($(TARGET),web)
+LDFLAGS += --preload-file demo/res@res
 endif
 
 ARFLAGS := rc

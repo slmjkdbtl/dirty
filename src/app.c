@@ -1304,6 +1304,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_release() {
 EM_JS(void, d_js_set_fullscreen, (bool b), {
 	const canvas = dirty.canvas;
 	if (b) {
+		// TODO: becomes blurry
 		dirty.originWidth = canvas.width;
 		dirty.originHeight = canvas.height;
 		canvas.width = window.innerWidth;
@@ -1412,7 +1413,7 @@ EM_JS(void, d_js_canvas_frame, (const color *buf, int w, int h), {
 
 	const ctx = canvas.getContext("2d");
 
-	ctx.putImageData(img, 0, 0, 0, 0, canvas.width, canvas.height);
+	ctx.putImageData(img, 0, 0);
 	ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
 	ctx.drawImage(canvas, 0, 0);
 
