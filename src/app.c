@@ -181,6 +181,8 @@ typedef struct {
 #endif
 
 #if defined(D_GL)
+	GLuint gl_prog;
+	GLuint gl_vbuf;
 	GLuint gl_tex;
 #endif
 
@@ -296,11 +298,66 @@ static const char *fs_src =
 
 static void d_gl_init() {
 
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	glEnable(GL_BLEND);
-	glEnable(GL_TEXTURE_2D);
+	// program
+	GLchar info_log[512];
+	GLint success = 0;
 
+	// vertex shader
+	GLuint vs = glCreateShader(GL_VERTEX_SHADER);
+
+	glShaderSource(vs, 1, &vs_src, 0);
+	glCompileShader(vs);
+
+	glGetShaderiv(vs, GL_COMPILE_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		glGetShaderInfoLog(vs, 512, NULL, info_log);
+		d_fail("%s", info_log);
+	}
+
+	// fragment shader
+	GLuint fs = glCreateShader(GL_FRAGMENT_SHADER);
+
+	glShaderSource(fs, 1, &fs_src, 0);
+	glCompileShader(fs);
+
+	glGetShaderiv(fs, GL_COMPILE_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		glGetShaderInfoLog(fs, 512, NULL, info_log);
+		d_fail("%s", info_log);
+	}
+
+	// program
+	d_app.gl_prog = glCreateProgram();
+
+	glAttachShader(d_app.gl_prog, vs);
+	glAttachShader(d_app.gl_prog, fs);
+
+	glBindAttribLocation(d_app.gl_prog, 0, "a_pos");
+	glBindAttribLocation(d_app.gl_prog, 1, "a_uv");
+
+	glLinkProgram(d_app.gl_prog);
+
+	glDetachShader(d_app.gl_prog, vs);
+	glDetachShader(d_app.gl_prog, fs);
+	glDeleteShader(vs);
+	glDeleteShader(fs);
+
+	glGetProgramiv(d_app.gl_prog, GL_LINK_STATUS, &success);
+
+	if (success == GL_FALSE) {
+		glGetProgramInfoLog(d_app.gl_prog, 512, NULL, info_log);
+		d_fail("%s", info_log);
+	}
+
+	// vbuf
+	glGenBuffers(1, &d_app.gl_vbuf);
+	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quad_verts), quad_verts, GL_STATIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	// tex
 	glGenTextures(1, &d_app.gl_tex);
 	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
 
@@ -323,12 +380,19 @@ static void d_gl_init() {
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 
+	// init gl
+	glViewport(0, 0, d_win_width(), d_win_height());
+	glClearColor(0.0, 0.0, 1.0, 1.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
 }
 
 static void d_gl_blit() {
 
 	glViewport(0, 0, d_win_width(), d_win_height());
 	glClear(GL_COLOR_BUFFER_BIT);
+	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
+	glUseProgram(d_app.gl_prog);
 	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
 
 	glTexSubImage2D(
@@ -343,14 +407,15 @@ static void d_gl_blit() {
 		d_app.buf
 	);
 
-	glBegin(GL_TRIANGLE_STRIP);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 16, (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 16, (void*)8);
+	glEnableVertexAttribArray(1);
 
-	for (int i = 0; i < sizeof(quad_verts) / sizeof(float); i += quad_stride) {
-		glTexCoord2f(quad_verts[i + 2], quad_verts[i + 3]);
-		glVertex2f(quad_verts[i + 0], quad_verts[i + 1]);
-	}
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-	glEnd();
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glUseProgram(0);
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glFlush();
 
@@ -1103,8 +1168,44 @@ static void d_x11_run(const d_desc *desc) {
 // Web
 #if defined(D_CANVAS)
 
+EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
+	window.dirty = {};
+	const canvas = document.createElement("canvas");
+#if defined(D_CPU)
+	const ctx = canvas.getContext("2d");
+#elif defined(D_GL)
+	const ctx = canvas.getContext("webgl");
+#endif
+	document.body.appendChild(canvas);
+	canvas.width = w;
+	canvas.height = h;
+	dirty.canvas = canvas;
+	dirty.ctx = ctx;
+})
+
+EM_JS(void, d_js_canvas_frame, (const color *buf, int w, int h), {
+	const canvas = dirty.canvas;
+	const ctx = dirty.ctx;
+// 	const data = new ImageData(new Uint8ClampedArray(buf), w, h);
+// 	ctx.putImageData(data, 0, 0, 0, 0, canvas.width, canvas.height);
+})
+
+static void d_canvas_loop() {
+	d_app_frame();
+#if defined(D_CPU)
+	d_js_canvas_frame(d_app.buf, d_app.width, d_app.height);
+#elif defined(D_GL)
+	d_gl_blit();
+#endif
+}
+
 static void d_canvas_run(const d_desc *desc) {
-// 	emscripten_set_main_loop(func, 60, true);
+	d_js_canvas_init(desc->canvas_root, d_app.win_width, d_app.win_height);
+#if defined(D_GL)
+	d_gl_init();
+#endif
+	d_app_init();
+	emscripten_set_main_loop(d_canvas_loop, 0, true);
 }
 
 #endif // D_CANVAS

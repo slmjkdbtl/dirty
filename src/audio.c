@@ -159,7 +159,7 @@ void d_ca_init() {
 
 }
 
-#endif // CoreAudio
+#endif // D_COREAUDIO
 
 void d_audio_init(const d_desc *desc) {
 #if defined(D_COREAUDIO)

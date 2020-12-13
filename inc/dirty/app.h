@@ -126,7 +126,7 @@ typedef struct {
 	const char *org;
 	const char *name;
 	color clear_color;
-	const char *canvas_name;
+	const char *canvas_root;
 	void *udata;
 } d_desc;
 
