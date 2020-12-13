@@ -7,11 +7,10 @@
 #include "platform.h"
 
 #define D_SAMPLE_RATE 44100
-#define D_MAX_EFFECTS 8
 
 // a static sound
 typedef struct {
-	float *frames;
+	short *frames;
 	int num_frames;
 } d_sound;
 
@@ -21,9 +20,6 @@ typedef struct {
 	float volume;
 	bool paused;
 	float time;
-	float (*effects[D_MAX_EFFECTS])(float f, void *udata);
-	void *effects_udata[D_MAX_EFFECTS];
-	int num_effects;
 } d_play_conf;
 
 // sound playback control handle
@@ -34,9 +30,6 @@ typedef struct {
 	float volume;
 	bool paused;
 	bool done;
-	float (*effects[D_MAX_EFFECTS])(float f, void *udata);
-	void *effects_udata[D_MAX_EFFECTS];
-	int num_effects;
 } d_playback;
 
 typedef struct {
@@ -54,15 +47,12 @@ typedef struct {
 	bool alive;
 } d_voice;
 
-// user provided stream
-void d_stream(float (*f)());
-
 // SOUND
-d_sound d_make_sound(const float *frames, int len);
+d_sound d_make_sound(const short *frames, int len);
 d_sound d_parse_sound(const unsigned char *bytes, int size);
 d_sound d_load_sound(const char *path);
-float d_sound_sample(d_sound *snd, float time);
-float d_sound_len(d_sound *snd);
+float d_sound_sample(const d_sound *snd, float time);
+float d_sound_len(const d_sound *snd);
 void d_free_sound(d_sound *sound);
 // play a sound, returning a handle for control
 d_playback *d_play(const d_sound *sound);

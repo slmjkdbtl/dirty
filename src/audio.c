@@ -52,9 +52,6 @@ typedef struct {
 	int num_playbacks;
 	float (*user_stream)();
 	d_synth synth;
-#if defined(D_COREAUDIO)
-	AudioQueueRef queue;
-#endif
 } d_audio_ctx;
 
 static d_audio_ctx d_audio;
@@ -87,13 +84,7 @@ static float d_audio_next() {
 			}
 		}
 
-		float f = p->src->frames[p->pos] * p->volume;
-
-		for (int i = 0; i < p->num_effects; i++) {
-			f = p->effects[i](f, p->effects_udata[i]);
-		}
-
-		frame += f;
+		frame += (float)p->src->frames[p->pos] / SHRT_MAX * p->volume;
 		p->pos++;
 
 	}
@@ -110,20 +101,20 @@ static float d_audio_next() {
 
 #if defined(D_COREAUDIO)
 
-static void d_coreaudio_cb(void *udata, AudioQueueRef queue, AudioQueueBufferRef buffer) {
+static void d_ca_stream(void *udata, AudioQueueRef queue, AudioQueueBufferRef buffer) {
 
-	const int num_frames = buffer->mAudioDataByteSize / (sizeof(float) * D_NUM_CHANNELS);
-	float *buf = (float*)buffer->mAudioData;
+	int num_frames = buffer->mAudioDataByteSize / (sizeof(float) * D_NUM_CHANNELS);
+	float *data = (float*)buffer->mAudioData;
 
 	for (int i = 0; i < num_frames; i++) {
-		buf[i] = d_audio_next();
+		data[i] = d_audio_next();
 	}
 
 	AudioQueueEnqueueBuffer(queue, buffer, 0, NULL);
 
 }
 
-void d_coreaudio_init() {
+void d_ca_init() {
 
 	AudioStreamBasicDescription fmt = {
 		.mSampleRate = D_SAMPLE_RATE,
@@ -139,28 +130,32 @@ void d_coreaudio_init() {
 		.mBitsPerChannel = 32,
 	};
 
-	OSStatus res;
+	AudioQueueRef queue;
 
-	res = AudioQueueNewOutput(
+	AudioQueueNewOutput(
 		&fmt,
-		d_coreaudio_cb,
+		d_ca_stream,
 		NULL,
 		NULL,
 		NULL,
 		0,
-		&d_audio.queue
+		&queue
 	);
 
 	for (int i = 0; i < 2; i++) {
-		AudioQueueBufferRef buf = NULL;
+
 		int buf_size = D_BUFFER_FRAMES * fmt.mBytesPerFrame;
-		res = AudioQueueAllocateBuffer(d_audio.queue, buf_size, &buf);
+		AudioQueueBufferRef buf;
+
+		AudioQueueAllocateBuffer(queue, buf_size, &buf);
 		buf->mAudioDataByteSize = buf_size;
 		memset(buf->mAudioData, 0, buf->mAudioDataByteSize);
-		AudioQueueEnqueueBuffer(d_audio.queue, buf, 0, NULL);
+
+		AudioQueueEnqueueBuffer(queue, buf, 0, NULL);
+
 	}
 
-	res = AudioQueueStart(d_audio.queue, NULL);
+	AudioQueueStart(queue, NULL);
 
 }
 
@@ -168,18 +163,15 @@ void d_coreaudio_init() {
 
 void d_audio_init(const d_desc *desc) {
 #if defined(D_COREAUDIO)
-	d_coreaudio_init();
+	d_ca_init();
 #endif
+	d_audio.user_stream = desc->stream;
 	d_audio.synth = d_make_synth();
 }
 
-void d_stream(float (*f)()) {
-	d_audio.user_stream = f;
-}
-
-d_sound d_make_sound(const float *frames, int len) {
-	int size = sizeof(float) * len;
-	float *fframes = malloc(size);
+d_sound d_make_sound(const short *frames, int len) {
+	int size = sizeof(short) * len;
+	short *fframes = malloc(size);
 	memcpy(fframes, frames, size);
 	return (d_sound) {
 		.frames = fframes,
@@ -197,12 +189,12 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 	d_assert(num_frames > 0, "failed to decode audio\n");
 
 	int num_fframes = num_frames / channels;
-	float *fframes = malloc(sizeof(float) * num_fframes);
+	short *fframes = malloc(sizeof(short) * num_fframes);
 
 	for (int i = 0; i < num_fframes; i++) {
-		float frame = 0.0;
+		short frame = 0.0;
 		for (int j = 0; j < channels; j++) {
-			frame += (float)frames[i * channels + j] / SHRT_MAX;
+			frame += frames[i * channels + j];
 		}
 		fframes[i] = frame / channels;
 	}
@@ -227,11 +219,11 @@ d_sound d_load_sound(const char *path) {
 
 }
 
-float d_sound_sample(d_sound *snd, float time) {
-	return snd->frames[clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1)];
+float d_sound_sample(const d_sound *snd, float time) {
+	return (float)snd->frames[clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1)] / SHRT_MAX;
 }
 
-float d_sound_len(d_sound *snd) {
+float d_sound_len(const d_sound *snd) {
 	return (float)snd->num_frames / (float)D_SAMPLE_RATE;
 }
 
@@ -245,9 +237,6 @@ d_playback *d_play(const d_sound *snd) {
 		.loop = false,
 		.paused = false,
 		.volume = 1.0,
-		.effects = {0},
-		.effects_udata = {0},
-		.num_effects = 0,
 	});
 }
 

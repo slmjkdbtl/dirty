@@ -111,6 +111,7 @@ typedef enum {
 typedef struct {
 	void (*init)();
 	void (*frame)();
+	float (*stream)();
 	void (*quit)();
 	const char *title;
 	int width;
