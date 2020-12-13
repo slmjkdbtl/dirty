@@ -1165,9 +1165,44 @@ static void d_x11_run(const d_desc *desc) {
 // Web
 #if defined(D_CANVAS)
 
+static d_key d_web_key(const char *k) {
+	return D_KEY_NONE;
+}
+
+EMSCRIPTEN_KEEPALIVE void d_cjs_set_mouse_pos(float x, float y) {
+	d_app.mouse_pos = vec2f(x, y);
+}
+
+
+EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(const char *key, bool rep) {
+	d_key k = d_web_key(k);
+	if (rep) {
+		d_app.key_states[k] = D_BTN_RPRESSED;
+	} else {
+		d_app.key_states[k] = D_BTN_PRESSED;
+	}
+}
+
+EMSCRIPTEN_KEEPALIVE void d_cjs_key_release(const char *key) {
+	d_key k = d_web_key(k);
+	d_app.key_states[k] = D_BTN_RELEASED;
+}
+
+EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_press() {
+	d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_PRESSED;
+}
+
+EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_release() {
+	d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_RELEASED;
+}
+
 EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
 
 	window.dirty = {};
+	dirty.width = w;
+	dirty.height = h;
+	dirty.mouseX = 0;
+	dirty.mouseY = 0;
 
 	const name = UTF8ToString(root);
 	const canvas = document.createElement("canvas");
@@ -1187,34 +1222,61 @@ EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
 
 	const ctx = canvas.getContext("2d");
 
-	dirty.ctx = ctx;
 	ctx.imageSmoothingEnabled = false;
 
 #elif defined(D_GL)
 
 	const gl = canvas.getContext("webgl");
 
-	dirty.gl = gl;
 	gl.clearColor(0.0, 0.0, 0.0, 0.0);
 	gl.clear(gl.COLOR_BUFFER_BIT);
 
 #endif
 
+	document.addEventListener("mousemove", (e) => {
+		const rect = canvas.getBoundingClientRect();
+		const x = (e.pageX - rect.left) * dirty.width / canvas.width;
+		const y = (e.pageY - rect.top) * dirty.height / canvas.height;
+		_d_cjs_set_mouse_pos(x, y);
+	});
+
+	document.addEventListener("keydown", (e) => {
+		ccall('d_cjs_key_press', 'void', [ 'string', 'bool' ], [ e.key, e.repeat ]);
+	});
+
+	document.addEventListener("keyup", (e) => {
+		ccall('d_cjs_key_press', 'void', [ 'string' ], [ e.key ]);
+	});
+
+	document.addEventListener("mousedown", (e) => {
+		_d_cjs_mouse_press();
+	});
+
+	document.addEventListener("mouseup", (e) => {
+		_d_cjs_mouse_release();
+	});
+
 })
 
 EM_JS(void, d_js_canvas_frame, (const color *buf, int w, int h), {
 
+	dirty.width = w;
+	dirty.height = h;
+
 	const canvas = dirty.canvas;
+	const img = new ImageData(new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4), w, h);
 
 #if defined(D_CPU)
 
-	const ctx = dirty.ctx;
-	const data = new ImageData(new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4), w, h);
-	ctx.putImageData(data, 0, 0, 0, 0, canvas.width, canvas.height);
+	const ctx = canvas.getContext("2d");
+
+	ctx.putImageData(img, 0, 0, 0, 0, canvas.width, canvas.height);
 	ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
-	ctx.drawImage(ctx.canvas, 0, 0);
+	ctx.drawImage(canvas, 0, 0);
 
 #elif defined(D_GL)
+
+	const gl = canvas.getContext("webgl");
 	// TODO
 #endif
 

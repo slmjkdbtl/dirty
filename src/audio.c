@@ -114,7 +114,7 @@ static void d_ca_stream(void *udata, AudioQueueRef queue, AudioQueueBufferRef bu
 
 }
 
-void d_ca_init() {
+static void d_ca_init() {
 
 	AudioStreamBasicDescription fmt = {
 		.mSampleRate = D_SAMPLE_RATE,
