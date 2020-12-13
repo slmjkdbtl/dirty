@@ -1165,17 +1165,119 @@ static void d_x11_run(const d_desc *desc) {
 // Web
 #if defined(D_CANVAS)
 
-static d_key d_web_key(const char *k) {
+#include <string.h>
+
+static bool streq(const char *s1, const char *s2) {
+	return strcmp(s1, s2) == 0;
+}
+
+static d_key d_web_key(const char *k, int loc) {
+
+	if      (streq(k, "a")) return D_KEY_A;
+	else if (streq(k, "b")) return D_KEY_B;
+	else if (streq(k, "c")) return D_KEY_C;
+	else if (streq(k, "d")) return D_KEY_D;
+	else if (streq(k, "e")) return D_KEY_E;
+	else if (streq(k, "f")) return D_KEY_F;
+	else if (streq(k, "g")) return D_KEY_G;
+	else if (streq(k, "h")) return D_KEY_H;
+	else if (streq(k, "i")) return D_KEY_I;
+	else if (streq(k, "j")) return D_KEY_J;
+	else if (streq(k, "k")) return D_KEY_K;
+	else if (streq(k, "l")) return D_KEY_L;
+	else if (streq(k, "m")) return D_KEY_M;
+	else if (streq(k, "n")) return D_KEY_N;
+	else if (streq(k, "o")) return D_KEY_O;
+	else if (streq(k, "p")) return D_KEY_P;
+	else if (streq(k, "q")) return D_KEY_Q;
+	else if (streq(k, "r")) return D_KEY_R;
+	else if (streq(k, "s")) return D_KEY_S;
+	else if (streq(k, "t")) return D_KEY_T;
+	else if (streq(k, "u")) return D_KEY_U;
+	else if (streq(k, "v")) return D_KEY_V;
+	else if (streq(k, "w")) return D_KEY_W;
+	else if (streq(k, "x")) return D_KEY_X;
+	else if (streq(k, "y")) return D_KEY_Y;
+	else if (streq(k, "z")) return D_KEY_Z;
+	else if (streq(k, "1")) return D_KEY_1;
+	else if (streq(k, "2")) return D_KEY_2;
+	else if (streq(k, "3")) return D_KEY_3;
+	else if (streq(k, "4")) return D_KEY_4;
+	else if (streq(k, "5")) return D_KEY_5;
+	else if (streq(k, "6")) return D_KEY_6;
+	else if (streq(k, "7")) return D_KEY_7;
+	else if (streq(k, "8")) return D_KEY_8;
+	else if (streq(k, "9")) return D_KEY_9;
+	else if (streq(k, "0")) return D_KEY_0;
+	else if (streq(k, "-")) return D_KEY_MINUS;
+	else if (streq(k, "=")) return D_KEY_EQUAL;
+	else if (streq(k, " ")) return D_KEY_SPACE;
+	else if (streq(k, ",")) return D_KEY_COMMA;
+	else if (streq(k, ".")) return D_KEY_PERIOD;
+	else if (streq(k, "/")) return D_KEY_SLASH;
+	else if (streq(k, "[")) return D_KEY_LBRACKET;
+	else if (streq(k, "]")) return D_KEY_RBRACKET;
+	else if (streq(k, "\\")) return D_KEY_BACKSLASH;
+	else if (streq(k, ";")) return D_KEY_SEMICOLON;
+	else if (streq(k, "Enter")) return D_KEY_ENTER;
+	else if (streq(k, "Escape")) return D_KEY_ESC;
+	else if (streq(k, "Backspace")) return D_KEY_BACKSPACE;
+	else if (streq(k, "Tab")) return D_KEY_TAB;
+	else if (streq(k, "'")) return D_KEY_QUOTE;
+	else if (streq(k, "`")) return D_KEY_BACKQUOTE;
+	else if (streq(k, "F1")) return D_KEY_F1;
+	else if (streq(k, "F2")) return D_KEY_F2;
+	else if (streq(k, "F3")) return D_KEY_F3;
+	else if (streq(k, "F4")) return D_KEY_F4;
+	else if (streq(k, "F5")) return D_KEY_F5;
+	else if (streq(k, "F6")) return D_KEY_F6;
+	else if (streq(k, "F7")) return D_KEY_F7;
+	else if (streq(k, "F5")) return D_KEY_F5;
+	else if (streq(k, "F6")) return D_KEY_F6;
+	else if (streq(k, "F7")) return D_KEY_F7;
+	else if (streq(k, "F8")) return D_KEY_F8;
+	else if (streq(k, "F9")) return D_KEY_F9;
+	else if (streq(k, "F10")) return D_KEY_F10;
+	else if (streq(k, "F11")) return D_KEY_F11;
+	else if (streq(k, "F12")) return D_KEY_F12;
+	else if (streq(k, "ArrowRight")) return D_KEY_RIGHT;
+	else if (streq(k, "ArrowLeft")) return D_KEY_LEFT;
+	else if (streq(k, "ArrowDown")) return D_KEY_DOWN;
+	else if (streq(k, "ArrowUp")) return D_KEY_UP;
+	else if (streq(k, "Control")) return D_KEY_RCTRL;
+
+	if (loc == 1) {
+		if      (streq(k, "Alt")) return D_KEY_LALT;
+		else if (streq(k, "Meta")) return D_KEY_LMETA;
+		else if (streq(k, "Control")) return D_KEY_LCTRL;
+		else if (streq(k, "Shift")) return D_KEY_LSHIFT;
+	} else if (loc == 2) {
+		if      (streq(k, "Alt")) return D_KEY_RALT;
+		else if (streq(k, "Meta")) return D_KEY_RMETA;
+		else if (streq(k, "Control")) return D_KEY_RCTRL;
+		else if (streq(k, "Shift")) return D_KEY_RSHIFT;
+	}
+
 	return D_KEY_NONE;
 }
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_set_mouse_pos(float x, float y) {
-	d_app.mouse_pos = vec2f(x, y);
+EMSCRIPTEN_KEEPALIVE void d_cjs_set_win_size(int w, int h) {
+	d_app.win_width = w;
+	d_app.win_height = h;
 }
 
+EMSCRIPTEN_KEEPALIVE void d_cjs_set_mouse_pos(float x, float y) {
+	d_app.mouse_pos = vec2f(
+		x * d_app.width / d_app.win_width,
+		y * d_app.height / d_app.win_height
+	);
+}
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(const char *key, bool rep) {
-	d_key k = d_web_key(k);
+EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(const char *key, int loc, bool rep) {
+	d_key k = d_web_key(key, loc);
+	if (!k) {
+		return;
+	}
 	if (rep) {
 		d_app.key_states[k] = D_BTN_RPRESSED;
 	} else {
@@ -1183,8 +1285,11 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(const char *key, bool rep) {
 	}
 }
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_key_release(const char *key) {
-	d_key k = d_web_key(k);
+EMSCRIPTEN_KEEPALIVE void d_cjs_key_release(const char *key, int loc) {
+	d_key k = d_web_key(key, loc);
+	if (!k) {
+		return;
+	}
 	d_app.key_states[k] = D_BTN_RELEASED;
 }
 
@@ -1196,13 +1301,28 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_release() {
 	d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_RELEASED;
 }
 
+EM_JS(void, d_js_set_fullscreen, (bool b), {
+	const canvas = dirty.canvas;
+	if (b) {
+		dirty.originWidth = canvas.width;
+		dirty.originHeight = canvas.height;
+		canvas.width = window.innerWidth;
+		canvas.height = window.innerHeight;
+		dirty.fullscreen = true;
+	} else {
+		canvas.width = dirty.originWidth || canvas.width;
+		canvas.height = dirty.originHeight || canvas.height;
+		dirty.fullscreen = false;
+	}
+})
+
+EM_JS(bool, d_js_is_fullscreen, (), {
+	return dirty.fullscreen;
+})
+
 EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
 
 	window.dirty = {};
-	dirty.width = w;
-	dirty.height = h;
-	dirty.mouseX = 0;
-	dirty.mouseY = 0;
 
 	const name = UTF8ToString(root);
 	const canvas = document.createElement("canvas");
@@ -1233,19 +1353,39 @@ EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
 
 #endif
 
+	const preventDefaultKeys = [
+		" ",
+		"ArrowLeft",
+		"ArrowRight",
+		"ArrowUp",
+		"ArrowDown",
+		"Backspace",
+	];
+
 	document.addEventListener("mousemove", (e) => {
 		const rect = canvas.getBoundingClientRect();
-		const x = (e.pageX - rect.left) * dirty.width / canvas.width;
-		const y = (e.pageY - rect.top) * dirty.height / canvas.height;
-		_d_cjs_set_mouse_pos(x, y);
+		_d_cjs_set_mouse_pos(e.pageX - rect.left, e.pageY - rect.top);
 	});
 
 	document.addEventListener("keydown", (e) => {
-		ccall('d_cjs_key_press', 'void', [ 'string', 'bool' ], [ e.key, e.repeat ]);
+		if (preventDefaultKeys.includes(e.key)) {
+			e.preventDefault();
+		}
+		ccall(
+			'd_cjs_key_press',
+			'void',
+			[ 'string', 'number', 'bool' ],
+			[ e.key, e.location, e.repeat ]
+		);
 	});
 
 	document.addEventListener("keyup", (e) => {
-		ccall('d_cjs_key_press', 'void', [ 'string' ], [ e.key ]);
+		ccall(
+			'd_cjs_key_release',
+			'void',
+			[ 'string', 'number' ],
+			[ e.key, e.location ]
+		);
 	});
 
 	document.addEventListener("mousedown", (e) => {
@@ -1265,6 +1405,8 @@ EM_JS(void, d_js_canvas_frame, (const color *buf, int w, int h), {
 
 	const canvas = dirty.canvas;
 	const img = new ImageData(new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4), w, h);
+
+	_d_cjs_set_win_size(canvas.width, canvas.height);
 
 #if defined(D_CPU)
 
@@ -1362,6 +1504,10 @@ void d_set_fullscreen(bool b) {
 	if (b != d_fullscreen()) {
 		[d_app.window toggleFullScreen:nil];
 	}
+#elif defined(D_X11)
+	// TODO
+#elif defined(D_CANVAS)
+	d_js_set_fullscreen(b);
 #endif
 }
 
@@ -1370,6 +1516,8 @@ bool d_fullscreen() {
 	return [d_app.window styleMask] & NSWindowStyleMaskFullScreen;
 #elif defined(D_UIKIT)
 	return true;
+#elif defined(D_CANVAS)
+	return d_js_is_fullscreen();
 #endif
 	return false;
 }
