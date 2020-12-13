@@ -77,16 +77,13 @@
 #define TXT(src) #src
 
 static float quad_verts[] = {
-	-1, -1, 0, 0,
-	-1, 1, 1, 0,
+	-1, -1, 0, 1,
+	-1, 1, 0, 0,
 	1, -1, 1, 1,
-	1, 1, 0, 1,
+	1, 1, 1, 0,
 };
 
-static unsigned int quad_indices[] = {
-	0, 1, 2,
-	0, 2, 3,
-};
+static float quad_stride = 4;
 
 void d_gfx_init(const d_desc *desc);
 void d_audio_init(const d_desc *desc);
@@ -144,7 +141,7 @@ typedef struct {
 typedef struct {
 
 	d_desc desc;
-	color *buf;
+	const color *buf;
 	struct timeval start_time;
 	float time;
 	float dt;
@@ -191,7 +188,7 @@ typedef struct {
 
 static d_app_ctx d_app;
 
-void d_present(color *canvas) {
+void d_present(const color *canvas) {
 	d_app.buf = canvas;
 }
 
@@ -205,6 +202,8 @@ static void d_process_btn(d_btn *b) {
 
 static void d_app_init() {
 
+	// TODO: can't call [window toggleFullScreen] before d_gfx_init()
+	// on D_GL and D_CPU, why?
 	d_gfx_init(&d_app.desc);
 	d_audio_init(&d_app.desc);
 	d_fs_init(&d_app.desc);
@@ -227,7 +226,9 @@ static void d_app_frame() {
 	// time
 	struct timeval time;
 	gettimeofday(&time, NULL);
-	float t = (float)(time.tv_sec - d_app.start_time.tv_sec) + (float)(time.tv_usec - d_app.start_time.tv_usec) / 1000000.0;
+	float t =
+		(float)(time.tv_sec - d_app.start_time.tv_sec)
+		+ (float)(time.tv_usec - d_app.start_time.tv_usec) / 1000000.0;
 	d_app.dt = t - d_app.time;
 	d_app.time = t;
 	d_app.fps_timer += d_app.dt;
@@ -266,6 +267,32 @@ static void d_app_frame() {
 // -------------------------------------------------------------
 // OpenGL
 #if defined(D_GL)
+
+static const char *vs_src =
+#ifndef D_GLES
+"#version 120\n"
+#endif
+"attribute vec2 a_pos;"
+"attribute vec2 a_uv;"
+"varying vec2 v_uv;"
+"void main() {"
+	"v_uv = a_uv;"
+	"gl_Position = vec4(a_pos, 0.0, 1.0);"
+"}"
+;
+
+static const char *fs_src =
+#ifndef D_GLES
+"#version 120\n"
+#else
+"precision mediump float;"
+#endif
+"varying vec2 v_uv;"
+"uniform sampler2D u_tex;"
+"void main() {"
+	"gl_FragColor = texture2D(u_tex, v_uv);"
+"}"
+;
 
 static void d_gl_init() {
 
@@ -316,11 +343,13 @@ static void d_gl_blit() {
 		d_app.buf
 	);
 
-	glBegin(GL_QUADS);
-	glTexCoord2f(0, 0); glVertex2f(-1, 1);
-	glTexCoord2f(1, 0); glVertex2f(1, 1);
-	glTexCoord2f(1, 1); glVertex2f(1, -1);
-	glTexCoord2f(0, 1); glVertex2f(-1, -1);
+	glBegin(GL_TRIANGLE_STRIP);
+
+	for (int i = 0; i < sizeof(quad_verts) / sizeof(float); i += quad_stride) {
+		glTexCoord2f(quad_verts[i + 2], quad_verts[i + 3]);
+		glVertex2f(quad_verts[i + 0], quad_verts[i + 1]);
+	}
+
 	glEnd();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glFlush();
@@ -333,42 +362,34 @@ static void d_gl_blit() {
 // Metal
 #if defined(D_METAL)
 
-static const char *shader_src = TXT(
-
-using namespace metal;
-
-struct VertexIn {
-	float2 pos;
-	float2 uv;
-};
-
-struct VertexOut {
-	float4 pos [[position]];
-	float2 uv;
-};
-
-vertex VertexOut vert(
-	const device VertexIn *verts [[ buffer(0) ]],
-	unsigned int vid [[ vertex_id ]]
-) {
-	VertexOut out;
-	VertexIn in = verts[vid];
-	out.pos = float4(in.pos, 0.0, 1.0);
-	out.uv.x = (float) (vid / 2);
-	out.uv.y = 1.0 - (float) (vid % 2);
-	return out;
-}
-
-fragment float4 frag(
-	VertexOut in [[ stage_in ]],
-	texture2d<half> tex [[ texture(0) ]]
-) {
-	constexpr sampler textureSampler(mag_filter::nearest, min_filter::nearest);
-	const half4 colorSample = tex.sample(textureSampler, in.uv);
-	return float4(colorSample);
-}
-
-);
+static const char *shader_src =
+"using namespace metal;"
+"struct VertexIn {"
+	"float2 pos;"
+	"float2 uv;"
+"};"
+"struct VertexOut {"
+	"float4 pos [[position]];"
+	"float2 uv;"
+"};"
+"vertex VertexOut vert("
+	"const device VertexIn *verts [[ buffer(0) ]],"
+	"unsigned int id [[ vertex_id ]]"
+") {"
+	"VertexIn in = verts[id];"
+	"VertexOut out;"
+	"out.pos = float4(in.pos, 0.0, 1.0);"
+	"out.uv = in.uv;"
+	"return out;"
+"}"
+"fragment float4 frag("
+	"VertexOut in [[ stage_in ]],"
+	"texture2d<half> tex [[ texture(0) ]]"
+") {"
+	"constexpr sampler samp(mag_filter::nearest, min_filter::nearest);"
+	"return float4(tex.sample(samp, in.uv));"
+"}"
+;
 
 static void d_mtl_init() {
 
@@ -384,7 +405,7 @@ static void d_mtl_init() {
 	];
 
 	if (err) {
-		fprintf(stderr, "%s\n", [err.localizedDescription UTF8String]);
+		d_fail("%s\n", [err.localizedDescription UTF8String]);
 	}
 
 	MTLRenderPipelineDescriptor *pip_desc = [[MTLRenderPipelineDescriptor alloc] init];
@@ -398,7 +419,7 @@ static void d_mtl_init() {
 	];
 
 	if (err) {
-		fprintf(stderr, "%s\n", [err.localizedDescription UTF8String]);
+		d_fail("%s\n", [err.localizedDescription UTF8String]);
 	}
 
     MTLTextureDescriptor *tex_desc = [MTLTextureDescriptor
@@ -559,7 +580,7 @@ static d_key d_cocoa_key(unsigned short k) {
 }
 
 @implementation DAppDelegate
-- (void)applicationDidFinishLaunching:(NSNotification *)noti {
+- (void)applicationDidFinishLaunching:(NSNotification*)noti {
 
 	NSWindow *window = [[NSWindow alloc]
 		initWithContentRect:NSMakeRect(0, 0, d_app.win_width, d_app.win_height)
@@ -585,8 +606,8 @@ static d_key d_cocoa_key(unsigned short k) {
 	DView *view = [[DView alloc] init];
 	d_app.view = view;
 	[window setContentView:view];
-	[window makeKeyAndOrderFront:nil];
 	[window makeFirstResponder:view];
+	[window makeKeyAndOrderFront:nil];
 
 #if defined(D_GL)
 
@@ -610,6 +631,10 @@ static d_key d_cocoa_key(unsigned short k) {
 #endif // D_METAL
 
 	d_app_init();
+
+	if (d_app.desc.fullscreen) {
+		d_set_fullscreen(true);
+	}
 
 	[NSTimer
 		scheduledTimerWithTimeInterval:0.001

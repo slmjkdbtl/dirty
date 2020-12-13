@@ -53,7 +53,7 @@ typedef struct {
 	float (*user_stream)();
 	d_synth synth;
 #if defined(D_COREAUDIO)
-	AudioQueueRef audio_queue;
+	AudioQueueRef queue;
 #endif
 } d_audio_ctx;
 
@@ -108,15 +108,19 @@ static float d_audio_next() {
 
 }
 
-static void d_stream_cb(float *buffer, int num_frames, int num_channels) {
-	for (int i = 0; i < num_frames; i++) {
-		buffer[i] = clampf(d_audio_next(), -1.0, 1.0);
-	}
-}
-
 #if defined(D_COREAUDIO)
 
 static void d_coreaudio_cb(void *udata, AudioQueueRef queue, AudioQueueBufferRef buffer) {
+
+	const int num_frames = buffer->mAudioDataByteSize / (sizeof(float) * D_NUM_CHANNELS);
+	float *buf = (float*)buffer->mAudioData;
+
+	for (int i = 0; i < num_frames; i++) {
+		buf[i] = d_audio_next();
+	}
+
+	AudioQueueEnqueueBuffer(queue, buffer, 0, NULL);
+
 }
 
 void d_coreaudio_init() {
@@ -131,11 +135,32 @@ void d_coreaudio_init() {
 		.mFramesPerPacket = 1,
 		.mChannelsPerFrame = D_NUM_CHANNELS,
 		.mBytesPerFrame = sizeof(float) * D_NUM_CHANNELS,
-		.mBytesPerPacket = fmt.mBytesPerFrame,
+		.mBytesPerPacket = sizeof(float) * D_NUM_CHANNELS,
 		.mBitsPerChannel = 32,
 	};
 
-	OSStatus res = AudioQueueNewOutput(&fmt, d_coreaudio_cb, 0, NULL, NULL, 0, &d_audio.audio_queue);
+	OSStatus res;
+
+	res = AudioQueueNewOutput(
+		&fmt,
+		d_coreaudio_cb,
+		NULL,
+		NULL,
+		NULL,
+		0,
+		&d_audio.queue
+	);
+
+	for (int i = 0; i < 2; i++) {
+		AudioQueueBufferRef buf = NULL;
+		int buf_size = D_BUFFER_FRAMES * fmt.mBytesPerFrame;
+		res = AudioQueueAllocateBuffer(d_audio.queue, buf_size, &buf);
+		buf->mAudioDataByteSize = buf_size;
+		memset(buf->mAudioData, 0, buf->mAudioDataByteSize);
+		AudioQueueEnqueueBuffer(d_audio.queue, buf, 0, NULL);
+	}
+
+	res = AudioQueueStart(d_audio.queue, NULL);
 
 }
 

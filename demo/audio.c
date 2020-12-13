@@ -20,10 +20,12 @@ void frame() {
 		d_play(&snd);
 	}
 
+	d_clear();
+
 	if (track_pb->paused) {
-		d_draw_text("paused", 24.0, 0.0, D_CENTER, coloru());
+		d_draw_text("paused", vec2f(0, 0));
 	} else {
-		d_draw_text("playing", 24.0, 0.0, D_CENTER, coloru());
+		d_draw_text("playing", vec2f(0, 0));
 	}
 
 }
@@ -39,6 +41,9 @@ int main() {
 		.title = "audio",
 		.init = init,
 		.frame = frame,
+		.width = 240,
+		.height = 240,
+		.scale = 2,
 	});
 }
 
