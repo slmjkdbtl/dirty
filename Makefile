@@ -116,6 +116,10 @@ $(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c
 	@mkdir -p $(DEMO_BIN_PATH)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
 
+.PHONY: install
+install:
+	install dirty.h $(PREFIX)/include/
+
 .PHONY: clean
 clean:
 	rm -rf build

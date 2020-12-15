@@ -1,7 +1,8 @@
 // wengwengweng
 
 #include <math.h>
-#define DIRTY_IMPL
+#define D_CPU
+#define D_IMPL
 #include "../dirty.h"
 
 d_img img;

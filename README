@@ -12,7 +12,7 @@ ABOUT
     - Windows (todo)
     - Android (todo)
 
-RENDERING
+GRAPHICS
 
   everything is software rendered to a plain pixel array, so it's best
   for low-res stuff
@@ -24,16 +24,7 @@ RENDERING
     - D_METAL (Metal, only on macOS and iOS)
     - D_TERM (todo)
 
-BUILD
-
-  $ make lib
-
-  will create 'libdirty.a' under 'build/lib/'
-
-  $ make lua
-
-  will create 'dirty' Lua runtime binary under 'build/bin', make sure
-  lua is installed and linkable
+DEMO
 
   $ make run DEMO=?
 
@@ -41,30 +32,10 @@ BUILD
 
 USAGE
 
-  C
+  copy 'dirty.h' to your include dir and
 
-    1. build and copy 'libdirty.a' to your link dir
-    2. copy 'inc/dirty' to your include dir and
-
-      #include <dirty/dirty.h>
-
-  Lua
-
-    $ dirty <file>
-
-DOC
-
-  see 'inc/dirty/'
-
-    - dirty.h
-
-  then
-
-    - app.h
-    - gfx.h
-    - audio.h
-    - math.h
-    - fs.h
+    #define D_IMPL
+    #include <dirty.h>
 
 FACTS
 

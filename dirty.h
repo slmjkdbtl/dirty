@@ -1,5 +1,62 @@
 // wengwengweng
 
+// ABOUT
+//
+//   'dirty' is a minimal toolkit for making games
+//   http://space55.xyz/dirty
+//
+//   supported platforms:
+//
+//     - macOS
+//     - iOS
+//     - Browser
+//     - Linux (wip)
+//     - Windows (todo)
+//     - Android (todo)
+//
+// GRAPHICS
+//
+//   everything is software rendered to a plain pixel array, so it's best
+//   for low-res stuff
+//
+//   #define to specify blitting method:
+//
+//     - D_CPU (native CPU renderer)
+//     - D_GL (OpenGL / OpenGLES / WebGL)
+//     - D_METAL (Metal, only on macOS and iOS)
+//     - D_TERM (todo)
+//
+// USAGE
+//
+//   copy 'dirty.h' to your include dir and
+//
+//     #define D_IMPL
+//     #include <dirty.h>
+//
+// DEMO
+//
+//
+//   #define D_CPU
+//   #define D_IMPL
+//   #include <dirty.h>
+//
+//   void frame() {
+//       d_draw_text("hi", vec2f(0, 0));
+//   }
+//
+//   int main() {
+//       d_run((d_desc) {
+//           .title = "hi",
+//           .frame = frame,
+//       });
+//   }
+//
+//   for more, go to https://github.com/slmjkdbtl/dirty
+//
+// FACTS
+//
+//   'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
+
 #include <stdbool.h>
 
 #if defined(__APPLE__)
@@ -620,10 +677,11 @@ char *d_basename(const char *path);
 // format text (one-off)
 const char* d_fmt(const char *fmt, ...);
 // format text (alloc)
-char* d_fmta(const char *fmt, ...);
+char *d_fmta(const char *fmt, ...);
 
-#ifdef DIRTY_IMPL
+#ifdef D_IMPL
 
+// TODO: this is horrible, use binary map
 static unsigned char unscii_bytes[] = {
 	0x98, 0x00, 0x28, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -4108,8 +4166,8 @@ void d_run(d_desc desc) {
 
 	d_app.desc = desc;
 	float scale = desc.scale ? desc.scale : 1.0;
-	d_app.width = desc.width ? desc.width : 640;
-	d_app.height = desc.height ? desc.height : 480;
+	d_app.width = desc.width ? desc.width : 256;
+	d_app.height = desc.height ? desc.height : 256;
 	d_app.win_width = d_app.width * scale;
 	d_app.win_height = d_app.height * scale;
 
@@ -4714,6 +4772,7 @@ d_img *d_canvas() {
 // audio ---
 
 #include <math.h>
+#include <limits.h>
 
 #if defined(D_MACOS) || defined(D_IOS)
 	#define D_COREAUDIO
@@ -5150,9 +5209,11 @@ void d_synth_wav(float (*func)(float freq, float t)) {
 	#import <Foundation/Foundation.h>
 #endif
 
+#define D_PATH_MAX 256
+
 typedef struct {
-	char res_path[PATH_MAX];
-	char data_path[PATH_MAX];
+	char res_path[D_PATH_MAX];
+	char data_path[D_PATH_MAX];
 } d_fs_ctx;
 
 static d_fs_ctx d_fs;
@@ -6208,5 +6269,5 @@ char *d_fmta(const char *fmt, ...) {
 
 }
 
-#endif // DIRTY_IMPL
+#endif // D_IMPL
 
