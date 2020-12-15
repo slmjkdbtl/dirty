@@ -28,7 +28,7 @@ ifeq ($(TARGET),iossim)
 CC := xcrun -sdk iphonesimulator clang
 endif
 
-DEMO := test
+DEMO := hi
 DEMO_BIN_PATH := build/bin/$(TARGET)
 DEMO_PATH := demo
 
