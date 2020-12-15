@@ -123,7 +123,13 @@ FACTS
 	#define D_LINUX
 #endif
 
-#if !defined(D_MACOS) && !defined(D_IOS) && !defined(D_WEB) && !defined(D_WINDOWS) && !defined(D_ANDROID) && !defined(D_LINUX)
+#if \
+	!defined(D_MACOS) && \
+	!defined(D_IOS) && \
+	!defined(D_WEB) && \
+	!defined(D_WINDOWS) && \
+	!defined(D_ANDROID) && \
+	!defined(D_LINUX)
 #error "platform not supported"
 #endif
 
@@ -150,10 +156,10 @@ typedef struct {
 } vec4;
 
 typedef struct {
-	unsigned char r;
-	unsigned char g;
-	unsigned char b;
-	unsigned char a;
+	uint8_t r;
+	uint8_t g;
+	uint8_t b;
+	uint8_t a;
 } color;
 
 typedef struct {
@@ -262,7 +268,7 @@ const char *vec3_fmt(vec3);
 vec4 vec4f(float, float, float, float);
 vec4 vec4u();
 
-color colori(unsigned char, unsigned char, unsigned char, unsigned char);
+color colori(uint8_t, uint8_t, uint8_t, uint8_t);
 color colorf(float, float, float, float);
 color colorx(unsigned int hex);
 color color_mix(color c1, color c2);
@@ -270,7 +276,12 @@ color coloru();
 bool color_eq(color, color);
 const char *color_fmt(color);
 
-mat4 mat4f(float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float);
+mat4 mat4f(
+	float, float, float, float,
+	float, float, float, float,
+	float, float, float, float,
+	float, float, float, float
+);
 mat4 mat4u();
 mat4 mat4_identity();
 mat4 mat4_mult(mat4, mat4);
@@ -447,7 +458,7 @@ typedef struct {
 	void *udata;
 } d_desc;
 
-typedef unsigned char d_touch;
+typedef uint8_t d_touch;
 
 void d_run(d_desc desc);
 void d_quit();
@@ -581,7 +592,7 @@ typedef struct {
 } d_model;
 
 d_img d_make_img(int w, int h);
-d_img d_parse_img(const unsigned char *bytes);
+d_img d_parse_img(const uint8_t *bytes);
 d_img d_load_img(const char *path);
 void d_img_set(d_img *img, int x, int y, color c);
 void d_img_set_ex(d_img *img, int x, int y, color c, d_blend blend);
@@ -660,7 +671,7 @@ void d_stream(float (*f)());
 
 // SOUND
 d_sound d_make_sound(const short *frames, int num_frames);
-d_sound d_parse_sound(const unsigned char *bytes);
+d_sound d_parse_sound(const uint8_t *bytes);
 d_sound d_load_sound(const char *path);
 float d_sound_sample(const d_sound *snd, float time);
 float d_sound_len(const d_sound *snd);
@@ -695,7 +706,7 @@ float d_wav_noise(float freq, float t);
 
 // read resource file content (alloc)
 char *d_read_text(const char *path);
-unsigned char *d_read_bytes(const char *path, size_t *size);
+uint8_t *d_read_bytes(const char *path, size_t *size);
 char **d_glob(const char *path, const char *ext);
 void d_free_dir(char **list);
 bool d_is_file(const char *path);
@@ -703,9 +714,9 @@ bool d_is_dir(const char *path);
 
 // read / write data file content (alloc)
 char *d_data_read_text(const char *path);
-unsigned char *d_data_read_bytes(const char *path, size_t *size);
+uint8_t *d_data_read_bytes(const char *path, size_t *size);
 void d_data_write_text(const char *path, const char *content);
-void d_data_write_bytes(const char *path, const unsigned char *content, size_t size);
+void d_data_write_bytes(const char *path, const uint8_t *content, size_t size);
 bool d_data_is_file(const char *path);
 bool d_data_is_dir(const char *path);
 
@@ -725,7 +736,7 @@ char *d_fmta(const char *fmt, ...);
 #ifndef DIRTY_IMPL_ONCE
 #define DIRTY_IMPL_ONCE
 
-static unsigned char unscii_bytes[] = {
+static uint8_t unscii_bytes[] = {
 	0x08, 0x08, 0x13, 0x05, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
 	0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f, 0x30, 0x31, 0x32, 0x33,
 	0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
@@ -1258,46 +1269,51 @@ static unsigned int unscii_bytes_len = 6212;
 #include <sys/time.h>
 
 #if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL) && !defined(D_TERM)
-#error "must define a blit method (D_CPU, D_GL, D_METAL, D_TERM)"
+	#error "must define a blit method (D_CPU, D_GL, D_METAL, D_TERM)"
 #endif
 
 #if defined(D_METAL) && !defined(D_MACOS) && !defined(D_IOS)
-#error "D_METAL is only for macOS or iOS"
+	#error "D_METAL is only for macOS or iOS"
 #endif
 
-#if !defined(D_COCOA) && !defined(D_UIKIT) && !defined(D_X11) && !defined(D_CANVAS) && !defined(D_TERM)
-#if defined(D_MACOS)
-	#define D_COCOA
-#elif defined(D_IOS)
-	#define D_UIKIT
-#elif defined(D_LINUX)
-	#define D_X11
-#elif defined(D_WEB)
-	#define D_CANVAS
-#endif
+#if \
+	!defined(D_COCOA) && \
+	!defined(D_UIKIT) && \
+	!defined(D_X11) && \
+	!defined(D_CANVAS) && \
+	!defined(D_TERM)
+	#if defined(D_MACOS)
+		#define D_COCOA
+	#elif defined(D_IOS)
+		#define D_UIKIT
+	#elif defined(D_LINUX)
+		#define D_X11
+	#elif defined(D_WEB)
+		#define D_CANVAS
+	#endif
 #endif
 
 #if defined(D_GL)
 
-#define GL_SILENCE_DEPRECATION
-#define GLES_SILENCE_DEPRECATION
+	#define GL_SILENCE_DEPRECATION
+	#define GLES_SILENCE_DEPRECATION
 
-#if defined(D_MACOS)
-	#include <OpenGL/gl.h>
-#elif defined(D_IOS)
-	#define D_GLES
-	#include <OpenGLES/ES2/gl.h>
-#elif defined(D_LINUX)
-	#include <GL/gl.h>
-#elif defined(D_ANDROID)
-	#define D_GLES
-	#include <GLES2/gl2.h>
-#elif defined(D_WINDOWS)
-	#include <GL/gl.h>
-#elif defined(D_WEB)
-	#define D_GLES
-	#include <GLES2/gl2.h>
-#endif
+	#if defined(D_MACOS)
+		#include <OpenGL/gl.h>
+	#elif defined(D_IOS)
+		#define D_GLES
+		#include <OpenGLES/ES2/gl.h>
+	#elif defined(D_LINUX)
+		#include <GL/gl.h>
+	#elif defined(D_ANDROID)
+		#define D_GLES
+		#include <GLES2/gl2.h>
+	#elif defined(D_WINDOWS)
+		#include <GL/gl.h>
+	#elif defined(D_WEB)
+		#define D_GLES
+		#include <GLES2/gl2.h>
+	#endif
 
 #endif // D_GL
 
@@ -2038,7 +2054,12 @@ static d_key d_cocoa_key(unsigned short k) {
 	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
 	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
-	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, d_app.buf, w * h * 4, NULL);
+	CGDataProviderRef provider = CGDataProviderCreateWithData(
+		NULL,
+		d_app.buf,
+		w * h * 4,
+		NULL
+	);
 
 	CGImageRef img = CGImageCreate(
 		w,
@@ -2153,7 +2174,12 @@ static void d_uikit_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
 	CGContextRef ctx = UIGraphicsGetCurrentContext();
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
 	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
-	CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, d_app.buf, w * h * 4, NULL);
+	CGDataProviderRef provider = CGDataProviderCreateWithData(
+		NULL,
+		d_app.buf,
+		w * h * 4,
+		NULL
+	);
 
 	CGImageRef img = CGImageCreate(
 		w,
@@ -2285,7 +2311,16 @@ static void d_x11_run(const d_desc *desc) {
 	Atom del_window = XInternAtom(dis, "WM_DELETE_WINDOW", 0);
 	XSetWMProtocols(dis, window, &del_window, 1);
 
-	XSelectInput(dis, window, ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | PointerMotionMask);
+	XSelectInput(
+		dis,
+		window,
+		ExposureMask
+		| KeyPressMask
+		| KeyReleaseMask
+		| ButtonPressMask
+		| ButtonReleaseMask
+		| PointerMotionMask
+	);
 	XMapWindow(dis, window);
 
 	if (desc->title) {
@@ -2662,7 +2697,8 @@ EM_JS(void, d_js_canvas_frame, (const color *buf, int w, int h), {
 	dirty.height = h;
 
 	const canvas = dirty.canvas;
-	const img = new ImageData(new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4), w, h);
+	const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
+	const img = new ImageData(pixels, w, h);
 
 	_d_cjs_set_win_size(canvas.width, canvas.height);
 
@@ -2837,11 +2873,14 @@ bool d_key_released(d_key k) {
 
 bool d_key_mod(d_kmod kmod) {
 	switch (kmod) {
-		case D_KMOD_ALT: return d_key_down(D_KEY_LALT) || d_key_down(D_KEY_RALT);
-		case D_KMOD_META: return d_key_down(D_KEY_LMETA) || d_key_down(D_KEY_RMETA);
-		case D_KMOD_CTRL: return d_key_down(D_KEY_LCTRL) || d_key_down(D_KEY_RCTRL);
-		case D_KMOD_SHIFT: return d_key_down(D_KEY_LSHIFT) || d_key_down(D_KEY_RSHIFT);
-		default: return false;
+		case D_KMOD_ALT:
+			return d_key_down(D_KEY_LALT) || d_key_down(D_KEY_RALT);
+		case D_KMOD_META:
+			return d_key_down(D_KEY_LMETA) || d_key_down(D_KEY_RMETA);
+		case D_KMOD_CTRL:
+			return d_key_down(D_KEY_LCTRL) || d_key_down(D_KEY_RCTRL);
+		case D_KMOD_SHIFT:
+			return d_key_down(D_KEY_LSHIFT) || d_key_down(D_KEY_RSHIFT);
 	}
 	return false;
 }
@@ -2855,7 +2894,8 @@ bool d_mouse_released(d_mouse k) {
 }
 
 bool d_mouse_down(d_mouse k) {
-	return d_app.mouse_states[k] == D_BTN_DOWN || d_app.mouse_states[k] == D_BTN_PRESSED;
+	return d_app.mouse_states[k] == D_BTN_DOWN
+		|| d_app.mouse_states[k] == D_BTN_PRESSED;
 }
 
 int d_width() {
@@ -2985,7 +3025,7 @@ d_img d_make_img(int w, int h) {
 	};
 }
 
-d_img d_parse_img(const unsigned char *bytes) {
+d_img d_parse_img(const uint8_t *bytes) {
 
 	d_img_bin *data = (d_img_bin*)bytes;
 	int size = sizeof(uint8_t) * data->width * data->height * 4;
@@ -3002,7 +3042,7 @@ d_img d_parse_img(const unsigned char *bytes) {
 
 d_img d_load_img(const char *path) {
 	size_t size;
-	unsigned char *bytes = d_read_bytes(path, &size);
+	uint8_t *bytes = d_read_bytes(path, &size);
 	d_img img = d_parse_img(bytes);
 	free(bytes);
 	return img;
@@ -3494,7 +3534,7 @@ d_sound d_make_sound(const short *frames, int num_frames) {
 	};
 }
 
-d_sound d_parse_sound(const unsigned char *bytes) {
+d_sound d_parse_sound(const uint8_t *bytes) {
 
 	d_snd_bin *data = (d_snd_bin*)bytes;
 	int size = sizeof(int16_t) * data->num_frames;
@@ -3511,7 +3551,7 @@ d_sound d_parse_sound(const unsigned char *bytes) {
 d_sound d_load_sound(const char *path) {
 
 	size_t size;
-	unsigned char *bytes = d_read_bytes(path, &size);
+	uint8_t *bytes = d_read_bytes(path, &size);
 	d_sound snd = d_parse_sound(bytes);
 	free(bytes);
 
@@ -3520,7 +3560,8 @@ d_sound d_load_sound(const char *path) {
 }
 
 float d_sound_sample(const d_sound *snd, float time) {
-	return (float)snd->frames[clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1)] / SHRT_MAX;
+	int pos = clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1);
+	return (float)snd->frames[pos] / SHRT_MAX;
 }
 
 float d_sound_len(const d_sound *snd) {
@@ -3780,7 +3821,6 @@ void d_fs_init(const d_desc *desc) {
 			sprintf(d_fs.data_path, "%s/Library/Application Support", home);
 		}
 #elif defined(D_WINDOWS)
-		SHGetKnownFolderPath(FOLDERID_RoamingAppData, KF_FLAG_CREATE, NULL, d_fs.data_path);
 		// TODO
 #elif defined(D_LINUX)
 		const char *home = getenv("HOME");
@@ -3829,7 +3869,7 @@ static char *read_text(const char *path) {
 
 }
 
-static unsigned char *read_bytes(const char *path, size_t *osize) {
+static uint8_t *read_bytes(const char *path, size_t *osize) {
 
 	FILE *file = fopen(path, "rb");
 
@@ -3842,7 +3882,7 @@ static unsigned char *read_bytes(const char *path, size_t *osize) {
 	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	unsigned char *buffer = malloc(size);
+	uint8_t *buffer = malloc(size);
 	size_t r_size = fread(buffer, 1, size, file);
 
 	if (r_size != size) {
@@ -3884,7 +3924,7 @@ static bool write_text(const char *path, const char *text) {
 
 }
 
-static bool write_bytes(const char *path, const unsigned char *data, size_t size) {
+static bool write_bytes(const char *path, const uint8_t *data, size_t size) {
 
 	FILE *file = fopen(path, "wb");
 
@@ -3968,7 +4008,7 @@ char *d_read_text(const char *path) {
 	return read_text(d_fmt("%s%s", d_fs.res_path, path));
 }
 
-unsigned char *d_read_bytes(const char *path, size_t *size) {
+uint8_t *d_read_bytes(const char *path, size_t *size) {
 	return read_bytes(d_fmt("%s%s", d_fs.res_path, path), size);
 }
 
@@ -3988,7 +4028,7 @@ char *d_data_read_text(const char *path) {
 	return read_text(d_fmt("%s%s", d_fs.data_path, path));
 }
 
-unsigned char *d_data_read_bytes(const char *path, size_t *size) {
+uint8_t *d_data_read_bytes(const char *path, size_t *size) {
 	return read_bytes(d_fmt("%s%s", d_fs.data_path, path), size);
 }
 
@@ -4005,7 +4045,7 @@ void d_data_write_text(const char *path, const char *content) {
 	write_text(d_fmt("%s%s", d_fs.data_path, path), content);
 }
 
-void d_data_write_bytes(const char *path, const unsigned char *content, size_t size) {
+void d_data_write_bytes(const char *path, const uint8_t *content, size_t size) {
 	write_bytes(d_fmt("%s%s", d_fs.data_path, path), content, size);
 }
 
@@ -4279,7 +4319,7 @@ vec4 vec4u() {
 	return vec4f(0.0, 0.0, 0.0, 1.0);
 }
 
-color colori(unsigned char r, unsigned char g, unsigned char b, unsigned char a) {
+color colori(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
 	return (color) {
 		.r = r,
 		.g = g,
@@ -4738,18 +4778,52 @@ static void fix_rect(rect *r) {
 
 bool pt_rect(vec2 pt, rect r) {
 	fix_rect(&r);
-	return pt.x >= r.p1.x && pt.x <= r.p2.x && pt.y >= r.p1.y && pt.y <= r.p2.y;
+	return
+		pt.x >= r.p1.x
+		&& pt.x <= r.p2.x
+		&& pt.y >= r.p1.y
+		&& pt.y <= r.p2.y;
 }
 
 bool rect_rect(rect r1, rect r2) {
 	fix_rect(&r1);
 	fix_rect(&r2);
-	return r1.p2.x >= r2.p1.x && r1.p1.x <= r2.p2.x && r1.p2.y >= r2.p1.y && r1.p1.y <= r2.p2.y;
+	return
+		r1.p2.x >= r2.p1.x
+		&& r1.p1.x <= r2.p2.x
+		&& r1.p2.y >= r2.p1.y
+		&& r1.p1.y <= r2.p2.y;
 }
 
 bool line_line(line2 l1, line2 l2) {
-	float a = ((l2.p2.x - l2.p1.x) * (l1.p1.y - l2.p1.y) - (l2.p2.y - l2.p1.y) * (l1.p1.x - l2.p1.x)) / ((l2.p2.y - l2.p1.y) * (l1.p2.x - l1.p1.x) - (l2.p2.x - l2.p1.x) * (l1.p2.y - l1.p1.y));
-	float b = ((l1.p2.x - l1.p1.x) * (l1.p1.y - l2.p1.y) - (l1.p2.y - l1.p1.y) * (l1.p1.x - l2.p1.x)) / ((l2.p2.y - l2.p1.y) * (l1.p2.x - l1.p1.x) - (l2.p2.x - l2.p1.x) * (l1.p2.y - l1.p1.y));
+	float a =
+		(
+			(l2.p2.x - l2.p1.x)
+			* (l1.p1.y - l2.p1.y)
+			- (l2.p2.y - l2.p1.y)
+			* (l1.p1.x - l2.p1.x)
+		)
+		/
+		(
+			(l2.p2.y - l2.p1.y)
+			* (l1.p2.x - l1.p1.x)
+			- (l2.p2.x - l2.p1.x)
+			* (l1.p2.y - l1.p1.y)
+		);
+	float b =
+		(
+			(l1.p2.x - l1.p1.x)
+			* (l1.p1.y - l2.p1.y)
+			- (l1.p2.y - l1.p1.y)
+			* (l1.p1.x - l2.p1.x)
+		)
+		/
+		(
+			(l2.p2.y - l2.p1.y)
+			* (l1.p2.x - l1.p1.x)
+			- (l2.p2.x - l2.p1.x)
+			* (l1.p2.y - l1.p1.y)
+		);
 	return a >= 0.0 && a <= 1.0 && b >= 0.0 && b <= 1.0;
 }
 
