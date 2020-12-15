@@ -169,13 +169,13 @@ void d_audio_init(const d_desc *desc) {
 	d_audio.synth = d_make_synth();
 }
 
-d_sound d_make_sound(const short *frames, int len) {
-	int size = sizeof(short) * len;
+d_sound d_make_sound(const short *frames, int num_frames) {
+	int size = sizeof(short) * num_frames;
 	short *fframes = malloc(size);
 	memcpy(fframes, frames, size);
 	return (d_sound) {
 		.frames = fframes,
-		.num_frames = len,
+		.num_frames = num_frames,
 	};
 }
 
@@ -188,22 +188,22 @@ d_sound d_parse_sound(const unsigned char *bytes, int size) {
 
 	d_assert(num_frames > 0, "failed to decode audio\n");
 
-	int num_fframes = num_frames / channels;
-	short *fframes = malloc(sizeof(short) * num_fframes);
+	int num_frames_mono = num_frames / channels;
+	short *frames_mono = malloc(sizeof(short) * num_frames_mono);
 
-	for (int i = 0; i < num_fframes; i++) {
-		short frame = 0.0;
+	for (int i = 0; i < num_frames_mono; i++) {
+		float frame = 0;
 		for (int j = 0; j < channels; j++) {
 			frame += frames[i * channels + j];
 		}
-		fframes[i] = frame / channels;
+		frames_mono[i] = (short)(frame / (float)channels);
 	}
 
 	free(frames);
 
 	return (d_sound) {
-		.frames = fframes,
-		.num_frames = num_fframes,
+		.frames = frames_mono,
+		.num_frames = num_frames_mono,
 	};
 
 }

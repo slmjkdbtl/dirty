@@ -8,15 +8,15 @@
 #include <sys/time.h>
 #include <dirty/dirty.h>
 
-#if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL)
-#error "must define a blit method (D_CPU, D_GL, D_METAL)"
+#if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL) && !defined(D_TERM)
+#error "must define a blit method (D_CPU, D_GL, D_METAL, D_TERM)"
 #endif
 
 #if defined(D_METAL) && !defined(D_MACOS) && !defined(D_IOS)
 #error "D_METAL is only for macOS or iOS"
 #endif
 
-#if !defined(D_COCOA) && !defined(D_UIKIT) && !defined(D_X11) && !defined(D_CANVAS)
+#if !defined(D_COCOA) && !defined(D_UIKIT) && !defined(D_X11) && !defined(D_CANVAS) && !defined(D_TERM)
 #if defined(D_MACOS)
 	#define D_COCOA
 #elif defined(D_IOS)
@@ -838,16 +838,14 @@ static void d_uikit_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
 
 	NSArray<UITouch*> *touches = [tset allObjects];
 
-	if (d_app.desc.touch_is_mouse) {
-		if ([touches count] == 1) {
-			UITouch *t = touches[0];
-			CGPoint pos = [t locationInView:[t view]];
-			d_app.mouse_states[D_MOUSE_LEFT] = state;
-			d_app.mouse_pos = vec2f(
-				pos.x * d_app.width / d_app.win_width,
-				pos.y * d_app.height / d_app.win_height
-			);
-		}
+	if ([touches count] == 1) {
+		UITouch *t = touches[0];
+		CGPoint pos = [t locationInView:[t view]];
+		d_app.mouse_states[D_MOUSE_LEFT] = state;
+		d_app.mouse_pos = vec2f(
+			pos.x * d_app.width / d_app.win_width,
+			pos.y * d_app.height / d_app.win_height
+		);
 	}
 
 	for (UITouch *touch in touches) {
@@ -988,6 +986,16 @@ static void d_uikit_run(const d_desc *desc) {
 }
 
 #endif // D_UIKIT
+
+// -------------------------------------------------------------
+// Term
+#if defined(D_TERM)
+
+static void d_term_run(const d_desc *desc) {
+	// TODO
+}
+
+#endif // D_TERM
 
 // -------------------------------------------------------------
 // X11
@@ -1455,6 +1463,8 @@ void d_run(d_desc desc) {
 	d_x11_run(&desc);
 #elif defined(D_CANVAS)
 	d_canvas_run(&desc);
+#elif defined(D_TERM)
+	d_term_run(&desc);
 #endif
 
 }

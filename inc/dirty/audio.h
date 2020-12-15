@@ -47,8 +47,11 @@ typedef struct {
 	bool alive;
 } d_voice;
 
+// user provided stream
+void d_stream(float (*f)());
+
 // SOUND
-d_sound d_make_sound(const short *frames, int len);
+d_sound d_make_sound(const short *frames, int num_frames);
 d_sound d_parse_sound(const unsigned char *bytes, int size);
 d_sound d_load_sound(const char *path);
 float d_sound_sample(const d_sound *snd, float time);

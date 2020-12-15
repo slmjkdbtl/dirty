@@ -121,7 +121,6 @@ typedef struct {
 	bool fullscreen;
 	bool vsync;
 	bool hidpi;
-	bool touch_is_mouse;
 	const char *path;
 	const char *org;
 	const char *name;
