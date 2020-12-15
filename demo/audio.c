@@ -1,6 +1,7 @@
 // wengwengweng
 
-#include <dirty/dirty.h>
+#define DIRTY_IMPL
+#include "../dirty.h"
 
 d_sound snd;
 d_sound track;
@@ -31,8 +32,8 @@ void frame() {
 }
 
 void init() {
-	snd = d_load_sound("res/shoot.ogg");
-	track = d_load_sound("res/yo.ogg");
+	snd = d_load_sound("res/shoot.dsnd");
+	track = d_load_sound("res/yo.dsnd");
 	track_pb = d_play(&track);
 }
 

@@ -1,13 +1,14 @@
 // wengwengweng
 
 #include <stdio.h>
-#include <dirty/dirty.h>
+#define DIRTY_IMPL
+#include "../dirty.h"
 
 d_img img;
 vec2 pos;
 
 void init() {
-	img = d_load_img("res/wizard.png");
+	img = d_load_img("res/wizard.dimg");
 }
 
 void frame() {
