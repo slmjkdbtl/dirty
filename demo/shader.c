@@ -2,7 +2,7 @@
 
 #include <math.h>
 #define D_CPU
-#define D_IMPL
+#define DIRTY_IMPL
 #include "../dirty.h"
 
 d_img img;
