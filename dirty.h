@@ -1,75 +1,104 @@
 // wengwengweng
 
-// ABOUT
-//
-//   'dirty' is a minimal toolkit for making games
-//   http://space55.xyz/dirty
-//
-//   supported platforms:
-//
-//     - macOS
-//     - iOS
-//     - Browser
-//     - Linux (wip)
-//     - Windows (todo)
-//     - Android (todo)
-//
-// GRAPHICS
-//
-//   everything is software rendered to a plain pixel array, so it's best
-//   for low-res stuff
-//
-//   #define to specify blitting method:
-//
-//     - D_CPU (native CPU renderer)
-//     - D_GL (OpenGL / OpenGLES / WebGL)
-//     - D_METAL (Metal, only on macOS and iOS)
-//     - D_TERM (todo)
-//
-// USAGE
-//
-//   copy 'dirty.h' to your include dir and
-//
-//     #define DIRTY_IMPL
-//     #include <dirty.h>
-//
-//   when targeting macOS and iOS, must be compiled with -ObjC flag
-//
-//   libraries to link:
-//
-//     macOS: Cocoa, AudioToolbox, Metal (D_METAL), MetalKit (D_METAL),
-//            OpenGL (D_GL)
-//     iOS: Foundation, UIKit, CoreGraphics, AudioToolbox,  MetalKit (D_METAL),
-//          OpenGL (D_GL)
-//     Linux: X11, GL (D_GL)
-//
-// DEMO
-//
-//   #define D_CPU
-//   #define DIRTY_IMPL
-//   #include <dirty.h>
-//
-//   void frame() {
-//       d_draw_text("hi", vec2f(0, 0));
-//   }
-//
-//   int main() {
-//       d_run((d_desc) {
-//           .title = "hi",
-//           .frame = frame,
-//       });
-//   }
-//
-//   for more, go to https://github.com/slmjkdbtl/dirty
-//
-// RESOURCES
-//
-//   dirty uses its own image and audio file format, for specs and converters
-//   go to https://github.com/slmjkdbtl/dft
-//
-// FACTS
-//
-//   'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
+/*
+
+ABOUT
+
+  'dirty' is a minimal toolkit for making games
+  http://space55.xyz/dirty
+
+  supported platforms:
+
+    - macOS
+    - iOS
+    - Browser
+    - Linux (wip)
+    - Windows (todo)
+    - Android (todo)
+
+GRAPHICS
+
+  everything is software rendered to a plain pixel array, so it's best
+  for low-res stuff
+
+  #define to specify blitting method:
+
+    - D_CPU (native CPU renderer)
+    - D_GL (OpenGL / OpenGLES / WebGL)
+    - D_METAL (Metal, only on macOS and iOS)
+    - D_TERM (todo)
+
+DEMO
+
+  #define D_CPU
+  #define DIRTY_IMPL
+  #include "dirty.h"
+
+  void frame() {
+      d_draw_text("hi", vec2f(0, 0));
+  }
+
+  int main() {
+      d_run((d_desc) {
+        .title = "hi",
+        .frame = frame,
+      });
+  }
+
+  for more, go to https://github.com/slmjkdbtl/dirty and check out demo/
+
+BUILD
+
+  CFLAGS += -std=c99
+  CFLAGS += -O3 (for performance in release builds)
+
+  macOS
+
+    CFLAGS += -ObjC
+    LDFLAGS += -framework Cocoa
+    LDFLAGS += -framework AudioToolbox
+    LDFLAGS += -framework Metal (D_METAL)
+    LDFLAGS += -framework MetalKit (D_METAL)
+    LDFLAGS += -framework OpenGL (D_GL)
+
+  iOS
+
+    CC := xcrun -sdk iphoneos clang (for phone)
+    CC := xcrun -sdk iphonesimulator clang (for simulator)
+    CFLAGS += -ObjC
+    CFLAGS += -arch armv7 (for phone)
+    CFLAGS += -arch arm64 (for phone)
+    CFLAGS += -arch x86_64 (for simulator)
+    LDFLAGS += -framework UIKit
+    LDFLAGS += -framework AudioToolbox
+    LDFLAGS += -framework CoreGraphics (D_CPU)
+    LDFLAGS += -framework MetalKit (D_METAL)
+    LDFLAGS += -framework OpenGLES (D_GL)
+    LDFLAGS += -framework GLKit (D_GL)
+
+  Linux
+
+    LDFLAGS += -lX11
+    LDFLAGS += -lGL (D_GL)
+
+  Web
+
+    CC := emcc
+
+RESOURCES
+
+  dirty uses its own image, audio and font file format, for specs and
+  converters go to https://github.com/slmjkdbtl/dft
+
+DOC
+
+  todo
+
+FACTS
+
+  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti
+
+*/
 
 #ifndef DIRTY_H
 #define DIRTY_H
@@ -1407,7 +1436,7 @@ typedef struct {
 
 static d_app_ctx d_app;
 
-void d_present(const color *canvas) {
+static void d_present(const color *canvas) {
 	d_app.buf = canvas;
 }
 

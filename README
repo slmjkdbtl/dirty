@@ -26,22 +26,71 @@ GRAPHICS
 
 DEMO
 
-  $ make run DEMO=?
+  #define D_CPU
+  #define DIRTY_IMPL
+  #include "dirty.h"
 
-  will build and run 'demo/?.c'
+  void frame() {
+      d_draw_text("hi", vec2f(0, 0));
+  }
 
-USAGE
+  int main() {
+      d_run((d_desc) {
+        .title = "hi",
+        .frame = frame,
+      });
+  }
 
-  copy 'dirty.h' to your include dir and
+  for more, go to https://github.com/slmjkdbtl/dirty and check out demo/
 
-    #define D_IMPL
-    #include <dirty.h>
+BUILD
+
+  CFLAGS += -std=c99
+  CFLAGS += -O3 (for performance in release builds)
+
+  macOS
+
+    CFLAGS += -ObjC
+    LDFLAGS += -framework Cocoa
+    LDFLAGS += -framework AudioToolbox
+    LDFLAGS += -framework Metal (D_METAL)
+    LDFLAGS += -framework MetalKit (D_METAL)
+    LDFLAGS += -framework OpenGL (D_GL)
+
+  iOS
+
+    CC := xcrun -sdk iphoneos clang (for phone)
+    CC := xcrun -sdk iphonesimulator clang (for simulator)
+    CFLAGS += -ObjC
+    CFLAGS += -arch armv7 (for phone)
+    CFLAGS += -arch arm64 (for phone)
+    CFLAGS += -arch x86_64 (for simulator)
+    LDFLAGS += -framework UIKit
+    LDFLAGS += -framework AudioToolbox
+    LDFLAGS += -framework CoreGraphics (D_CPU)
+    LDFLAGS += -framework MetalKit (D_METAL)
+    LDFLAGS += -framework OpenGLES (D_GL)
+    LDFLAGS += -framework GLKit (D_GL)
+
+  Linux
+
+    LDFLAGS += -lX11
+    LDFLAGS += -lGL (D_GL)
+
+  Web
+
+    CC := emcc
+
+RESOURCES
+
+  dirty uses its own image, audio and font file format, for specs and
+  converters go to https://github.com/slmjkdbtl/dft
+
+DOC
+
+  todo
 
 FACTS
 
-  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
-
-CONTRIBUTION
-
-  no
+  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti
 

@@ -33,8 +33,6 @@ DEMO_BIN_PATH := build/bin/$(TARGET)
 DEMO_PATH := demo
 
 # flags
-CFLAGS += -I $(INC_PATH)
-CFLAGS += -I $(EXT_INC_PATH)
 CFLAGS += -Wall
 CFLAGS += -Wpedantic
 CFLAGS += -std=c99
@@ -112,6 +110,7 @@ demo: $(DEMO_BIN_PATH)/$(DEMO)
 demos: $(DEMO_TARGETS)
 	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
 
+# TODO: rebuild on dirty.h change
 $(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c
 	@mkdir -p $(DEMO_BIN_PATH)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
