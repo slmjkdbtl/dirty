@@ -45,7 +45,7 @@ DEMO
       });
   }
 
-  for more, go to https://github.com/slmjkdbtl/dirty and check out demo/
+  for more, check out http://space55.xyz/dirty/demo
 
 BUILD
 
@@ -101,7 +101,7 @@ FACTS
 CONTRIBUTION
 
   this is mainly for personal use, but if you find it fun or useful feel free
-  to email me thoughts or patches to tga@space55.xyz
+  to email me thoughts and patches at tga@space55.xyz
 
 */
 
@@ -152,6 +152,13 @@ CONTRIBUTION
 //                                .                           .
 
 #define D_PI 3.14
+#define D_RNG_A 1103515245
+#define D_RNG_C 12345
+#define D_RNG_M 2147483648
+
+typedef struct {
+	uint64_t seed;
+} d_rng;
 
 typedef struct {
 	float x;
@@ -240,6 +247,10 @@ typedef struct {
 	vec2 origin;
 	vec2 dir;
 } ray2;
+
+d_rng d_make_rng(uint64_t seed);
+float d_rng_gen(d_rng *rng);
+float randf(float, float);
 
 vec2 vec2f(float, float);
 vec2 vec2u();
@@ -339,7 +350,6 @@ float clampf(float, float, float);
 int clampi(int, int, int);
 float lerpf(float, float, float);
 float mapf(float, float, float, float, float);
-float randf(float, float);
 
 bool pt_rect(vec2 pt, rect r);
 bool rect_rect(rect r1, rect r2);
@@ -4277,6 +4287,20 @@ char *d_basename(const char *path) {
 // ...O................................................................
 // .........................................................o..........
 
+d_rng d_make_rng(uint64_t seed) {
+	return (d_rng) {
+		.seed = seed,
+	};
+}
+
+float d_rng_gen(d_rng *rng) {
+	return (float)(rng->seed = (D_RNG_A * rng->seed + D_RNG_C) % D_RNG_M) / (float)D_RNG_M;
+}
+
+float randf(float low, float hi) {
+	return low + (float)rand() / (float)RAND_MAX * (hi - low);
+}
+
 vec2 vec2f(float x, float y) {
 	return (vec2) {
 		.x = x,
@@ -4967,10 +4991,6 @@ float lerpf(float a, float b, float t) {
 
 float mapf(float v, float l1, float h1, float l2, float h2) {
 	return l2 + (v - l1) / (h1 - l1) * (h2 - l2);
-}
-
-float randf(float low, float hi) {
-	return low + (float)rand() / (float)RAND_MAX * (hi - low);
 }
 
 static void fix_rect(rect *r) {
