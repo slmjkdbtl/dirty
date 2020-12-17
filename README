@@ -14,8 +14,8 @@ ABOUT
 
 GRAPHICS
 
-  everything is software rendered to a plain pixel array, so it's best
-  for low-res stuff
+  everything is rendered on CPU to a plain pixel array (fast for low res
+  stuff but slow for large images / big tri count meshes)
 
   #define to specify blitting method:
 
@@ -36,12 +36,12 @@ DEMO
 
   int main() {
       d_run((d_desc) {
-        .title = "hi",
-        .frame = frame,
+          .title = "hi",
+          .frame = frame,
       });
   }
 
-  for more, go to https://github.com/slmjkdbtl/dirty and check out demo/
+  for more, check out http://space55.xyz/dirty/demo
 
 BUILD
 
@@ -88,9 +88,14 @@ RESOURCES
 
 DOC
 
-  todo
+  check out the struct / function defs below
 
 FACTS
 
   'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti
+
+CONTRIBUTION
+
+  this is mainly for personal use, but if you find it fun or useful feel free
+  to email me thoughts and patches at tga@space55.xyz
 

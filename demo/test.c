@@ -9,7 +9,7 @@ d_img img;
 vec2 pos;
 
 void init() {
-	img = d_load_img("res/wizard.dimg");
+	img = d_load_img("res/wizard.dspr");
 }
 
 void frame() {
