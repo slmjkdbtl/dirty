@@ -69,9 +69,10 @@ BUILD
     CFLAGS += -arch armv7 (for phone)
     CFLAGS += -arch arm64 (for phone)
     CFLAGS += -arch x86_64 (for simulator)
+    LDFLAGS += -framework Foundation
     LDFLAGS += -framework UIKit
     LDFLAGS += -framework AudioToolbox
-    LDFLAGS += -framework CoreGraphics (D_CPU)
+    LDFLAGS += -framework Metal (D_METAL)
     LDFLAGS += -framework MetalKit (D_METAL)
     LDFLAGS += -framework OpenGLES (D_GL)
     LDFLAGS += -framework GLKit (D_GL)
@@ -831,15 +832,15 @@ char *d_fmta(const char *fmt, ...);
 // header
 //         *                       .            ~     +    .
 //     .           .            ~          +
-//             +          .                          .
+//             +          .                          .              .
 //               .                      .
 //  @      .        ~           .                 @            +
 //              !                         +
 //      .      -o-                                         ~
-//              !        +           +
+//              !        +           +                            .
 //                               .      .               +
 //   .                                          .
-//                 .
+//                 .                                                 .
 //                         ~                                    +
 //                     .            .
 //         @                              /           .
@@ -847,17 +848,17 @@ char *d_fmta(const char *fmt, ...);
 //   ~                         +        *
 //              .
 //                                           +                     .
-//
-//                     .                           .
-//                          .                                .
-//
-//             .
-//                                           ^v^
-//   .
-//                                                                    .
-//                                                      .
+//                    .
+//                                                 .
+//          .                                                 .
+//                      ,--
+//                     / .  \        .
+//                     \    /                ^v^
+//   .                   --.
+//                                                                 .
+//                                         .
 //              ^v^                              --------
-//                                 .            / DIRTY /
+//                             .                / DIRTY /
 //           _ _ ,- .                           --------           __,,-,
 //       _,-' '` .'   ` .  .._                 ./,-- /....,--''''` .
 //    ,-' .  '  .  '  .  '  . ` ..          --' .  '  .  '  .  '  .  '
@@ -867,15 +868,16 @@ char *d_fmta(const char *fmt, ...);
 //  .  `      .    '  .     .   `    .       .      `       .  '
 // .     '  .      .       `       .       .`      .       '`   .    `
 //   .         .     `   .   '   .      '`        .    .`      '`   .
-//     `   .      '`           .       '      .     `         .   `
+//     `   .      '`           .       '      .     `         .   `    '
 //  '.  `    .  '`    '`  .   `     .`     .   ` .   `     ' .   '`
 // .     '  .      .       `       .       .`      .       '`   .    `
-//  ~ ` ~                                   ~~
-//   .     ^   ~    `   .   '   .    ~~`        ~    .`      '`   .
-//         .      '`    ~~    ~~  ^       '      . ^   ~ ~    ~     `
+//  ~ ` ~                                 - ~~
+//   .     ^ -- ~    `   .   '   .    ~~`        ~    .`      '`   .
+//         .      '` ~  -~ -  ~~  ^   o   '      . ^   ~ ~    ~     `
 //     .      o                          .                  .     ~
-//            .     .                           o
-// impl                     .                   .
+//            .         ~    _     .                    o             ~
+//      o        ~         ><_'>             ~            .
+// impl            .        .                     O             ~
 
 #ifdef DIRTY_IMPL
 #ifndef DIRTY_IMPL_ONCE
@@ -883,13 +885,13 @@ char *d_fmta(const char *fmt, ...);
 
 // res                    ~                       o                   ~
 //         ~         .                 ~          .          O
-//   .                        O                              o
-//        .  ><_>             o           .         .        .
+//   .         _              O                              o
+//        .  ><_'>            o           .         .        .
 //                            .               .                    .
 //  .                   ~          .                  ~
 //              o           ~               ~                   .
-//      O       .               .                           O
-//      o                .             <_><         .       o         .
+//      O       .               .        _                  O
+//      o                .             <'_><        .       o         .
 //      .    .                                              .
 //                ~         .     o             ~                   .
 //   ~               .            .          .                 ~
@@ -1543,6 +1545,8 @@ void d_gfx_frame_end();
 
 #if defined(D_CPU)
 @interface DView : UIView
+#elif defined(D_GL)
+@interface DView : UIView
 #elif defined(D_METAL)
 @interface DView : MTKView
 #endif
@@ -1918,7 +1922,7 @@ static void d_mtl_init() {
 		d_fail("%s\n", [err.localizedDescription UTF8String]);
 	}
 
-    MTLTextureDescriptor *tex_desc = [MTLTextureDescriptor
+	MTLTextureDescriptor *tex_desc = [MTLTextureDescriptor
 		texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
 		width:d_app.width
 		height:d_app.height
@@ -2124,7 +2128,7 @@ static d_key d_cocoa_key(unsigned short k) {
 
 #elif defined(D_METAL)
 	d_mtl_init();
-#endif // D_METAL
+#endif
 
 	d_app_init();
 
@@ -2334,7 +2338,7 @@ static void d_uikit_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
 #if defined(D_GL)
 	d_gl_blit();
 #elif defined(D_METAL)
-	// TODO
+	d_mtl_blit();
 #elif defined(D_CPU)
 
 	int w = d_width();
@@ -2406,6 +2410,12 @@ static void d_uikit_touch(d_btn state, NSSet<UITouch*> *tset, UIEvent *event) {
 	view_ctrl.view = view;
 	window.rootViewController = view_ctrl;
 	[window makeKeyAndVisible];
+
+#if defined(D_GL)
+	d_gl_init();
+#elif defined(D_METAL)
+	d_mtl_init();
+#endif
 
 	d_app_init();
 
@@ -3007,9 +3017,9 @@ bool d_mouse_hidden() {
 
 void d_set_title(const char *title) {
 #if defined(D_COCOA)
-	NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-	[d_app.window setTitle:[NSString stringWithUTF8String:title]];
-	[pool drain];
+	@autoreleasepool {
+		[d_app.window setTitle:[NSString stringWithUTF8String:title]];
+	}
 #elif defined(D_X11)
 	XStoreName(d_app.display, d_app.window, title);
 #endif
@@ -4016,10 +4026,10 @@ void d_fs_init(const d_desc *desc) {
 		sprintf(d_fs.res_path, "%s/", desc->path);
 	} else {
 #if defined(D_MACOS) || defined(D_IOS)
-		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-		const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
-		sprintf(d_fs.res_path, "%s/", res_path);
-		[pool drain];
+		@autoreleasepool {
+			const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
+			sprintf(d_fs.res_path, "%s/", res_path);
+		}
 #elif defined(D_WINDOWS)
 		// TODO
 #elif defined(D_LINUX)
@@ -4972,11 +4982,11 @@ ray3 ray3f(vec3 origin, vec3 dir) {
 }
 
 float degf(float r) {
-    return r * (180.0 / D_PI);
+	return r * (180.0 / D_PI);
 }
 
 float radf(float d) {
-    return d / (180.0 / D_PI);
+	return d / (180.0 / D_PI);
 }
 
 int maxi(int a, int b) {
@@ -4996,7 +5006,7 @@ int clampi(int v, int low, int hi) {
 }
 
 float lerpf(float a, float b, float t) {
-    return a + (b - a) * t;
+	return a + (b - a) * t;
 }
 
 float mapf(float v, float l1, float h1, float l2, float h2) {
@@ -5140,6 +5150,6 @@ char *d_fmta(const char *fmt, ...) {
 //      o               )             <'_><        .       o      )  .
 //      .  ( .         (                        )          .     (
 //          )      ~    )     .     o          (  ~               )    .
-//   ~     (       .   (    )   .          .    )            ~   (
-// _     _  )_      __  )_  (  _      _  __   _( __    _      _  _)   _
+//         (       .   (    )   .          .    )            ~   (
+//  _.   _  )_   .  __  )_  (  _  .   _  __   _( __    _     ._  _)   _
 

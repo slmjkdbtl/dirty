@@ -66,8 +66,10 @@ endif
 
 ifeq ($(TARGET),ios)
 LDFLAGS += -framework Foundation
-LDFLAGS += -framework CoreGraphics
 LDFLAGS += -framework UIKit
+LDFLAGS += -framework CoreGraphics
+LDFLAGS += -framework OpenGLES
+LDFLAGS += -framework GLKit
 LDFLAGS += -framework Metal
 LDFLAGS += -framework MetalKit
 LDFLAGS += -framework AudioToolbox
@@ -75,8 +77,10 @@ endif
 
 ifeq ($(TARGET),iossim)
 LDFLAGS += -framework Foundation
-LDFLAGS += -framework CoreGraphics
 LDFLAGS += -framework UIKit
+LDFLAGS += -framework CoreGraphics
+LDFLAGS += -framework OpenGLES
+LDFLAGS += -framework GLKit
 LDFLAGS += -framework Metal
 LDFLAGS += -framework MetalKit
 LDFLAGS += -framework AudioToolbox
