@@ -5,7 +5,7 @@
 #include "../dirty.h"
 
 void frame() {
-	d_draw_text("hi", vec2f(0, 0));
+	d_draw_text("oh hi", vec2f(0, 0));
 }
 
 int main() {

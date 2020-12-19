@@ -104,8 +104,21 @@ PREFIX := /usr/local
 
 .PHONY: run
 run: $(DEMO_BIN_PATH)/$(DEMO)
+ifeq ($(TARGET),web)
+	cd $(DEMO_BIN_PATH); \
+		PORT=8000 fserv
+else ifeq ($(TARGET),iossim)
+	mkdir -p $<.app
+	cp $< $<.app/
+	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
+	xcrun simctl boot $(SIMID) | true
+	xcrun simctl install $(SIMID) $<.app
+	open -a Simulator --args -CurrentDeviceUDID $(SIMID)
+	xcrun simctl launch --console $(SIMID) xyz.space55.$(DEMO)
+else
 	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
-	./$(DEMO_BIN_PATH)/$(DEMO) $(ARGS)
+	./$< $(ARGS)
+endif
 
 .PHONY: demo
 demo: $(DEMO_BIN_PATH)/$(DEMO)
@@ -114,10 +127,14 @@ demo: $(DEMO_BIN_PATH)/$(DEMO)
 demos: $(DEMO_TARGETS)
 	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
 
-# TODO: rebuild on dirty.h change
-$(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c
+$(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c dirty.h
 	@mkdir -p $(DEMO_BIN_PATH)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^
+ifeq ($(TARGET),web)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@.js $<
+	sed 's/{{name}}/$*/' misc/web.html > $(DEMO_BIN_PATH)/index.html
+else
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+endif
 
 .PHONY: install
 install:
