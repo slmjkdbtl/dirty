@@ -3,7 +3,14 @@ ABOUT
   'dirty' is a minimal toolkit for making games
   http://space55.xyz/dirty
 
-  supported platforms:
+  - single header 0 dep
+  - software rendered
+  - cross platform
+  - c99
+
+PLATFORMS
+
+  support tier list:
 
     - macOS
     - iOS
@@ -80,6 +87,8 @@ BUILD
   Web
 
     CC := emcc
+
+  for more check out http://space55.xyz/dirty/Makefile
 
 RESOURCES
 

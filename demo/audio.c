@@ -2,7 +2,7 @@
 
 #define D_CPU
 #define DIRTY_IMPL
-#include "../dirty.h"
+#include <dirty.h>
 
 d_sound snd;
 d_sound track;
@@ -46,6 +46,7 @@ int main() {
 		.width = 240,
 		.height = 240,
 		.scale = 2,
+		.clear_color = colori(0, 0, 0, 255),
 	});
 }
 

@@ -29,13 +29,14 @@ CC := xcrun -sdk iphonesimulator clang
 endif
 
 DEMO := hi
-DEMO_BIN_PATH := build/bin/$(TARGET)
+DEMO_BIN_PATH := build/$(TARGET)
 DEMO_PATH := demo
 
 # flags
 CFLAGS += -Wall
 CFLAGS += -Wpedantic
 CFLAGS += -std=c99
+CFLAGS += -I.
 
 ifeq ($(TARGET),macos)
 CFLAGS += -ObjC
@@ -111,10 +112,18 @@ else ifeq ($(TARGET),iossim)
 	mkdir -p $<.app
 	cp $< $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
-	xcrun simctl boot $(SIMID) | true
-	xcrun simctl install $(SIMID) $<.app
-	open -a Simulator --args -CurrentDeviceUDID $(SIMID)
-	xcrun simctl launch --console $(SIMID) xyz.space55.$(DEMO)
+	xcrun simctl boot $(SIMULATOR) | true
+	xcrun simctl install $(SIMULATOR) $<.app
+	open -a Simulator --args -CurrentDeviceUDID $(SIMULATOR)
+	xcrun simctl launch --console $(SIMULATOR) xyz.space55.$(DEMO)
+else ifeq ($(TARGET),ios)
+	mkdir -p $<.app
+	cp $< $<.app/
+	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
+	cp $(PROFILE) $<.app/embedded.mobileprovision
+	codesign -s "$(CODESIGN)" $<.app
+	# does not work
+	ios-deploy --debug --bundle $<.app
 else
 	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
 	./$< $(ARGS)

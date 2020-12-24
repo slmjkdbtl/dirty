@@ -2,16 +2,18 @@
 
 #define D_CPU
 #define DIRTY_IMPL
-#include "../dirty.h"
+#include <dirty.h>
 
 void frame() {
-	d_draw_text("oh hi", vec2f(0, 0));
+	d_clear();
+	d_draw_text("hi", vec2f(0, 0));
 }
 
 int main() {
 	d_run((d_desc) {
 		.title = "hi",
 		.frame = frame,
+		.clear_color = colori(0, 0, 0, 255),
 	});
 }
 

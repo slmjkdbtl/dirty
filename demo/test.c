@@ -1,9 +1,8 @@
 // wengwengweng
 
-#include <stdio.h>
 #define D_CPU
 #define DIRTY_IMPL
-#include "../dirty.h"
+#include <dirty.h>
 
 d_img img;
 vec2 pos;
@@ -47,7 +46,7 @@ int main() {
 		.width = 240,
 		.height = 240,
 		.scale = 2,
-		.clear_color = colorx(0x000000ff),
+		.clear_color = colori(0, 0, 0, 255),
 	});
 }
 

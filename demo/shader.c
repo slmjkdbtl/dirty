@@ -3,7 +3,7 @@
 #include <math.h>
 #define D_CPU
 #define DIRTY_IMPL
-#include "../dirty.h"
+#include <dirty.h>
 
 d_img img;
 
@@ -17,9 +17,14 @@ void frame() {
 		d_quit();
 	}
 
+	vec2 mpos = d_mouse_pos();
+
 	for (int x = 0; x < img.width; x++) {
 		for (int y = 0; y < img.height; y++) {
-			vec2 uv = vec2f((float)x / (float)img.width - 0.5, (float)y / (float)img.height - 0.5);
+			vec2 uv = vec2f(
+				(float)(x - mpos.x) / (float)img.width,
+				(float)(y - mpos.y) / (float)img.height
+			);
 			float angle = atan2(uv.y, uv.x);
 			float dis = vec2_len(uv);
 			float c = sin(dis * 48.0 + d_time() * 8 + angle);

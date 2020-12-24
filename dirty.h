@@ -7,7 +7,14 @@ ABOUT
   'dirty' is a minimal toolkit for making games
   http://space55.xyz/dirty
 
-  supported platforms:
+  - single header 0 dep
+  - software rendered
+  - cross platform
+  - c99
+
+PLATFORMS
+
+  support tier list:
 
     - macOS
     - iOS
@@ -1436,6 +1443,7 @@ static unsigned int unscii_bytes_len = 6212;
 // TODO: try CVDisplayLink?
 
 #include <stdio.h>
+#include <string.h>
 #include <stdarg.h>
 #include <sys/time.h>
 
@@ -2636,8 +2644,6 @@ static void d_x11_run(const d_desc *desc) {
 // Web
 #if defined(D_CANVAS)
 
-#include <string.h>
-
 static bool streq(const char *s1, const char *s2) {
 	return strcmp(s1, s2) == 0;
 }
@@ -3191,6 +3197,7 @@ void d_gfx_init(const d_desc *desc) {
 
 void d_gfx_frame_end() {
 	d_present(d_gfx.cur_canvas->pixels);
+	d_gfx.cur_canvas = &d_gfx.def_canvas;
 }
 
 #define D_IMG_HEADER_SIZE \
@@ -3550,8 +3557,8 @@ d_img *d_canvas() {
 //                ~         .     o             ~                   .
 //   ~               .            .          .                 ~
 
-#include <math.h>
 #include <limits.h>
+#include <math.h>
 
 #if defined(D_MACOS) || defined(D_IOS)
 	#define D_COREAUDIO
@@ -3597,6 +3604,7 @@ float d_synth_next();
 typedef struct {
 	d_playback playbacks[D_MAX_PLAYBACKS];
 	int num_playbacks;
+	float volume;
 	float (*user_stream)();
 	d_synth synth;
 } d_audio_ctx;
@@ -3642,7 +3650,7 @@ static float d_audio_next() {
 		frame += d_audio.user_stream();
 	}
 
-	return frame;
+	return frame * d_audio.volume;
 
 }
 
@@ -3708,24 +3716,66 @@ static void d_ca_init() {
 
 #endif // D_COREAUDIO
 
+#if defined(D_WEBAUDIO)
+
+EM_JS(void, d_js_webaudio_init, (), {
+
+	const ctx = new (window.AudioContext || window.webkitAudioContext)();
+	dirty.audioCtx = ctx;
+
+	const buf = ctx.createBuffer(1, 44100, 44100);
+
+	const loop = () => {
+
+		for (let i = 0; i < buf.numberOfChannels; i++) {
+			const dest = buf.getChannelData(i);
+			let t = 0;
+			for (let j = 0; j < dest.length; j++) {
+				t += 0.05;
+				dest[j] = Math.sin(t);
+			}
+		}
+
+		const src = ctx.createBufferSource();
+
+		src.buffer = buf;
+		src.onended = loop;
+		src.connect(ctx.destination);
+		src.start();
+
+	};
+
+	loop();
+
+})
+
+static void d_webaudio_init() {
+	d_js_webaudio_init();
+}
+
+#endif
+
 #if defined(D_ALSA)
 
 static void d_alsa_init() {
-	snd_pcm_t *dev = NULL;
-	snd_pcm_open(dev, "default", SND_PCM_STREAM_PLAYBACK, 0);
+// 	snd_pcm_t *dev = NULL;
+// 	snd_pcm_open(dev, "default", SND_PCM_STREAM_PLAYBACK, 0);
 	// TODO
 }
 
 #endif // D_ALSA
 
 void d_audio_init(const d_desc *desc) {
+	d_audio.volume = 1.0;
+	d_audio.user_stream = desc->stream;
+	d_audio.synth = d_make_synth();
 #if defined(D_COREAUDIO)
 	d_ca_init();
+#elif defined(D_WEBAUDIO)
+	d_webaudio_init();
 #elif defined(D_ALSA)
 	d_alsa_init();
 #endif
-	d_audio.user_stream = desc->stream;
-	d_audio.synth = d_make_synth();
 }
 
 #define D_SND_HEADER_SIZE \
@@ -4002,8 +4052,6 @@ void d_synth_wav(float (*func)(float freq, float t)) {
 //                ~         .     o             ~                   .
 //   ~               .            .          .                 ~
 
-#include <unistd.h>
-#include <stdlib.h>
 #include <dirent.h>
 #include <sys/stat.h>
 
