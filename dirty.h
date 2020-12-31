@@ -4,55 +4,11 @@
 
 ABOUT
 
-  'dirty' is a minimal toolkit for making games
-  http://space55.xyz/dirty
+  some helper functions
 
-  - single header 0 dep
-  - software rendered
-  - cross platform
-  - c99
+FACTS
 
-PLATFORMS
-
-  support tier list:
-
-    - macOS
-    - iOS
-    - Browser
-    - Linux (wip)
-    - Windows (todo)
-    - Android (todo)
-
-GRAPHICS
-
-  everything is rendered on CPU to a plain pixel array (fast for low res
-  stuff but slow for large images / big tri count meshes)
-
-  #define to specify blitting method:
-
-    - D_CPU (native CPU renderer)
-    - D_GL (OpenGL / OpenGLES / WebGL)
-    - D_METAL (Metal, only on macOS and iOS)
-    - D_TERM (todo)
-
-DEMO
-
-  #define D_CPU
-  #define DIRTY_IMPL
-  #include "dirty.h"
-
-  void frame() {
-      d_draw_text("hi", vec2f(0, 0));
-  }
-
-  int main() {
-      d_run((d_desc) {
-          .title = "hi",
-          .frame = frame,
-      });
-  }
-
-  for more, check out http://space55.xyz/dirty/demo
+  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti
 
 BUILD
 
@@ -92,24 +48,6 @@ BUILD
   Web
 
     CC := emcc
-
-RESOURCES
-
-  dirty uses its own image, audio and font file format, for specs and
-  converters go to https://github.com/slmjkdbtl/dft
-
-DOC
-
-  check out the struct / function defs below
-
-FACTS
-
-  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti
-
-CONTRIBUTION
-
-  this is mainly for personal use, but if you find it fun or useful feel free
-  to email me thoughts and patches at tga@space55.xyz
 
 */
 
@@ -1423,8 +1361,6 @@ static uint8_t unscii_bytes[] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
-
-static unsigned int unscii_bytes_len = 6212;
 
 // app                    ~                       o                   ~
 //         ~         .                 ~          .          O
@@ -2798,6 +2734,10 @@ EM_JS(bool, d_js_is_fullscreen, (), {
 	return dirty.fullscreen;
 })
 
+EM_JS(bool, d_js_set_title, (const char *title), {
+	document.title = UTF8ToString(title);
+})
+
 EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
 
 	window.dirty = {};
@@ -3028,6 +2968,8 @@ void d_set_title(const char *title) {
 	}
 #elif defined(D_X11)
 	XStoreName(d_app.display, d_app.window, title);
+#elif defined(D_CANVAS)
+	d_js_set_title(title);
 #endif
 }
 
@@ -3718,34 +3660,54 @@ static void d_ca_init() {
 
 #if defined(D_WEBAUDIO)
 
+EMSCRIPTEN_KEEPALIVE float d_cjs_audio_next() {
+	return d_audio_next();
+}
+
 EM_JS(void, d_js_webaudio_init, (), {
 
-	const ctx = new (window.AudioContext || window.webkitAudioContext)();
+	const ctx = new (window.AudioContext || window.webkitAudioContext)({
+		sampleRate: 44100,
+	});
+
 	dirty.audioCtx = ctx;
 
-	const buf = ctx.createBuffer(1, 44100, 44100);
+// 	const buf = ctx.createBuffer(1, 1024, 44100);
 
-	const loop = () => {
+// 	const loop = () => {
 
-		for (let i = 0; i < buf.numberOfChannels; i++) {
-			const dest = buf.getChannelData(i);
-			let t = 0;
-			for (let j = 0; j < dest.length; j++) {
-				t += 0.05;
-				dest[j] = Math.sin(t);
-			}
-		}
+// 		for (let i = 0; i < buf.numberOfChannels; i++) {
+// 			const dest = buf.getChannelData(i);
+// 			for (let j = 0; j < dest.length; j++) {
+// 				dest[j] = _d_cjs_audio_next();
+// 			}
+// 		}
 
-		const src = ctx.createBufferSource();
+// 		const src = ctx.createBufferSource();
 
-		src.buffer = buf;
-		src.onended = loop;
-		src.connect(ctx.destination);
-		src.start();
+// 		src.buffer = buf;
+// 		src.onended = loop;
+// 		src.connect(ctx.destination);
+// 		src.start();
 
-	};
+// 	};
 
-	loop();
+// 	loop();
+
+// 	const processor = ctx.createScriptProcessor(1024, 0, 1);
+
+// 	processor.onaudioprocess = (e) => {
+// 		var num_frames = e.outputBuffer.length;
+// 		var num_channels = e.outputBuffer.numberOfChannels;
+// 		for (let chn = 0; chn < num_channels; chn++) {
+// 			let chan = e.outputBuffer.getChannelData(chn);
+// 			for (let i = 0; i < num_frames; i++) {
+// 				chan[i] = _d_cjs_audio_next();
+// 			}
+// 		}
+// 	};
+
+// 	processor.connect(ctx.destination);
 
 })
 
@@ -5151,7 +5113,7 @@ bool circle_circle(circle c1, circle c2) {
 //                ~         .     o             ~                   .
 //   ~               .            .          .                 ~
 
-#define FMT_BUFSIZE 1024
+#define FMT_BUFSIZE 256
 
 const char *d_fmt(const char *fmt, ...) {
 
