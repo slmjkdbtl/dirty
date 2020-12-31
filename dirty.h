@@ -6,10 +6,6 @@ ABOUT
 
   some helper functions
 
-FACTS
-
-  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
-
 DEMO
 
   #define D_CPU
@@ -31,6 +27,7 @@ BUILD
 
   CFLAGS += -std=c99
   CFLAGS += -O3 (for perf)
+  LDFLAGS += -flto (for size)
 
   macOS
 
@@ -65,6 +62,10 @@ BUILD
   Web
 
     CC := emcc
+
+FACTS
+
+  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
 
 */
 
@@ -2773,20 +2774,9 @@ EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
 		document.body.appendChild(canvas);
 	}
 
-#if defined(D_CPU)
-
 	const ctx = canvas.getContext("2d");
 
 	ctx.imageSmoothingEnabled = false;
-
-#elif defined(D_GL)
-
-	const gl = canvas.getContext("webgl");
-
-	gl.clearColor(0.0, 0.0, 0.0, 0.0);
-	gl.clear(gl.COLOR_BUFFER_BIT);
-
-#endif
 
 	const preventDefaultKeys = [
 		" ",
@@ -2833,42 +2823,59 @@ EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
 
 })
 
-EM_JS(void, d_js_canvas_frame, (const color *buf, int w, int h), {
+EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame() {
+	d_app_frame();
+}
 
-	dirty.width = w;
-	dirty.height = h;
+EMSCRIPTEN_KEEPALIVE const color *d_cjs_app_buf() {
+	return d_app.buf;
+}
 
-	const canvas = dirty.canvas;
-	const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
-	const img = new ImageData(pixels, w, h);
+EMSCRIPTEN_KEEPALIVE int d_cjs_app_width() {
+	return d_app.width;
+}
 
-	_d_cjs_set_win_size(canvas.width, canvas.height);
+EMSCRIPTEN_KEEPALIVE int d_cjs_app_height() {
+	return d_app.height;
+}
 
-#if defined(D_CPU)
+EM_JS(void, d_js_run_loop, (), {
 
-	const ctx = canvas.getContext("2d");
+	function frame() {
 
-	ctx.putImageData(img, 0, 0);
-	ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
-	ctx.drawImage(canvas, 0, 0);
+		_d_cjs_app_frame();
 
-#elif defined(D_GL)
+		const buf = _d_cjs_app_buf();
+		const w = _d_cjs_app_width();
+		const h = _d_cjs_app_height();
 
-	const gl = canvas.getContext("webgl");
-	// TODO
-#endif
+		dirty.width = w;
+		dirty.height = h;
+
+		const canvas = dirty.canvas;
+		const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
+		const img = new ImageData(pixels, w, h);
+
+		_d_cjs_set_win_size(canvas.width, canvas.height);
+
+		const ctx = canvas.getContext("2d");
+
+		ctx.putImageData(img, 0, 0);
+		ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
+		ctx.drawImage(canvas, 0, 0);
+
+		requestAnimationFrame(frame);
+
+	}
+
+	requestAnimationFrame(frame);
 
 })
-
-static void d_canvas_loop() {
-	d_app_frame();
-	d_js_canvas_frame(d_app.buf, d_app.width, d_app.height);
-}
 
 static void d_canvas_run(const d_desc *desc) {
 	d_js_canvas_init(desc->canvas_root, d_app.win_width, d_app.win_height);
 	d_app_init();
-	emscripten_set_main_loop(d_canvas_loop, 0, true);
+	d_js_run_loop();
 }
 
 #endif // D_CANVAS

@@ -96,6 +96,10 @@ ifeq ($(TARGET),web)
 LDFLAGS += --preload-file demo/res@res
 endif
 
+ifdef RELEASE
+LDFLAGS += -flto
+endif
+
 # files
 DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
 DEMOS := $(patsubst $(DEMO_PATH)/%.c, %, $(DEMO_FILES))
