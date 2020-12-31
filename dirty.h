@@ -8,12 +8,29 @@ ABOUT
 
 FACTS
 
-  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti
+  'dirty' is short for 'Dangerous Ichthyologist Reincarnates Tropical Yeti'
+
+DEMO
+
+  #define D_CPU
+  #define DIRTY_IMPL
+  #include "dirty.h"
+
+  void frame() {
+      d_draw_text("hi", vec2f(0, 0));
+  }
+
+  int main() {
+      d_run((d_desc) {
+          .title = "hi",
+          .frame = frame,
+      });
+  }
 
 BUILD
 
   CFLAGS += -std=c99
-  CFLAGS += -O3 (for performance in release builds)
+  CFLAGS += -O3 (for perf)
 
   macOS
 
@@ -26,12 +43,12 @@ BUILD
 
   iOS
 
-    CC := xcrun -sdk iphoneos clang (for phone)
-    CC := xcrun -sdk iphonesimulator clang (for simulator)
+    CC := xcrun -sdk iphoneos clang (for device)
+    CC := xcrun -sdk iphonesimulator clang (for sim)
     CFLAGS += -ObjC
-    CFLAGS += -arch armv7 (for phone)
-    CFLAGS += -arch arm64 (for phone)
-    CFLAGS += -arch x86_64 (for simulator)
+    CFLAGS += -arch armv7 (for device)
+    CFLAGS += -arch arm64 (for device)
+    CFLAGS += -arch x86_64 (for sim)
     LDFLAGS += -framework Foundation
     LDFLAGS += -framework UIKit
     LDFLAGS += -framework AudioToolbox
@@ -4324,7 +4341,8 @@ d_rng d_make_rng(uint64_t seed) {
 }
 
 float d_rng_gen(d_rng *rng) {
-	return (float)(rng->seed = (D_RNG_A * rng->seed + D_RNG_C) % D_RNG_M) / (float)D_RNG_M;
+	rng->seed = (D_RNG_A * rng->seed + D_RNG_C) % D_RNG_M;
+	return (float)(rng->seed) / (float)D_RNG_M;
 }
 
 float randf(float low, float hi) {
