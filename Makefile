@@ -14,7 +14,7 @@ TARGET := linux
 endif
 
 # programs / paths
-CC := clang
+CC := cc
 
 ifeq ($(TARGET),web)
 CC := emcc
@@ -54,7 +54,7 @@ CFLAGS += -arch x86_64
 endif
 
 ifdef RELEASE
-CFLAGS += -O3
+CFLAGS += -O2
 endif
 
 ifeq ($(TARGET),macos)

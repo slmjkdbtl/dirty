@@ -26,7 +26,7 @@ DEMO
 BUILD
 
   CFLAGS += -std=c99
-  CFLAGS += -O3 (for perf)
+  CFLAGS += -O2 (for perf)
   LDFLAGS += -flto (for size)
 
   macOS
