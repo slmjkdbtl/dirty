@@ -140,7 +140,7 @@ demo: $(DEMO_BIN_PATH)/$(DEMO)
 demos: $(DEMO_TARGETS)
 	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
 
-$(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c dirty.h
+$(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
 	@mkdir -p $(DEMO_BIN_PATH)
 ifeq ($(TARGET),web)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@.js $<

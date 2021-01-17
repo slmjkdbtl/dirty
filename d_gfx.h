@@ -1,11 +1,19 @@
 // wengwengweng
 
+// TODO: naming, prefixes
+
 #ifndef D_GFX_H
 #define D_GFX_H
 
 #ifndef D_MATH_H
 #error 'd_gfx.h' requires 'd_math.h'
 #endif
+
+typedef struct d_gfx_desc {
+	int width;
+	int height;
+	color clear_color;
+} d_gfx_desc;
 
 typedef enum {
 	D_CENTER,
@@ -97,6 +105,15 @@ typedef struct {
 	int num_images;
 } d_model;
 
+void d_gfx_init(d_gfx_desc);
+#ifdef D_APP_H
+void d_gfx_present();
+vec2 d_gfx_mouse_pos();
+#endif
+
+int d_gfx_width();
+int d_gfx_height();
+
 d_img d_make_img(int w, int h);
 d_img d_parse_img(const uint8_t *bytes);
 #ifdef D_FS_H
@@ -116,7 +133,7 @@ void d_free_font(d_font *font);
 
 void d_free_mesh(d_mesh *mesh);
 
-void d_clear();
+void d_gfx_clear();
 void d_set_blend(d_blend b);
 void d_set_wrap(d_wrap w);
 void d_put(int x, int y, color c);
@@ -679,21 +696,41 @@ typedef struct {
 
 static d_gfx_ctx d_gfx;
 
-void d_gfx_init(int w, int h) {
-	d_gfx.def_canvas = d_make_img(w, h);
+void d_gfx_init(const d_gfx_desc desc) {
+	d_gfx.def_canvas = d_make_img(desc.width, desc.height);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
 	d_gfx.def_font = d_parse_font(unscii_bytes);
 	d_gfx.cur_font = &d_gfx.def_font;
 	d_gfx.blend = D_ALPHA;
 	d_gfx.wrap = D_BORDER;
-	d_gfx.clear_color = colori(0, 0, 0, 255);
-	d_clear();
+	d_gfx.clear_color = desc.clear_color;
+	d_gfx_clear();
 }
 
-// void d_gfx_frame_end() {
-// 	d_present(d_gfx.cur_canvas->pixels);
-// 	d_gfx.cur_canvas = &d_gfx.def_canvas;
-// }
+#ifdef D_APP_H
+
+vec2 d_gfx_mouse_pos() {
+	vec2 mpos = d_app_mouse_pos();
+	return vec2f(
+		mpos.x * d_app_width() / d_gfx_width(),
+		mpos.y * d_app_height() / d_gfx_height()
+	);
+}
+
+void d_gfx_present() {
+	d_app_present(d_gfx.cur_canvas->pixels);
+	d_gfx.cur_canvas = &d_gfx.def_canvas;
+}
+
+#endif
+
+int d_gfx_width() {
+	return d_gfx.cur_canvas->width;
+}
+
+int d_gfx_height() {
+	return d_gfx.cur_canvas->height;
+}
 
 #define D_IMG_HEADER_SIZE \
 	sizeof(uint16_t) \
@@ -736,12 +773,20 @@ d_img d_parse_img(const uint8_t *bytes) {
 d_img d_load_img(const char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
+	if (!bytes) {
+		return (d_img) {
+			.width = 0,
+			.height = 0,
+			.pixels = NULL,
+		};
+	}
 	d_img img = d_parse_img(bytes);
 	free(bytes);
 	return img;
 }
 #endif
 
+// TODO: make this a canvas feature
 void d_img_set_ex(d_img *img, int x, int y, color c, d_blend blend) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
@@ -901,7 +946,7 @@ void d_free_mesh(d_mesh *m) {
 	m->num_indices = 0;
 }
 
-void d_clear() {
+void d_gfx_clear() {
 	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
 }
 

@@ -1,23 +1,32 @@
 // wengwengweng
 
-#include <math.h>
+#define D_IMPL
 #define D_CPU
-#define DIRTY_IMPL
-#include <dirty.h>
+#include <d_plat.h>
+#include <d_math.h>
+#include <d_app.h>
+#include <d_gfx.h>
 
 d_img img;
 
 void init() {
-	img = d_make_img(d_width(), d_height());
+	d_gfx_init((d_gfx_desc) {
+		.width = 240,
+		.height = 240,
+		.clear_color = colori(0, 0, 0, 255),
+	});
+	img = d_make_img(d_gfx_width(), d_gfx_height());
 }
 
 void frame() {
 
-	if (d_key_pressed(D_KEY_ESC)) {
-		d_quit();
+	printf("%d\n", d_app_width());
+
+	if (d_app_key_pressed(D_KEY_ESC)) {
+		d_app_quit();
 	}
 
-	vec2 mpos = d_mouse_pos();
+	vec2 mpos = d_app_mouse_pos();
 
 	for (int x = 0; x < img.width; x++) {
 		for (int y = 0; y < img.height; y++) {
@@ -27,23 +36,23 @@ void frame() {
 			);
 			float angle = atan2(uv.y, uv.x);
 			float dis = vec2_len(uv);
-			float c = sin(dis * 48.0 + d_time() * 8 + angle);
+			float c = sin(dis * 48.0 + d_app_time() * 8 + angle);
 			d_img_set(&img, x, y, colori(c * 255, c * 255, c * 255, 255));
 		}
 	}
 
 	d_draw_img(&img, vec2f(0, 0));
+	d_gfx_present();
 
 }
 
 int main() {
-	d_run((d_desc) {
+	d_app_run((d_app_desc) {
 		.title = "shader",
 		.init = init,
 		.frame = frame,
 		.width = 240,
 		.height = 240,
-		.scale = 2,
 	});
 }
 

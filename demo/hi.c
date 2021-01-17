@@ -1,19 +1,38 @@
 // wengwengweng
 
+#define D_IMPL
 #define D_CPU
-#define DIRTY_IMPL
-#include <dirty.h>
+#include <d_plat.h>
+#include <d_math.h>
+#include <d_app.h>
+#include <d_gfx.h>
+
+void init() {
+	d_gfx_init((d_gfx_desc) {
+		.width = 240,
+		.height = 240,
+		.clear_color = colori(0, 0, 0, 255),
+	});
+}
 
 void frame() {
-	d_clear();
+
+	if (d_app_key_pressed(D_KEY_ESC)) {
+		d_app_quit();
+	}
+
 	d_draw_text("hi", vec2f(0, 0));
+	d_gfx_present();
+
 }
 
 int main() {
-	d_run((d_desc) {
+	d_app_run((d_app_desc) {
 		.title = "hi",
+		.init = init,
 		.frame = frame,
-		.clear_color = colori(0, 0, 0, 255),
+		.width = 240,
+		.height = 240,
 	});
 }
 

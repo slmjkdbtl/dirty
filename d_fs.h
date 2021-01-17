@@ -11,6 +11,13 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+typedef struct {
+	const char *path;
+	const char *data_org;
+	const char *data_name;
+} d_fs_desc;
+
+void d_fs_init(d_fs_desc);
 char *d_read_text(const char *path);
 uint8_t *d_read_bytes(const char *path, size_t *size);
 char **d_glob(const char *path, const char *ext);
@@ -54,54 +61,52 @@ typedef struct {
 
 static d_fs_ctx d_fs;
 
-// void d_fs_init(const d_desc *desc) {
+void d_fs_init(d_fs_desc desc) {
 
-// 	if (desc->path) {
-// 		sprintf(d_fs.res_path, "%s/", desc->path);
-// 	} else {
-// #if defined(D_MACOS) || defined(D_IOS)
-// 		@autoreleasepool {
-// 			const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
-// 			sprintf(d_fs.res_path, "%s/", res_path);
-// 		}
-// #elif defined(D_WINDOWS)
-// #elif defined(D_LINUX)
-// #endif
-// 	}
+	if (desc.path) {
+		sprintf(d_fs.res_path, "%s/", desc.path);
+	} else {
+#if defined(D_MACOS) || defined(D_IOS)
+		@autoreleasepool {
+			const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
+			sprintf(d_fs.res_path, "%s/", res_path);
+		}
+#elif defined(D_WINDOWS)
+#elif defined(D_LINUX)
+#endif
+	}
 
-// 	if (desc->org && desc->name) {
-// #if defined(D_MACOS) || defined(D_IOS)
-// 		const char *home = getenv("HOME");
-// 		if (home) {
-// 			sprintf(d_fs.data_path, "%s/Library/Application Support", home);
-// 		}
-// #elif defined(D_WINDOWS)
-// #elif defined(D_LINUX)
-// 		const char *home = getenv("HOME");
-// 		const char *xdg_data = getenv("XDG_DATA_HOME");
-// 		if (xdg_data) {
-// 			sprintf(d_fs.data_path, "%s", xdg_data);
-// 		} else if (home) {
-// 			sprintf(d_fs.data_path, "%s/.local/share", home);
-// 		}
-// #endif
-// 		sprintf(d_fs.data_path, "%s/%s", d_fs.data_path, desc->org);
+	if (desc.data_org && desc.data_name) {
+#if defined(D_MACOS) || defined(D_IOS)
+		const char *home = getenv("HOME");
+		if (home) {
+			sprintf(d_fs.data_path, "%s/Library/Application Support", home);
+		}
+#elif defined(D_WINDOWS)
+#elif defined(D_LINUX)
+		const char *home = getenv("HOME");
+		const char *xdg_data = getenv("XDG_DATA_HOME");
+		if (xdg_data) {
+			sprintf(d_fs.data_path, "%s", xdg_data);
+		} else if (home) {
+			sprintf(d_fs.data_path, "%s/.local/share", home);
+		}
+#endif
+// 		sprintf(d_fs.data_path, "%s/%s", d_fs.data_path, desc.data_org);
 // 		mkdir(d_fs.data_path, 0700);
-// 		sprintf(d_fs.data_path, "%s/%s/", d_fs.data_path, desc->name);
+// 		sprintf(d_fs.data_path, "%s/%s/", d_fs.data_path, desc.data_name);
 // 		mkdir(d_fs.data_path, 0700);
-// 	}
+	}
 
-// }
+}
 
-#define FMT_BUFSIZE 256
+static const char *fmt(const char *fmt, ...) {
 
-static const char *d_fmt(const char *fmt, ...) {
-
-	static char buf[FMT_BUFSIZE];
+	static char buf[D_PATH_MAX];
 	va_list args;
 
 	va_start(args, fmt);
-	vsnprintf(buf, FMT_BUFSIZE, fmt, args);
+	vsnprintf(buf, D_PATH_MAX, fmt, args);
 	va_end(args);
 
 	return buf;
@@ -274,48 +279,48 @@ void d_free_dir(char **list) {
 }
 
 char *d_read_text(const char *path) {
-	return read_text(d_fmt("%s%s", d_fs.res_path, path));
+	return read_text(fmt("%s%s", d_fs.res_path, path));
 }
 
 uint8_t *d_read_bytes(const char *path, size_t *size) {
-	return read_bytes(d_fmt("%s%s", d_fs.res_path, path), size);
+	return read_bytes(fmt("%s%s", d_fs.res_path, path), size);
 }
 
 char **d_glob(const char *path, const char *ext) {
-	return glob(d_fmt("%s%s", d_fs.res_path, path), ext);
+	return glob(fmt("%s%s", d_fs.res_path, path), ext);
 }
 
 bool d_is_file(const char *path) {
-	return is_file(d_fmt("%s%s", d_fs.res_path, path));
+	return is_file(fmt("%s%s", d_fs.res_path, path));
 }
 
 bool d_is_dir(const char *path) {
-	return is_dir(d_fmt("%s%s", d_fs.res_path, path));
+	return is_dir(fmt("%s%s", d_fs.res_path, path));
 }
 
 char *d_data_read_text(const char *path) {
-	return read_text(d_fmt("%s%s", d_fs.data_path, path));
+	return read_text(fmt("%s%s", d_fs.data_path, path));
 }
 
 uint8_t *d_data_read_bytes(const char *path, size_t *size) {
-	return read_bytes(d_fmt("%s%s", d_fs.data_path, path), size);
+	return read_bytes(fmt("%s%s", d_fs.data_path, path), size);
 }
 
 bool d_data_is_file(const char *path) {
-	return is_file(d_fmt("%s%s", d_fs.data_path, path));
+	return is_file(fmt("%s%s", d_fs.data_path, path));
 }
 
 bool d_data_is_dir(const char *path) {
-	return is_dir(d_fmt("%s%s", d_fs.data_path, path));
+	return is_dir(fmt("%s%s", d_fs.data_path, path));
 }
 
 // TODO: recursive mkdir?
 void d_data_write_text(const char *path, const char *content) {
-	write_text(d_fmt("%s%s", d_fs.data_path, path), content);
+	write_text(fmt("%s%s", d_fs.data_path, path), content);
 }
 
 void d_data_write_bytes(const char *path, const uint8_t *content, size_t size) {
-	write_bytes(d_fmt("%s%s", d_fs.data_path, path), content, size);
+	write_bytes(fmt("%s%s", d_fs.data_path, path), content, size);
 }
 
 char *d_extname(const char *path) {

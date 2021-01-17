@@ -3,6 +3,10 @@
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
 
+typedef struct {
+	float (*stream)();
+} d_audio_desc;
+
 // a static sound
 typedef struct {
 	short *frames;
@@ -42,8 +46,7 @@ typedef struct {
 	bool alive;
 } d_voice;
 
-// user provided stream
-void d_stream(float (*f)());
+void d_audio_init(d_audio_desc);
 
 // SOUND
 d_sound d_make_sound(const short *frames, int num_frames);
@@ -314,9 +317,9 @@ static void d_alsa_init() {
 
 #endif // D_ALSA
 
-void d_audio_init(const d_desc *desc) {
+void d_audio_init(d_audio_desc desc) {
 	d_audio.volume = 1.0;
-	d_audio.user_stream = desc->stream;
+	d_audio.user_stream = desc.stream;
 	d_audio.synth = d_make_synth();
 #if defined(D_COREAUDIO)
 	d_ca_init();
@@ -363,6 +366,12 @@ d_sound d_load_sound(const char *path) {
 
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
+	if (!bytes) {
+		return (d_sound) {
+			.num_frames = 0,
+			.frames = NULL,
+		};
+	}
 	d_sound snd = d_parse_sound(bytes);
 	free(bytes);
 
@@ -477,12 +486,18 @@ d_voice d_make_voice() {
 }
 
 void d_synth_play(int note) {
-	d_assert(note >= 0 && note < D_SYNTH_NOTES, "note out of bound: '%d'\n", note);
+	if (note < 0 || note >= D_SYNTH_NOTES) {
+		fprintf(stderr, "note out of bound: '%d'\n", note);
+		return;
+	}
 	d_audio.synth.notes[note] = d_make_voice();
 }
 
 void d_synth_release(int note) {
-	d_assert(note >= 0 && note < D_SYNTH_NOTES, "note out of bound: '%d'\n", note);
+	if (note < 0 || note >= D_SYNTH_NOTES) {
+		fprintf(stderr, "note out of bound: '%d'\n", note);
+		return;
+	}
 	d_audio.synth.notes[note].active = false;
 }
 
