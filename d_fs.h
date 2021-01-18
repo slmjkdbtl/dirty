@@ -45,6 +45,9 @@ char *d_basename(const char *path);
 #ifndef D_FS_IMPL_ONCE
 #define D_FS_IMPL_ONCE
 
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
 #include <dirent.h>
 #include <sys/stat.h>
 

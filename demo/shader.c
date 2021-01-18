@@ -20,13 +20,11 @@ void init() {
 
 void frame() {
 
-	printf("%d\n", d_app_width());
-
 	if (d_app_key_pressed(D_KEY_ESC)) {
 		d_app_quit();
 	}
 
-	vec2 mpos = d_app_mouse_pos();
+	vec2 mpos = d_gfx_mouse_pos();
 
 	for (int x = 0; x < img.width; x++) {
 		for (int y = 0; y < img.height; y++) {

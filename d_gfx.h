@@ -712,13 +712,14 @@ void d_gfx_init(const d_gfx_desc desc) {
 vec2 d_gfx_mouse_pos() {
 	vec2 mpos = d_app_mouse_pos();
 	return vec2f(
-		mpos.x * d_app_width() / d_gfx_width(),
-		mpos.y * d_app_height() / d_gfx_height()
+		mpos.x * d_gfx_width() / d_app_width(),
+		mpos.y * d_gfx_height() / d_app_height()
 	);
 }
 
 void d_gfx_present() {
-	d_app_present(d_gfx.cur_canvas->pixels);
+	d_img *c = d_gfx.cur_canvas;
+	d_app_present(c->width, c->height, c->pixels);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
 }
 

@@ -5,14 +5,11 @@
 #include <d_plat.h>
 #include <d_fs.h>
 #include <d_math.h>
-#include <d_audio.h>
 #include <d_app.h>
 #include <d_gfx.h>
 
 d_img img;
-d_sound snd;
-d_sound track;
-d_playback *track_pb;
+vec2 pos;
 
 void init() {
 
@@ -22,16 +19,9 @@ void init() {
 		.clear_color = colori(0, 0, 0, 255),
 	});
 
-	d_fs_init((d_fs_desc) {
-		.path = "demo/res",
-	});
+	d_fs_init((d_fs_desc) {0});
 
-	d_audio_init((d_audio_desc) {0});
-
-	img = d_load_img("wizard.dspr");
-	snd = d_load_sound("shoot.dsnd");
-	track = d_load_sound("yo.dsnd");
-	track_pb = d_play(&track);
+	img = d_load_img("res/wizard.dspr");
 
 }
 
@@ -41,18 +31,26 @@ void frame() {
 		d_app_quit();
 	}
 
-	if (d_app_key_pressed(D_KEY_SPACE)) {
-		track_pb->paused = !track_pb->paused;
+	if (d_app_key_pressed(D_KEY_F)) {
+		d_app_set_fullscreen(!d_app_fullscreen());
 	}
 
-	if (d_app_key_pressed(D_KEY_Q)) {
-		d_play(&snd);
+	if (d_app_mouse_pressed(D_MOUSE_LEFT)) {
+		pos = d_gfx_mouse_pos();
 	}
 
 	d_gfx_clear();
-	d_draw_img(&img, d_app_mouse_pos());
-	d_draw_text("hi", d_app_mouse_pos());
+
+// 	for (int i = 0; i < 2000; i++) {
+		d_draw_img(&img, pos);
+// 	}
+// 	d_draw_rect(vec2f(0, 0), d_mouse_pos(), colori(0, 0, 255, 100));
+	d_draw_circle(d_gfx_mouse_pos(), 3, colori(0, 255, 255 ,255));
+	d_draw_text("oh hi", pos);
+
 	d_gfx_present();
+
+// 	d_app_set_title(d_fmt("%d", d_app_fps()));
 
 }
 
@@ -61,8 +59,8 @@ int main() {
 		.title = "app",
 		.init = init,
 		.frame = frame,
-		.width = 240,
-		.height = 240,
+		.width = 480,
+		.height = 480,
 	});
 }
 

@@ -122,7 +122,6 @@ typedef struct {
 	const char *title;
 	int width;
 	int height;
-	float scale;
 	d_scale_mode scale_mode;
 	bool fullscreen;
 	bool vsync;
@@ -134,7 +133,7 @@ typedef uint8_t d_touch;
 
 void d_app_run(d_app_desc desc);
 void d_app_quit();
-void d_app_present(const color *canvas);
+void d_app_present(int w, int h, const color *canvas);
 
 bool d_app_fullscreen();
 void d_app_set_fullscreen(bool b);
@@ -327,7 +326,9 @@ typedef struct {
 typedef struct {
 
 	d_app_desc desc;
-	const color *buf;
+	const color *canvas;
+	int canvas_width;
+	int canvas_height;
 	struct timeval start_time;
 	float time;
 	float dt;
@@ -374,9 +375,10 @@ typedef struct {
 
 static d_app_ctx d_app;
 
-// TODO: ask for size
-void d_app_present(const color *canvas) {
-	d_app.buf = canvas;
+void d_app_present(int w, int h, const color *canvas) {
+	d_app.canvas = canvas;
+	d_app.canvas_width = w;
+	d_app.canvas_height = h;
 }
 
 static void process_btn(d_btn_state *b) {
@@ -566,6 +568,10 @@ static void d_gl_init() {
 
 static void d_gl_blit() {
 
+	if (!d_app.canvas) {
+		return;
+	}
+
 	glViewport(0, 0, d_app_width(), d_height());
 	glClear(GL_COLOR_BUFFER_BIT);
 	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
@@ -581,7 +587,7 @@ static void d_gl_blit() {
 		d_app_height(),
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
-		d_app.buf
+		d_app.canvas
 	);
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 16, (void*)0);
@@ -683,6 +689,10 @@ static void d_mtl_init() {
 
 static void d_mtl_blit() {
 
+	if (!d_app.canvas) {
+		return;
+	}
+
 	id<MTLCommandBuffer> cmd_buf = [d_app.mtl_queue commandBuffer];
 	MTLRenderPassDescriptor *desc = [d_app.view currentRenderPassDescriptor];
 
@@ -694,7 +704,7 @@ static void d_mtl_blit() {
 	[d_app.mtl_tex
 		replaceRegion:region
 		mipmapLevel:0
-		withBytes:d_app.buf
+		withBytes:d_app.canvas
 		bytesPerRow:d_app.width * 4
 	];
 
@@ -957,21 +967,29 @@ static d_key d_cocoa_key(unsigned short k) {
 
 	d_app_frame();
 
+	if (d_app.quit) {
+		[NSApp terminate:nil];
+	}
+
+	if (!d_app.canvas) {
+		return;
+	}
+
 #if defined(D_GL)
 	d_gl_blit();
 #elif defined(D_METAL)
 	d_mtl_blit();
 #elif defined(D_CPU)
 
-	int w = d_app_width();
-	int h = d_app_height();
+	int w = d_app.canvas_width;
+	int h = d_app.canvas_height;
 
 	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
 	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
 	CGDataProviderRef provider = CGDataProviderCreateWithData(
 		NULL,
-		d_app.buf,
+		d_app.canvas,
 		w * h * 4,
 		NULL
 	);
@@ -997,10 +1015,6 @@ static d_key d_cocoa_key(unsigned short k) {
 	CGImageRelease(img);
 
 #endif // D_CPU
-
-	if (d_app.quit) {
-		[NSApp terminate:nil];
-	}
 
 }
 @end
@@ -1077,21 +1091,25 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *eve
 
 	d_app_frame();
 
+	if (!d_app.canvas) {
+		return;
+	}
+
 #if defined(D_GL)
 	d_gl_blit();
 #elif defined(D_METAL)
 	d_mtl_blit();
 #elif defined(D_CPU)
 
-	int w = d_app_width();
-	int h = d_app_height();
+	int w = d_app.canvas_width;
+	int h = d_app.canvas_height;
 
 	CGContextRef ctx = UIGraphicsGetCurrentContext();
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
 	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
 	CGDataProviderRef provider = CGDataProviderCreateWithData(
 		NULL,
-		d_app.buf,
+		d_app.canvas,
 		w * h * 4,
 		NULL
 	);
@@ -1324,6 +1342,10 @@ static void d_x11_run(const d_app_desc *desc) {
 		d_app_frame();
 		usleep(16000);
 
+		if (!d_app.canvas) {
+			continue;
+		}
+
 		// TODO: it's drawing in BGRA
 		// TODO: scale
 		// TODO: better fix? this is very slow
@@ -1336,7 +1358,7 @@ static void d_x11_run(const d_app_desc *desc) {
 				int xx = x * d_app.width / img.width;
 				int yy = y * d_app.height / img.height;
 				int i = yy * d_app.width + xx;
-				color c = d_app.buf[i];
+				color c = d_app.canvas[i];
 				d_img_set(&img, x, y, colori(c.b, c.g, c.r, c.a));
 			}
 		}
@@ -1478,10 +1500,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_set_size(int w, int h) {
 }
 
 EMSCRIPTEN_KEEPALIVE void d_cjs_set_mouse_pos(float x, float y) {
-	d_app.mouse_pos = vec2f(
-		x * d_app.width / d_app.width,
-		y * d_app.height / d_app.height
-	);
+	d_app.mouse_pos = vec2f(x, y);
 }
 
 EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(const char *key, int loc, bool rep) {
@@ -1607,16 +1626,16 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame() {
 	d_app_frame();
 }
 
-EMSCRIPTEN_KEEPALIVE const color *d_cjs_app_buf() {
-	return d_app.buf;
+EMSCRIPTEN_KEEPALIVE const color *d_cjs_app_canvas() {
+	return d_app.canvas;
 }
 
-EMSCRIPTEN_KEEPALIVE int d_cjs_app_width() {
-	return d_app.width;
+EMSCRIPTEN_KEEPALIVE int d_cjs_app_canvas_width() {
+	return d_app.canvas_width;
 }
 
-EMSCRIPTEN_KEEPALIVE int d_cjs_app_height() {
-	return d_app.height;
+EMSCRIPTEN_KEEPALIVE int d_cjs_app_canvas_height() {
+	return d_app.canvas_height;
 }
 
 EM_JS(void, d_js_run_loop, (), {
@@ -1625,12 +1644,9 @@ EM_JS(void, d_js_run_loop, (), {
 
 		_d_cjs_app_frame();
 
-		const buf = _d_cjs_app_buf();
-		const w = _d_cjs_app_width();
-		const h = _d_cjs_app_height();
-
-		dirty.width = w;
-		dirty.height = h;
+		const buf = _d_cjs_app_canvas();
+		const w = _d_cjs_app_canvas_width();
+		const h = _d_cjs_app_canvas_height();
 
 		const canvas = dirty.canvas;
 		const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
@@ -1663,11 +1679,10 @@ static void d_canvas_run(const d_app_desc *desc) {
 void d_app_run(d_app_desc desc) {
 
 	d_app.desc = desc;
-	float scale = desc.scale ? desc.scale : 1.0;
 	d_app.width = desc.width ? desc.width : 256;
 	d_app.height = desc.height ? desc.height : 256;
-	d_app.width = d_app.width * scale;
-	d_app.height = d_app.height * scale;
+	d_app.width = d_app.width;
+	d_app.height = d_app.height;
 
 #if defined(D_COCOA)
 	d_cocoa_run(&desc);
