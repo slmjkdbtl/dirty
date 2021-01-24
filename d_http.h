@@ -3,6 +3,41 @@
 #ifndef D_HTTP_H
 #define D_HTTP_H
 
+typedef enum {
+	D_HTTP_GET,
+	D_HTTP_POST,
+	D_HTTP_PUT,
+	D_HTTP_DELETE,
+	D_HTTP_HEAD,
+	D_HTTP_CONNECT,
+	D_HTTP_OPTIONS,
+	D_HTTP_TRACE,
+	D_HTTP_PATCH,
+} d_http_method;
+
+typedef struct {
+	int start;
+	int end;
+	const char *msg;
+} d_http_str;
+
+typedef struct {
+	d_http_str key;
+	d_http_str val;
+} d_http_header;
+
+typedef struct {
+	int status;
+	char *msg;
+	int num_headers;
+	d_http_header *headers;
+	d_http_str body;
+} d_http_response;
+
+typedef struct {
+	d_http_method method;
+} d_http_request;
+
 typedef struct {
 	int sock_fd;
 } d_http_server;
@@ -47,7 +82,7 @@ char *d_http_client_send(const d_http_client *client, const char *msg);
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define MSG_SIZE 1024
+#define CHUNK 1024
 #define HTTP_PORT 80
 
 static char const *status_text[] = {
@@ -180,12 +215,12 @@ void d_http_free_server(d_http_server *server) {
 void d_http_server_listen(const d_http_server *server, d_http_handler handler) {
 
 	int conn_fd = accept(server->sock_fd, NULL, NULL);
-	char *req_msg = malloc(MSG_SIZE);
-	int times = 0;
+	char *req_msg = malloc(CHUNK);
+	int iter = 0;
 
-	while (read(conn_fd, req_msg + times * MSG_SIZE, MSG_SIZE) >= MSG_SIZE) {
-		times++;
-		req_msg = realloc(req_msg, (times + 1) * MSG_SIZE);
+	while (read(conn_fd, req_msg + iter * CHUNK, CHUNK) >= CHUNK) {
+		iter++;
+		req_msg = realloc(req_msg, (iter + 1) * CHUNK);
 	}
 
 	char *res_msg = handler(req_msg);
@@ -242,15 +277,51 @@ void d_http_free_client(d_http_client *client) {
 char *d_http_client_send(const d_http_client *client, const char *req_msg) {
 
 	write(client->sock_fd, req_msg, strlen(req_msg));
+	int iter = 0;
+	char *res_msg = malloc(CHUNK);
+	int total_read = 0;
+	int content_len = 0;
+	int body_pos = 0;
 
-	char *res_msg = malloc(MSG_SIZE);
-	int times = 0;
+	while (1) {
 
-	// TODO: not reading all
-	while (read(client->sock_fd, res_msg + times * MSG_SIZE, MSG_SIZE) >= MSG_SIZE) {
-		times++;
-		res_msg = realloc(res_msg, (times + 1) * MSG_SIZE);
+		total_read += read(client->sock_fd, res_msg + total_read, CHUNK);
+		// TODO: only realloc when short
+		iter++;
+		res_msg = realloc(res_msg, (iter + 1) * CHUNK);
+
+		// find content length
+		if (content_len == 0) {
+			char *length_pos = strstr(res_msg, "Content-Length");
+			if (length_pos) {
+				char *start = strstr(length_pos, ":") + 1;
+				while (start[0] == ' ') {
+					start++;
+				}
+				char *end = strstr(start, "\r\n");
+				for (int i = 0; i < end - start; i++) {
+					content_len = content_len * 10 + (start[i] - '0');
+				}
+			}
+		}
+
+		// find body
+		if (body_pos == 0) {
+			char *body = strstr(res_msg, "\r\n\r\n");
+			if (body) {
+				body_pos = body + 4 - res_msg;
+			}
+		}
+
+		if (body_pos != 0) {
+			if (total_read - body_pos >= content_len) {
+				break;
+			}
+		}
+
 	}
+
+	res_msg[total_read] = '\0';
 
 	return res_msg;
 
