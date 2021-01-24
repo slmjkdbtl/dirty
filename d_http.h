@@ -18,7 +18,6 @@ typedef enum {
 typedef struct {
 	int start;
 	int end;
-	const char *msg;
 } d_http_str;
 
 typedef struct {
@@ -53,10 +52,12 @@ d_http_server d_http_make_server(int port);
 void d_http_free_server(d_http_server *server);
 void d_http_server_listen(const d_http_server *server, d_http_handler handler);
 
-char *d_http_fetch(const char *host, const char *msg);
+d_http_response d_http_fetch(const char *host, const char *msg);
 d_http_client d_http_make_client(const char *host);
 void d_http_free_client(d_http_client *client);
-char *d_http_client_send(const d_http_client *client, const char *msg);
+d_http_response d_http_client_send(const d_http_client *client, const char *req_msg);
+
+void d_http_free_response(d_http_response *res);
 
 #endif
 
@@ -82,8 +83,7 @@ char *d_http_client_send(const d_http_client *client, const char *msg);
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define CHUNK 1024
-#define HTTP_PORT 80
+#define D_HTTP_CHUNK_SIZE 1024
 
 static char const *status_text[] = {
 	"", "", "", "", "", "", "", "", "", "",
@@ -214,13 +214,14 @@ void d_http_free_server(d_http_server *server) {
 
 void d_http_server_listen(const d_http_server *server, d_http_handler handler) {
 
+	int chunk_size = D_HTTP_CHUNK_SIZE;
 	int conn_fd = accept(server->sock_fd, NULL, NULL);
-	char *req_msg = malloc(CHUNK);
+	char *req_msg = malloc(chunk_size);
 	int iter = 0;
 
-	while (read(conn_fd, req_msg + iter * CHUNK, CHUNK) >= CHUNK) {
+	while (read(conn_fd, req_msg + iter * chunk_size, chunk_size) >= chunk_size) {
 		iter++;
-		req_msg = realloc(req_msg, (iter + 1) * CHUNK);
+		req_msg = realloc(req_msg, (iter + 1) * chunk_size);
 	}
 
 	char *res_msg = handler(req_msg);
@@ -274,64 +275,138 @@ void d_http_free_client(d_http_client *client) {
 	close(client->sock_fd);
 }
 
-char *d_http_client_send(const d_http_client *client, const char *req_msg) {
+static int atoin(const char *str, int n) {
+	int num = 0;
+	for (int i = 0; i < n; i++) {
+		num = num * 10 + (str[i] - '0');
+	}
+	return num;
+}
+
+void d_http_free_response(d_http_response *res) {
+	free(res->msg);
+	res->msg = NULL;
+}
+
+d_http_response d_http_client_send(const d_http_client *client, const char *req_msg) {
 
 	write(client->sock_fd, req_msg, strlen(req_msg));
-	int iter = 0;
-	char *res_msg = malloc(CHUNK);
-	int total_read = 0;
-	int content_len = 0;
+
+	char *res_msg = malloc(D_HTTP_CHUNK_SIZE * sizeof(char));
+	int bread = 0;
+	int status = 0;
+	int header_pos = 0;
+	int body_size = 0;
 	int body_pos = 0;
+	int cursor = 0;
+	int num_headers = 0;
+	d_http_header *headers = malloc(sizeof(d_http_header));
 
 	while (1) {
 
-		total_read += read(client->sock_fd, res_msg + total_read, CHUNK);
-		// TODO: only realloc when short
-		iter++;
-		res_msg = realloc(res_msg, (iter + 1) * CHUNK);
+		bread += read(client->sock_fd, res_msg + bread, D_HTTP_CHUNK_SIZE);
+		res_msg = realloc(res_msg, bread + D_HTTP_CHUNK_SIZE);
 
-		// find content length
-		if (content_len == 0) {
-			char *length_pos = strstr(res_msg, "Content-Length");
-			if (length_pos) {
-				char *start = strstr(length_pos, ":") + 1;
-				while (start[0] == ' ') {
-					start++;
-				}
-				char *end = strstr(start, "\r\n");
-				for (int i = 0; i < end - start; i++) {
-					content_len = content_len * 10 + (start[i] - '0');
+		if (!status) {
+			char *status_pos = strchr(res_msg + cursor, ' ');
+			if (status_pos) {
+				char *start = status_pos + 1;
+				char *end = strchr(start, ' ');
+				if (end) {
+					status = atoin(start, end - start);
+					cursor = end - res_msg;
 				}
 			}
 		}
 
-		// find body
-		if (body_pos == 0) {
-			char *body = strstr(res_msg, "\r\n\r\n");
-			if (body) {
-				body_pos = body + 4 - res_msg;
+		if (!status) {
+			continue;
+		}
+
+		if (!header_pos) {
+			char *header = strstr(res_msg + cursor, "\r\n");
+			if (header) {
+				header_pos = header + 2 - res_msg;
+				cursor = header_pos;
 			}
 		}
 
-		if (body_pos != 0) {
-			if (total_read - body_pos >= content_len) {
+		if (!header_pos) {
+			continue;
+		}
+
+		if (!body_pos) {
+
+			while (1) {
+
+				if (res_msg[cursor] == '\r' && res_msg[cursor + 1] == '\n') {
+					cursor += 2;
+					body_pos = cursor;
+					break;
+				}
+
+				char *key_end = strstr(res_msg + cursor, ": ");
+
+				if (!key_end) {
+					break;
+				}
+
+				d_http_str key = (d_http_str) { cursor, key_end - res_msg };
+				cursor = key_end - res_msg + 2;
+
+				char *val_end = strstr(res_msg + cursor, "\r\n");
+
+				if (!val_end) {
+					break;
+				}
+
+				d_http_str val = (d_http_str) { cursor, val_end - res_msg };
+				cursor = val_end - res_msg + 2;
+
+				headers[num_headers] = (d_http_header) {
+					.key = key,
+					.val = val,
+				};
+
+				num_headers++;
+				headers = realloc(headers, sizeof(d_http_header) * (num_headers + 1));
+
+				if (strncmp(res_msg + key.start, "Content-Length", key.end - key.start) == 0) {
+					body_size = atoin(res_msg + val.start, val.end - val.start);
+				}
+
+			}
+
+		}
+
+		if (body_pos) {
+			if (bread - body_pos >= body_size) {
 				break;
 			}
 		}
 
 	}
 
-	res_msg[total_read] = '\0';
+	res_msg[bread] = '\0';
 
-	return res_msg;
+	return (d_http_response) {
+		.status = status,
+		.msg = res_msg,
+		.num_headers = num_headers,
+		.headers = headers,
+		.body = (d_http_str) {
+			.start = body_pos,
+			.end = bread,
+		},
+	};
 
 }
 
-char *d_http_fetch(const char *host, const char *req_msg) {
+d_http_response d_http_fetch(const char *host, const char *req_msg) {
 	d_http_client client = d_http_make_client(host);
-	char *res_msg = d_http_client_send(&client, req_msg);
+	d_http_response res = d_http_client_send(&client, req_msg);
 	d_http_free_client(&client);
-	return res_msg;
+	return res;
 }
 
 #endif
