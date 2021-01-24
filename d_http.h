@@ -16,26 +16,24 @@ typedef enum {
 } d_http_method;
 
 typedef struct {
-	int start;
-	int end;
-} d_http_str;
-
-typedef struct {
-	d_http_str key;
-	d_http_str val;
+	char *key;
+	char *val;
 } d_http_header;
 
 typedef struct {
 	int status;
-	char *msg;
 	int num_headers;
 	d_http_header *headers;
-	d_http_str body;
-} d_http_response;
+	char *body;
+} d_http_res;
 
 typedef struct {
 	d_http_method method;
-} d_http_request;
+	char *path;
+	int num_headers;
+	d_http_header *headers;
+	char *body;
+} d_http_req;
 
 typedef struct {
 	int sock_fd;
@@ -48,16 +46,17 @@ typedef struct {
 typedef char *(*d_http_handler)(const char*);
 
 void d_http_serve(int port, d_http_handler handler);
-d_http_server d_http_make_server(int port);
-void d_http_free_server(d_http_server *server);
+d_http_server d_make_http_server(int port);
+void d_free_http_server(d_http_server *server);
 void d_http_server_listen(const d_http_server *server, d_http_handler handler);
 
-d_http_response d_http_fetch(const char *host, const char *msg);
-d_http_client d_http_make_client(const char *host);
-void d_http_free_client(d_http_client *client);
-d_http_response d_http_client_send(const d_http_client *client, const char *req_msg);
+d_http_res d_http_fetch(const char *host, const char *msg);
+d_http_client d_make_http_client(const char *host);
+void d_free_http_client(d_http_client *client);
+d_http_res d_http_client_send(const d_http_client *client, const char *req_msg);
 
-void d_http_free_response(d_http_response *res);
+void d_free_http_req(d_http_req *req);
+void d_free_http_res(d_http_res *res);
 
 #endif
 
@@ -81,9 +80,9 @@ void d_http_free_response(d_http_response *res);
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
+// #include <openssl/ssl.h>
 
-#define D_HTTP_CHUNK_SIZE 1024
+#define D_HTTP_CHUNK_SIZE 2048
 
 static char const *status_text[] = {
 	"", "", "", "", "", "", "", "", "", "",
@@ -168,7 +167,7 @@ static char const *status_text[] = {
 	"", "", "", "", "", "", "", "", "", "",
 };
 
-d_http_server d_http_make_server(int port) {
+d_http_server d_make_http_server(int port) {
 
 	int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -208,7 +207,7 @@ d_http_server d_http_make_server(int port) {
 
 }
 
-void d_http_free_server(d_http_server *server) {
+void d_free_http_server(d_http_server *server) {
 	close(server->sock_fd);
 }
 
@@ -234,17 +233,17 @@ void d_http_server_listen(const d_http_server *server, d_http_handler handler) {
 
 void d_http_serve(int port, d_http_handler handler) {
 
-	d_http_server server = d_http_make_server(port);
+	d_http_server server = d_make_http_server(port);
 
 	while (1) {
 		d_http_server_listen(&server, handler);
 	}
 
-	d_http_free_server(&server);
+	d_free_http_server(&server);
 
 }
 
-d_http_client d_http_make_client(const char *host) {
+d_http_client d_make_http_client(const char *host) {
 
 	struct addrinfo *res;
 
@@ -271,7 +270,7 @@ d_http_client d_http_make_client(const char *host) {
 
 }
 
-void d_http_free_client(d_http_client *client) {
+void d_free_http_client(d_http_client *client) {
 	close(client->sock_fd);
 }
 
@@ -283,12 +282,43 @@ static int atoin(const char *str, int n) {
 	return num;
 }
 
-void d_http_free_response(d_http_response *res) {
-	free(res->msg);
-	res->msg = NULL;
+void d_free_http_res(d_http_res *res) {
+	free(res->body);
+	res->body = NULL;
+	for (int i = 0; i < res->num_headers; i++) {
+		d_http_header *h = &res->headers[i];
+		free(h->key);
+		h->key = NULL;
+		free(h->val);
+		h->val = NULL;
+	}
 }
 
-d_http_response d_http_client_send(const d_http_client *client, const char *req_msg) {
+void d_free_http_req(d_http_req *req) {
+	free(req->body);
+	req->body = NULL;
+	free(req->path);
+	req->path = NULL;
+	for (int i = 0; i < req->num_headers; i++) {
+		d_http_header *h = &req->headers[i];
+		free(h->key);
+		h->key = NULL;
+		free(h->val);
+		h->val = NULL;
+	}
+}
+
+static char *makestr(char *src, int len) {
+	char *str = malloc(len + 1);
+	strncpy(str, src, len);
+	str[len] = '\0';
+	return str;
+}
+
+// TODO: parse url
+// TODO: send_ex with headers
+// TODO: https
+d_http_res d_http_client_send(const d_http_client *client, const char *req_msg) {
 
 	write(client->sock_fd, req_msg, strlen(req_msg));
 
@@ -296,7 +326,7 @@ d_http_response d_http_client_send(const d_http_client *client, const char *req_
 	int bread = 0;
 	int status = 0;
 	int header_pos = 0;
-	int body_size = 0;
+	int body_len = 0;
 	int body_pos = 0;
 	int cursor = 0;
 	int num_headers = 0;
@@ -351,7 +381,8 @@ d_http_response d_http_client_send(const d_http_client *client, const char *req_
 					break;
 				}
 
-				d_http_str key = (d_http_str) { cursor, key_end - res_msg };
+				int key_len = (key_end - res_msg) - cursor;
+				char *key = makestr(res_msg + cursor, key_len);
 				cursor = key_end - res_msg + 2;
 
 				char *val_end = strstr(res_msg + cursor, "\r\n");
@@ -360,7 +391,8 @@ d_http_response d_http_client_send(const d_http_client *client, const char *req_
 					break;
 				}
 
-				d_http_str val = (d_http_str) { cursor, val_end - res_msg };
+				int val_len = (val_end - res_msg) - cursor;
+				char *val = makestr(res_msg + cursor, val_len);
 				cursor = val_end - res_msg + 2;
 
 				headers[num_headers] = (d_http_header) {
@@ -371,8 +403,8 @@ d_http_response d_http_client_send(const d_http_client *client, const char *req_
 				num_headers++;
 				headers = realloc(headers, sizeof(d_http_header) * (num_headers + 1));
 
-				if (strncmp(res_msg + key.start, "Content-Length", key.end - key.start) == 0) {
-					body_size = atoin(res_msg + val.start, val.end - val.start);
+				if (strcmp(key, "Content-Length") == 0) {
+					body_len = atoi(val);
 				}
 
 			}
@@ -380,32 +412,29 @@ d_http_response d_http_client_send(const d_http_client *client, const char *req_
 		}
 
 		if (body_pos) {
-			if (bread - body_pos >= body_size) {
+			if (bread - body_pos >= body_len) {
 				break;
 			}
 		}
 
 	}
 
-	res_msg[bread] = '\0';
+	char *body = makestr(res_msg + cursor, body_len);
+	free(res_msg);
 
-	return (d_http_response) {
+	return (d_http_res) {
 		.status = status,
-		.msg = res_msg,
 		.num_headers = num_headers,
 		.headers = headers,
-		.body = (d_http_str) {
-			.start = body_pos,
-			.end = bread,
-		},
+		.body = body,
 	};
 
 }
 
-d_http_response d_http_fetch(const char *host, const char *req_msg) {
-	d_http_client client = d_http_make_client(host);
-	d_http_response res = d_http_client_send(&client, req_msg);
-	d_http_free_client(&client);
+d_http_res d_http_fetch(const char *host, const char *req_msg) {
+	d_http_client client = d_make_http_client(host);
+	d_http_res res = d_http_client_send(&client, req_msg);
+	d_free_http_client(&client);
 	return res;
 }
 

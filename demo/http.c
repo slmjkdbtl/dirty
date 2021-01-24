@@ -10,32 +10,25 @@ char *handler(const char *msg) {
 
 int main() {
 
-	d_http_response res = d_http_fetch(
+// 	d_http_res res = d_http_fetch("http://example.com");
+
+	d_http_res res = d_http_fetch(
 		"example.com",
 		"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n"
 	);
 
 // 	printf("status: %d\n", res.status);
 
-// 	for (int i = 0; i < res.num_headers; i++) {
-// 		d_http_str key = res.headers[i].key;
-// 		d_http_str val = res.headers[i].val;
-// 		printf(
-// 			"%.*s: %.*s\n",
-// 			key.end - key.start,
-// 			res.msg + key.start,
-// 			val.end - val.start,
-// 			res.msg + val.start
-// 		);
-// 	}
+	for (int i = 0; i < res.num_headers; i++) {
+		char *key = res.headers[i].key;
+		char *val = res.headers[i].val;
+		printf("%s: %s\n", key, val);
+	}
 
-	printf(
-		"%.*s\n",
-		res.body.end - res.body.start,
-		res.msg + res.body.start
-	);
+// 	printf("%s\n", res.body);
 
-	d_http_free_response(&res);
+	d_free_http_res(&res);
 // 	d_http_serve(1234, handler);
+
 }
 
