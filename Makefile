@@ -115,6 +115,7 @@ ifeq ($(TARGET),web)
 else ifeq ($(TARGET),iossim)
 	mkdir -p $<.app
 	cp $< $<.app/
+	cp -r $(DEMO_BIN_PATH)/res $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
 	xcrun simctl boot $(SIMULATOR) | true
 	xcrun simctl install $(SIMULATOR) $<.app
@@ -123,13 +124,13 @@ else ifeq ($(TARGET),iossim)
 else ifeq ($(TARGET),ios)
 	mkdir -p $<.app
 	cp $< $<.app/
+	cp -r $(DEMO_BIN_PATH)/res $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
 	cp $(PROFILE) $<.app/embedded.mobileprovision
 	codesign -s "$(CODESIGN)" $<.app
 	# does not work
 	ios-deploy --debug --bundle $<.app
 else
-	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
 	./$< $(ARGS)
 endif
 
@@ -138,7 +139,6 @@ demo: $(DEMO_BIN_PATH)/$(DEMO)
 
 .PHONY: demos
 demos: $(DEMO_TARGETS)
-	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
 
 $(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
 	@mkdir -p $(DEMO_BIN_PATH)
@@ -148,6 +148,7 @@ ifeq ($(TARGET),web)
 else
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
 endif
+	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
 
 .PHONY: install
 install:

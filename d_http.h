@@ -4,6 +4,7 @@
 #define D_HTTP_H
 
 void d_http_serve(int port, char *(*handler)(const char*));
+char *d_http_fetch(const char *host);
 
 #endif
 
@@ -26,7 +27,8 @@ void d_http_serve(int port, char *(*handler)(const char*));
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define BUF_SIZE 1024
+#define MSG_SIZE 1024
+#define HTTP_PORT 80
 
 static char const *status_text[] = {
 	"", "", "", "", "", "", "", "", "", "",
@@ -117,7 +119,7 @@ void d_http_serve(int port, char *(*handler)(const char*)) {
 
 	if (sock_fd == -1) {
 		fprintf(stderr, "failed to create socket\n");
-		exit(EXIT_FAILURE);
+		return;
 	}
 
 	setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, (int[]){1}, sizeof(int));
@@ -142,7 +144,7 @@ void d_http_serve(int port, char *(*handler)(const char*)) {
 				fprintf(stderr, "failed to bind socket\n");
 				break;
 		}
-		exit(EXIT_FAILURE);
+		return;
 	}
 
 	listen(sock_fd, 64);
@@ -150,12 +152,12 @@ void d_http_serve(int port, char *(*handler)(const char*)) {
 	while (1) {
 
 		int conn_fd = accept(sock_fd, NULL, NULL);
-		char *req_msg = malloc(BUF_SIZE);
+		char *req_msg = malloc(MSG_SIZE);
 		int times = 0;
 
-		while (read(conn_fd, req_msg + times * BUF_SIZE, BUF_SIZE) >= BUF_SIZE) {
+		while (read(conn_fd, req_msg + times * MSG_SIZE, MSG_SIZE) >= MSG_SIZE) {
 			times++;
-			req_msg = realloc(req_msg, (times + 1) * BUF_SIZE);
+			req_msg = realloc(req_msg, (times + 1) * MSG_SIZE);
 		}
 
 		char *res_msg = handler(req_msg);
@@ -167,6 +169,29 @@ void d_http_serve(int port, char *(*handler)(const char*)) {
 	}
 
 	close(sock_fd);
+
+}
+
+char *d_http_fetch(const char *host) {
+
+	int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+	if (sock_fd == -1) {
+		fprintf(stderr, "failed to create socket\n");
+		return NULL;
+	}
+
+	struct sockaddr_in server_addr = {
+		.sin_family = AF_INET,
+		.sin_port = htons(HTTP_PORT),
+	};
+
+	connect(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+// 	write(sock_fd, )
+
+	close(sock_fd);
+
+	return NULL;
 
 }
 

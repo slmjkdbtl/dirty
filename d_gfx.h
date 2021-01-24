@@ -826,7 +826,7 @@ void d_img_set_ex(d_img *img, int x, int y, color c, d_blend blend) {
 }
 
 void d_img_set(d_img *img, int x, int y, color c) {
-	d_img_set_ex(img, x, y, c, D_REPLACE);
+	img->pixels[(int)(y * img->width + x)] = c;
 }
 
 color d_img_get_ex(const d_img *img, int x, int y, d_wrap wrap) {
@@ -851,7 +851,7 @@ color d_img_get_ex(const d_img *img, int x, int y, d_wrap wrap) {
 }
 
 color d_img_get(const d_img *img, int x, int y) {
-	return d_img_get_ex(img, x, y, D_BORDER);
+	return img->pixels[(int)(y * img->width + x)];
 }
 
 void d_img_fill(d_img *img, color c) {

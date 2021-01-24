@@ -28,8 +28,8 @@
 #define D_ANSI_UNDERLINE 4
 #define D_ANSI_BLINK     5
 
-void cprintf(int color, const char *fmt, ...);
-void cfprintf(FILE *stream, int color, const char *fmt, ...);
+void d_cprintf(int color, const char *fmt, ...);
+void d_cfprintf(FILE *stream, int color, const char *fmt, ...);
 void d_term_ansi(int style);
 void d_term_ansi_f(FILE *stream, int style);
 void d_term_ansi_reset();
@@ -49,7 +49,7 @@ void d_term_set_raw(bool b);
 #include <termios.h>
 #include <unistd.h>
 
-void cprintf(int style, const char *fmt, ...) {
+void d_cprintf(int style, const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	d_term_ansi(style);
@@ -58,7 +58,7 @@ void cprintf(int style, const char *fmt, ...) {
 	va_end(args);
 }
 
-void cfprintf(FILE *stream, int style, const char *fmt, ...) {
+void d_cfprintf(FILE *stream, int style, const char *fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
 	d_term_ansi_f(stream, style);
@@ -84,7 +84,7 @@ void d_term_ansi_reset_f(FILE *stream) {
 }
 
 typedef struct {
-	termios orig_termios;
+	struct termios orig_termios;
 } d_term_ctx;
 
 static d_term_ctx d_term;

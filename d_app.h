@@ -133,7 +133,7 @@ typedef uint8_t d_touch;
 
 void d_app_run(d_app_desc desc);
 void d_app_quit();
-void d_app_present(int w, int h, const color *canvas);
+void d_app_present(int w, int h, const color *buf);
 
 bool d_app_fullscreen();
 void d_app_set_fullscreen(bool b);
@@ -326,9 +326,6 @@ typedef struct {
 typedef struct {
 
 	d_app_desc desc;
-	const color *canvas;
-	int canvas_width;
-	int canvas_height;
 	struct timeval start_time;
 	float time;
 	float dt;
@@ -361,25 +358,17 @@ typedef struct {
 #if defined(D_METAL)
 	id<MTLDevice> mtl_dev;
 	id<MTLCommandQueue> mtl_queue;
-	id<MTLTexture> mtl_tex;
 	id<MTLRenderPipelineState> mtl_pip;
 #endif
 
 #if defined(D_GL)
 	GLuint gl_prog;
 	GLuint gl_vbuf;
-	GLuint gl_tex;
 #endif
 
 } d_app_ctx;
 
 static d_app_ctx d_app;
-
-void d_app_present(int w, int h, const color *canvas) {
-	d_app.canvas = canvas;
-	d_app.canvas_width = w;
-	d_app.canvas_height = h;
-}
 
 static void process_btn(d_btn_state *b) {
 	if (*b == D_BTN_PRESSED || *b == D_BTN_RPRESSED) {
@@ -390,8 +379,6 @@ static void process_btn(d_btn_state *b) {
 }
 
 static void d_app_init() {
-	// TODO: can't call [window toggleFullScreen] before d_gfx_init()
-	// on D_GL and D_CPU, why?
 	gettimeofday(&d_app.start_time, NULL);
 	if (d_app.desc.init) {
 		d_app.desc.init();
@@ -536,9 +523,21 @@ static void d_gl_init() {
 	glBufferData(GL_ARRAY_BUFFER, sizeof(quad_verts), quad_verts, GL_STATIC_DRAW);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-	// tex
-	glGenTextures(1, &d_app.gl_tex);
-	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
+	// init gl
+	glViewport(0, 0, d_app_width(), d_app_height());
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+}
+
+static void d_gl_blit(int w, int h, const color *buf) {
+
+	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
+	glUseProgram(d_app.gl_prog);
+
+	GLuint tex;
+
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -549,45 +548,12 @@ static void d_gl_init() {
 		GL_TEXTURE_2D,
 		0,
 		GL_RGBA,
-		d_app_width(),
-		d_app_height(),
+		w,
+		h,
 		0,
 		GL_RGBA,
 		GL_UNSIGNED_BYTE,
-		NULL
-	);
-
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	// init gl
-	glViewport(0, 0, d_app_width(), d_height());
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-}
-
-static void d_gl_blit() {
-
-	if (!d_app.canvas) {
-		return;
-	}
-
-	glViewport(0, 0, d_app_width(), d_height());
-	glClear(GL_COLOR_BUFFER_BIT);
-	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
-	glUseProgram(d_app.gl_prog);
-	glBindTexture(GL_TEXTURE_2D, d_app.gl_tex);
-
-	glTexSubImage2D(
-		GL_TEXTURE_2D,
-		0,
-		0,
-		0,
-		d_app_width(),
-		d_app_height(),
-		GL_RGBA,
-		GL_UNSIGNED_BYTE,
-		d_app.canvas
+		buf
 	);
 
 	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 16, (void*)0);
@@ -670,42 +636,37 @@ static void d_mtl_init() {
 		fprintf(stderr, "%s\n", [err.localizedDescription UTF8String]);
 	}
 
-	MTLTextureDescriptor *tex_desc = [MTLTextureDescriptor
-		texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
-		width:d_app.width
-		height:d_app.height
-		mipmapped:false
-	];
-
-	id<MTLTexture> tex = [dev newTextureWithDescriptor:tex_desc];
-
 	d_app.mtl_dev = dev;
 	d_app.mtl_queue = queue;
 	d_app.mtl_pip = pip;
-	d_app.mtl_tex = tex;
 	d_app.view.device = dev;
 
 }
 
-static void d_mtl_blit() {
-
-	if (!d_app.canvas) {
-		return;
-	}
+static void d_mtl_blit(int w, int h, const color *buf) {
 
 	id<MTLCommandBuffer> cmd_buf = [d_app.mtl_queue commandBuffer];
 	MTLRenderPassDescriptor *desc = [d_app.view currentRenderPassDescriptor];
 
+	MTLTextureDescriptor *tex_desc = [MTLTextureDescriptor
+		texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
+		width:w
+		height:h
+		mipmapped:false
+	];
+
+	id<MTLTexture> tex = [d_app.mtl_dev newTextureWithDescriptor:tex_desc];
+
 	MTLRegion region = {
 		{ 0, 0, 0 },
-		{ d_app.width, d_app.height, 1 }
+		{ w, h, 1 }
 	};
 
-	[d_app.mtl_tex
+	[tex
 		replaceRegion:region
 		mipmapLevel:0
-		withBytes:d_app.canvas
-		bytesPerRow:d_app.width * 4
+		withBytes:buf
+		bytesPerRow:w * 4
 	];
 
 	id<MTLRenderCommandEncoder> encoder = [cmd_buf
@@ -723,7 +684,7 @@ static void d_mtl_blit() {
 	];
 
 	[encoder
-		setFragmentTexture:d_app.mtl_tex
+		setFragmentTexture:tex
 		atIndex:0
 	];
 
@@ -829,6 +790,40 @@ static d_key d_cocoa_key(unsigned short k) {
 		case 0x7E: return D_KEY_UP;
 	}
 	return D_KEY_NONE;
+}
+
+void d_cocoa_present(int w, int h, const color *buf) {
+
+	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
+	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
+	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
+	CGDataProviderRef provider = CGDataProviderCreateWithData(
+		NULL,
+		buf,
+		w * h * 4,
+		NULL
+	);
+
+	CGImageRef img = CGImageCreate(
+		w,
+		h,
+		8,
+		32,
+		4 * w,
+		rgb,
+		kCGBitmapByteOrderDefault | kCGImageAlphaLast,
+		provider,
+		NULL,
+		false,
+		kCGRenderingIntentDefault
+	);
+
+	CGContextDrawImage(ctx, d_app.view.frame, img);
+
+	CGColorSpaceRelease(rgb);
+	CGDataProviderRelease(provider);
+	CGImageRelease(img);
+
 }
 
 @implementation DAppDelegate
@@ -971,51 +966,6 @@ static d_key d_cocoa_key(unsigned short k) {
 		[NSApp terminate:nil];
 	}
 
-	if (!d_app.canvas) {
-		return;
-	}
-
-#if defined(D_GL)
-	d_gl_blit();
-#elif defined(D_METAL)
-	d_mtl_blit();
-#elif defined(D_CPU)
-
-	int w = d_app.canvas_width;
-	int h = d_app.canvas_height;
-
-	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
-	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
-	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
-	CGDataProviderRef provider = CGDataProviderCreateWithData(
-		NULL,
-		d_app.canvas,
-		w * h * 4,
-		NULL
-	);
-
-	CGImageRef img = CGImageCreate(
-		w,
-		h,
-		8,
-		32,
-		4 * w,
-		rgb,
-		kCGBitmapByteOrderDefault | kCGImageAlphaLast,
-		provider,
-		NULL,
-		false,
-		kCGRenderingIntentDefault
-	);
-
-	CGContextDrawImage(ctx, rect, img);
-
-	CGColorSpaceRelease(rgb);
-	CGDataProviderRelease(provider);
-	CGImageRelease(img);
-
-#endif // D_CPU
-
 }
 @end
 
@@ -1086,30 +1036,14 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *eve
 
 }
 
-@implementation DView
-- (void)drawRect:(CGRect)rect {
-
-	d_app_frame();
-
-	if (!d_app.canvas) {
-		return;
-	}
-
-#if defined(D_GL)
-	d_gl_blit();
-#elif defined(D_METAL)
-	d_mtl_blit();
-#elif defined(D_CPU)
-
-	int w = d_app.canvas_width;
-	int h = d_app.canvas_height;
+void d_uikit_present(int w, int h, const color *buf) {
 
 	CGContextRef ctx = UIGraphicsGetCurrentContext();
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
 	CGColorSpaceRef rgb = CGColorSpaceCreateDeviceRGB();
 	CGDataProviderRef provider = CGDataProviderCreateWithData(
 		NULL,
-		d_app.canvas,
+		buf,
 		w * h * 4,
 		NULL
 	);
@@ -1128,6 +1062,8 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *eve
 		kCGRenderingIntentDefault
 	);
 
+	CGRect rect = d_app.view.frame;
+
 	// TODO: why is it up side down
 	CGContextTranslateCTM(ctx, 0, rect.size.height);
 	CGContextScaleCTM(ctx, 1.0, -1.0);
@@ -1137,8 +1073,11 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *eve
 	CGDataProviderRelease(provider);
 	CGImageRelease(img);
 
-#endif // D_CPU
+}
 
+@implementation DView
+- (void)drawRect:(CGRect)rect {
+	d_app_frame();
 }
 
 - (void)touchesBegan:(NSSet<UITouch*>*)touches withEvent:(UIEvent*)event {
@@ -1341,10 +1280,6 @@ static void d_x11_run(const d_app_desc *desc) {
 
 		d_app_frame();
 		usleep(16000);
-
-		if (!d_app.canvas) {
-			continue;
-		}
 
 		// TODO: it's drawing in BGRA
 		// TODO: scale
@@ -1626,42 +1561,27 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame() {
 	d_app_frame();
 }
 
-EMSCRIPTEN_KEEPALIVE const color *d_cjs_app_canvas() {
-	return d_app.canvas;
-}
+EM_JS(void, d_canvas_blit, (int w, int h, const color *buf), {
 
-EMSCRIPTEN_KEEPALIVE int d_cjs_app_canvas_width() {
-	return d_app.canvas_width;
-}
+	const canvas = dirty.canvas;
+	const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
+	const img = new ImageData(pixels, w, h);
 
-EMSCRIPTEN_KEEPALIVE int d_cjs_app_canvas_height() {
-	return d_app.canvas_height;
-}
+	_d_cjs_set_size(canvas.width, canvas.height);
+
+	const ctx = canvas.getContext("2d");
+
+	ctx.putImageData(img, 0, 0);
+	ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
+	ctx.drawImage(canvas, 0, 0);
+
+})
 
 EM_JS(void, d_js_run_loop, (), {
 
 	function frame() {
-
 		_d_cjs_app_frame();
-
-		const buf = _d_cjs_app_canvas();
-		const w = _d_cjs_app_canvas_width();
-		const h = _d_cjs_app_canvas_height();
-
-		const canvas = dirty.canvas;
-		const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
-		const img = new ImageData(pixels, w, h);
-
-		_d_cjs_set_size(canvas.width, canvas.height);
-
-		const ctx = canvas.getContext("2d");
-
-		ctx.putImageData(img, 0, 0);
-		ctx.setTransform(canvas.width / w, 0, 0, canvas.height / h, 0, 0);
-		ctx.drawImage(canvas, 0, 0);
-
 		requestAnimationFrame(frame);
-
 	}
 
 	requestAnimationFrame(frame);
@@ -1900,6 +1820,24 @@ bool d_app_active() {
 	return [d_app.window isMainWindow];
 #endif
 	return true;
+}
+
+void d_app_present(int w, int h, const color *buf) {
+
+#if defined(D_GL)
+	d_gl_blit(w, h, buf);
+#elif defined(D_METAL)
+	d_mtl_blit(w, h, buf);
+#elif defined(D_CPU)
+#if defined(D_COCOA)
+	d_cocoa_present(w, h, buf);
+#elif defined(D_UIKIT)
+	d_uikit_present(w, h, buf);
+#elif defined(D_CANVAS)
+	d_canvas_blit(w, h, buf);
+#endif
+#endif
+
 }
 
 #endif
