@@ -3,8 +3,25 @@
 #ifndef D_HTTP_H
 #define D_HTTP_H
 
-void d_http_serve(int port, char *(*handler)(const char*));
-char *d_http_fetch(const char *host);
+typedef struct {
+	int sock_fd;
+} d_http_server;
+
+typedef struct {
+	int sock_fd;
+} d_http_client;
+
+typedef char *(*d_http_handler)(const char*);
+
+void d_http_serve(int port, d_http_handler handler);
+d_http_server d_http_make_server(int port);
+void d_http_free_server(d_http_server *server);
+void d_http_server_listen(const d_http_server *server, d_http_handler handler);
+
+char *d_http_fetch(const char *host, const char *msg);
+d_http_client d_http_make_client(const char *host);
+void d_http_free_client(d_http_client *client);
+char *d_http_client_send(const d_http_client *client, const char *msg);
 
 #endif
 
@@ -24,8 +41,11 @@ char *d_http_fetch(const char *host);
 #include <errno.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <netdb.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define MSG_SIZE 1024
 #define HTTP_PORT 80
@@ -113,13 +133,12 @@ static char const *status_text[] = {
 	"", "", "", "", "", "", "", "", "", "",
 };
 
-void d_http_serve(int port, char *(*handler)(const char*)) {
+d_http_server d_http_make_server(int port) {
 
 	int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
 	if (sock_fd == -1) {
 		fprintf(stderr, "failed to create socket\n");
-		return;
 	}
 
 	setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, (int[]){1}, sizeof(int));
@@ -144,55 +163,104 @@ void d_http_serve(int port, char *(*handler)(const char*)) {
 				fprintf(stderr, "failed to bind socket\n");
 				break;
 		}
-		return;
 	}
 
 	listen(sock_fd, 64);
 
-	while (1) {
-
-		int conn_fd = accept(sock_fd, NULL, NULL);
-		char *req_msg = malloc(MSG_SIZE);
-		int times = 0;
-
-		while (read(conn_fd, req_msg + times * MSG_SIZE, MSG_SIZE) >= MSG_SIZE) {
-			times++;
-			req_msg = realloc(req_msg, (times + 1) * MSG_SIZE);
-		}
-
-		char *res_msg = handler(req_msg);
-
-		write(conn_fd, res_msg, strlen(res_msg));
-		free(req_msg);
-		close(conn_fd);
-
-	}
-
-	close(sock_fd);
+	return (d_http_server) {
+		.sock_fd = sock_fd,
+	};
 
 }
 
-char *d_http_fetch(const char *host) {
+void d_http_free_server(d_http_server *server) {
+	close(server->sock_fd);
+}
 
-	int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+void d_http_server_listen(const d_http_server *server, d_http_handler handler) {
+
+	int conn_fd = accept(server->sock_fd, NULL, NULL);
+	char *req_msg = malloc(MSG_SIZE);
+	int times = 0;
+
+	while (read(conn_fd, req_msg + times * MSG_SIZE, MSG_SIZE) >= MSG_SIZE) {
+		times++;
+		req_msg = realloc(req_msg, (times + 1) * MSG_SIZE);
+	}
+
+	char *res_msg = handler(req_msg);
+
+	write(conn_fd, res_msg, strlen(res_msg));
+	free(req_msg);
+	close(conn_fd);
+
+}
+
+void d_http_serve(int port, d_http_handler handler) {
+
+	d_http_server server = d_http_make_server(port);
+
+	while (1) {
+		d_http_server_listen(&server, handler);
+	}
+
+	d_http_free_server(&server);
+
+}
+
+d_http_client d_http_make_client(const char *host) {
+
+	struct addrinfo *res;
+
+	struct addrinfo hints = {
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM,
+		.ai_flags = AI_PASSIVE | AI_CANONNAME,
+	};
+
+	getaddrinfo(host, "http", &hints, &res);
+
+	int sock_fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
 	if (sock_fd == -1) {
 		fprintf(stderr, "failed to create socket\n");
-		return NULL;
 	}
 
-	struct sockaddr_in server_addr = {
-		.sin_family = AF_INET,
-		.sin_port = htons(HTTP_PORT),
+	connect(sock_fd, res->ai_addr, res->ai_addrlen);
+	freeaddrinfo(res);
+
+	return (d_http_client) {
+		.sock_fd = sock_fd,
 	};
 
-	connect(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
-// 	write(sock_fd, )
+}
 
-	close(sock_fd);
+void d_http_free_client(d_http_client *client) {
+	close(client->sock_fd);
+}
 
-	return NULL;
+char *d_http_client_send(const d_http_client *client, const char *req_msg) {
 
+	write(client->sock_fd, req_msg, strlen(req_msg));
+
+	char *res_msg = malloc(MSG_SIZE);
+	int times = 0;
+
+	// TODO: not reading all
+	while (read(client->sock_fd, res_msg + times * MSG_SIZE, MSG_SIZE) >= MSG_SIZE) {
+		times++;
+		res_msg = realloc(res_msg, (times + 1) * MSG_SIZE);
+	}
+
+	return res_msg;
+
+}
+
+char *d_http_fetch(const char *host, const char *req_msg) {
+	d_http_client client = d_http_make_client(host);
+	char *res_msg = d_http_client_send(&client, req_msg);
+	d_http_free_client(&client);
+	return res_msg;
 }
 
 #endif

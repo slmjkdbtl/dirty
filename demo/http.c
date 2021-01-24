@@ -9,6 +9,13 @@ char *handler(const char *msg) {
 }
 
 int main() {
+// 	char *msg = d_http_fetch(
+// 		"space55.xyz",
+// 		"GET / HTTP/1.1\r\nHost: space55.xyz\r\n\r\n"
+// 	);
+
+// 	printf("%s\n", msg);
+// 	free(msg);
 	d_http_serve(1234, handler);
 }
 
