@@ -274,14 +274,6 @@ void d_free_http_client(d_http_client *client) {
 	close(client->sock_fd);
 }
 
-static int atoin(const char *str, int n) {
-	int num = 0;
-	for (int i = 0; i < n; i++) {
-		num = num * 10 + (str[i] - '0');
-	}
-	return num;
-}
-
 void d_free_http_res(d_http_res *res) {
 	free(res->body);
 	res->body = NULL;
@@ -306,6 +298,14 @@ void d_free_http_req(d_http_req *req) {
 		free(h->val);
 		h->val = NULL;
 	}
+}
+
+static int atoin(const char *str, int n) {
+	int num = 0;
+	for (int i = 0; i < n; i++) {
+		num = num * 10 + (str[i] - '0');
+	}
+	return num;
 }
 
 static char *makestr(char *src, int len) {

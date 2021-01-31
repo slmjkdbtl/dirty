@@ -195,7 +195,7 @@ vec2 d_app_touch_dpos(d_touch t);
 #include <sys/time.h>
 
 #if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL) && !defined(D_TERM)
-	#error "must define a blit method (D_CPU, D_GL, D_METAL, D_TERM)"
+	#error "must define a present method (D_CPU, D_GL, D_METAL, D_TERM)"
 #endif
 
 #if defined(D_METAL) && !defined(D_MACOS) && !defined(D_IOS)
@@ -264,7 +264,6 @@ vec2 d_app_touch_dpos(d_touch t);
 #endif
 
 #define D_MAX_TOUCHES 8
-#define TXT(src) #src
 
 static float quad_verts[] = {
 	-1, -1, 0, 1,
@@ -352,6 +351,9 @@ typedef struct {
 	DView *view;
 #elif defined(D_X11)
 	Display *display;
+	Visual *visual;
+	unsigned int depth;
+	GC gc;
 	Window window;
 #endif
 
@@ -529,7 +531,7 @@ static void d_gl_init() {
 
 }
 
-static void d_gl_blit(int w, int h, const color *buf) {
+static void d_gl_present(int w, int h, const color *buf) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
 	glUseProgram(d_app.gl_prog);
@@ -643,7 +645,7 @@ static void d_mtl_init() {
 
 }
 
-static void d_mtl_blit(int w, int h, const color *buf) {
+static void d_mtl_present(int w, int h, const color *buf) {
 
 	id<MTLCommandBuffer> cmd_buf = [d_app.mtl_queue commandBuffer];
 	MTLRenderPassDescriptor *desc = [d_app.view currentRenderPassDescriptor];
@@ -1161,13 +1163,58 @@ static d_key d_x11_key(unsigned short k) {
 	return D_KEY_NONE;
 }
 
+// TODO: better way to scale?
+static void d_x11_present(int w, int h, const color *buf) {
+
+	color *buf2 = malloc(d_app.width * d_app.height * sizeof(color));
+
+	for (int x = 0; x < d_app.width; x++) {
+		for (int y = 0; y < d_app.height; y++) {
+			int xx = x * w / d_app.width;
+			int yy = y * h / d_app.height;
+			color c = buf[yy * w + xx];
+			// TODO: it's drawing in BGRA
+			buf2[y * d_app.width + x] = colori(c.b, c.g, c.r, c.a);
+		}
+	}
+
+	XImage *ximg = XCreateImage(
+		d_app.display,
+		d_app.visual,
+		d_app.depth,
+		ZPixmap,
+		0,
+		(char*)buf2,
+		d_app.width,
+		d_app.height,
+		32,
+		0
+	);
+
+	// TODO: this is slow af
+	XPutImage(
+		d_app.display,
+		d_app.window,
+		d_app.gc,
+		ximg, 0, 0, 0, 0,
+		d_app.width,
+		d_app.height
+	);
+
+	XFree(ximg);
+	free(buf2);
+
+}
+
 static void d_x11_run(const d_app_desc *desc) {
 
 	Display *dis = XOpenDisplay(NULL);
 	d_app.display = dis;
 	int screen = XDefaultScreen(dis);
 	Visual *visual = XDefaultVisual(dis, screen);
+	d_app.visual = visual;
 	unsigned int depth = XDefaultDepth(dis, screen);
+	d_app.depth = depth;
 	XSetWindowAttributes attrs;
 
 	Window window = XCreateWindow(
@@ -1199,6 +1246,7 @@ static void d_x11_run(const d_app_desc *desc) {
 		| ButtonReleaseMask
 		| PointerMotionMask
 	);
+
 	XMapWindow(dis, window);
 
 	if (desc->title) {
@@ -1231,6 +1279,7 @@ static void d_x11_run(const d_app_desc *desc) {
 #elif defined(D_CPU)
 
 	GC gc = XDefaultGC(dis,screen);
+	d_app.gc = gc;
 
 #endif
 
@@ -1279,48 +1328,6 @@ static void d_x11_run(const d_app_desc *desc) {
 		}
 
 		d_app_frame();
-		usleep(16000);
-
-		// TODO: it's drawing in BGRA
-		// TODO: scale
-		// TODO: better fix? this is very slow
-
-#if defined(D_CPU)
-		d_img img = d_make_img(d_app.width, d_app.height);
-
-		for (int x = 0; x < img.width; x++) {
-			for (int y = 0; y < img.height; y++) {
-				int xx = x * d_app.width / img.width;
-				int yy = y * d_app.height / img.height;
-				int i = yy * d_app.width + xx;
-				color c = d_app.canvas[i];
-				d_img_set(&img, x, y, colori(c.b, c.g, c.r, c.a));
-			}
-		}
-
-		XImage *ximg = XCreateImage(
-			dis,
-			visual,
-			depth,
-			ZPixmap,
-			0,
-			(char*)img.pixels,
-			img.width,
-			img.height,
-			32,
-			0
-		);
-
-		// TODO: this is slow af
-		XPutImage(dis, window, gc, ximg, 0, 0, 0, 0, img.width, img.height);
-		XFree(ximg);
-		d_free_img(&img);
-
-#elif defined(D_GL)
-
-// 		d_gl_blit();
-
-#endif
 
 	}
 
@@ -1561,7 +1568,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame() {
 	d_app_frame();
 }
 
-EM_JS(void, d_canvas_blit, (int w, int h, const color *buf), {
+EM_JS(void, d_canvas_present, (int w, int h, const color *buf), {
 
 	const canvas = dirty.canvas;
 	const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
@@ -1825,16 +1832,18 @@ bool d_app_active() {
 void d_app_present(int w, int h, const color *buf) {
 
 #if defined(D_GL)
-	d_gl_blit(w, h, buf);
+	d_gl_present(w, h, buf);
 #elif defined(D_METAL)
-	d_mtl_blit(w, h, buf);
+	d_mtl_present(w, h, buf);
 #elif defined(D_CPU)
 #if defined(D_COCOA)
 	d_cocoa_present(w, h, buf);
 #elif defined(D_UIKIT)
 	d_uikit_present(w, h, buf);
+#elif defined(D_X11)
+	d_x11_present(w, h, buf);
 #elif defined(D_CANVAS)
-	d_canvas_blit(w, h, buf);
+	d_canvas_present(w, h, buf);
 #endif
 #endif
 
