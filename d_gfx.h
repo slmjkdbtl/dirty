@@ -874,6 +874,19 @@ d_font d_parse_font(const uint8_t *bytes) {
 
 }
 
+#ifdef D_FS_H
+d_font d_load_font(const char *path) {
+	size_t size;
+	uint8_t *bytes = d_read_bytes(path, &size);
+	if (!bytes) {
+		return (d_font) {0};
+	}
+	d_font font = d_parse_font(bytes);
+	free(bytes);
+	return font;
+}
+#endif
+
 void d_free_font(d_font *f) {
 	free(f->pixels);
 	f->pixels = NULL;

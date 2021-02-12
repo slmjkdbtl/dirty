@@ -113,22 +113,13 @@ ifeq ($(TARGET),web)
 	cd $(DEMO_BIN_PATH); \
 		PORT=8000 fserv
 else ifeq ($(TARGET),iossim)
-	mkdir -p $<.app
-	cp $< $<.app/
-	cp -r $(DEMO_BIN_PATH)/res $<.app/
-	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
+	$(MAKE) bundle
 	xcrun simctl boot $(SIMULATOR) | true
 	xcrun simctl install $(SIMULATOR) $<.app
 	open -a Simulator --args -CurrentDeviceUDID $(SIMULATOR)
 	xcrun simctl launch --console $(SIMULATOR) xyz.space55.$(DEMO)
 else ifeq ($(TARGET),ios)
-	mkdir -p $<.app
-	cp $< $<.app/
-	cp -r $(DEMO_BIN_PATH)/res $<.app/
-	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
-	cp $(PROFILE) $<.app/embedded.mobileprovision
-	codesign -s "$(CODESIGN)" $<.app
-	# does not work
+	$(MAKE) bundle
 	ios-deploy --debug --bundle $<.app
 else
 	./$< $(ARGS)
@@ -139,6 +130,28 @@ demo: $(DEMO_BIN_PATH)/$(DEMO)
 
 .PHONY: demos
 demos: $(DEMO_TARGETS)
+
+.PHONY: bundle
+bundle: $(DEMO_BIN_PATH)/$(DEMO)
+ifeq ($(TARGET),macos)
+	mkdir -p $<.app/Contents/MacOS
+	mkdir -p $<.app/Contents/Resources
+	cp $< $<.app/Contents/MacOS
+	cp -R $(DEMO_PATH)/res $<.app/Contents/Resources
+	sed 's/{{name}}/$(DEMO)/' misc/macos.plist > $<.app/Contents/Info.plist
+else ifeq ($(TARGET),iossim)
+	mkdir -p $<.app
+	cp $< $<.app/
+	cp -r $(DEMO_BIN_PATH)/res $<.app/
+	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
+else ifeq ($(TARGET),ios)
+	mkdir -p $<.app
+	cp $< $<.app/
+	cp -r $(DEMO_BIN_PATH)/res $<.app/
+	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
+	cp $(PROFILE) $<.app/embedded.mobileprovision
+	codesign -s "$(CODESIGN)" $<.app
+endif
 
 $(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
 	@mkdir -p $(DEMO_BIN_PATH)

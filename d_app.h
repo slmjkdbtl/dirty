@@ -1694,6 +1694,17 @@ void d_app_set_title(const char *title) {
 #endif
 }
 
+bool d_app_keyboard_shown() {
+	// TODO
+	return false;
+}
+
+void d_app_set_keyboard_shown(bool b) {
+#if defined(D_IOS)
+	// TODO
+#endif
+}
+
 bool d_app_key_pressed(d_key k) {
 	return
 		d_app.key_states[k] == D_BTN_PRESSED
