@@ -3,7 +3,7 @@
 #ifndef D_LANG_H
 #define D_LANG_H
 
-void d_lang_eval(const char *src);
+void d_talk_eval(const char *src);
 
 #endif
 
@@ -15,7 +15,7 @@ void d_lang_eval(const char *src);
 #ifndef D_LANG_IMPL_ONCE
 #define D_LANG_IMPL_ONCE
 
-void d_lang_eval(const char *src) {
+void d_talk_eval(const char *src) {
 	// ..
 }
 

@@ -107,6 +107,9 @@ DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(DEMO_BIN_PATH)/%, $(DEMO_FILES))
 
 PREFIX := /usr/local
 
+.PHONY: default
+default: run
+
 .PHONY: run
 run: $(DEMO_BIN_PATH)/$(DEMO)
 ifeq ($(TARGET),web)
@@ -120,7 +123,7 @@ else ifeq ($(TARGET),iossim)
 	xcrun simctl launch --console $(SIMULATOR) xyz.space55.$(DEMO)
 else ifeq ($(TARGET),ios)
 	$(MAKE) bundle
-	ios-deploy --debug --bundle $<.app
+# 	ios-deploy --debug --bundle $<.app
 else
 	./$< $(ARGS)
 endif
@@ -149,8 +152,8 @@ else ifeq ($(TARGET),ios)
 	cp $< $<.app/
 	cp -r $(DEMO_BIN_PATH)/res $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
-	cp $(PROFILE) $<.app/embedded.mobileprovision
-	codesign -s "$(CODESIGN)" $<.app
+# 	cp $(PROFILE) $<.app/embedded.mobileprovision
+# 	codesign -s "$(CODESIGN)" $<.app
 endif
 
 $(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
