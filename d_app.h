@@ -1,5 +1,7 @@
 // wengwengweng
 
+// TODO: split to d_app.h and d_blit.h
+
 #ifndef D_APP_H
 #define D_APP_H
 
@@ -109,12 +111,6 @@ typedef enum {
 	_D_NUM_MOUSE,
 } d_mouse;
 
-typedef enum {
-	D_STRETCH,
-	D_FIT_BIG,
-	D_FIT_SMALL,
-} d_scale_mode;
-
 typedef struct {
 	void (*init)();
 	void (*frame)();
@@ -122,7 +118,6 @@ typedef struct {
 	const char *title;
 	int width;
 	int height;
-	d_scale_mode scale_mode;
 	bool fullscreen;
 	bool vsync;
 	bool hidpi;

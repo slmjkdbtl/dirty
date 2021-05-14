@@ -60,9 +60,9 @@ void frame() {
 
 	d_gfx_clear();
 
-// 	for (int i = 0; i < 2000; i++) {
+	for (int i = 0; i < 6000; i++) {
 		d_draw_img(&img, pos);
-// 	}
+	}
 	d_draw_circle(d_gfx_mouse_pos(), 3, colori(0, 255, 255, 255));
 	d_draw_text("oh hi", pos);
 

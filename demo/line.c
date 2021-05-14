@@ -21,7 +21,9 @@ void frame() {
 		d_app_quit();
 	}
 
-	d_draw_text("hi", vec2f(0, 0));
+	d_gfx_clear();
+// 	d_draw_line(vec2f(d_gfx_width() / 2, d_gfx_height() / 2), d_gfx_mouse_pos(), colori(0, 0, 255, 255));
+	d_draw_tri(vec2f(40, 40), vec2f(60, 120), d_gfx_mouse_pos(), colori(0, 0, 255, 255));
 	d_gfx_present();
 
 }
@@ -31,7 +33,7 @@ int main() {
 		.title = "hi",
 		.init = init,
 		.frame = frame,
-		.width = 240,
-		.height = 240,
+		.width = 480,
+		.height = 480,
 	});
 }

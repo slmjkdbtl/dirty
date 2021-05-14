@@ -41,15 +41,6 @@ typedef enum {
 
 typedef struct {
 	vec3 pos;
-	vec3 normal;
-	vec2 uv;
-	color color;
-} d_vertex;
-
-typedef unsigned int d_index;
-
-typedef struct {
-	vec3 pos;
 	vec3 scale;
 	quat rot;
 } d_psr;
@@ -68,13 +59,6 @@ typedef struct {
 } d_anim;
 
 typedef struct {
-	int num_frames;
-	d_img *frames;
-	int num_anims;
-	d_anim *anims;
-} d_sprite;
-
-typedef struct {
 	int gw;
 	int gh;
 	int rows;
@@ -82,28 +66,6 @@ typedef struct {
 	int map[128];
 	uint8_t *pixels;
 } d_font;
-
-typedef struct {
-	d_vertex *verts;
-	int num_verts;
-	d_index *indices;
-	int num_indices;
-} d_mesh;
-
-typedef struct d_model_node {
-	d_psr psr;
-	struct d_model_node *children;
-	int num_children;
-	d_mesh *meshes;
-	int num_meshes;
-} d_model_node;
-
-typedef struct {
-	d_model_node *nodes;
-	int num_nodes;
-	d_img *images;
-	int num_images;
-} d_model;
 
 void d_gfx_init(d_gfx_desc);
 #ifdef D_APP_H
@@ -129,8 +91,6 @@ void d_free_img(d_img *img);
 d_font d_parse_font(const uint8_t *bytes);
 void d_free_font(d_font *font);
 
-void d_free_mesh(d_mesh *mesh);
-
 void d_gfx_clear();
 void d_gfx_set_blend(d_blend b);
 void d_gfx_set_wrap(d_wrap w);
@@ -142,10 +102,8 @@ void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
 void d_draw_circle(vec2 center, float r, color c);
 void d_draw_line(vec2 p1, vec2 p2, color c);
-void d_draw_mesh(const d_mesh *mesh);
-void d_draw_model(const d_model *model);
 
-void d_drawon(d_img *img);
+void d_gfx_drawon(d_img *img);
 d_img *d_gfx_canvas();
 
 #endif
@@ -892,13 +850,6 @@ void d_free_font(d_font *f) {
 	f->pixels = NULL;
 }
 
-void d_free_mesh(d_mesh *m) {
-	free(m->verts);
-	m->num_verts = 0;
-	free(m->indices);
-	m->num_indices = 0;
-}
-
 void d_gfx_clear() {
 	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
 }
@@ -979,8 +930,64 @@ void d_draw_img(const d_img *img, vec2 pos) {
 	}
 }
 
+void swapi(int *a, int *b) {
+	int c = *a;
+	*a = *b;
+	*b = c;
+}
+
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
-	// TODO
+
+	if (p1.y > p2.y) {
+		d_draw_tri(p2, p1, p3, c);
+		return;
+	}
+
+	if (p1.y > p3.y) {
+		d_draw_tri(p3, p2, p1, c);
+		return;
+	}
+
+	if (p2.y > p3.y) {
+		d_draw_tri(p1, p3, p2, c);
+		return;
+	}
+
+	int x1 = p1.x;
+	int y1 = p1.y;
+	int x2 = p2.x;
+	int y2 = p2.y;
+	int x3 = p3.x;
+	int y3 = p3.y;
+
+	for (int y = y1; y < y2; y++) {
+		int xx1 = x1 + (y - y1) * (x2 - x1) / (y2 - y1);
+		int xx2 = x1 + (y - y1) * (x3 - x1) / (y3 - y1);
+		if (xx1 < xx2) {
+			for (int x = xx1; x <= xx2; x++) {
+				d_gfx_put(x, y, c);
+			}
+		} else {
+			for (int x = xx1; x >= xx2; x--) {
+				d_gfx_put(x, y, c);
+			}
+		}
+	}
+
+	for (int y = y2; y < y3; y++) {
+		int xx1 = x2 + (y - y2) * (x3 - x2) / (y3 - y2);
+		int xx2 = x1 + (y - y1) * (x3 - x1) / (y3 - y1);
+		if (xx1 < xx2) {
+			for (int x = xx1; x <= xx2; x++) {
+				d_gfx_put(x, y, c);
+			}
+		} else {
+			for (int x = xx1; x >= xx2; x--) {
+				d_gfx_put(x, y, c);
+			}
+		}
+	}
+
 }
 
 void d_draw_rect(vec2 p1, vec2 p2, color c) {
@@ -990,9 +997,9 @@ void d_draw_rect(vec2 p1, vec2 p2, color c) {
 	int y1 = p1.y < p2.y ? p1.y : p2.y;
 	int y2 = p1.y > p2.y ? p1.y : p2.y;
 
-	for (int i = x1; i < x2; i++) {
-		for (int j = y1; j < y2; j++) {
-			d_gfx_put(i, j, c);
+	for (int x = x1; x < x2; x++) {
+		for (int y = y1; y < y2; y++) {
+			d_gfx_put(x, y, c);
 		}
 	}
 
@@ -1041,42 +1048,41 @@ void d_draw_text(const char *text, vec2 pos) {
 
 void d_draw_line(vec2 p1, vec2 p2, color c) {
 
-	int dx = p2.x - p1.x;
-	int dy = p2.y - p1.y;
-	int adx = abs(dx);
-	int ady = abs(dy);
-	int eps = 0;
-	int sx = dx > 0 ? 1 : -1;
-	int sy = dy > 0 ? 1 : -1;
+	int x1 = p1.x;
+	int y1 = p1.y;
+	int x2 = p2.x;
+	int y2 = p2.y;
+	bool steep = abs(y2 - y1) > abs(x2 - x1);
 
-	if (adx > ady) {
-		for(int x = p1.x, y = p1.y; sx < 0 ? x >= p2.x : x <= p2.x; x += sx) {
+	if (steep) {
+		swapi(&x1, &y1);
+		swapi(&x2, &y2);
+	}
+
+	if (x1 > x2) {
+		swapi(&x1, &x2);
+		swapi(&y1, &y2);
+	}
+
+	int dx = x2 - x1;
+	int dy = abs(y2 - y1);
+	int err = dx / 2;
+	int step = y1 < y2 ? 1 : -1;
+	int y = y1;
+
+	for (int x = x1; x <= x2; x++) {
+		if (steep) {
+			d_gfx_put(y, x, c);
+		} else {
 			d_gfx_put(x, y, c);
-			eps += ady;
-			if ((eps << 1) >= adx) {
-				y += sy;
-				eps -= adx;
-			}
 		}
-	} else {
-		for(int x = p1.x, y = p1.y; sy < 0 ? y >= p2.y : y <= p2.y; y += sy) {
-			d_gfx_put(x, y, c);
-			eps += adx;
-			if ((eps << 1) >= ady) {
-				x += sx;
-				eps -= ady;
-			}
+		err -= dy;
+		if (err < 0) {
+			y += step;
+			err += dx;
 		}
 	}
 
-}
-
-void d_draw_mesh(const d_mesh *mesh) {
-	// TODO
-}
-
-void d_draw_model(const d_model *model) {
-	// TODO
 }
 
 void d_gfx_set_blend(d_blend b) {
@@ -1087,7 +1093,7 @@ void d_gfx_set_wrap(d_wrap w) {
 	d_gfx.wrap = w;
 }
 
-void d_drawon(d_img *img) {
+void d_gfx_drawon(d_img *img) {
 	if (img) {
 		d_gfx.cur_canvas = img;
 	} else {

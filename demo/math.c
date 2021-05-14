@@ -9,4 +9,3 @@ int main() {
 		printf("%f\n", d_rng_gen(&rng));
 	}
 }
-

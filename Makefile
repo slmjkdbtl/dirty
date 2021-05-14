@@ -37,6 +37,7 @@ CFLAGS += -Wall
 CFLAGS += -Wpedantic
 CFLAGS += -std=c99
 CFLAGS += -I.
+CFLAGS += -O2
 
 ifeq ($(TARGET),macos)
 CFLAGS += -ObjC
@@ -51,10 +52,6 @@ endif
 ifeq ($(TARGET),iossim)
 CFLAGS += -ObjC
 CFLAGS += -arch x86_64
-endif
-
-ifdef RELEASE
-CFLAGS += -O2
 endif
 
 ifeq ($(TARGET),macos)
