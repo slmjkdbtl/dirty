@@ -16,34 +16,28 @@ typedef struct d_gfx_desc {
 } d_gfx_desc;
 
 typedef enum {
-	D_CENTER,
-	D_TOP_LEFT,
-	D_TOP,
-	D_TOP_RIGHT,
-	D_LEFT,
-	D_RIGHT,
-	D_BOT_LEFT,
-	D_BOT,
-	D_BOT_RIGHT,
+	D_ORIG_CENTER,
+	D_ORIG_TOP_LEFT,
+	D_ORIG_TOP,
+	D_ORIG_TOP_RIGHT,
+	D_ORIG_LEFT,
+	D_ORIG_RIGHT,
+	D_ORIG_BOT_LEFT,
+	D_ORIG_BOT,
+	D_ORIG_BOT_RIGHT,
 } d_origin;
 
 typedef enum {
-	D_ALPHA,
-	D_REPLACE,
-	D_ADD,
+	D_BLEND_ALPHA,
+	D_BLEND_REPLACE,
+	D_BLEND_ADD,
 } d_blend;
 
 typedef enum {
-	D_BORDER,
-	D_EDGE,
-	D_REPEAT,
+	D_WRAP_BORDER,
+	D_WRAP_EDGE,
+	D_WRAP_REPEAT,
 } d_wrap;
-
-typedef struct {
-	vec3 pos;
-	vec3 scale;
-	quat rot;
-} d_psr;
 
 typedef struct {
 	int width;
@@ -67,6 +61,40 @@ typedef struct {
 	uint8_t *pixels;
 } d_font;
 
+typedef struct {
+	vec3 pos;
+	vec3 scale;
+	quat rot;
+} d_psr;
+
+typedef struct {
+	vec3 pos;
+	vec2 uv;
+	vec3 normal;
+} d_vertex;
+
+typedef struct {
+	d_vertex *verts;
+	int num_verts;
+	uint32_t *indices;
+	int num_indices;
+} d_mesh;
+
+typedef struct d_model_node {
+	d_psr psr;
+	struct d_model_node *children;
+	int num_children;
+	d_mesh *meshes;
+	int num_meshes;
+} d_model_node;
+
+typedef struct {
+	d_model_node *nodes;
+	int num_nodes;
+	d_img *images;
+	int num_images;
+} d_model;
+
 void d_gfx_init(d_gfx_desc);
 #ifdef D_APP_H
 void d_gfx_present();
@@ -77,7 +105,7 @@ int d_gfx_width();
 int d_gfx_height();
 
 d_img d_make_img(int w, int h);
-d_img d_parse_img(const uint8_t *bytes);
+d_img d_parse_img(const uint8_t *bytes, size_t size);
 #ifdef D_FS_H
 d_img d_load_img(const char *path);
 #endif
@@ -97,12 +125,21 @@ void d_gfx_set_wrap(d_wrap w);
 void d_gfx_put(int x, int y, color c);
 color d_gfx_seek(int x, int y);
 void d_draw_img(const d_img *img, vec2 pos);
-void d_draw_text(const char *text, vec2 pos);
+void d_draw_text(const char *text, vec2 pos, color c);
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
+void d_draw_textri(vec2 p1, vec2 uv1, vec2 p2, vec2 uv2, vec2 p3, vec2 uv3, d_img *tex);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
 void d_draw_circle(vec2 center, float r, color c);
 void d_draw_line(vec2 p1, vec2 p2, color c);
-
+void d_draw_model(d_model *model);
+void d_gfx_t_push();
+void d_gfx_t_pop();
+void d_gfx_t_use(mat4 m);
+void d_gfx_t_move(vec3 p);
+void d_gfx_t_scale(vec3 s);
+void d_gfx_t_rot_x(float a);
+void d_gfx_t_rot_y(float a);
+void d_gfx_t_rot_z(float a);
 void d_gfx_drawon(d_img *img);
 d_img *d_gfx_canvas();
 
@@ -640,6 +677,8 @@ static uint8_t unscii_bytes[] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
+#define MAX_TSTACK 64
+
 typedef struct {
 	d_img def_canvas;
 	d_img *cur_canvas;
@@ -648,18 +687,24 @@ typedef struct {
 	color clear_color;
 	d_blend blend;
 	d_wrap wrap;
+	mat4 t;
+	mat4 tstack[MAX_TSTACK];
+	int num_t;
 } d_gfx_ctx;
 
 static d_gfx_ctx d_gfx;
 
-void d_gfx_init(const d_gfx_desc desc) {
+void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.def_canvas = d_make_img(desc.width, desc.height);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
 	d_gfx.def_font = d_parse_font(unscii_bytes);
 	d_gfx.cur_font = &d_gfx.def_font;
-	d_gfx.blend = D_ALPHA;
-	d_gfx.wrap = D_BORDER;
+	d_gfx.blend = D_BLEND_ALPHA;
+	d_gfx.wrap = D_WRAP_BORDER;
 	d_gfx.clear_color = desc.clear_color;
+	d_gfx.t = mat4u();
+	memset(d_gfx.tstack, 0, sizeof(mat4) * MAX_TSTACK);
+	d_gfx.num_t = 0;
 	d_gfx_clear();
 }
 
@@ -711,19 +756,48 @@ d_img d_make_img(int w, int h) {
 	};
 }
 
-d_img d_parse_img(const uint8_t *bytes) {
-
-	d_img_bin *data = (d_img_bin*)bytes;
-	int size = sizeof(uint8_t) * data->width * data->height * 4;
-	uint8_t *pixels = malloc(size);
-	memcpy(pixels, (uint8_t*)(bytes + D_IMG_HEADER_SIZE), size);
-
+d_img d_img_empty() {
 	return (d_img) {
-		.width = data->width,
-		.height = data->height,
-		.pixels = (color*)pixels,
+		.width = 0,
+		.height = 0,
+		.pixels = malloc(0),
 	};
+}
 
+uint8_t png_sig[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
+uint8_t jpeg_sig[] = { 0xff, 0xd8, 0xff };
+
+d_img d_parse_img(const uint8_t *bytes, size_t size) {
+	if (
+		memcmp(bytes, png_sig, sizeof(png_sig)) == 0
+		|| memcmp(bytes, jpeg_sig, sizeof(jpeg_sig)) == 0
+	) {
+#ifdef STB_IMAGE_IMPLEMENTATION
+		int w;
+		int h;
+		uint8_t *pixels = stbi_load_from_memory(bytes, size, &w, &h, NULL, 4);
+		return (d_img) {
+			.width = w,
+			.height = h,
+			.pixels = (color*)pixels,
+		};
+#else
+		fprintf(stderr, "jpeg / png support requires 'stb_image.h'\n");
+		return d_img_empty();
+#endif
+	} else {
+		// TODO: check for dspr magic number
+		d_img_bin *data = (d_img_bin*)bytes;
+		int pix_size = sizeof(uint8_t) * data->width * data->height * 4;
+		uint8_t *pixels = malloc(pix_size);
+		memcpy(pixels, (uint8_t*)(bytes + D_IMG_HEADER_SIZE), pix_size);
+
+		return (d_img) {
+			.width = data->width,
+			.height = data->height,
+			.pixels = (color*)pixels,
+		};
+	}
 }
 
 #ifdef D_FS_H
@@ -731,13 +805,10 @@ d_img d_load_img(const char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
 	if (!bytes) {
-		return (d_img) {
-			.width = 0,
-			.height = 0,
-			.pixels = NULL,
-		};
+		fprintf(stderr, "failed to read '%s'\n", path);
+		return d_img_empty();
 	}
-	d_img img = d_parse_img(bytes);
+	d_img img = d_parse_img(bytes, size);
 	free(bytes);
 	return img;
 }
@@ -854,14 +925,14 @@ void d_gfx_clear() {
 	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
 }
 
-void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
+static void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
 	d_img *img = d_gfx.cur_canvas;
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
 	int i = (int)(y * img->width + x);
 	switch (blend) {
-		case D_ALPHA: {
+		case D_BLEND_ALPHA: {
 			if (c.a == 255) {
 				img->pixels[i] = c;
 			} else if (c.a != 0) {
@@ -875,10 +946,10 @@ void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
 			}
 			break;
 		}
-		case D_REPLACE:
+		case D_BLEND_REPLACE:
 			img->pixels[i] = c;
 			break;
-		case D_ADD:
+		case D_BLEND_ADD:
 			if (c.a != 0) {
 				color rc = img->pixels[i];
 				img->pixels[i] = (color) {
@@ -899,18 +970,18 @@ void d_gfx_put(int x, int y, color c) {
 color d_gfx_seek_ex(int x, int y, d_wrap wrap) {
 	d_img *img = d_gfx.cur_canvas;
 	switch (wrap) {
-		case D_BORDER:
+		case D_WRAP_BORDER:
 			if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 				return colori(0, 0, 0, 0);
 			} else {
 				return img->pixels[(int)(y * img->width + x)];
 			}
-		case D_EDGE: {
+		case D_WRAP_EDGE: {
 			int xx = clampi(x, 0, img->width - 1);
 			int yy = clampi(y, 0, img->height - 1);
 			return img->pixels[(int)(yy * img->width + xx)];
 		}
-		case D_REPEAT: {
+		case D_WRAP_REPEAT: {
 			int xx = x % img->width;
 			int yy = y % img->height;
 			return img->pixels[(int)(yy * img->width + xx)];
@@ -960,31 +1031,55 @@ void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
 	int x3 = p3.x;
 	int y3 = p3.y;
 
-	for (int y = y1; y < y2; y++) {
-		int xx1 = x1 + (y - y1) * (x2 - x1) / (y2 - y1);
+	for (int y = y1; y < y3; y++) {
+		int xx1 = y < y2
+			? x1 + (y - y1) * (x2 - x1) / (y2 - y1)
+			: x2 + (y - y2) * (x3 - x2) / (y3 - y2);
 		int xx2 = x1 + (y - y1) * (x3 - x1) / (y3 - y1);
-		if (xx1 < xx2) {
-			for (int x = xx1; x <= xx2; x++) {
-				d_gfx_put(x, y, c);
-			}
-		} else {
-			for (int x = xx1; x >= xx2; x--) {
-				d_gfx_put(x, y, c);
-			}
+		if (xx1 > xx2) {
+			swapi(&xx1, &xx2);
+		}
+		for (int x = xx1; x < xx2; x++) {
+			d_gfx_put(x, y, c);
 		}
 	}
 
-	for (int y = y2; y < y3; y++) {
-		int xx1 = x2 + (y - y2) * (x3 - x2) / (y3 - y2);
+}
+
+void d_draw_textri(vec2 p1, vec2 uv1, vec2 p2, vec2 uv2, vec2 p3, vec2 uv3, d_img *tex) {
+
+	if (p1.y > p2.y) {
+		d_draw_textri(p2, uv2, p1, uv1, p3, uv3, tex);
+		return;
+	}
+
+	if (p1.y > p3.y) {
+		d_draw_textri(p3, uv3, p2, uv2, p1, uv1, tex);
+		return;
+	}
+
+	if (p2.y > p3.y) {
+		d_draw_textri(p1, uv1, p3, uv3, p2, uv2, tex);
+		return;
+	}
+
+	int x1 = p1.x;
+	int y1 = p1.y;
+	int x2 = p2.x;
+	int y2 = p2.y;
+	int x3 = p3.x;
+	int y3 = p3.y;
+
+	for (int y = y1; y < y3; y++) {
+		int xx1 = y < y2
+			? x1 + (y - y1) * (x2 - x1) / (y2 - y1)
+			: x2 + (y - y2) * (x3 - x2) / (y3 - y2);
 		int xx2 = x1 + (y - y1) * (x3 - x1) / (y3 - y1);
-		if (xx1 < xx2) {
-			for (int x = xx1; x <= xx2; x++) {
-				d_gfx_put(x, y, c);
-			}
-		} else {
-			for (int x = xx1; x >= xx2; x--) {
-				d_gfx_put(x, y, c);
-			}
+		if (xx1 > xx2) {
+			swapi(&xx1, &xx2);
+		}
+		for (int x = xx1; x < xx2; x++) {
+			// TODO
 		}
 	}
 
@@ -1019,7 +1114,7 @@ void d_draw_circle(vec2 center, float r, color c) {
 
 }
 
-void d_draw_text(const char *text, vec2 pos) {
+void d_draw_text(const char *text, vec2 pos, color  c) {
 
 	int num_chars = strlen(text);
 	d_font *font = &d_gfx.def_font;
@@ -1035,7 +1130,7 @@ void d_draw_text(const char *text, vec2 pos) {
 		for (int x = 0; x < font->gw; x++) {
 			for (int y = 0; y < font->gh; y++) {
 				if (font->pixels[(yy + y) * rw + xx + x] == 1) {
-					d_gfx_put(pos.x + ox + x, pos.y + y, colori(255, 255, 255, 255));
+					d_gfx_put(pos.x + ox + x, pos.y + y, c);
 				}
 			}
 		}
@@ -1083,6 +1178,94 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 		}
 	}
 
+// 	static int ccc = 0;
+
+// 	ccc++;
+// 	printf("%d\n", ccc);
+
+}
+
+void d_gfx_t_push() {
+	if (d_gfx.num_t >= MAX_TSTACK) {
+		fprintf(stderr, "tstack overflow\n");
+		return;
+	}
+	d_gfx.tstack[d_gfx.num_t++] = d_gfx.t;
+}
+
+void d_gfx_t_pop() {
+	if (d_gfx.num_t <= 0) {
+		fprintf(stderr, "tstack underflow\n");
+		return;
+	}
+	d_gfx.t = d_gfx.tstack[--d_gfx.num_t];
+}
+
+void d_gfx_t_use(mat4 m) {
+	d_gfx.t = mat4_mult(d_gfx.t, m);
+}
+
+void d_gfx_t_move(vec3 p) {
+	d_gfx.t = mat4_mult(d_gfx.t, mat4_translate(p));
+}
+
+void d_gfx_t_scale(vec3 s) {
+	d_gfx.t = mat4_mult(d_gfx.t, mat4_scale(s));
+}
+
+void d_gfx_t_rot_x(float a) {
+	d_gfx.t = mat4_mult(d_gfx.t, mat4_rot_x(a));
+}
+
+void d_gfx_t_rot_y(float a) {
+	d_gfx.t = mat4_mult(d_gfx.t, mat4_rot_y(a));
+}
+
+void d_gfx_t_rot_z(float a) {
+	d_gfx.t = mat4_mult(d_gfx.t, mat4_rot_z(a));
+}
+
+mat4 d_psr_mat4(d_psr *psr) {
+	return mat4_mult(
+		mat4_mult(
+			mat4_translate(psr->pos),
+			mat4_scale(psr->scale)
+		),
+		mat4_rot_quat(psr->rot)
+	);
+}
+
+static void d_draw_model_node(d_model_node *node) {
+	d_gfx_t_push();
+	d_gfx_t_use(d_psr_mat4(&node->psr));
+	for (int i = 0; i < node->num_meshes; i++) {
+		d_mesh *mesh = &node->meshes[i];
+		for (int j = 0; j < mesh->num_indices; j += 3) {
+			d_vertex *v1 = &mesh->verts[mesh->indices[j + 0]];
+			d_vertex *v2 = &mesh->verts[mesh->indices[j + 1]];
+			d_vertex *v3 = &mesh->verts[mesh->indices[j + 2]];
+			vec2 p1 = mat4_mult_vec2(d_gfx.t, vec2f(v1->pos.x, v1->pos.y));
+			vec2 p2 = mat4_mult_vec2(d_gfx.t, vec2f(v2->pos.x, v2->pos.y));
+			vec2 p3 = mat4_mult_vec2(d_gfx.t, vec2f(v3->pos.x, v3->pos.y));
+			d_draw_line(p1, p2, colorx(0xffffffff));
+			d_draw_line(p2, p3, colorx(0xffffffff));
+			d_draw_line(p3, p1, colorx(0xffffffff));
+// 			d_draw_textri(p1, p2, p3);
+		}
+	}
+	for (int i = 0; i < node->num_children; i++) {
+		d_draw_model_node(&node->children[i]);
+	}
+	d_gfx_t_pop();
+}
+
+void d_draw_model(d_model *model) {
+	d_gfx_t_push();
+	d_gfx_t_scale(vec3f(100, 100, 100));
+	for (int i = 0; i < model->num_nodes; i++) {
+		d_draw_model_node(&model->nodes[i]);
+	}
+	d_gfx_t_pop();
 }
 
 void d_gfx_set_blend(d_blend b) {
@@ -1104,6 +1287,150 @@ void d_gfx_drawon(d_img *img) {
 d_img *d_gfx_canvas() {
 	return d_gfx.cur_canvas;
 }
+
+#ifdef CGLTF_IMPLEMENTATION
+
+static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
+
+	model->psr.pos = vec3f(node->translation[0], node->translation[1], node->translation[2]);
+	model->psr.scale = vec3f(node->scale[0], node->scale[1], node->scale[2]);
+	model->psr.rot = quatf(node->rotation[0], node->rotation[1], node->rotation[2], node->rotation[3]);
+
+	int num_children = node->children_count;
+
+	model->num_children = num_children;
+	model->children = malloc(sizeof(d_model_node) * num_children);
+
+	for (int i = 0; i < num_children; i++) {
+		d_parse_model_node(node->children[i], &model->children[i]);
+	}
+
+	int num_meshes = node->mesh->primitives_count;
+	model->num_meshes = num_meshes;
+	model->meshes = malloc(sizeof(d_mesh) * num_meshes);
+
+	for (int i = 0; i < num_meshes; i++) {
+
+		cgltf_primitive *prim = &node->mesh->primitives[i];
+		int num_verts = prim->attributes[0].data->count;
+		d_vertex *verts = calloc(num_verts, sizeof(d_vertex));
+
+		for (int j = 0; j < prim->attributes_count; j++) {
+
+			cgltf_attribute *attr = &prim->attributes[j];
+			cgltf_accessor *acc = attr->data;
+
+// 			d_assert(acc->count == num_verts, "bad gltf\n");
+
+			switch (attr->type) {
+				case cgltf_attribute_type_position:
+// 					d_assert(acc->type == cgltf_type_vec3, "gltf pos must be vec3\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].pos, 3);
+					}
+					break;
+				case cgltf_attribute_type_normal:
+// 					d_assert(acc->type == cgltf_type_vec3, "gltf normal must be vec3\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].normal, 3);
+					}
+					break;
+				case cgltf_attribute_type_texcoord:
+// 					d_assert(acc->type == cgltf_type_vec2, "gltf texcoord must be vec2\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].uv, 2);
+					}
+					break;
+				default:
+					break;
+			}
+
+		}
+
+		int num_indices = prim->indices->count;
+		uint32_t *indices = calloc(num_indices, sizeof(uint32_t));
+
+		for (int j = 0; j < prim->indices->count; j++) {
+			cgltf_accessor_read_uint(prim->indices, j, &indices[j], 1);
+		}
+
+		model->meshes[i] = (d_mesh) {
+			.verts = verts,
+			.num_verts = num_verts,
+			.indices = indices,
+			.num_indices = num_indices,
+		};
+
+	}
+
+}
+
+static d_model d_model_empty() {
+	return (d_model) {
+		.nodes = NULL,
+		.num_nodes = 0,
+		.images = NULL,
+		.num_images = 0,
+	};
+}
+
+d_model d_parse_model(const unsigned char *bytes, int size) {
+
+	cgltf_options options = {0};
+	cgltf_data *doc = NULL;
+	cgltf_result res = cgltf_parse(&options, bytes, size, &doc);
+	cgltf_load_buffers(&options, doc, NULL);
+
+	if (res != cgltf_result_success) {
+		fprintf(stderr, "failed to parse gltf\n");
+		return d_model_empty();
+	}
+
+// 	d_assert(res == cgltf_result_success, "failed to parse gltf\n");
+// 	d_assert(doc->scene->nodes_count >= 1, "empty gltf\n");
+
+	d_model model = {0};
+
+	int num_textures = doc->textures_count;
+	model.num_images = num_textures;
+	model.images = malloc(sizeof(d_img) * num_textures);
+
+	for (int i = 0; i < num_textures; i++) {
+		cgltf_image *img = doc->textures[i].image;
+		cgltf_buffer_view *view = img->buffer_view;
+		unsigned char *data = view->buffer->data;
+		model.images[i] = d_parse_img(data + view->offset, view->size);
+	}
+
+	int num_nodes = doc->scene->nodes_count;
+	model.num_nodes = num_nodes;
+	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
+
+	for (int i = 0; i < num_nodes; i++) {
+		d_parse_model_node(doc->scene->nodes[i], &model.nodes[i]);
+	}
+
+	cgltf_free(doc);
+
+	return model;
+
+}
+
+#ifdef D_FS_H
+d_model d_load_model(const char *path) {
+	size_t size;
+	uint8_t *bytes = d_read_bytes(path, &size);
+	if (!bytes) {
+		fprintf(stderr, "failed to read '%s'\n", path);
+		return d_model_empty();
+	}
+	d_model model = d_parse_model(bytes, size);
+	free(bytes);
+	return model;
+}
+#endif
+
+#endif
 
 #endif
 #endif

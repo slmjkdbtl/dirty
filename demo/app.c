@@ -1,5 +1,10 @@
 // wengwengweng
 
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+#define CGLTF_IMPLEMENTATION
+#include <cgltf.h>
+
 #define D_IMPL
 #define D_CPU
 #include <d_plat.h>
@@ -28,6 +33,7 @@ static const char *d_fmt(const char *fmt, ...) {
 }
 
 d_img img;
+d_model btfly;
 vec2 pos;
 
 void init() {
@@ -40,7 +46,8 @@ void init() {
 
 	d_fs_init((d_fs_desc) {0});
 
-	img = d_load_img("res/wizard.dspr");
+	img = d_load_img("res/wizard.png");
+	btfly = d_load_model("res/btfly.glb");
 
 }
 
@@ -60,11 +67,21 @@ void frame() {
 
 	d_gfx_clear();
 
-	for (int i = 0; i < 6000; i++) {
+	vec2 mpos = d_gfx_mouse_pos();
+
+// 	for (int i = 0; i < 6000; i++) {
 		d_draw_img(&img, pos);
+// 	}
+	d_draw_circle(mpos, 3, colorx(0xffffffff));
+	d_draw_text("oh hi", pos, colorx(0xffffffff));
+
+	for (int i = 0; i < 100; i++) {
+		d_gfx_t_push();
+		d_gfx_t_move(vec3f(mpos.x, mpos.y, 0));
+		d_gfx_t_rot_y(d_app_time());
+		d_draw_model(&btfly);
+		d_gfx_t_pop();
 	}
-	d_draw_circle(d_gfx_mouse_pos(), 3, colori(0, 255, 255, 255));
-	d_draw_text("oh hi", pos);
 
 	d_gfx_present();
 

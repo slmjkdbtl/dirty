@@ -37,6 +37,7 @@ CFLAGS += -Wall
 CFLAGS += -Wpedantic
 CFLAGS += -std=c99
 CFLAGS += -I.
+CFLAGS += -Iext
 CFLAGS += -O2
 
 ifeq ($(TARGET),macos)

@@ -155,6 +155,8 @@ color colori(uint8_t, uint8_t, uint8_t, uint8_t);
 color colorf(float, float, float, float);
 color colorx(uint32_t hex);
 color color_mix(color c1, color c2);
+color color_darken(color c, int d);
+color color_lighten(color c, int l);
 color coloru();
 bool color_eq(color, color);
 
@@ -512,6 +514,19 @@ color color_mix(color c1, color c2) {
 		.b = c1.b * c2.b / 255,
 		.a = c1.a * c2.a / 255,
 	};
+}
+
+color color_darken(color c, int d) {
+	return (color) {
+		.r = clampi(c.r - d, 0, 255),
+		.g = clampi(c.g - d, 0, 255),
+		.b = clampi(c.b - d, 0, 255),
+		.a = clampi(c.a - d, 0, 255),
+	};
+}
+
+color color_lighten(color c, int l) {
+	return color_darken(c, -l);
 }
 
 bool color_eq(color c1, color c2) {
