@@ -152,7 +152,7 @@ void d_gfx_t_rot_z(float a);
 void d_gfx_drawon(d_img *img);
 d_img *d_gfx_canvas();
 
-#endif
+#endif // #ifndef D_GFX_H
 
 #ifdef D_IMPL
 #define D_GFX_IMPL
@@ -735,7 +735,7 @@ void d_gfx_present() {
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
 }
 
-#endif
+#endif // #ifdef D_APP_H
 
 int d_gfx_width() {
 	return d_gfx.cur_canvas->width;
@@ -756,6 +756,24 @@ d_fbuf d_make_fbuf(int w, int h) {
 void d_free_fbuf(d_fbuf *fbuf) {
 	free(fbuf->buf);
 	memset(fbuf, 0, sizeof(d_fbuf));
+}
+
+void d_fbuf_set(d_fbuf *fbuf, int x, int y, float f) {
+	fbuf->buf[(int)(y * fbuf->width + x)] = f;
+}
+
+float d_fbuf_get(const d_fbuf *fbuf, int x, int y) {
+	return fbuf->buf[(int)(y * fbuf->width + x)];
+}
+
+void d_fbuf_clear(d_fbuf *fbuf, float f) {
+	if (f == 0) {
+		memset(fbuf->buf, 0, sizeof(float) * fbuf->width * fbuf->height);
+	} else {
+		for (int i = 0; i < fbuf->width * fbuf->height; i++) {
+			fbuf->buf[i] = f;
+		}
+	}
 }
 
 #define D_IMG_HEADER_SIZE \
@@ -808,7 +826,7 @@ d_img d_parse_img(const uint8_t *bytes, size_t size) {
 #else
 		fprintf(stderr, "jpeg / png support requires 'stb_image.h'\n");
 		return d_img_empty();
-#endif
+#endif // #ifdef STB_IMAGE_IMPLEMENTATION
 	} else {
 		// TODO: check for dspr magic number
 		d_img_bin *data = (d_img_bin*)bytes;
@@ -836,7 +854,7 @@ d_img d_load_img(const char *path) {
 	free(bytes);
 	return img;
 }
-#endif
+#endif // #ifdef D_FS_H
 
 void d_img_set(d_img *img, int x, int y, color c) {
 	img->pixels[(int)(y * img->width + x)] = c;
@@ -936,7 +954,7 @@ d_font d_load_font(const char *path) {
 	free(bytes);
 	return font;
 }
-#endif
+#endif // #ifdef D_FS_H
 
 void d_free_font(d_font *f) {
 	free(f->pixels);
@@ -945,6 +963,7 @@ void d_free_font(d_font *f) {
 
 void d_gfx_clear() {
 	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
+	d_fbuf_clear(&d_gfx.depth_buf, -99999);
 }
 
 static void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
@@ -1081,13 +1100,13 @@ void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_im
 
 	int x1 = p1.x;
 	int y1 = p1.y;
-	int z1 = p1.z;
+	float z1 = p1.z;
 	int x2 = p2.x;
 	int y2 = p2.y;
-	int z2 = p2.z;
+	float z2 = p2.z;
 	int x3 = p3.x;
 	int y3 = p3.y;
-	int z3 = p3.z;
+	float z3 = p3.z;
 
 	for (int y = y1; y < y3; y++) {
 
@@ -1096,8 +1115,12 @@ void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_im
 		int x_start = prebend
 			? mapi(y, y1, y2, x1, x2)
 			: mapi(y, y2, y3, x2, x3);
-
 		int x_end = mapi(y, y1, y3, x1, x3);
+
+		float z_start = prebend
+			? mapf(y, y1, y2, z1, z2)
+			: mapf(y, y2, y3, z2, z3);
+		float z_end = mapf(y, y1, y3, z1, z3);
 
 		if (x_start > x_end) {
 			swapi(&x_start, &x_end);
@@ -1105,19 +1128,18 @@ void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_im
 
 		float len = x_end - x_start;
 
-		if (tex) {
-			vec2 uv_start = prebend
-				? vec2_lerp(uv1, uv2, (float)(y - y1) / (float)(y2 - y1))
-				: vec2_lerp(uv2, uv3, (float)(y - y2) / (float)(y3 - y2));
-			vec2 uv_end = vec2_lerp(uv1, uv3, (float)(y - y1) / (float)(y3 - y1));
-			for (int x = x_start; x < x_end; x++) {
-				vec2 uv = vec2_lerp(uv_start, uv_end, (x - x_start) / len);
+		vec2 uv_start = prebend
+			? vec2_lerp(uv1, uv2, (float)(y - y1) / (float)(y2 - y1))
+			: vec2_lerp(uv2, uv3, (float)(y - y2) / (float)(y3 - y2));
+		vec2 uv_end = vec2_lerp(uv1, uv3, (float)(y - y1) / (float)(y3 - y1));
+
+		for (int x = x_start; x < x_end; x++) {
+			vec2 uv = vec2_lerp(uv_start, uv_end, (x - x_start) / len);
+			float z = mapf(x, x_start, x_end, z_start, z_end);
+			if (d_fbuf_get(&d_gfx.depth_buf, x, y) < z) {
+				d_fbuf_set(&d_gfx.depth_buf, x, y, z);
 				color c = d_img_get(tex, tex->width * uv.x, tex->height * uv.y);
 				d_gfx_put(x, y, c);
-			}
-		} else {
-			for (int x = x_start; x < x_end; x++) {
-				d_gfx_put(x, y, colorx(0xffffffff));
 			}
 		}
 
@@ -1495,10 +1517,9 @@ d_model d_load_model(const char *path) {
 	free(bytes);
 	return model;
 }
-#endif
+#endif // #ifdef D_FS_H
 
-#endif
+#endif // #ifdef CGLTF_IMPLEMENTATION
 
-#endif
-#endif
-
+#endif // #ifndef D_GFX_IMPL_ONCE
+#endif // #ifdef D_GFX_IMPL
