@@ -205,6 +205,7 @@ float clampf(float, float, float);
 int clampi(int, int, int);
 float lerpf(float, float, float);
 float mapf(float, float, float, float, float);
+int mapi(int, int, int, int, int);
 
 #endif
 
@@ -904,7 +905,11 @@ float lerpf(float a, float b, float t) {
 }
 
 float mapf(float v, float l1, float h1, float l2, float h2) {
-	return l2 + (v - l1) / (h1 - l1) * (h2 - l2);
+	return l2 + (v - l1) * (h2 - l2) / (h1 - l1);
+}
+
+int mapi(int v, int l1, int h1, int l2, int h2) {
+	return l2 + (v - l1) * (h2 - l2) / (h1 - l1);
 }
 
 #endif

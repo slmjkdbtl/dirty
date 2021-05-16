@@ -75,13 +75,14 @@ void frame() {
 	d_draw_circle(mpos, 3, colorx(0xffffffff));
 	d_draw_text("oh hi", pos, colorx(0xffffffff));
 
-	for (int i = 0; i < 100; i++) {
+// 	for (int i = 0; i < 100; i++) {
 		d_gfx_t_push();
 		d_gfx_t_move(vec3f(mpos.x, mpos.y, 0));
 		d_gfx_t_rot_y(d_app_time());
+		d_gfx_t_scale(vec3f(600, -600, 600));
 		d_draw_model(&btfly);
 		d_gfx_t_pop();
-	}
+// 	}
 
 	d_gfx_present();
 

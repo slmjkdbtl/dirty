@@ -1033,9 +1033,9 @@ void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
 
 	for (int y = y1; y < y3; y++) {
 		int xx1 = y < y2
-			? x1 + (y - y1) * (x2 - x1) / (y2 - y1)
-			: x2 + (y - y2) * (x3 - x2) / (y3 - y2);
-		int xx2 = x1 + (y - y1) * (x3 - x1) / (y3 - y1);
+			? mapi(y, y1, y2, x1, x2)
+			: mapi(y, y2, y3, x2, x3);
+		int xx2 = mapi(y, y1, y3, x1, x3);
 		if (xx1 > xx2) {
 			swapi(&xx1, &xx2);
 		}
@@ -1071,15 +1071,23 @@ void d_draw_textri(vec2 p1, vec2 uv1, vec2 p2, vec2 uv2, vec2 p3, vec2 uv3, d_im
 	int y3 = p3.y;
 
 	for (int y = y1; y < y3; y++) {
-		int xx1 = y < y2
-			? x1 + (y - y1) * (x2 - x1) / (y2 - y1)
-			: x2 + (y - y2) * (x3 - x2) / (y3 - y2);
-		int xx2 = x1 + (y - y1) * (x3 - x1) / (y3 - y1);
+		bool prebend = y < y2;
+		int xx1 = prebend
+			? mapi(y, y1, y2, x1, x2)
+			: mapi(y, y2, y3, x2, x3);
+		int xx2 = mapi(y, y1, y3, x1, x3);
 		if (xx1 > xx2) {
 			swapi(&xx1, &xx2);
 		}
+		vec2 uvv1 = prebend
+			? vec2_lerp(uv1, uv2, (float)(y - y1) / (float)(y2 - y1))
+			: vec2_lerp(uv2, uv3, (float)(y - y2) / (float)(y3 - y2));
+		vec2 uvv2 = vec2_lerp(uv1, uv3, (float)(y - y1) / (float)(y3 - y1));
+		float len = xx2 - xx1;
 		for (int x = xx1; x < xx2; x++) {
-			// TODO
+			vec2 uv = vec2_lerp(uvv1, uvv2, (x - xx1) / len);
+			color c = d_img_get(tex, tex->width * uv.x, tex->height * uv.y);
+			d_gfx_put(x, y, c);
 		}
 	}
 
@@ -1235,7 +1243,7 @@ mat4 d_psr_mat4(d_psr *psr) {
 	);
 }
 
-static void d_draw_model_node(d_model_node *node) {
+static void d_draw_model_node(d_model *model, d_model_node *node) {
 	d_gfx_t_push();
 	d_gfx_t_use(d_psr_mat4(&node->psr));
 	for (int i = 0; i < node->num_meshes; i++) {
@@ -1244,26 +1252,28 @@ static void d_draw_model_node(d_model_node *node) {
 			d_vertex *v1 = &mesh->verts[mesh->indices[j + 0]];
 			d_vertex *v2 = &mesh->verts[mesh->indices[j + 1]];
 			d_vertex *v3 = &mesh->verts[mesh->indices[j + 2]];
-			vec2 p1 = mat4_mult_vec2(d_gfx.t, vec2f(v1->pos.x, v1->pos.y));
-			vec2 p2 = mat4_mult_vec2(d_gfx.t, vec2f(v2->pos.x, v2->pos.y));
-			vec2 p3 = mat4_mult_vec2(d_gfx.t, vec2f(v3->pos.x, v3->pos.y));
-			d_draw_line(p1, p2, colorx(0xffffffff));
-			d_draw_line(p2, p3, colorx(0xffffffff));
-			d_draw_line(p3, p1, colorx(0xffffffff));
-// 			d_draw_textri(p1, p2, p3);
+			vec3 p1 = mat4_mult_vec3(d_gfx.t, v1->pos);
+			vec3 p2 = mat4_mult_vec3(d_gfx.t, v2->pos);
+			vec3 p3 = mat4_mult_vec3(d_gfx.t, v3->pos);
+			d_draw_textri(
+				vec2f(p1.x, p1.y), v1->uv,
+				vec2f(p2.x, p2.y), v2->uv,
+				vec2f(p3.x, p3.y), v3->uv,
+				// TODO
+				&model->images[0]
+			);
 		}
 	}
 	for (int i = 0; i < node->num_children; i++) {
-		d_draw_model_node(&node->children[i]);
+		d_draw_model_node(model, &node->children[i]);
 	}
 	d_gfx_t_pop();
 }
 
 void d_draw_model(d_model *model) {
 	d_gfx_t_push();
-	d_gfx_t_scale(vec3f(100, 100, 100));
 	for (int i = 0; i < model->num_nodes; i++) {
-		d_draw_model_node(&model->nodes[i]);
+		d_draw_model_node(model, &model->nodes[i]);
 	}
 	d_gfx_t_pop();
 }
