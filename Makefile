@@ -38,7 +38,12 @@ CFLAGS += -Wpedantic
 CFLAGS += -std=c99
 CFLAGS += -I.
 CFLAGS += -Iext
+
+ifdef DEBUG
+CFLAGS += -g
+else
 CFLAGS += -O2
+endif
 
 ifeq ($(TARGET),macos)
 CFLAGS += -ObjC
@@ -94,7 +99,7 @@ ifeq ($(TARGET),web)
 LDFLAGS += --preload-file demo/res@res
 endif
 
-ifdef RELEASE
+ifndef DEBUG
 LDFLAGS += -flto
 endif
 

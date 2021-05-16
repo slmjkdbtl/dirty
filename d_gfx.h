@@ -46,6 +46,12 @@ typedef struct {
 } d_img;
 
 typedef struct {
+	int width;
+	int height;
+	float *buf;
+} d_fbuf;
+
+typedef struct {
 	char name[16];
 	int from;
 	int to;
@@ -116,6 +122,9 @@ void d_img_save(const d_img *img, const char *path);
 d_img d_img_clone(const d_img *img);
 void d_free_img(d_img *img);
 
+d_fbuf d_make_fbuf(int w, int h);
+void d_free_fbuf(d_fbuf*);
+
 d_font d_parse_font(const uint8_t *bytes);
 void d_free_font(d_font *font);
 
@@ -127,7 +136,7 @@ color d_gfx_seek(int x, int y);
 void d_draw_img(const d_img *img, vec2 pos);
 void d_draw_text(const char *text, vec2 pos, color c);
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
-void d_draw_textri(vec2 p1, vec2 uv1, vec2 p2, vec2 uv2, vec2 p3, vec2 uv3, d_img *tex);
+void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_img *tex);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
 void d_draw_circle(vec2 center, float r, color c);
 void d_draw_line(vec2 p1, vec2 p2, color c);
@@ -682,6 +691,7 @@ static uint8_t unscii_bytes[] = {
 typedef struct {
 	d_img def_canvas;
 	d_img *cur_canvas;
+	d_fbuf depth_buf;
 	d_font def_font;
 	d_font *cur_font;
 	color clear_color;
@@ -697,6 +707,7 @@ static d_gfx_ctx d_gfx;
 void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.def_canvas = d_make_img(desc.width, desc.height);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
+	d_gfx.depth_buf = d_make_fbuf(desc.width, desc.height);
 	d_gfx.def_font = d_parse_font(unscii_bytes);
 	d_gfx.cur_font = &d_gfx.def_font;
 	d_gfx.blend = D_BLEND_ALPHA;
@@ -732,6 +743,19 @@ int d_gfx_width() {
 
 int d_gfx_height() {
 	return d_gfx.cur_canvas->height;
+}
+
+d_fbuf d_make_fbuf(int w, int h) {
+	return (d_fbuf) {
+		.width = w,
+		.height = h,
+		.buf = calloc(w * h, sizeof(float)),
+	};
+}
+
+void d_free_fbuf(d_fbuf *fbuf) {
+	free(fbuf->buf);
+	memset(fbuf, 0, sizeof(d_fbuf));
 }
 
 #define D_IMG_HEADER_SIZE \
@@ -857,9 +881,7 @@ d_img d_img_clone(const d_img *img) {
 
 void d_free_img(d_img *img) {
 	free(img->pixels);
-	img->pixels = NULL;
-	img->width = 0;
-	img->height = 0;
+	memset(img, 0, sizeof(d_img));
 }
 
 #define D_FNT_HEADER_SIZE \
@@ -918,7 +940,7 @@ d_font d_load_font(const char *path) {
 
 void d_free_font(d_font *f) {
 	free(f->pixels);
-	f->pixels = NULL;
+	memset(f, 0, sizeof(d_font));
 }
 
 void d_gfx_clear() {
@@ -1001,12 +1023,6 @@ void d_draw_img(const d_img *img, vec2 pos) {
 	}
 }
 
-void swapi(int *a, int *b) {
-	int c = *a;
-	*a = *b;
-	*b = c;
-}
-
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
 
 	if (p1.y > p2.y) {
@@ -1032,21 +1048,21 @@ void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
 	int y3 = p3.y;
 
 	for (int y = y1; y < y3; y++) {
-		int xx1 = y < y2
+		int x_start = y < y2
 			? mapi(y, y1, y2, x1, x2)
 			: mapi(y, y2, y3, x2, x3);
-		int xx2 = mapi(y, y1, y3, x1, x3);
-		if (xx1 > xx2) {
-			swapi(&xx1, &xx2);
+		int x_end = mapi(y, y1, y3, x1, x3);
+		if (x_start > x_end) {
+			swapi(&x_start, &x_end);
 		}
-		for (int x = xx1; x < xx2; x++) {
+		for (int x = x_start; x < x_end; x++) {
 			d_gfx_put(x, y, c);
 		}
 	}
 
 }
 
-void d_draw_textri(vec2 p1, vec2 uv1, vec2 p2, vec2 uv2, vec2 p3, vec2 uv3, d_img *tex) {
+void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_img *tex) {
 
 	if (p1.y > p2.y) {
 		d_draw_textri(p2, uv2, p1, uv1, p3, uv3, tex);
@@ -1065,30 +1081,46 @@ void d_draw_textri(vec2 p1, vec2 uv1, vec2 p2, vec2 uv2, vec2 p3, vec2 uv3, d_im
 
 	int x1 = p1.x;
 	int y1 = p1.y;
+	int z1 = p1.z;
 	int x2 = p2.x;
 	int y2 = p2.y;
+	int z2 = p2.z;
 	int x3 = p3.x;
 	int y3 = p3.y;
+	int z3 = p3.z;
 
 	for (int y = y1; y < y3; y++) {
+
 		bool prebend = y < y2;
-		int xx1 = prebend
+
+		int x_start = prebend
 			? mapi(y, y1, y2, x1, x2)
 			: mapi(y, y2, y3, x2, x3);
-		int xx2 = mapi(y, y1, y3, x1, x3);
-		if (xx1 > xx2) {
-			swapi(&xx1, &xx2);
+
+		int x_end = mapi(y, y1, y3, x1, x3);
+
+		if (x_start > x_end) {
+			swapi(&x_start, &x_end);
 		}
-		vec2 uvv1 = prebend
-			? vec2_lerp(uv1, uv2, (float)(y - y1) / (float)(y2 - y1))
-			: vec2_lerp(uv2, uv3, (float)(y - y2) / (float)(y3 - y2));
-		vec2 uvv2 = vec2_lerp(uv1, uv3, (float)(y - y1) / (float)(y3 - y1));
-		float len = xx2 - xx1;
-		for (int x = xx1; x < xx2; x++) {
-			vec2 uv = vec2_lerp(uvv1, uvv2, (x - xx1) / len);
-			color c = d_img_get(tex, tex->width * uv.x, tex->height * uv.y);
-			d_gfx_put(x, y, c);
+
+		float len = x_end - x_start;
+
+		if (tex) {
+			vec2 uv_start = prebend
+				? vec2_lerp(uv1, uv2, (float)(y - y1) / (float)(y2 - y1))
+				: vec2_lerp(uv2, uv3, (float)(y - y2) / (float)(y3 - y2));
+			vec2 uv_end = vec2_lerp(uv1, uv3, (float)(y - y1) / (float)(y3 - y1));
+			for (int x = x_start; x < x_end; x++) {
+				vec2 uv = vec2_lerp(uv_start, uv_end, (x - x_start) / len);
+				color c = d_img_get(tex, tex->width * uv.x, tex->height * uv.y);
+				d_gfx_put(x, y, c);
+			}
+		} else {
+			for (int x = x_start; x < x_end; x++) {
+				d_gfx_put(x, y, colorx(0xffffffff));
+			}
 		}
+
 	}
 
 }
@@ -1186,11 +1218,6 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 		}
 	}
 
-// 	static int ccc = 0;
-
-// 	ccc++;
-// 	printf("%d\n", ccc);
-
 }
 
 void d_gfx_t_push() {
@@ -1255,13 +1282,14 @@ static void d_draw_model_node(d_model *model, d_model_node *node) {
 			vec3 p1 = mat4_mult_vec3(d_gfx.t, v1->pos);
 			vec3 p2 = mat4_mult_vec3(d_gfx.t, v2->pos);
 			vec3 p3 = mat4_mult_vec3(d_gfx.t, v3->pos);
-			d_draw_textri(
-				vec2f(p1.x, p1.y), v1->uv,
-				vec2f(p2.x, p2.y), v2->uv,
-				vec2f(p3.x, p3.y), v3->uv,
-				// TODO
-				&model->images[0]
-			);
+			if (model->num_images > 0) {
+				d_draw_textri(
+					p1, v1->uv,
+					p2, v2->uv,
+					p3, v3->uv,
+					&model->images[0]
+				);
+			}
 		}
 	}
 	for (int i = 0; i < node->num_children; i++) {
@@ -1313,6 +1341,12 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 
 	for (int i = 0; i < num_children; i++) {
 		d_parse_model_node(node->children[i], &model->children[i]);
+	}
+
+	if (!node->mesh) {
+		model->num_meshes = 0;
+		model->meshes = malloc(0);
+		return;
 	}
 
 	int num_meshes = node->mesh->primitives_count;
@@ -1375,6 +1409,32 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 
 }
 
+void d_free_mesh(d_mesh *mesh) {
+	free(mesh->verts);
+	free(mesh->indices);
+	memset(mesh, 0, sizeof(d_mesh));
+}
+
+void d_free_model_node(d_model_node *node) {
+	for (int i = 0; i < node->num_meshes; i++) {
+		d_free_mesh(&node->meshes[i]);
+	}
+	for (int i = 0; i < node->num_children; i++) {
+		d_free_model_node(&node->children[i]);
+	}
+	memset(node, 0, sizeof(d_model_node));
+}
+
+void d_free_model(d_model *model) {
+	for (int i = 0; i < model->num_nodes; i++) {
+		d_free_model_node(&model->nodes[i]);
+	}
+	for (int i = 0; i < model->num_images; i++) {
+		d_free_img(&model->images[i]);
+	}
+	memset(model, 0, sizeof(d_model));
+}
+
 static d_model d_model_empty() {
 	return (d_model) {
 		.nodes = NULL,
@@ -1391,15 +1451,12 @@ d_model d_parse_model(const unsigned char *bytes, int size) {
 	cgltf_result res = cgltf_parse(&options, bytes, size, &doc);
 	cgltf_load_buffers(&options, doc, NULL);
 
+	d_model model = d_model_empty();
+
 	if (res != cgltf_result_success) {
 		fprintf(stderr, "failed to parse gltf\n");
-		return d_model_empty();
+		return model;
 	}
-
-// 	d_assert(res == cgltf_result_success, "failed to parse gltf\n");
-// 	d_assert(doc->scene->nodes_count >= 1, "empty gltf\n");
-
-	d_model model = {0};
 
 	int num_textures = doc->textures_count;
 	model.num_images = num_textures;

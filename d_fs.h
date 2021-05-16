@@ -121,7 +121,6 @@ static char *read_text(const char *path) {
 	FILE *file = fopen(path, "r");
 
 	if (!file) {
-		fprintf(stderr, "failed to read: '%s'\n", path);
 		return NULL;
 	}
 
@@ -136,7 +135,6 @@ static char *read_text(const char *path) {
 
 	if (r_size != size) {
 		free(buffer);
-		fprintf(stderr, "failed to read: '%s'\n", path);
 		return NULL;
 	}
 
@@ -151,7 +149,6 @@ static uint8_t *read_bytes(const char *path, size_t *osize) {
 	FILE *file = fopen(path, "rb");
 
 	if (!file) {
-		fprintf(stderr, "failed to read: '%s'\n", path);
 		return NULL;
 	}
 
@@ -164,7 +161,6 @@ static uint8_t *read_bytes(const char *path, size_t *osize) {
 
 	if (r_size != size) {
 		free(buffer);
-		fprintf(stderr, "failed to read: '%s'\n", path);
 		return NULL;
 	}
 
@@ -238,7 +234,6 @@ static char **glob(const char *path, const char *ext) {
 	DIR *dir = opendir(path);
 
 	if (!dir) {
-		fprintf(stderr, "failed to read: '%s'\n", path);
 		return NULL;
 	}
 

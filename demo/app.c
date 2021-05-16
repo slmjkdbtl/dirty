@@ -47,7 +47,7 @@ void init() {
 	d_fs_init((d_fs_desc) {0});
 
 	img = d_load_img("res/wizard.png");
-	btfly = d_load_model("res/btfly.glb");
+	btfly = d_load_model("res/duck.glb");
 
 }
 
@@ -70,16 +70,17 @@ void frame() {
 	vec2 mpos = d_gfx_mouse_pos();
 
 // 	for (int i = 0; i < 6000; i++) {
-		d_draw_img(&img, pos);
+// 		d_draw_img(&img, pos);
 // 	}
-	d_draw_circle(mpos, 3, colorx(0xffffffff));
-	d_draw_text("oh hi", pos, colorx(0xffffffff));
+// 	d_draw_circle(mpos, 3, colorx(0xffffffff));
+// 	d_draw_text("oh hi", pos, colorx(0xffffffff));
 
 // 	for (int i = 0; i < 100; i++) {
 		d_gfx_t_push();
-		d_gfx_t_move(vec3f(mpos.x, mpos.y, 0));
+		d_gfx_t_move(vec3f(120, 200, 0));
 		d_gfx_t_rot_y(d_app_time());
-		d_gfx_t_scale(vec3f(600, -600, 600));
+// 		d_gfx_t_scale(vec3f(600, -600, 600));
+		d_gfx_t_scale(vec3f(1, -1, 1));
 		d_draw_model(&btfly);
 		d_gfx_t_pop();
 // 	}
