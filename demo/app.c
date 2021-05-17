@@ -71,8 +71,10 @@ void frame() {
 
 	vec2 mpos = d_gfx_mouse_pos();
 
+	d_draw_test();
+
 // 	for (int i = 0; i < 6000; i++) {
-// 		d_draw_img(&img, pos);
+		d_draw_img(&img, pos);
 // 	}
 // 	d_draw_circle(mpos, 3, colorx(0xffffffff));
 // 	d_draw_text("oh hi", pos, colorx(0xffffffff));
@@ -85,7 +87,7 @@ void frame() {
 		d_draw_model(&btfly);
 		d_gfx_t_pop();
 // 	}
-//
+
 		d_gfx_t_push();
 		d_gfx_t_move3(vec3f(120, 200, 0));
 		d_gfx_t_rot_y(d_app_time());

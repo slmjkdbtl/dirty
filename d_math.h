@@ -160,6 +160,7 @@ color color_darken(color c, int d);
 color color_lighten(color c, int l);
 color coloru();
 bool color_eq(color, color);
+color color_lerp(color from, color to, float t);
 
 mat4 mat4f(
 	float, float, float, float,
@@ -541,6 +542,15 @@ color color_lighten(color c, int l) {
 
 bool color_eq(color c1, color c2) {
 	return c1.r == c2.r && c1.g == c2.g && c1.b == c2.b && c1.a == c2.a;
+}
+
+color color_lerp(color from, color to, float t) {
+	return (color) {
+		.r = (int)lerpf(from.r, to.r, t),
+		.g = (int)lerpf(from.g, to.g, t),
+		.b = (int)lerpf(from.b, to.b, t),
+		.a = (int)lerpf(from.a, to.a, t),
+	};
 }
 
 mat4 mat4f(

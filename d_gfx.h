@@ -83,6 +83,7 @@ typedef struct {
 	vec3 pos;
 	vec2 uv;
 	vec3 normal;
+	color color;
 } d_vertex;
 
 typedef struct {
@@ -147,10 +148,11 @@ void d_gfx_set_blend(d_blend b);
 void d_gfx_set_wrap(d_wrap w);
 void d_gfx_put(int x, int y, color c);
 color d_gfx_seek(int x, int y);
-void d_draw_img(const d_img *img, vec2 pos);
+void d_draw_img(d_img *img, vec2 pos);
 void d_draw_text(const char *text, vec2 pos, color c);
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
-void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_img *tex);
+void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex);
+void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img *tex);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
 void d_draw_circle(vec2 center, float r, color c);
 void d_draw_line(vec2 p1, vec2 p2, color c);
@@ -1101,12 +1103,57 @@ color d_gfx_seek(int x, int y) {
 	return d_gfx_seek_ex(x, y, d_gfx.wrap);
 }
 
-void d_draw_img(const d_img *img, vec2 pos) {
-	for (int x = 0; x < img->width; x++) {
-		for (int y = 0; y < img->height; y++) {
-			d_gfx_put(x + pos.x, y + pos.y, img->pixels[y * img->width + x]);
-		}
-	}
+void d_draw_test() {
+	d_draw_prim_quad(
+		(d_vertex) {
+			.pos = vec3f(0, 0, 0),
+			.color = colorx(0xff0000ff),
+		},
+		(d_vertex) {
+			.pos = vec3f(d_gfx_width(), 0, 0),
+			.color = colorx(0x00ff00ff),
+		},
+		(d_vertex) {
+			.pos = vec3f(d_gfx_width(), d_gfx_height(), 0),
+			.color = colorx(0x0000ffff),
+		},
+		(d_vertex) {
+			.pos = vec3f(0, d_gfx_height(), 0),
+			.color = colorx(0xffff00ff),
+		},
+		NULL
+	);
+}
+
+void d_draw_img(d_img *img, vec2 pos) {
+	d_draw_prim_quad(
+		(d_vertex) {
+			.pos = vec3f(pos.x, pos.y, 0),
+			.color = colorx(0xffffffff),
+			.uv = vec2f(0, 0),
+		},
+		(d_vertex) {
+			.pos = vec3f(pos.x + img->width, pos.y, 0),
+			.color = colorx(0xffffffff),
+			.uv = vec2f(1, 0),
+		},
+		(d_vertex) {
+			.pos = vec3f(pos.x + img->width, pos.y + img->height, 0),
+			.color = colorx(0xffffffff),
+			.uv = vec2f(1, 1),
+		},
+		(d_vertex) {
+			.pos = vec3f(pos.x, pos.y + img->height, 0),
+			.color = colorx(0xffffffff),
+			.uv = vec2f(0, 1),
+		},
+		img
+	);
+// 	for (int x = 0; x < img->width; x++) {
+// 		for (int y = 0; y < img->height; y++) {
+// 			d_gfx_put(x + pos.x, y + pos.y, img->pixels[y * img->width + x]);
+// 		}
+// 	}
 }
 
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
@@ -1149,18 +1196,31 @@ void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
 
 }
 
-// TODO: accept vertex
-void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_img *tex) {
+void d_vertex_swap(d_vertex *v1, d_vertex *v2) {
+	d_vertex v3 = *v2;
+	*v2 = *v1;
+	*v1 = v3;
+}
+
+// TODO: fix
+void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
+
+	vec3 p1 = d_gfx_t_apply_vec3(v1.pos);
+	vec3 p2 = d_gfx_t_apply_vec3(v2.pos);
+	vec3 p3 = d_gfx_t_apply_vec3(v3.pos);
 
 	if (p1.y > p2.y) {
+		d_vertex_swap(&v1, &v2);
 		vec3_swap(&p1, &p2);
 	}
 
 	if (p1.y > p3.y) {
+		d_vertex_swap(&v1, &v3);
 		vec3_swap(&p1, &p3);
 	}
 
 	if (p2.y > p3.y) {
+		d_vertex_swap(&v2, &v3);
 		vec3_swap(&p2, &p3);
 	}
 
@@ -1192,19 +1252,32 @@ void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_im
 			swapi(&x_start, &x_end);
 		}
 
-		int len = x_end - x_start;
+		float ty1 = (float)(y - y1) / (float)(y2 - y1);
+		float ty2 = (float)(y - y2) / (float)(y3 - y2);
+		float ty3 = (float)(y - y1) / (float)(y3 - y1);
 
 		vec2 uv_start = prebend
-			? vec2_lerp(uv1, uv2, (float)(y - y1) / (float)(y2 - y1))
-			: vec2_lerp(uv2, uv3, (float)(y - y2) / (float)(y3 - y2));
-		vec2 uv_end = vec2_lerp(uv1, uv3, (float)(y - y1) / (float)(y3 - y1));
+			? vec2_lerp(v1.uv, v2.uv, ty1)
+			: vec2_lerp(v2.uv, v3.uv, ty2);
+		vec2 uv_end = vec2_lerp(v1.uv, v3.uv, ty3);
+
+		color col_start = prebend
+			? color_lerp(v1.color, v2.color, ty1)
+			: color_lerp(v2.color, v3.color, ty2);
+		color col_end = color_lerp(v1.color, v3.color, ty3);
+
+		int len = x_end - x_start;
 
 		for (int x = x_start; x < x_end; x++) {
-			vec2 uv = vec2_lerp(uv_start, uv_end, (x - x_start) / len);
+			float tx = (float)(x - x_start) / (float)len;
+			vec2 uv = vec2_lerp(uv_start, uv_end, tx);
+			color col = color_lerp(col_start, col_end, tx);
 			int z = mapi(x, x_start, x_end, z_start, z_end);
-			if (d_ibuf_get(&d_gfx.zbuf, x, y) < z) {
+			if (d_ibuf_get(&d_gfx.zbuf, x, y) <= z) {
 				d_ibuf_set(&d_gfx.zbuf, x, y, z);
-				color c = d_img_get(tex, tex->width * uv.x, tex->height * uv.y);
+				color c = tex ?
+					color_mix(d_img_get(tex, tex->width * uv.x, tex->height * uv.y), col)
+					: col;
 				d_gfx_put(x, y, c);
 			}
 		}
@@ -1213,23 +1286,41 @@ void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_im
 
 }
 
-void d_draw_quad(vec2 p1, vec2 p2, vec2 p3, vec2 p4, color c) {
-	// ...
+// TODO
+void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img *tex) {
+	d_draw_prim_tri(v1, v2, v3, tex);
+	d_draw_prim_tri(v1, v3, v4, tex);
 }
 
 void d_draw_rect(vec2 p1, vec2 p2, color c) {
-
-	int x1 = p1.x < p2.x ? p1.x : p2.x;
-	int x2 = p1.x > p2.x ? p1.x : p2.x;
-	int y1 = p1.y < p2.y ? p1.y : p2.y;
-	int y2 = p1.y > p2.y ? p1.y : p2.y;
-
-	for (int x = x1; x < x2; x++) {
-		for (int y = y1; y < y2; y++) {
-			d_gfx_put(x, y, c);
-		}
-	}
-
+	d_draw_prim_quad(
+		(d_vertex) {
+			.pos = vec3f(p1.x, p1.y, 0),
+			.color = c,
+		},
+		(d_vertex) {
+			.pos = vec3f(p2.x, p1.y, 0),
+			.color = c,
+		},
+		(d_vertex) {
+			.pos = vec3f(p2.x, p2.y, 0),
+			.color = c,
+		},
+		(d_vertex) {
+			.pos = vec3f(p1.x, p2.y, 0),
+			.color = c,
+		},
+		NULL
+	);
+// 	int x1 = p1.x < p2.x ? p1.x : p2.x;
+// 	int x2 = p1.x > p2.x ? p1.x : p2.x;
+// 	int y1 = p1.y < p2.y ? p1.y : p2.y;
+// 	int y2 = p1.y > p2.y ? p1.y : p2.y;
+// 	for (int x = x1; x < x2; x++) {
+// 		for (int y = y1; y < y2; y++) {
+// 			d_gfx_put(x, y, c);
+// 		}
+// 	}
 }
 
 void d_draw_circle(vec2 center, float r, color c) {
@@ -1386,17 +1477,11 @@ static void d_draw_model_node(d_model *model, d_model_node *node) {
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_mesh *mesh = &node->meshes[i];
 		for (int j = 0; j < mesh->num_indices; j += 3) {
-			d_vertex *v1 = &mesh->verts[mesh->indices[j + 0]];
-			d_vertex *v2 = &mesh->verts[mesh->indices[j + 1]];
-			d_vertex *v3 = &mesh->verts[mesh->indices[j + 2]];
-			vec3 p1 = d_gfx_t_apply_vec3(v1->pos);
-			vec3 p2 = d_gfx_t_apply_vec3(v2->pos);
-			vec3 p3 = d_gfx_t_apply_vec3(v3->pos);
 			if (model->num_images > 0) {
-				d_draw_textri(
-					p1, v1->uv,
-					p2, v2->uv,
-					p3, v3->uv,
+				d_draw_prim_tri(
+					mesh->verts[mesh->indices[j + 0]],
+					mesh->verts[mesh->indices[j + 1]],
+					mesh->verts[mesh->indices[j + 2]],
 					&model->images[0]
 				);
 			}
@@ -1469,6 +1554,10 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 		int num_verts = prim->attributes[0].data->count;
 		d_vertex *verts = calloc(num_verts, sizeof(d_vertex));
 
+		for (int j = 0; j < num_verts; j++) {
+			verts[j].color = colorx(0xffffffff);
+		}
+
 		for (int j = 0; j < prim->attributes_count; j++) {
 
 			cgltf_attribute *attr = &prim->attributes[j];
@@ -1493,6 +1582,12 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 // 					d_assert(acc->type == cgltf_type_vec2, "gltf texcoord must be vec2\n");
 					for(int k = 0; k < acc->count; k++) {
 						cgltf_accessor_read_float(acc, k, (float*)&verts[k].uv, 2);
+					}
+					break;
+				case cgltf_attribute_type_color:
+// 					d_assert(acc->type == cgltf_type_vec4, "gltf color must be vec4\n");
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&verts[k].color, 4);
 					}
 					break;
 				default:
