@@ -1202,7 +1202,6 @@ void d_vertex_swap(d_vertex *v1, d_vertex *v2) {
 	*v1 = v3;
 }
 
-// TODO: fix
 void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 
 	vec3 p1 = d_gfx_t_apply_vec3(v1.pos);
@@ -1248,10 +1247,6 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 			: mapi(y, y2, y3, z2, z3);
 		int z_end = mapi(y, y1, y3, z1, z3);
 
-		if (x_start > x_end) {
-			swapi(&x_start, &x_end);
-		}
-
 		float ty1 = (float)(y - y1) / (float)(y2 - y1);
 		float ty2 = (float)(y - y2) / (float)(y3 - y2);
 		float ty3 = (float)(y - y1) / (float)(y3 - y1);
@@ -1268,7 +1263,7 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 
 		int len = x_end - x_start;
 
-		for (int x = x_start; x < x_end; x++) {
+		for (int x = mini(x_start, x_end); x < maxi(x_start, x_end); x++) {
 			float tx = (float)(x - x_start) / (float)len;
 			vec2 uv = vec2_lerp(uv_start, uv_end, tx);
 			color col = color_lerp(col_start, col_end, tx);
