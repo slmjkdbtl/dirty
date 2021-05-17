@@ -37,14 +37,18 @@ void frame() {
 	}
 
 	d_gfx_clear();
+	d_gfx_t_push();
+	d_gfx_t_move(d_gfx_mouse_pos());
+	d_gfx_t_rot_z(d_app_time());
 // 	d_draw_line(vec2f(d_gfx_width() / 2, d_gfx_height() / 2), d_gfx_mouse_pos(), colori(0, 0, 255, 255));
-	d_draw_tri(vec2f(40, 40), vec2f(60, 120), d_gfx_mouse_pos(), colori(0, 0, 255, 255));
-	for (int i = 0; i < 10000; i++) {
-// 		d_draw_tri(vec2f(60, 20), vec2f(20, 60), vec2f(100, 80), colori(0, 0, 255, 255));
+// 	d_draw_tri(vec2f(40, 40), vec2f(60, 120), d_gfx_mouse_pos(), colori(0, 0, 255, 255));
+	for (int i = 0; i < 10; i++) {
+		d_draw_tri(vec2f(60, 20), vec2f(20, 60), vec2f(100, 80), colori(0, 0, 255, 255));
 	}
 	d_gfx_present();
 
 	d_app_set_title(d_fmt("%d", d_app_fps()));
+	d_gfx_t_pop();
 
 }
 

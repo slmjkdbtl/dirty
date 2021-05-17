@@ -48,8 +48,14 @@ typedef struct {
 typedef struct {
 	int width;
 	int height;
-	float *buf;
-} d_fbuf;
+	int *buf;
+} d_ibuf;
+
+typedef struct {
+	int width;
+	int height;
+	bool *buf;
+} d_bbuf;
 
 typedef struct {
 	char name[16];
@@ -122,8 +128,16 @@ void d_img_save(const d_img *img, const char *path);
 d_img d_img_clone(const d_img *img);
 void d_free_img(d_img *img);
 
-d_fbuf d_make_fbuf(int w, int h);
-void d_free_fbuf(d_fbuf*);
+d_ibuf d_make_ibuf(int w, int h);
+void d_free_ibuf(d_ibuf*);
+void d_ibuf_set(d_ibuf *ibuf, int x, int y, int v);
+int d_ibuf_get(const d_ibuf *ibuf, int x, int y);
+void d_ibuf_clear(d_ibuf *ibuf, int v);
+
+d_bbuf d_make_bbuf(int w, int h);
+void d_free_bbuf(d_bbuf*);
+void d_bbuf_set(d_bbuf *bbuf, int x, int y, bool v);
+bool d_bbuf_get(const d_bbuf *bbuf, int x, int y);
 
 d_font d_parse_font(const uint8_t *bytes);
 void d_free_font(d_font *font);
@@ -144,13 +158,21 @@ void d_draw_model(d_model *model);
 void d_gfx_t_push();
 void d_gfx_t_pop();
 void d_gfx_t_use(mat4 m);
-void d_gfx_t_move(vec3 p);
-void d_gfx_t_scale(vec3 s);
+void d_gfx_t_move(vec2 p);
+void d_gfx_t_move3(vec3 p);
+void d_gfx_t_scale(vec2 s);
+void d_gfx_t_scale3(vec3 s);
 void d_gfx_t_rot_x(float a);
 void d_gfx_t_rot_y(float a);
 void d_gfx_t_rot_z(float a);
+vec2 d_gfx_t_apply_vec2(vec2 p);
+vec3 d_gfx_t_apply_vec3(vec3 p);
 void d_gfx_drawon(d_img *img);
 d_img *d_gfx_canvas();
+void d_gfx_zbuf_test_start();
+void d_gfx_zbuf_test_end();
+void d_gfx_bbuf_write_start();
+void d_gfx_bbuf_write_end();
 
 #endif // #ifndef D_GFX_H
 
@@ -691,7 +713,10 @@ static uint8_t unscii_bytes[] = {
 typedef struct {
 	d_img def_canvas;
 	d_img *cur_canvas;
-	d_fbuf depth_buf;
+	d_ibuf zbuf;
+	d_bbuf bbuf;
+	bool zbuf_test;
+	bool bbuf_write;
 	d_font def_font;
 	d_font *cur_font;
 	color clear_color;
@@ -699,7 +724,7 @@ typedef struct {
 	d_wrap wrap;
 	mat4 t;
 	mat4 tstack[MAX_TSTACK];
-	int num_t;
+	int tstack_len;
 } d_gfx_ctx;
 
 static d_gfx_ctx d_gfx;
@@ -707,7 +732,10 @@ static d_gfx_ctx d_gfx;
 void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.def_canvas = d_make_img(desc.width, desc.height);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
-	d_gfx.depth_buf = d_make_fbuf(desc.width, desc.height);
+	d_gfx.zbuf = d_make_ibuf(desc.width, desc.height);
+	d_gfx.bbuf = d_make_bbuf(desc.width, desc.height);
+	d_gfx.zbuf_test = true;
+	d_gfx.bbuf_write = false;
 	d_gfx.def_font = d_parse_font(unscii_bytes);
 	d_gfx.cur_font = &d_gfx.def_font;
 	d_gfx.blend = D_BLEND_ALPHA;
@@ -715,7 +743,7 @@ void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.clear_color = desc.clear_color;
 	d_gfx.t = mat4u();
 	memset(d_gfx.tstack, 0, sizeof(mat4) * MAX_TSTACK);
-	d_gfx.num_t = 0;
+	d_gfx.tstack_len = 0;
 	d_gfx_clear();
 }
 
@@ -745,34 +773,57 @@ int d_gfx_height() {
 	return d_gfx.cur_canvas->height;
 }
 
-d_fbuf d_make_fbuf(int w, int h) {
-	return (d_fbuf) {
+d_ibuf d_make_ibuf(int w, int h) {
+	return (d_ibuf) {
 		.width = w,
 		.height = h,
-		.buf = calloc(w * h, sizeof(float)),
+		.buf = calloc(w * h, sizeof(int)),
 	};
 }
 
-void d_free_fbuf(d_fbuf *fbuf) {
-	free(fbuf->buf);
-	memset(fbuf, 0, sizeof(d_fbuf));
+void d_free_ibuf(d_ibuf *ibuf) {
+	free(ibuf->buf);
+	memset(ibuf, 0, sizeof(d_ibuf));
 }
 
-void d_fbuf_set(d_fbuf *fbuf, int x, int y, float f) {
-	fbuf->buf[(int)(y * fbuf->width + x)] = f;
+void d_ibuf_set(d_ibuf *ibuf, int x, int y, int v) {
+	ibuf->buf[y * ibuf->width + x] = v;
 }
 
-float d_fbuf_get(const d_fbuf *fbuf, int x, int y) {
-	return fbuf->buf[(int)(y * fbuf->width + x)];
+int d_ibuf_get(const d_ibuf *ibuf, int x, int y) {
+	return ibuf->buf[y * ibuf->width + x];
 }
 
-void d_fbuf_clear(d_fbuf *fbuf, float f) {
-	if (f == 0) {
-		memset(fbuf->buf, 0, sizeof(float) * fbuf->width * fbuf->height);
-	} else {
-		for (int i = 0; i < fbuf->width * fbuf->height; i++) {
-			fbuf->buf[i] = f;
-		}
+void d_ibuf_clear(d_ibuf *ibuf, int v) {
+	for (int i = 0; i < ibuf->width * ibuf->height; i++) {
+		ibuf->buf[i] = v;
+	}
+}
+
+d_bbuf d_make_bbuf(int w, int h) {
+	return (d_bbuf) {
+		.width = w,
+		.height = h,
+		.buf = calloc(w * h, sizeof(bool)),
+	};
+}
+
+void d_free_bbuf(d_bbuf *bbuf) {
+	free(bbuf->buf);
+	memset(bbuf, 0, sizeof(d_bbuf));
+}
+
+void d_bbuf_set(d_bbuf *bbuf, int x, int y, bool b) {
+	bbuf->buf[y * bbuf->width + x] = b;
+}
+
+bool d_bbuf_get(const d_bbuf *bbuf, int x, int y) {
+	return bbuf->buf[y * bbuf->width + x];
+}
+
+void d_bbuf_clear(d_bbuf *bbuf, bool b) {
+	for (int i = 0; i < bbuf->width * bbuf->height; i++) {
+		bbuf->buf[i] = b;
 	}
 }
 
@@ -861,16 +912,12 @@ void d_img_set(d_img *img, int x, int y, color c) {
 }
 
 color d_img_get(const d_img *img, int x, int y) {
-	return img->pixels[(int)(y * img->width + x)];
+	return img->pixels[y * img->width + x];
 }
 
 void d_img_fill(d_img *img, color c) {
-	if (c.r == 0 && c.g == 0 && c.b == 0 && c.a == 0) {
-		memset(img->pixels, 0, sizeof(color) * img->width * img->height);
-	} else {
-		for (int i = 0; i < img->width * img->height; i++) {
-			img->pixels[i] = c;
-		}
+	for (int i = 0; i < img->width * img->height; i++) {
+		img->pixels[i] = c;
 	}
 }
 
@@ -963,7 +1010,24 @@ void d_free_font(d_font *f) {
 
 void d_gfx_clear() {
 	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
-	d_fbuf_clear(&d_gfx.depth_buf, -99999);
+	d_ibuf_clear(&d_gfx.zbuf, -INT_MAX);
+	d_bbuf_clear(&d_gfx.bbuf, false);
+}
+
+void d_gfx_zbuf_test_start() {
+	d_gfx.zbuf_test = true;
+}
+
+void d_gfx_zbuf_test_end() {
+	d_gfx.zbuf_test = false;
+}
+
+void d_gfx_bbuf_write_start() {
+	d_gfx.bbuf_write = true;
+}
+
+void d_gfx_bbuf_write_end() {
+	d_gfx.bbuf_write = false;
 }
 
 static void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
@@ -971,7 +1035,7 @@ static void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
-	int i = (int)(y * img->width + x);
+	int i = y * img->width + x;
 	switch (blend) {
 		case D_BLEND_ALPHA: {
 			if (c.a == 255) {
@@ -1002,6 +1066,9 @@ static void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
 			}
 			break;
 	}
+	if (d_gfx.bbuf_write) {
+		d_bbuf_set(&d_gfx.bbuf, x, y, true);
+	}
 }
 
 void d_gfx_put(int x, int y, color c) {
@@ -1015,17 +1082,17 @@ color d_gfx_seek_ex(int x, int y, d_wrap wrap) {
 			if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 				return colori(0, 0, 0, 0);
 			} else {
-				return img->pixels[(int)(y * img->width + x)];
+				return img->pixels[y * img->width + x];
 			}
 		case D_WRAP_EDGE: {
 			int xx = clampi(x, 0, img->width - 1);
 			int yy = clampi(y, 0, img->height - 1);
-			return img->pixels[(int)(yy * img->width + xx)];
+			return img->pixels[yy * img->width + xx];
 		}
 		case D_WRAP_REPEAT: {
 			int xx = x % img->width;
 			int yy = y % img->height;
-			return img->pixels[(int)(yy * img->width + xx)];
+			return img->pixels[yy * img->width + xx];
 		}
 	}
 }
@@ -1044,19 +1111,20 @@ void d_draw_img(const d_img *img, vec2 pos) {
 
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
 
+	p1 = d_gfx_t_apply_vec2(p1);
+	p2 = d_gfx_t_apply_vec2(p2);
+	p3 = d_gfx_t_apply_vec2(p3);
+
 	if (p1.y > p2.y) {
-		d_draw_tri(p2, p1, p3, c);
-		return;
+		vec2_swap(&p1, &p2);
 	}
 
 	if (p1.y > p3.y) {
-		d_draw_tri(p3, p2, p1, c);
-		return;
+		vec2_swap(&p1, &p3);
 	}
 
 	if (p2.y > p3.y) {
-		d_draw_tri(p1, p3, p2, c);
-		return;
+		vec2_swap(&p2, &p3);
 	}
 
 	int x1 = p1.x;
@@ -1081,32 +1149,30 @@ void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
 
 }
 
+// TODO: accept vertex
 void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_img *tex) {
 
 	if (p1.y > p2.y) {
-		d_draw_textri(p2, uv2, p1, uv1, p3, uv3, tex);
-		return;
+		vec3_swap(&p1, &p2);
 	}
 
 	if (p1.y > p3.y) {
-		d_draw_textri(p3, uv3, p2, uv2, p1, uv1, tex);
-		return;
+		vec3_swap(&p1, &p3);
 	}
 
 	if (p2.y > p3.y) {
-		d_draw_textri(p1, uv1, p3, uv3, p2, uv2, tex);
-		return;
+		vec3_swap(&p2, &p3);
 	}
 
 	int x1 = p1.x;
 	int y1 = p1.y;
-	float z1 = p1.z;
+	int z1 = p1.z;
 	int x2 = p2.x;
 	int y2 = p2.y;
-	float z2 = p2.z;
+	int z2 = p2.z;
 	int x3 = p3.x;
 	int y3 = p3.y;
-	float z3 = p3.z;
+	int z3 = p3.z;
 
 	for (int y = y1; y < y3; y++) {
 
@@ -1117,16 +1183,16 @@ void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_im
 			: mapi(y, y2, y3, x2, x3);
 		int x_end = mapi(y, y1, y3, x1, x3);
 
-		float z_start = prebend
-			? mapf(y, y1, y2, z1, z2)
-			: mapf(y, y2, y3, z2, z3);
-		float z_end = mapf(y, y1, y3, z1, z3);
+		int z_start = prebend
+			? mapi(y, y1, y2, z1, z2)
+			: mapi(y, y2, y3, z2, z3);
+		int z_end = mapi(y, y1, y3, z1, z3);
 
 		if (x_start > x_end) {
 			swapi(&x_start, &x_end);
 		}
 
-		float len = x_end - x_start;
+		int len = x_end - x_start;
 
 		vec2 uv_start = prebend
 			? vec2_lerp(uv1, uv2, (float)(y - y1) / (float)(y2 - y1))
@@ -1135,9 +1201,9 @@ void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_im
 
 		for (int x = x_start; x < x_end; x++) {
 			vec2 uv = vec2_lerp(uv_start, uv_end, (x - x_start) / len);
-			float z = mapf(x, x_start, x_end, z_start, z_end);
-			if (d_fbuf_get(&d_gfx.depth_buf, x, y) < z) {
-				d_fbuf_set(&d_gfx.depth_buf, x, y, z);
+			int z = mapi(x, x_start, x_end, z_start, z_end);
+			if (d_ibuf_get(&d_gfx.zbuf, x, y) < z) {
+				d_ibuf_set(&d_gfx.zbuf, x, y, z);
 				color c = d_img_get(tex, tex->width * uv.x, tex->height * uv.y);
 				d_gfx_put(x, y, c);
 			}
@@ -1145,6 +1211,10 @@ void d_draw_textri(vec3 p1, vec2 uv1, vec3 p2, vec2 uv2, vec3 p3, vec2 uv3, d_im
 
 	}
 
+}
+
+void d_draw_quad(vec2 p1, vec2 p2, vec2 p3, vec2 p4, color c) {
+	// ...
 }
 
 void d_draw_rect(vec2 p1, vec2 p2, color c) {
@@ -1205,6 +1275,8 @@ void d_draw_text(const char *text, vec2 pos, color  c) {
 
 void d_draw_line(vec2 p1, vec2 p2, color c) {
 
+	p1 = d_gfx_t_apply_vec2(p1);
+	p2 = d_gfx_t_apply_vec2(p2);
 	int x1 = p1.x;
 	int y1 = p1.y;
 	int x2 = p2.x;
@@ -1243,30 +1315,38 @@ void d_draw_line(vec2 p1, vec2 p2, color c) {
 }
 
 void d_gfx_t_push() {
-	if (d_gfx.num_t >= MAX_TSTACK) {
+	if (d_gfx.tstack_len >= MAX_TSTACK) {
 		fprintf(stderr, "tstack overflow\n");
 		return;
 	}
-	d_gfx.tstack[d_gfx.num_t++] = d_gfx.t;
+	d_gfx.tstack[d_gfx.tstack_len++] = d_gfx.t;
 }
 
 void d_gfx_t_pop() {
-	if (d_gfx.num_t <= 0) {
+	if (d_gfx.tstack_len <= 0) {
 		fprintf(stderr, "tstack underflow\n");
 		return;
 	}
-	d_gfx.t = d_gfx.tstack[--d_gfx.num_t];
+	d_gfx.t = d_gfx.tstack[--d_gfx.tstack_len];
 }
 
 void d_gfx_t_use(mat4 m) {
 	d_gfx.t = mat4_mult(d_gfx.t, m);
 }
 
-void d_gfx_t_move(vec3 p) {
+void d_gfx_t_move(vec2 p) {
+	d_gfx_t_move3(vec3f(p.x, p.y, 0));
+}
+
+void d_gfx_t_scale(vec2 s) {
+	d_gfx_t_scale3(vec3f(s.x, s.y, 1));
+}
+
+void d_gfx_t_move3(vec3 p) {
 	d_gfx.t = mat4_mult(d_gfx.t, mat4_translate(p));
 }
 
-void d_gfx_t_scale(vec3 s) {
+void d_gfx_t_scale3(vec3 s) {
 	d_gfx.t = mat4_mult(d_gfx.t, mat4_scale(s));
 }
 
@@ -1280,6 +1360,14 @@ void d_gfx_t_rot_y(float a) {
 
 void d_gfx_t_rot_z(float a) {
 	d_gfx.t = mat4_mult(d_gfx.t, mat4_rot_z(a));
+}
+
+vec2 d_gfx_t_apply_vec2(vec2 p) {
+	return mat4_mult_vec2(d_gfx.t, p);
+}
+
+vec3 d_gfx_t_apply_vec3(vec3 p) {
+	return mat4_mult_vec3(d_gfx.t, p);
 }
 
 mat4 d_psr_mat4(d_psr *psr) {
@@ -1301,9 +1389,9 @@ static void d_draw_model_node(d_model *model, d_model_node *node) {
 			d_vertex *v1 = &mesh->verts[mesh->indices[j + 0]];
 			d_vertex *v2 = &mesh->verts[mesh->indices[j + 1]];
 			d_vertex *v3 = &mesh->verts[mesh->indices[j + 2]];
-			vec3 p1 = mat4_mult_vec3(d_gfx.t, v1->pos);
-			vec3 p2 = mat4_mult_vec3(d_gfx.t, v2->pos);
-			vec3 p3 = mat4_mult_vec3(d_gfx.t, v3->pos);
+			vec3 p1 = d_gfx_t_apply_vec3(v1->pos);
+			vec3 p2 = d_gfx_t_apply_vec3(v2->pos);
+			vec3 p3 = d_gfx_t_apply_vec3(v3->pos);
 			if (model->num_images > 0) {
 				d_draw_textri(
 					p1, v1->uv,

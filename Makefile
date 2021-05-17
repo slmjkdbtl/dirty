@@ -131,6 +131,10 @@ else
 	./$< $(ARGS)
 endif
 
+.PHONY: debug
+debug: $(DEMO_BIN_PATH)/$(DEMO)
+	lldb $<
+
 .PHONY: demo
 demo: $(DEMO_BIN_PATH)/$(DEMO)
 

@@ -33,6 +33,7 @@ static const char *d_fmt(const char *fmt, ...) {
 }
 
 d_img img;
+d_model duck;
 d_model btfly;
 vec2 pos;
 
@@ -47,7 +48,8 @@ void init() {
 	d_fs_init((d_fs_desc) {0});
 
 	img = d_load_img("res/wizard.png");
-	btfly = d_load_model("res/duck.glb");
+	duck = d_load_model("res/duck.glb");
+	btfly = d_load_model("res/btfly.glb");
 
 }
 
@@ -77,13 +79,19 @@ void frame() {
 
 // 	for (int i = 0; i < 100; i++) {
 		d_gfx_t_push();
-		d_gfx_t_move(vec3f(120, 200, 0));
+		d_gfx_t_move3(vec3f(120, 200, mpos.y));
 		d_gfx_t_rot_y(d_app_time());
-// 		d_gfx_t_scale(vec3f(600, -600, 600));
-		d_gfx_t_scale(vec3f(1, -1, 1));
+		d_gfx_t_scale3(vec3f(600, -600, 600));
 		d_draw_model(&btfly);
 		d_gfx_t_pop();
 // 	}
+//
+		d_gfx_t_push();
+		d_gfx_t_move3(vec3f(120, 200, 0));
+		d_gfx_t_rot_y(d_app_time());
+		d_gfx_t_scale3(vec3f(1, -1, 1));
+		d_draw_model(&duck);
+		d_gfx_t_pop();
 
 	d_gfx_present();
 

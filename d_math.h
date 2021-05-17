@@ -147,6 +147,7 @@ vec3 vec3_rand(vec3, vec3);
 vec3 vec3_lerp(vec3, vec3, float);
 vec3 vec3_clamp(vec3, vec3, vec3);
 bool vec3_eq(vec3, vec3);
+void vec3_swap(vec3*, vec3*);
 
 vec4 vec4f(float, float, float, float);
 vec4 vec4u();
@@ -459,6 +460,12 @@ vec3 vec3_clamp(vec3 p, vec3 low, vec3 hi) {
 
 bool vec3_eq(vec3 p1, vec3 p2) {
 	return p1.x == p2.x && p1.y == p2.y && p1.z == p2.z;
+}
+
+void vec3_swap(vec3 *p1, vec3 *p2) {
+	vec3 p3 = *p2;
+	*p2 = *p1;
+	*p1 = p3;
 }
 
 vec4 vec4f(float x, float y, float z, float w) {
