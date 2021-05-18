@@ -91,27 +91,25 @@ void frame() {
 		NULL
 	);
 
-// 	for (int i = 0; i < 600; i++) {
-		d_draw_img(&img, pos);
-// 	}
-// 	d_draw_circle(mpos, 3, colorx(0xffffffff));
-// 	d_draw_text("oh hi", pos, colorx(0xffffffff));
-
-// 	for (int i = 0; i < 100; i++) {
+	for (int i = 0; i < 3; i++) {
 		d_gfx_t_push();
-		d_gfx_t_move3(vec3f(120, 200, mpos.y));
+		d_gfx_t_move3(vec3f(120, 140, mpos.y - 40));
 		d_gfx_t_rot_y(d_app_time());
 		d_gfx_t_scale3(vec3f(600, -600, 600));
 		d_draw_model(&btfly);
 		d_gfx_t_pop();
-// 	}
+	}
 
-		d_gfx_t_push();
-		d_gfx_t_move3(vec3f(120, 200, 0));
-		d_gfx_t_rot_y(d_app_time());
-		d_gfx_t_scale3(vec3f(1, -1, 1));
-		d_draw_model(&duck);
-		d_gfx_t_pop();
+	d_gfx_t_push();
+	d_gfx_t_move3(vec3f(120, 200, 0));
+	d_gfx_t_rot_y(d_app_time());
+	d_gfx_t_scale3(vec3f(1, -1, 1));
+	d_draw_model(&duck);
+	d_gfx_t_pop();
+
+	d_blit_img(&img, pos);
+	d_blit_circle(mpos, 3, colorx(0xffffffff));
+	d_blit_text("oh hi", pos, colorx(0xffffffff));
 
 	d_gfx_present();
 

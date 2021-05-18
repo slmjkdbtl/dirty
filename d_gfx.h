@@ -106,6 +106,7 @@ typedef struct {
 	int num_nodes;
 	d_img *images;
 	int num_images;
+	box bbox;
 } d_model;
 
 void d_gfx_init(d_gfx_desc);
@@ -158,7 +159,7 @@ void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img 
 void d_draw_img(d_img *img, vec2 pos);
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
-void d_draw_line(vec2 p1, vec2 p2, float w, color c);
+void d_draw_line(vec2 p1, vec2 p2, color c);
 void d_draw_model(d_model *model);
 void d_gfx_t_push();
 void d_gfx_t_pop();
@@ -1103,14 +1104,19 @@ color d_gfx_seek(int x, int y) {
 }
 
 void d_blit_img(d_img *img, vec2 pos) {
+	bool zbuf_test = d_gfx.zbuf_test;
+	d_gfx_set_zbuf_test(false);
 	for (int x = 0; x < img->width; x++) {
 		for (int y = 0; y < img->height; y++) {
 			d_gfx_put(x + pos.x, y + pos.y, 0, img->pixels[y * img->width + x]);
 		}
 	}
+	d_gfx_set_zbuf_test(zbuf_test);
 }
 
 void d_blit_rect(vec2 p1, vec2 p2, color c) {
+	bool zbuf_test = d_gfx.zbuf_test;
+	d_gfx_set_zbuf_test(false);
 	int x1 = p1.x < p2.x ? p1.x : p2.x;
 	int x2 = p1.x > p2.x ? p1.x : p2.x;
 	int y1 = p1.y < p2.y ? p1.y : p2.y;
@@ -1120,9 +1126,12 @@ void d_blit_rect(vec2 p1, vec2 p2, color c) {
 			d_gfx_put(x, y, 0, c);
 		}
 	}
+	d_gfx_set_zbuf_test(zbuf_test);
 }
 
 void d_blit_circle(vec2 center, float r, color c) {
+	bool zbuf_test = d_gfx.zbuf_test;
+	d_gfx_set_zbuf_test(false);
 	for (int i = center.x - r; i <= center.x + r; i++) {
 		for (int j = center.y - r; j <= center.y + r; j++) {
 			vec2 p = vec2f(i, j);
@@ -1132,9 +1141,13 @@ void d_blit_circle(vec2 center, float r, color c) {
 			}
 		}
 	}
+	d_gfx_set_zbuf_test(zbuf_test);
 }
 
 void d_blit_text(const char *text, vec2 pos, color c) {
+
+	bool zbuf_test = d_gfx.zbuf_test;
+	d_gfx_set_zbuf_test(false);
 
 	int num_chars = strlen(text);
 	d_font *font = &d_gfx.def_font;
@@ -1158,6 +1171,8 @@ void d_blit_text(const char *text, vec2 pos, color c) {
 		ox += font->gw;
 
 	}
+
+	d_gfx_set_zbuf_test(zbuf_test);
 
 }
 
@@ -1257,15 +1272,20 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 		float ty2 = (float)(y - y2) / (float)(y3 - y2);
 		float ty3 = (float)(y - y1) / (float)(y3 - y1);
 
+		color col_start = prebend
+			? color_lerp(v1.color, v2.color, ty1)
+			: color_lerp(v2.color, v3.color, ty2);
+		color col_end = color_lerp(v1.color, v3.color, ty3);
+
 		vec2 uv_start = prebend
 			? vec2_lerp(v1.uv, v2.uv, ty1)
 			: vec2_lerp(v2.uv, v3.uv, ty2);
 		vec2 uv_end = vec2_lerp(v1.uv, v3.uv, ty3);
 
-		color col_start = prebend
-			? color_lerp(v1.color, v2.color, ty1)
-			: color_lerp(v2.color, v3.color, ty2);
-		color col_end = color_lerp(v1.color, v3.color, ty3);
+// 		vec3 normal_start = prebend
+// 			? vec3_lerp(v1.normal, v2.normal, ty1)
+// 			: vec3_lerp(v2.normal, v3.normal, ty2);
+// 		vec3 normal_end = vec3_lerp(v1.normal, v3.normal, ty3);
 
 		bool same_color = color_eq(col_start, col_end);
 		int x_len = x_end - x_start;
@@ -1276,6 +1296,9 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 			color c = same_color
 				? col_start
 				: color_lerp(col_start, col_end, t);
+// 			vec3 normal = vec3_lerp(normal_start, normal_end, t);
+// 			int l = (normal.x + normal.y + normal.z) / 3 * 255;
+// 			c = color_mix(c, colori(l, l, l, c.a));
 			if (tex) {
 				vec2 uv = vec2_lerp(uv_start, uv_end, t);
 				c = color_mix(d_img_get(tex, tex->width * uv.x, tex->height * uv.y), c);
@@ -1340,7 +1363,13 @@ void d_draw_rect(vec2 p1, vec2 p2, color c) {
 	);
 }
 
-void d_draw_line(vec2 p1, vec2 p2, float w, color c) {
+void d_draw_line(vec2 p1, vec2 p2, color c) {
+	p1 = d_gfx_t_apply_vec2(p1);
+	p2 = d_gfx_t_apply_vec2(p2);
+	d_blit_line(p1, p2, c);
+}
+
+void d_draw_line2(vec2 p1, vec2 p2, int w, color c) {
 	vec2 d = vec2_scale(vec2_unit(vec2_normal(vec2_sub(p1, p2))), w);
 	vec2 pp1 = vec2_add(p1, d);
 	vec2 pp2 = vec2_sub(p1, d);
@@ -1439,14 +1468,12 @@ static void d_draw_model_node(d_model *model, d_model_node *node) {
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_mesh *mesh = &node->meshes[i];
 		for (int j = 0; j < mesh->num_indices; j += 3) {
-			if (model->num_images > 0) {
-				d_draw_prim_tri(
-					mesh->verts[mesh->indices[j + 0]],
-					mesh->verts[mesh->indices[j + 1]],
-					mesh->verts[mesh->indices[j + 2]],
-					&model->images[0]
-				);
-			}
+			d_draw_prim_tri(
+				mesh->verts[mesh->indices[j + 0]],
+				mesh->verts[mesh->indices[j + 1]],
+				mesh->verts[mesh->indices[j + 2]],
+				model->num_images > 0 ? &model->images[0] : NULL
+			);
 		}
 	}
 	for (int i = 0; i < node->num_children; i++) {
@@ -1481,6 +1508,30 @@ void d_gfx_drawon(d_img *img) {
 
 d_img *d_gfx_canvas() {
 	return d_gfx.cur_canvas;
+}
+
+static void gen_normals(d_mesh *mesh) {
+
+	for (int i = 0; i < mesh->num_verts; i++) {
+		mesh->verts[i].normal = vec3f(0, 0, 0);
+	}
+
+	for (int i = 0; i < mesh->num_indices; i += 3) {
+		d_vertex *v1 = &mesh->verts[mesh->indices[i + 0]];
+		d_vertex *v2 = &mesh->verts[mesh->indices[i + 1]];
+		d_vertex *v3 = &mesh->verts[mesh->indices[i + 2]];
+		vec3 n = vec3_cross(vec3_sub(v2->pos, v1->pos), vec3_sub(v3->pos, v1->pos));
+		v1->normal = vec3_add(v1->normal, n);
+		v2->normal = vec3_add(v2->normal, n);
+		v3->normal = vec3_add(v3->normal, n);
+	}
+
+	for (int i = 0; i < mesh->num_verts; i++) {
+		mesh->verts[i].normal = vec3_unit(mesh->verts[i].normal);
+// 		vec3 n = mesh->verts[i].normal;
+// 		printf("%f, %f, %f\n", n.x, n.y, n.z);
+	}
+
 }
 
 #ifdef CGLTF_IMPLEMENTATION
@@ -1572,6 +1623,8 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 			.num_indices = num_indices,
 		};
 
+		gen_normals(&model->meshes[i]);
+
 	}
 
 }
@@ -1608,10 +1661,12 @@ static d_model d_model_empty() {
 		.num_nodes = 0,
 		.images = NULL,
 		.num_images = 0,
+		.bbox = boxf(vec3f(0, 0, 0), vec3f(0, 0, 0)),
 	};
 }
 
-d_model d_parse_model(const unsigned char *bytes, int size) {
+// TODO: generate bbox
+d_model d_parse_model(const uint8_t *bytes, int size) {
 
 	cgltf_options options = {0};
 	cgltf_data *doc = NULL;
@@ -1632,7 +1687,7 @@ d_model d_parse_model(const unsigned char *bytes, int size) {
 	for (int i = 0; i < num_textures; i++) {
 		cgltf_image *img = doc->textures[i].image;
 		cgltf_buffer_view *view = img->buffer_view;
-		unsigned char *data = view->buffer->data;
+		uint8_t *data = view->buffer->data;
 		model.images[i] = d_parse_img(data + view->offset, view->size);
 	}
 
