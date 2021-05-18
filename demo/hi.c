@@ -21,7 +21,7 @@ void frame() {
 		d_app_quit();
 	}
 
-	d_draw_text("hi", vec2f(0, 0), colori(255, 255, 255, 255));
+	d_blit_text("hi", vec2f(0, 0), colori(255, 255, 255, 255));
 	d_gfx_present();
 
 }

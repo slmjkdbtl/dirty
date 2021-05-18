@@ -151,6 +151,7 @@ void d_gfx_put(int x, int y, int z, color c);
 color d_gfx_seek(int x, int y);
 void d_blit_img(d_img *img, vec2 pos);
 void d_blit_text(const char *text, vec2 pos, color c);
+void d_blit_bg();
 void d_blit_rect(vec2 p1, vec2 p2, color c);
 void d_blit_circle(vec2 center, float r, color c);
 void d_blit_line(vec2 p1, vec2 p2, color c);
@@ -913,7 +914,7 @@ d_img d_load_img(const char *path) {
 #endif // #ifdef D_FS_H
 
 void d_img_set(d_img *img, int x, int y, color c) {
-	img->pixels[(int)(y * img->width + x)] = c;
+	img->pixels[y * img->width + x] = c;
 }
 
 color d_img_get(const d_img *img, int x, int y) {
@@ -1109,6 +1110,21 @@ void d_blit_img(d_img *img, vec2 pos) {
 	for (int x = 0; x < img->width; x++) {
 		for (int y = 0; y < img->height; y++) {
 			d_gfx_put(x + pos.x, y + pos.y, 0, img->pixels[y * img->width + x]);
+		}
+	}
+	d_gfx_set_zbuf_test(zbuf_test);
+}
+
+void d_blit_bg() {
+	bool zbuf_test = d_gfx.zbuf_test;
+	d_gfx_set_zbuf_test(false);
+	color c1 = colori(128, 128, 128, 255);
+	color c2 = colori(191, 191, 191, 255);
+	int s = 32;
+	for (int x = 0; x < d_gfx_width(); x++) {
+		for (int y = 0; y < d_gfx_height(); y++) {
+			color c = (x / s % 2 + y / s % 2) == 1 ? c1 : c2;
+			d_gfx_put(x, y, 0, c);
 		}
 	}
 	d_gfx_set_zbuf_test(zbuf_test);
@@ -1528,8 +1544,6 @@ static void gen_normals(d_mesh *mesh) {
 
 	for (int i = 0; i < mesh->num_verts; i++) {
 		mesh->verts[i].normal = vec3_unit(mesh->verts[i].normal);
-// 		vec3 n = mesh->verts[i].normal;
-// 		printf("%f, %f, %f\n", n.x, n.y, n.z);
 	}
 
 }
