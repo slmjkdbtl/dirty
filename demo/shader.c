@@ -39,7 +39,7 @@ void frame() {
 		}
 	}
 
-	d_draw_img(&img, vec2f(0, 0));
+	d_blit_img(&img, vec2f(0, 0));
 	d_gfx_present();
 
 }

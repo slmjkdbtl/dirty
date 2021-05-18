@@ -146,16 +146,19 @@ void d_free_font(d_font *font);
 void d_gfx_clear();
 void d_gfx_set_blend(d_blend b);
 void d_gfx_set_wrap(d_wrap w);
-void d_gfx_put(int x, int y, color c);
+void d_gfx_put(int x, int y, int z, color c);
 color d_gfx_seek(int x, int y);
-void d_draw_img(d_img *img, vec2 pos);
-void d_draw_text(const char *text, vec2 pos, color c);
-void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
+void d_blit_img(d_img *img, vec2 pos);
+void d_blit_text(const char *text, vec2 pos, color c);
+void d_blit_rect(vec2 p1, vec2 p2, color c);
+void d_blit_circle(vec2 center, float r, color c);
+void d_blit_line(vec2 p1, vec2 p2, color c);
 void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex);
 void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img *tex);
+void d_draw_img(d_img *img, vec2 pos);
+void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
-void d_draw_circle(vec2 center, float r, color c);
-void d_draw_line(vec2 p1, vec2 p2, color c);
+void d_draw_line(vec2 p1, vec2 p2, float w, color c);
 void d_draw_model(d_model *model);
 void d_gfx_t_push();
 void d_gfx_t_pop();
@@ -173,6 +176,7 @@ void d_gfx_drawon(d_img *img);
 d_img *d_gfx_canvas();
 void d_gfx_set_zbuf_test(bool b);
 void d_gfx_set_bbuf_write(bool b);
+bool d_gfx_bbuf_get(int x, int y);
 
 #endif // #ifndef D_GFX_H
 
@@ -1022,13 +1026,29 @@ void d_gfx_set_bbuf_write(bool b) {
 	d_gfx.bbuf_write = b;
 }
 
-static void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
+bool d_gfx_bbuf_get(int x, int y) {
+	return d_bbuf_get(&d_gfx.bbuf, x, y);
+}
+
+void d_gfx_put(int x, int y, int z, color c) {
 	d_img *img = d_gfx.cur_canvas;
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
+	if (d_gfx.zbuf_test) {
+		if (d_ibuf_get(&d_gfx.zbuf, x, y) <= z) {
+			d_ibuf_set(&d_gfx.zbuf, x, y, z);
+		} else {
+			return;
+		}
+	}
+	if (d_gfx.bbuf_write) {
+		if (c.a != 0) {
+			d_bbuf_set(&d_gfx.bbuf, x, y, true);
+		}
+	}
 	int i = y * img->width + x;
-	switch (blend) {
+	switch (d_gfx.blend) {
 		case D_BLEND_ALPHA: {
 			if (c.a == 255) {
 				img->pixels[i] = c;
@@ -1058,18 +1078,11 @@ static void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
 			}
 			break;
 	}
-	if (d_gfx.bbuf_write) {
-		d_bbuf_set(&d_gfx.bbuf, x, y, true);
-	}
 }
 
-void d_gfx_put(int x, int y, color c) {
-	d_gfx_put_ex(x, y, c, d_gfx.blend);
-}
-
-color d_gfx_seek_ex(int x, int y, d_wrap wrap) {
+color d_gfx_seek(int x, int y) {
 	d_img *img = d_gfx.cur_canvas;
-	switch (wrap) {
+	switch (d_gfx.wrap) {
 		case D_WRAP_BORDER:
 			if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 				return colori(0, 0, 0, 0);
@@ -1089,76 +1102,101 @@ color d_gfx_seek_ex(int x, int y, d_wrap wrap) {
 	}
 }
 
-color d_gfx_seek(int x, int y) {
-	return d_gfx_seek_ex(x, y, d_gfx.wrap);
+void d_blit_img(d_img *img, vec2 pos) {
+	for (int x = 0; x < img->width; x++) {
+		for (int y = 0; y < img->height; y++) {
+			d_gfx_put(x + pos.x, y + pos.y, 0, img->pixels[y * img->width + x]);
+		}
+	}
 }
 
-void d_draw_img(d_img *img, vec2 pos) {
-	d_draw_prim_quad(
-		(d_vertex) {
-			.pos = vec3f(pos.x, pos.y, 0),
-			.color = colorx(0xffffffff),
-			.uv = vec2f(0, 0),
-		},
-		(d_vertex) {
-			.pos = vec3f(pos.x + img->width, pos.y, 0),
-			.color = colorx(0xffffffff),
-			.uv = vec2f(1, 0),
-		},
-		(d_vertex) {
-			.pos = vec3f(pos.x + img->width, pos.y + img->height, 0),
-			.color = colorx(0xffffffff),
-			.uv = vec2f(1, 1),
-		},
-		(d_vertex) {
-			.pos = vec3f(pos.x, pos.y + img->height, 0),
-			.color = colorx(0xffffffff),
-			.uv = vec2f(0, 1),
-		},
-		img
-	);
-// 	for (int x = 0; x < img->width; x++) {
-// 		for (int y = 0; y < img->height; y++) {
-// 			d_gfx_put(x + pos.x, y + pos.y, img->pixels[y * img->width + x]);
-// 		}
-// 	}
+void d_blit_rect(vec2 p1, vec2 p2, color c) {
+	int x1 = p1.x < p2.x ? p1.x : p2.x;
+	int x2 = p1.x > p2.x ? p1.x : p2.x;
+	int y1 = p1.y < p2.y ? p1.y : p2.y;
+	int y2 = p1.y > p2.y ? p1.y : p2.y;
+	for (int x = x1; x < x2; x++) {
+		for (int y = y1; y < y2; y++) {
+			d_gfx_put(x, y, 0, c);
+		}
+	}
 }
 
-void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
+void d_blit_circle(vec2 center, float r, color c) {
+	for (int i = center.x - r; i <= center.x + r; i++) {
+		for (int j = center.y - r; j <= center.y + r; j++) {
+			vec2 p = vec2f(i, j);
+			float d = vec2_dist(p, center);
+			if (d <= r) {
+				d_gfx_put(p.x, p.y, 0, c);
+			}
+		}
+	}
+}
+
+void d_blit_text(const char *text, vec2 pos, color c) {
+
+	int num_chars = strlen(text);
+	d_font *font = &d_gfx.def_font;
+	int rw = font->gw * font->cols;
+	int ox = 0;
+
+	for (int i = 0; i < num_chars; i++) {
+
+		int ii = font->map[(int)text[i]];
+		int xx = ii % font->cols * font->gw;
+		int yy = ii / font->cols * font->gh;
+
+		for (int x = 0; x < font->gw; x++) {
+			for (int y = 0; y < font->gh; y++) {
+				if (font->pixels[(yy + y) * rw + xx + x] == 1) {
+					d_gfx_put(pos.x + ox + x, pos.y + y, 0, c);
+				}
+			}
+		}
+
+		ox += font->gw;
+
+	}
+
+}
+
+void d_blit_line(vec2 p1, vec2 p2, color c) {
 
 	p1 = d_gfx_t_apply_vec2(p1);
 	p2 = d_gfx_t_apply_vec2(p2);
-	p3 = d_gfx_t_apply_vec2(p3);
-
-	if (p1.y > p2.y) {
-		vec2_swap(&p1, &p2);
-	}
-
-	if (p1.y > p3.y) {
-		vec2_swap(&p1, &p3);
-	}
-
-	if (p2.y > p3.y) {
-		vec2_swap(&p2, &p3);
-	}
-
 	int x1 = p1.x;
 	int y1 = p1.y;
 	int x2 = p2.x;
 	int y2 = p2.y;
-	int x3 = p3.x;
-	int y3 = p3.y;
+	bool steep = abs(y2 - y1) > abs(x2 - x1);
 
-	for (int y = y1; y < y3; y++) {
-		int x_start = y < y2
-			? mapi(y, y1, y2, x1, x2)
-			: mapi(y, y2, y3, x2, x3);
-		int x_end = mapi(y, y1, y3, x1, x3);
-		if (x_start > x_end) {
-			swapi(&x_start, &x_end);
+	if (steep) {
+		swapi(&x1, &y1);
+		swapi(&x2, &y2);
+	}
+
+	if (x1 > x2) {
+		swapi(&x1, &x2);
+		swapi(&y1, &y2);
+	}
+
+	int dx = x2 - x1;
+	int dy = abs(y2 - y1);
+	int err = dx / 2;
+	int step = y1 < y2 ? 1 : -1;
+	int y = y1;
+
+	for (int x = x1; x <= x2; x++) {
+		if (steep) {
+			d_gfx_put(y, x, 0, c);
+		} else {
+			d_gfx_put(x, y, 0, c);
 		}
-		for (int x = x_start; x < x_end; x++) {
-			d_gfx_put(x, y, c);
+		err -= dy;
+		if (err < 0) {
+			y += step;
+			err += dx;
 		}
 	}
 
@@ -1229,30 +1267,55 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 			: color_lerp(v2.color, v3.color, ty2);
 		color col_end = color_lerp(v1.color, v3.color, ty3);
 
-		int len = x_end - x_start;
+		bool same_color = color_eq(col_start, col_end);
+		int x_len = x_end - x_start;
 
 		for (int x = mini(x_start, x_end); x < maxi(x_start, x_end); x++) {
 			int z = mapi(x, x_start, x_end, z_start, z_end);
-			if (d_ibuf_get(&d_gfx.zbuf, x, y) <= z || !d_gfx.zbuf_test) {
-				d_ibuf_set(&d_gfx.zbuf, x, y, z);
-				float tx = (float)(x - x_start) / (float)len;
-				vec2 uv = vec2_lerp(uv_start, uv_end, tx);
-				color col = color_lerp(col_start, col_end, tx);
-				color c = tex ?
-					color_mix(d_img_get(tex, tex->width * uv.x, tex->height * uv.y), col)
-					: col;
-				d_gfx_put(x, y, c);
+			float t = (float)(x - x_start) / (float)x_len;
+			color c = same_color
+				? col_start
+				: color_lerp(col_start, col_end, t);
+			if (tex) {
+				vec2 uv = vec2_lerp(uv_start, uv_end, t);
+				c = color_mix(d_img_get(tex, tex->width * uv.x, tex->height * uv.y), c);
 			}
+			d_gfx_put(x, y, z, c);
 		}
 
 	}
 
 }
 
-// TODO
 void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img *tex) {
 	d_draw_prim_tri(v1, v2, v3, tex);
 	d_draw_prim_tri(v1, v3, v4, tex);
+}
+
+void d_draw_img(d_img *img, vec2 pos) {
+	d_draw_prim_quad(
+		(d_vertex) {
+			.pos = vec3f(pos.x, pos.y, 0),
+			.color = colorx(0xffffffff),
+			.uv = vec2f(0, 0),
+		},
+		(d_vertex) {
+			.pos = vec3f(pos.x + img->width, pos.y, 0),
+			.color = colorx(0xffffffff),
+			.uv = vec2f(1, 0),
+		},
+		(d_vertex) {
+			.pos = vec3f(pos.x + img->width, pos.y + img->height, 0),
+			.color = colorx(0xffffffff),
+			.uv = vec2f(1, 1),
+		},
+		(d_vertex) {
+			.pos = vec3f(pos.x, pos.y + img->height, 0),
+			.color = colorx(0xffffffff),
+			.uv = vec2f(0, 1),
+		},
+		img
+	);
 }
 
 void d_draw_rect(vec2 p1, vec2 p2, color c) {
@@ -1275,97 +1338,33 @@ void d_draw_rect(vec2 p1, vec2 p2, color c) {
 		},
 		NULL
 	);
-// 	int x1 = p1.x < p2.x ? p1.x : p2.x;
-// 	int x2 = p1.x > p2.x ? p1.x : p2.x;
-// 	int y1 = p1.y < p2.y ? p1.y : p2.y;
-// 	int y2 = p1.y > p2.y ? p1.y : p2.y;
-// 	for (int x = x1; x < x2; x++) {
-// 		for (int y = y1; y < y2; y++) {
-// 			d_gfx_put(x, y, c);
-// 		}
-// 	}
 }
 
-void d_draw_circle(vec2 center, float r, color c) {
-
-	for (int i = center.x - r; i <= center.x + r; i++) {
-		for (int j = center.y - r; j <= center.y + r; j++) {
-			vec2 p = vec2f(i, j);
-			float d = vec2_dist(p, center);
-			if (d <= r) {
-				d_gfx_put(p.x, p.y, c);
-			}
-		}
-	}
-
-}
-
-void d_draw_text(const char *text, vec2 pos, color  c) {
-
-	int num_chars = strlen(text);
-	d_font *font = &d_gfx.def_font;
-	int rw = font->gw * font->cols;
-	int ox = 0;
-
-	for (int i = 0; i < num_chars; i++) {
-
-		int ii = font->map[(int)text[i]];
-		int xx = ii % font->cols * font->gw;
-		int yy = ii / font->cols * font->gh;
-
-		for (int x = 0; x < font->gw; x++) {
-			for (int y = 0; y < font->gh; y++) {
-				if (font->pixels[(yy + y) * rw + xx + x] == 1) {
-					d_gfx_put(pos.x + ox + x, pos.y + y, c);
-				}
-			}
-		}
-
-		ox += font->gw;
-
-	}
-
-}
-
-void d_draw_line(vec2 p1, vec2 p2, color c) {
-
-	p1 = d_gfx_t_apply_vec2(p1);
-	p2 = d_gfx_t_apply_vec2(p2);
-	int x1 = p1.x;
-	int y1 = p1.y;
-	int x2 = p2.x;
-	int y2 = p2.y;
-	bool steep = abs(y2 - y1) > abs(x2 - x1);
-
-	if (steep) {
-		swapi(&x1, &y1);
-		swapi(&x2, &y2);
-	}
-
-	if (x1 > x2) {
-		swapi(&x1, &x2);
-		swapi(&y1, &y2);
-	}
-
-	int dx = x2 - x1;
-	int dy = abs(y2 - y1);
-	int err = dx / 2;
-	int step = y1 < y2 ? 1 : -1;
-	int y = y1;
-
-	for (int x = x1; x <= x2; x++) {
-		if (steep) {
-			d_gfx_put(y, x, c);
-		} else {
-			d_gfx_put(x, y, c);
-		}
-		err -= dy;
-		if (err < 0) {
-			y += step;
-			err += dx;
-		}
-	}
-
+void d_draw_line(vec2 p1, vec2 p2, float w, color c) {
+	vec2 d = vec2_scale(vec2_unit(vec2_normal(vec2_sub(p1, p2))), w);
+	vec2 pp1 = vec2_add(p1, d);
+	vec2 pp2 = vec2_sub(p1, d);
+	vec2 pp3 = vec2_sub(p2, d);
+	vec2 pp4 = vec2_add(p2, d);
+	d_draw_prim_quad(
+		(d_vertex) {
+			.pos = vec3f(pp1.x, pp1.y, 0),
+			.color = c,
+		},
+		(d_vertex) {
+			.pos = vec3f(pp2.x, pp2.y, 0),
+			.color = c,
+		},
+		(d_vertex) {
+			.pos = vec3f(pp3.x, pp3.y, 0),
+			.color = c,
+		},
+		(d_vertex) {
+			.pos = vec3f(pp4.x, pp4.y, 0),
+			.color = c,
+		},
+		NULL
+	);
 }
 
 void d_gfx_t_push() {

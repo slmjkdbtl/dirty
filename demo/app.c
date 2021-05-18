@@ -91,7 +91,7 @@ void frame() {
 		NULL
 	);
 
-// 	for (int i = 0; i < 6000; i++) {
+// 	for (int i = 0; i < 600; i++) {
 		d_draw_img(&img, pos);
 // 	}
 // 	d_draw_circle(mpos, 3, colorx(0xffffffff));
@@ -128,4 +128,3 @@ int main() {
 		.height = HEIGHT * SCALE,
 	});
 }
-
