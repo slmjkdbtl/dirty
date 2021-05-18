@@ -71,7 +71,25 @@ void frame() {
 
 	vec2 mpos = d_gfx_mouse_pos();
 
-	d_draw_test();
+	d_draw_prim_quad(
+		(d_vertex) {
+			.pos = vec3f(0, 0, 0),
+			.color = colorx(0xff0000ff),
+		},
+		(d_vertex) {
+			.pos = vec3f(d_gfx_width(), 0, 0),
+			.color = colorx(0x00ff00ff),
+		},
+		(d_vertex) {
+			.pos = vec3f(d_gfx_width(), d_gfx_height(), 0),
+			.color = colorx(0x0000ffff),
+		},
+		(d_vertex) {
+			.pos = vec3f(0, d_gfx_height(), 0),
+			.color = colorx(0xffff00ff),
+		},
+		NULL
+	);
 
 // 	for (int i = 0; i < 6000; i++) {
 		d_draw_img(&img, pos);

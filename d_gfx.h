@@ -171,10 +171,8 @@ vec2 d_gfx_t_apply_vec2(vec2 p);
 vec3 d_gfx_t_apply_vec3(vec3 p);
 void d_gfx_drawon(d_img *img);
 d_img *d_gfx_canvas();
-void d_gfx_zbuf_test_start();
-void d_gfx_zbuf_test_end();
-void d_gfx_bbuf_write_start();
-void d_gfx_bbuf_write_end();
+void d_gfx_set_zbuf_test(bool b);
+void d_gfx_set_bbuf_write(bool b);
 
 #endif // #ifndef D_GFX_H
 
@@ -1016,20 +1014,12 @@ void d_gfx_clear() {
 	d_bbuf_clear(&d_gfx.bbuf, false);
 }
 
-void d_gfx_zbuf_test_start() {
-	d_gfx.zbuf_test = true;
+void d_gfx_set_zbuf_test(bool b) {
+	d_gfx.zbuf_test = b;
 }
 
-void d_gfx_zbuf_test_end() {
-	d_gfx.zbuf_test = false;
-}
-
-void d_gfx_bbuf_write_start() {
-	d_gfx.bbuf_write = true;
-}
-
-void d_gfx_bbuf_write_end() {
-	d_gfx.bbuf_write = false;
+void d_gfx_set_bbuf_write(bool b) {
+	d_gfx.bbuf_write = b;
 }
 
 static void d_gfx_put_ex(int x, int y, color c, d_blend blend) {
@@ -1101,28 +1091,6 @@ color d_gfx_seek_ex(int x, int y, d_wrap wrap) {
 
 color d_gfx_seek(int x, int y) {
 	return d_gfx_seek_ex(x, y, d_gfx.wrap);
-}
-
-void d_draw_test() {
-	d_draw_prim_quad(
-		(d_vertex) {
-			.pos = vec3f(0, 0, 0),
-			.color = colorx(0xff0000ff),
-		},
-		(d_vertex) {
-			.pos = vec3f(d_gfx_width(), 0, 0),
-			.color = colorx(0x00ff00ff),
-		},
-		(d_vertex) {
-			.pos = vec3f(d_gfx_width(), d_gfx_height(), 0),
-			.color = colorx(0x0000ffff),
-		},
-		(d_vertex) {
-			.pos = vec3f(0, d_gfx_height(), 0),
-			.color = colorx(0xffff00ff),
-		},
-		NULL
-	);
 }
 
 void d_draw_img(d_img *img, vec2 pos) {
@@ -1264,12 +1232,12 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 		int len = x_end - x_start;
 
 		for (int x = mini(x_start, x_end); x < maxi(x_start, x_end); x++) {
-			float tx = (float)(x - x_start) / (float)len;
-			vec2 uv = vec2_lerp(uv_start, uv_end, tx);
-			color col = color_lerp(col_start, col_end, tx);
 			int z = mapi(x, x_start, x_end, z_start, z_end);
-			if (d_ibuf_get(&d_gfx.zbuf, x, y) <= z) {
+			if (d_ibuf_get(&d_gfx.zbuf, x, y) <= z || !d_gfx.zbuf_test) {
 				d_ibuf_set(&d_gfx.zbuf, x, y, z);
+				float tx = (float)(x - x_start) / (float)len;
+				vec2 uv = vec2_lerp(uv_start, uv_end, tx);
+				color col = color_lerp(col_start, col_end, tx);
 				color c = tex ?
 					color_mix(d_img_get(tex, tex->width * uv.x, tex->height * uv.y), col)
 					: col;
