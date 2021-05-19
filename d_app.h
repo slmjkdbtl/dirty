@@ -111,6 +111,12 @@ typedef enum {
 	_D_NUM_MOUSE,
 } d_mouse;
 
+typedef enum {
+	D_SCALEMODE_STRETCH,
+	D_SCALEMODE_LETTERBOX,
+	D_SCALEMODE_FIT,
+} d_scale_mode;
+
 typedef struct {
 	void (*init)();
 	void (*frame)();
@@ -337,6 +343,7 @@ typedef struct {
 	float fps_timer;
 	int fps;
 	bool quit;
+	d_scale_mode scale_mode;
 
 #if defined(D_COCOA)
 	NSWindow *window;
@@ -376,7 +383,6 @@ static void process_btn(d_btn_state *b) {
 }
 
 static void d_app_init() {
-	gettimeofday(&d_app.start_time, NULL);
 	if (d_app.desc.init) {
 		d_app.desc.init();
 	}
@@ -1605,6 +1611,8 @@ void d_app_run(d_app_desc desc) {
 	d_app.height = desc.height ? desc.height : 256;
 	d_app.width = d_app.width;
 	d_app.height = d_app.height;
+	d_app.scale_mode = D_SCALEMODE_STRETCH;
+	gettimeofday(&d_app.start_time, NULL);
 
 #if defined(D_COCOA)
 	d_cocoa_run(&desc);

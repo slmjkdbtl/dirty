@@ -120,7 +120,7 @@ ifeq ($(TARGET),web)
 		PORT=8000 fserv
 else ifeq ($(TARGET),iossim)
 	$(MAKE) bundle
-	xcrun simctl boot $(SIMULATOR) | true
+	xcrun simctl boot $(SIMULATOR)
 	xcrun simctl install $(SIMULATOR) $<.app
 	open -a Simulator --args -CurrentDeviceUDID $(SIMULATOR)
 	xcrun simctl launch --console $(SIMULATOR) xyz.space55.$(DEMO)

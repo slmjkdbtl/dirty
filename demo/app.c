@@ -73,7 +73,7 @@ void frame() {
 
 	d_blit_bg();
 
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 1; i++) {
 		d_gfx_t_push();
 		d_gfx_t_move3(vec3f(120, 140, mpos.y - 40));
 		d_gfx_t_rot_y(d_app_time());
@@ -85,8 +85,10 @@ void frame() {
 	d_gfx_t_push();
 	d_gfx_t_move3(vec3f(120, 200, 0));
 	d_gfx_t_rot_y(d_app_time());
+// 	d_gfx_t_rot_z(d_app_time());
 	d_gfx_t_scale3(vec3f(1, -1, 1));
 	d_draw_model(&duck);
+	d_draw_bbox(duck.bbox, colorx(0x0000ffff));
 	d_gfx_t_pop();
 
 	d_blit_img(&img, pos);
