@@ -176,7 +176,9 @@ void d_gfx_set_cull(bool b);
 void d_gfx_set_shader(d_gfx_shader func);
 void d_gfx_set_zbuf_test(bool b);
 void d_gfx_set_bbuf_write(bool b);
+void d_gfx_set_bbuf_test(bool b);
 bool d_gfx_bbuf_get(int x, int y);
+void d_gfx_bbuf_clear();
 
 #endif // #ifndef D_GFX_H
 
@@ -721,6 +723,7 @@ typedef struct {
 	d_bbuf bbuf;
 	bool zbuf_test;
 	bool bbuf_write;
+	bool bbuf_test;
 	bool cull;
 	d_font def_font;
 	d_font *cur_font;
@@ -741,6 +744,7 @@ void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.bbuf = d_make_bbuf(desc.width, desc.height);
 	d_gfx.zbuf_test = true;
 	d_gfx.bbuf_write = false;
+	d_gfx.bbuf_test = false;
 	d_gfx.cull = true;
 	d_gfx.def_font = d_parse_font(unscii_bytes);
 	d_gfx.cur_font = &d_gfx.def_font;
@@ -849,13 +853,13 @@ d_img d_img_empty() {
 	};
 }
 
-uint8_t png_sig[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
-uint8_t jpeg_sig[] = { 0xff, 0xd8, 0xff };
+static uint8_t png_magic[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
+static uint8_t jpeg_magic[] = { 0xff, 0xd8, 0xff };
 
 d_img d_parse_img(const uint8_t *bytes, size_t size) {
 	if (
-		memcmp(bytes, png_sig, sizeof(png_sig)) == 0
-		|| memcmp(bytes, jpeg_sig, sizeof(jpeg_sig)) == 0
+		memcmp(bytes, png_magic, sizeof(png_magic)) == 0
+		|| memcmp(bytes, jpeg_magic, sizeof(jpeg_magic)) == 0
 	) {
 #ifdef STB_IMAGE_IMPLEMENTATION
 		int w;
@@ -994,6 +998,9 @@ void d_free_font(d_font *f) {
 void d_gfx_clear() {
 	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
 	d_ibuf_clear(&d_gfx.zbuf, -INT_MAX);
+}
+
+void d_gfx_bbuf_clear() {
 	d_bbuf_clear(&d_gfx.bbuf, false);
 }
 
@@ -1007,6 +1014,10 @@ void d_gfx_set_zbuf_test(bool b) {
 
 void d_gfx_set_bbuf_write(bool b) {
 	d_gfx.bbuf_write = b;
+}
+
+void d_gfx_set_bbuf_test(bool b) {
+	d_gfx.bbuf_test = b;
 }
 
 bool d_gfx_bbuf_get(int x, int y) {
@@ -1028,6 +1039,11 @@ void d_gfx_put(int x, int y, int z, color c) {
 	if (d_gfx.bbuf_write) {
 		if (c.a != 0) {
 			d_bbuf_set(&d_gfx.bbuf, x, y, true);
+		}
+	}
+	if (d_gfx.bbuf_test) {
+		if (!d_bbuf_get(&d_gfx.bbuf, x, y)) {
+			return;
 		}
 	}
 	int i = y * img->width + x;
@@ -1801,10 +1817,10 @@ static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 
 #endif // #ifdef CGLTF_IMPLEMENTATION
 
-uint8_t glb_sig[] = { 0x67, 0x6c, 0x54, 0x46 };
+static uint8_t glb_magic[] = { 0x67, 0x6c, 0x54, 0x46 };
 
 d_model d_parse_model(const uint8_t *bytes, int size) {
-	if (memcmp(bytes, glb_sig, sizeof(glb_sig)) == 0) {
+	if (memcmp(bytes, glb_magic, sizeof(glb_magic)) == 0) {
 #ifdef CGLTF_IMPLEMENTATION
 		return d_parse_model_glb(bytes, size);
 #else

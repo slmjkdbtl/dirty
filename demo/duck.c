@@ -38,6 +38,10 @@ void frame() {
 		d_app_quit();
 	}
 
+	if (d_app_key_pressed(D_KEY_F)) {
+		d_app_set_fullscreen(!d_app_fullscreen());
+	}
+
 	d_gfx_clear();
 
 	d_blit_bg();

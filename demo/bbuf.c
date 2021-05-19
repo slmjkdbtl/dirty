@@ -2,6 +2,8 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#define CGLTF_IMPLEMENTATION
+#include <cgltf.h>
 
 #define D_IMPL
 #define D_CPU
@@ -30,8 +32,8 @@ static const char *d_fmt(const char *fmt, ...) {
 
 }
 
-d_img img;
-vec2 pos;
+d_model duck;
+d_model btfly;
 
 void init() {
 
@@ -43,7 +45,8 @@ void init() {
 
 	d_fs_init((d_fs_desc) {0});
 
-	img = d_load_img("res/wizard.png");
+	duck = d_load_model("res/duck.glb");
+	btfly = d_load_model("res/btfly.glb");
 
 }
 
@@ -57,19 +60,41 @@ void frame() {
 		d_app_set_fullscreen(!d_app_fullscreen());
 	}
 
-	if (d_app_mouse_pressed(D_MOUSE_LEFT)) {
-		pos = d_gfx_mouse_pos();
-	}
-
 	d_gfx_clear();
 
+	d_gfx_set_bbuf_write(true);
+
+	d_gfx_t_push();
+	d_gfx_t_move3(vec3f(60, 80, 0));
+	d_gfx_t_rot_y(d_app_time());
+	d_gfx_t_scale3(vec3f(600, -600, 600));
+	d_draw_model(&btfly);
+	d_gfx_t_pop();
+
+	d_gfx_t_push();
+	d_gfx_t_move3(vec3f(140, 240, 0));
+	d_gfx_t_rot_y(d_app_time());
+	d_gfx_t_scale3(vec3f(1, -1, 1));
+	d_draw_model(&duck);
+	d_gfx_t_pop();
+	d_gfx_set_bbuf_write(false);
+
 	vec2 mpos = d_gfx_mouse_pos();
+	float t = d_app_time() * 10;
 
-	d_blit_bg();
-
-	d_blit_img(&img, pos);
-	d_blit_circle(mpos, 3, colorx(0xffffffff));
-	d_blit_text("oh hi", pos, colorx(0xffffffff));
+	d_gfx_set_bbuf_test(true);
+	if (d_gfx_bbuf_get(mpos.x, mpos.y)) {
+		d_blit_rect(
+			vec2f(0, 0),
+			vec2f(d_gfx_width(),
+			d_gfx_height()),
+			colori((sin(t) + 1) / 2 * 255, (cos(t) + 1) / 2 * 255, 255, 255)
+		);
+	} else {
+		d_blit_bg();
+	}
+	d_gfx_set_bbuf_test(false);
+	d_gfx_bbuf_clear();
 
 	d_gfx_present();
 
@@ -79,7 +104,7 @@ void frame() {
 
 int main() {
 	d_app_run((d_app_desc) {
-		.title = "sprite",
+		.title = "3d",
 		.init = init,
 		.frame = frame,
 		.width = WIDTH * SCALE,
