@@ -1194,8 +1194,6 @@ void d_blit_line(vec2 p1, vec2 p2, color c) {
 	bool zbuf_test = d_gfx.zbuf_test;
 	d_gfx_set_zbuf_test(false);
 
-	p1 = d_gfx_t_apply_vec2(p1);
-	p2 = d_gfx_t_apply_vec2(p2);
 	int x1 = p1.x;
 	int y1 = p1.y;
 	int x2 = p2.x;
@@ -1666,7 +1664,7 @@ static void d_model_gen_bbox(d_model *model) {
 	for (int i = 0; i < model->num_nodes; i++) {
 
 	}
-// 	bbox = boxf(vec3f(-100, -100, -100), vec3f(100, 100, 100));
+	bbox = boxf(vec3f(-0.05, -0.05, -0.05), vec3f(0.05, 0.05, 0.05));
 	model->bbox = bbox;
 }
 
