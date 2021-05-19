@@ -32,10 +32,8 @@ static const char *d_fmt(const char *fmt, ...) {
 
 }
 
-d_img img;
 d_model duck;
 d_model btfly;
-vec2 pos;
 
 void init() {
 
@@ -47,7 +45,6 @@ void init() {
 
 	d_fs_init((d_fs_desc) {0});
 
-	img = d_load_img("res/wizard.png");
 	duck = d_load_model("res/duck.glb");
 	btfly = d_load_model("res/btfly.glb");
 
@@ -63,19 +60,13 @@ void frame() {
 		d_app_set_fullscreen(!d_app_fullscreen());
 	}
 
-	if (d_app_mouse_pressed(D_MOUSE_LEFT)) {
-		pos = d_gfx_mouse_pos();
-	}
-
 	d_gfx_clear();
-
-	vec2 mpos = d_gfx_mouse_pos();
 
 	d_blit_bg();
 
 	for (int i = 0; i < 1; i++) {
 		d_gfx_t_push();
-		d_gfx_t_move3(vec3f(120, 140, mpos.y - 40));
+		d_gfx_t_move3(vec3f(60, 80, 0));
 		d_gfx_t_rot_y(d_app_time());
 		d_gfx_t_scale3(vec3f(600, -600, 600));
 		d_draw_model(&btfly);
@@ -83,17 +74,13 @@ void frame() {
 	}
 
 	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(120, 200, 0));
+	d_gfx_t_move3(vec3f(140, 240, 0));
 	d_gfx_t_rot_y(d_app_time());
 // 	d_gfx_t_rot_z(d_app_time());
 	d_gfx_t_scale3(vec3f(1, -1, 1));
 	d_draw_model(&duck);
 	d_draw_bbox(duck.bbox, colorx(0x0000ffff));
 	d_gfx_t_pop();
-
-	d_blit_img(&img, pos);
-	d_blit_circle(mpos, 3, colorx(0xffffffff));
-	d_blit_text("oh hi", pos, colorx(0xffffffff));
 
 	d_gfx_present();
 
@@ -103,7 +90,7 @@ void frame() {
 
 int main() {
 	d_app_run((d_app_desc) {
-		.title = "app",
+		.title = "3d",
 		.init = init,
 		.frame = frame,
 		.width = WIDTH * SCALE,

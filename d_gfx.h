@@ -1,7 +1,5 @@
 // wengwengweng
 
-// TODO: naming, prefixes
-
 #ifndef D_GFX_H
 #define D_GFX_H
 
@@ -58,13 +56,6 @@ typedef struct {
 } d_bbuf;
 
 typedef struct {
-	char name[16];
-	int from;
-	int to;
-	bool loop;
-} d_anim;
-
-typedef struct {
 	int gw;
 	int gh;
 	int rows;
@@ -107,7 +98,10 @@ typedef struct {
 	d_img *images;
 	int num_images;
 	box bbox;
+	vec3 center;
 } d_model;
+
+typedef color(*d_gfx_shader)(color);
 
 void d_gfx_init(d_gfx_desc);
 #ifdef D_APP_H
@@ -179,6 +173,7 @@ vec3 d_gfx_t_apply_vec3(vec3 p);
 void d_gfx_drawon(d_img *img);
 d_img *d_gfx_canvas();
 void d_gfx_set_cull(bool b);
+void d_gfx_set_shader(d_gfx_shader func);
 void d_gfx_set_zbuf_test(bool b);
 void d_gfx_set_bbuf_write(bool b);
 bool d_gfx_bbuf_get(int x, int y);
@@ -838,20 +833,6 @@ void d_bbuf_clear(d_bbuf *bbuf, bool b) {
 	}
 }
 
-#define D_IMG_HEADER_SIZE \
-	sizeof(uint16_t) \
-	+ sizeof(uint16_t) \
-	+ sizeof(uint8_t) \
-	+ sizeof(uint8_t) \
-
-typedef struct {
-	uint16_t width;
-	uint16_t height;
-	uint8_t num_frames;
-	uint8_t num_anims;
-	uint8_t *pixels;
-} d_img_bin;
-
 d_img d_make_img(int w, int h) {
 	return (d_img) {
 		.width = w,
@@ -890,17 +871,8 @@ d_img d_parse_img(const uint8_t *bytes, size_t size) {
 		return d_img_empty();
 #endif // #ifdef STB_IMAGE_IMPLEMENTATION
 	} else {
-		// TODO: check for dspr magic number
-		d_img_bin *data = (d_img_bin*)bytes;
-		int pix_size = sizeof(uint8_t) * data->width * data->height * 4;
-		uint8_t *pixels = malloc(pix_size);
-		memcpy(pixels, (uint8_t*)(bytes + D_IMG_HEADER_SIZE), pix_size);
-
-		return (d_img) {
-			.width = data->width,
-			.height = data->height,
-			.pixels = (color*)pixels,
-		};
+		fprintf(stderr, "unsupported image format\n");
+		return d_img_empty();
 	}
 }
 
@@ -934,18 +906,18 @@ void d_img_fill(d_img *img, color c) {
 
 void d_img_save(const d_img *img, const char *path) {
 
-	d_img_bin data = (d_img_bin) {
-		.width = img->width,
-		.height = img->height,
-		.num_frames = 1,
-		.num_anims = 0,
-		.pixels = (uint8_t*)img->pixels,
-	};
-
-	FILE *f = fopen(path, "wb");
-	fwrite(&data, D_IMG_HEADER_SIZE, 1, f);
-	fwrite(data.pixels, sizeof(uint8_t), img->width * img->height * 4, f);
-	fclose(f);
+#ifdef STB_IMAGE_WRITE_IMPLEMENTATION
+	stbi_write_png(
+		path,
+		img->width,
+		img->height,
+		4,
+		(uint8_t*)img->pixels,
+		img->width * sizeof(color)
+	);
+#else
+	fprintf(stderr, "image save only available with 'stb_image_write.h'\n");
+#endif // #ifdef STB_IMAGE_WRITE_IMPLEMENTATION
 
 }
 
@@ -1635,6 +1607,7 @@ static d_model d_model_empty() {
 		.images = NULL,
 		.num_images = 0,
 		.bbox = boxf(vec3f(0, 0, 0), vec3f(0, 0, 0)),
+		.center = vec3f(0, 0, 0),
 	};
 }
 
@@ -1671,6 +1644,7 @@ void d_draw_bbox(box bbox, color c) {
 	d_draw_line3(p4, p8, c);
 }
 
+// TODO
 static void d_model_gen_bbox(d_model *model) {
 	box bbox = boxf(vec3f(0, 0, 0), vec3f(0, 0, 0));
 	for (int i = 0; i < model->num_nodes; i++) {
@@ -1755,6 +1729,7 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 
 		}
 
+		// TODO: sometimes no indices
 		int num_indices = prim->indices->count;
 		uint32_t *indices = calloc(num_indices, sizeof(uint32_t));
 
@@ -1776,7 +1751,7 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 }
 
 // TODO: generate bbox
-d_model d_parse_model(const uint8_t *bytes, int size) {
+static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 
 	cgltf_options options = {0};
 	cgltf_data *doc = NULL;
@@ -1790,6 +1765,14 @@ d_model d_parse_model(const uint8_t *bytes, int size) {
 		return model;
 	}
 
+	int num_nodes = doc->scene->nodes_count;
+	model.num_nodes = num_nodes;
+	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
+
+	for (int i = 0; i < num_nodes; i++) {
+		d_parse_model_node(doc->scene->nodes[i], &model.nodes[i]);
+	}
+
 	int num_textures = doc->textures_count;
 	model.num_images = num_textures;
 	model.images = malloc(sizeof(d_img) * num_textures);
@@ -1801,12 +1784,11 @@ d_model d_parse_model(const uint8_t *bytes, int size) {
 		model.images[i] = d_parse_img(data + view->offset, view->size);
 	}
 
-	int num_nodes = doc->scene->nodes_count;
-	model.num_nodes = num_nodes;
-	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
+	int num_anims = doc->animations_count;
 
-	for (int i = 0; i < num_nodes; i++) {
-		d_parse_model_node(doc->scene->nodes[i], &model.nodes[i]);
+	for (int i = 0; i < num_anims; i++) {
+// 		cgltf_animation *anim = &doc->animations[i];
+		// TODO
 	}
 
 	cgltf_free(doc);
@@ -1818,6 +1800,22 @@ d_model d_parse_model(const uint8_t *bytes, int size) {
 }
 
 #endif // #ifdef CGLTF_IMPLEMENTATION
+
+uint8_t glb_sig[] = { 0x67, 0x6c, 0x54, 0x46 };
+
+d_model d_parse_model(const uint8_t *bytes, int size) {
+	if (memcmp(bytes, glb_sig, sizeof(glb_sig)) == 0) {
+#ifdef CGLTF_IMPLEMENTATION
+		return d_parse_model_glb(bytes, size);
+#else
+		fprintf(stderr, "glb support requires 'cgltf.h'\n");
+		return d_model_empty();
+#endif
+	} else {
+		fprintf(stderr, "unsupported model format\n");
+		return d_model_empty();
+	}
+}
 
 #ifdef D_FS_H
 d_model d_load_model(const char *path) {
