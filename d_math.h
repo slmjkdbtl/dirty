@@ -532,7 +532,7 @@ color color_darken(color c, int d) {
 		.r = clampi(c.r - d, 0, 255),
 		.g = clampi(c.g - d, 0, 255),
 		.b = clampi(c.b - d, 0, 255),
-		.a = clampi(c.a - d, 0, 255),
+		.a = c.a,
 	};
 }
 

@@ -1271,6 +1271,10 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 	int y3 = p3.y;
 	int z3 = p3.z;
 
+// 	vec3 n1 = vec3_unit(d_gfx_t_apply_vec3(v1.normal));
+// 	vec3 n2 = vec3_unit(d_gfx_t_apply_vec3(v2.normal));
+// 	vec3 n3 = vec3_unit(d_gfx_t_apply_vec3(v3.normal));
+
 	for (int y = y1; y < y3; y++) {
 
 		bool prebend = y < y2;
@@ -1300,9 +1304,9 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 		vec2 uv_end = vec2_lerp(v1.uv, v3.uv, ty3);
 
 // 		vec3 normal_start = prebend
-// 			? vec3_lerp(v1.normal, v2.normal, ty1)
-// 			: vec3_lerp(v2.normal, v3.normal, ty2);
-// 		vec3 normal_end = vec3_lerp(v1.normal, v3.normal, ty3);
+// 			? vec3_lerp(n1, n2, ty1)
+// 			: vec3_lerp(n2, n3, ty2);
+// 		vec3 normal_end = vec3_lerp(n1, n3, ty3);
 
 		bool same_color = color_eq(col_start, col_end);
 		int x_len = x_end - x_start;
@@ -1314,8 +1318,8 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 				? col_start
 				: color_lerp(col_start, col_end, t);
 // 			vec3 normal = vec3_lerp(normal_start, normal_end, t);
-// 			int l = (normal.x + normal.y + normal.z) / 3 * 255;
-// 			c = color_mix(c, colori(l, l, l, c.a));
+// 			int l = mapf(normal.x + normal.y + normal.z, -3, 3, -255, 255);
+// 			c = color_lighten(c, l);
 			if (tex) {
 				vec2 uv = vec2_lerp(uv_start, uv_end, t);
 				c = color_mix(d_img_get(tex, tex->width * uv.x, tex->height * uv.y), c);
