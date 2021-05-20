@@ -22,8 +22,8 @@ void frame() {
 	}
 
 	d_gfx_clear();
-	d_draw_line(vec2f(0, 0), d_gfx_mouse_pos(), colori(0, 0, 255, 255));
-	d_draw_line(vec2f(100, 100), d_gfx_mouse_pos(), colori(0, 0, 255, 255));
+	d_draw_line2(vec2f(0, 0), d_gfx_mouse_pos(), 3, colori(0, 0, 255, 255));
+	d_draw_line2(vec2f(100, 100), d_gfx_mouse_pos(), 3, colori(0, 0, 255, 255));
 	d_gfx_present();
 
 }

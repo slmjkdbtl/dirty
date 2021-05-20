@@ -135,8 +135,9 @@ void d_free_font(d_font *font);
 void d_gfx_clear();
 void d_gfx_set_blend(d_blend b);
 void d_gfx_set_wrap(d_wrap w);
-void d_gfx_put(int x, int y, int z, color c);
-color d_gfx_seek(int x, int y);
+void d_gfx_draw_pixel(int x, int y, int z, color c);
+void d_gfx_blit_pixel(int x, int y, color c);
+color d_gfx_get(int x, int y);
 void d_blit_img(d_img *img, vec2 pos);
 void d_blit_text(const char *text, vec2 pos, color c);
 void d_blit_bg();
@@ -1018,7 +1019,7 @@ bool d_gfx_bbuf_get(int x, int y) {
 	return d_bbuf_get(&d_gfx.bbuf, x, y);
 }
 
-void d_gfx_put(int x, int y, int z, color c) {
+void d_gfx_draw_pixel(int x, int y, int z, color c) {
 	d_img *img = d_gfx.cur_canvas;
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
@@ -1073,7 +1074,15 @@ void d_gfx_put(int x, int y, int z, color c) {
 	}
 }
 
-color d_gfx_seek(int x, int y) {
+void d_gfx_blit_pixel(int x, int y, color c) {
+	d_img *img = d_gfx.cur_canvas;
+	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
+		return;
+	}
+	img->pixels[y * img->width + x] = c;
+}
+
+color d_gfx_get(int x, int y) {
 	d_img *img = d_gfx.cur_canvas;
 	switch (d_gfx.wrap) {
 		case D_WRAP_BORDER:
@@ -1096,65 +1105,50 @@ color d_gfx_seek(int x, int y) {
 }
 
 void d_blit_img(d_img *img, vec2 pos) {
-	bool zbuf_test = d_gfx.zbuf_test;
-	d_gfx_set_zbuf_test(false);
 	for (int x = 0; x < img->width; x++) {
 		for (int y = 0; y < img->height; y++) {
-			d_gfx_put(x + pos.x, y + pos.y, 0, img->pixels[y * img->width + x]);
+			d_gfx_blit_pixel(x + pos.x, y + pos.y, img->pixels[y * img->width + x]);
 		}
 	}
-	d_gfx_set_zbuf_test(zbuf_test);
 }
 
 void d_blit_bg() {
-	bool zbuf_test = d_gfx.zbuf_test;
-	d_gfx_set_zbuf_test(false);
 	color c1 = colori(128, 128, 128, 255);
 	color c2 = colori(191, 191, 191, 255);
 	int s = 32;
 	for (int x = 0; x < d_gfx_width(); x++) {
 		for (int y = 0; y < d_gfx_height(); y++) {
 			color c = (x / s % 2 + y / s % 2) == 1 ? c1 : c2;
-			d_gfx_put(x, y, 0, c);
+			d_gfx_blit_pixel(x, y, c);
 		}
 	}
-	d_gfx_set_zbuf_test(zbuf_test);
 }
 
 void d_blit_rect(vec2 p1, vec2 p2, color c) {
-	bool zbuf_test = d_gfx.zbuf_test;
-	d_gfx_set_zbuf_test(false);
 	int x1 = p1.x < p2.x ? p1.x : p2.x;
 	int x2 = p1.x > p2.x ? p1.x : p2.x;
 	int y1 = p1.y < p2.y ? p1.y : p2.y;
 	int y2 = p1.y > p2.y ? p1.y : p2.y;
 	for (int x = x1; x < x2; x++) {
 		for (int y = y1; y < y2; y++) {
-			d_gfx_put(x, y, 0, c);
+			d_gfx_blit_pixel(x, y, c);
 		}
 	}
-	d_gfx_set_zbuf_test(zbuf_test);
 }
 
 void d_blit_circle(vec2 center, float r, color c) {
-	bool zbuf_test = d_gfx.zbuf_test;
-	d_gfx_set_zbuf_test(false);
 	for (int i = center.x - r; i <= center.x + r; i++) {
 		for (int j = center.y - r; j <= center.y + r; j++) {
 			vec2 p = vec2f(i, j);
 			float d = vec2_dist(p, center);
 			if (d <= r) {
-				d_gfx_put(p.x, p.y, 0, c);
+				d_gfx_blit_pixel(p.x, p.y, c);
 			}
 		}
 	}
-	d_gfx_set_zbuf_test(zbuf_test);
 }
 
 void d_blit_text(const char *text, vec2 pos, color c) {
-
-	bool zbuf_test = d_gfx.zbuf_test;
-	d_gfx_set_zbuf_test(false);
 
 	int num_chars = strlen(text);
 	d_font *font = &d_gfx.def_font;
@@ -1170,7 +1164,7 @@ void d_blit_text(const char *text, vec2 pos, color c) {
 		for (int x = 0; x < font->gw; x++) {
 			for (int y = 0; y < font->gh; y++) {
 				if (font->pixels[(yy + y) * rw + xx + x] == 1) {
-					d_gfx_put(pos.x + ox + x, pos.y + y, 0, c);
+					d_gfx_blit_pixel(pos.x + ox + x, pos.y + y, c);
 				}
 			}
 		}
@@ -1179,14 +1173,9 @@ void d_blit_text(const char *text, vec2 pos, color c) {
 
 	}
 
-	d_gfx_set_zbuf_test(zbuf_test);
-
 }
 
 void d_blit_line(vec2 p1, vec2 p2, color c) {
-
-	bool zbuf_test = d_gfx.zbuf_test;
-	d_gfx_set_zbuf_test(false);
 
 	int x1 = p1.x;
 	int y1 = p1.y;
@@ -1212,9 +1201,9 @@ void d_blit_line(vec2 p1, vec2 p2, color c) {
 
 	for (int x = x1; x <= x2; x++) {
 		if (steep) {
-			d_gfx_put(y, x, 0, c);
+			d_gfx_blit_pixel(y, x, c);
 		} else {
-			d_gfx_put(x, y, 0, c);
+			d_gfx_blit_pixel(x, y, c);
 		}
 		err -= dy;
 		if (err < 0) {
@@ -1222,8 +1211,6 @@ void d_blit_line(vec2 p1, vec2 p2, color c) {
 			err += dx;
 		}
 	}
-
-	d_gfx_set_zbuf_test(zbuf_test);
 
 }
 
@@ -1324,7 +1311,7 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 				vec2 uv = vec2_lerp(uv_start, uv_end, t);
 				c = color_mix(d_img_get(tex, tex->width * uv.x, tex->height * uv.y), c);
 			}
-			d_gfx_put(x, y, z, c);
+			d_gfx_draw_pixel(x, y, z, c);
 		}
 
 	}
@@ -1775,7 +1762,6 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 
 }
 
-// TODO: generate bbox
 static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 
 	cgltf_options options = {0};
