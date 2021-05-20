@@ -70,17 +70,20 @@ void frame() {
 		d_gfx_t_rot_y(d_app_time());
 		d_gfx_t_rot_z(d_app_time());
 		d_gfx_t_scale3(vec3f(600, -600, 600));
+		d_gfx_t_move3(vec3_scale(btfly.center, -1));
 		d_draw_model(&btfly);
 		d_draw_bbox(btfly.bbox, colorx(0x0000ffff));
 		d_gfx_t_pop();
 	}
 
 	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(140, 240, 0));
+	d_gfx_t_move3(vec3f(140, 160, 0));
 	d_gfx_t_rot_y(d_app_time());
 // 	d_gfx_t_rot_z(d_app_time());
 	d_gfx_t_scale3(vec3f(1, -1, 1));
+	d_gfx_t_move3(vec3_scale(duck.center, -1));
 	d_draw_model(&duck);
+// 	d_draw_bbox(duck.bbox, colorx(0x0000ffff));
 	d_gfx_t_pop();
 
 	d_gfx_present();

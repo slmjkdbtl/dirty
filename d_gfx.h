@@ -66,12 +66,6 @@ typedef struct {
 
 typedef struct {
 	vec3 pos;
-	vec3 scale;
-	quat rot;
-} d_psr;
-
-typedef struct {
-	vec3 pos;
 	vec2 uv;
 	vec3 normal;
 	color color;
@@ -85,7 +79,7 @@ typedef struct {
 } d_mesh;
 
 typedef struct d_model_node {
-	d_psr psr;
+	mat4 t;
 	struct d_model_node *children;
 	int num_children;
 	d_mesh *meshes;
@@ -172,8 +166,8 @@ vec2 d_gfx_t_apply_vec2(vec2 p);
 vec3 d_gfx_t_apply_vec3(vec3 p);
 void d_gfx_drawon(d_img *img);
 d_img *d_gfx_canvas();
-void d_gfx_set_cull(bool b);
 void d_gfx_set_shader(d_gfx_shader func);
+void d_gfx_set_backface_cull(bool b);
 void d_gfx_set_zbuf_test(bool b);
 void d_gfx_set_bbuf_write(bool b);
 void d_gfx_set_bbuf_test(bool b);
@@ -724,7 +718,7 @@ typedef struct {
 	bool zbuf_test;
 	bool bbuf_write;
 	bool bbuf_test;
-	bool cull;
+	bool backface_cull;
 	d_font def_font;
 	d_font *cur_font;
 	color clear_color;
@@ -745,7 +739,7 @@ void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.zbuf_test = true;
 	d_gfx.bbuf_write = false;
 	d_gfx.bbuf_test = false;
-	d_gfx.cull = true;
+	d_gfx.backface_cull = true;
 	d_gfx.def_font = d_parse_font(unscii_bytes);
 	d_gfx.cur_font = &d_gfx.def_font;
 	d_gfx.blend = D_BLEND_ALPHA;
@@ -1004,8 +998,8 @@ void d_gfx_bbuf_clear() {
 	d_bbuf_clear(&d_gfx.bbuf, false);
 }
 
-void d_gfx_set_cull(bool b) {
-	d_gfx.cull = b;
+void d_gfx_set_backface_cull(bool b) {
+	d_gfx.backface_cull = b;
 }
 
 void d_gfx_set_zbuf_test(bool b) {
@@ -1245,7 +1239,7 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 	vec3 p2 = d_gfx_t_apply_vec3(v2.pos);
 	vec3 p3 = d_gfx_t_apply_vec3(v3.pos);
 
-	if (d_gfx.cull) {
+	if (d_gfx.backface_cull) {
 		vec3 normal = vec3_cross(vec3_sub(p3, p1), vec3_sub(p2, p1));
 		if (vec3_dot(normal, vec3f(0, 0, 1)) < 0) {
 			return;
@@ -1515,16 +1509,6 @@ vec3 d_gfx_t_apply_vec3(vec3 p) {
 	return mat4_mult_vec3(d_gfx.t, p);
 }
 
-mat4 d_psr_mat4(d_psr *psr) {
-	return mat4_mult(
-		mat4_mult(
-			mat4_translate(psr->pos),
-			mat4_scale(psr->scale)
-		),
-		mat4_rot_quat(psr->rot)
-	);
-}
-
 void d_draw_mesh(d_mesh *mesh, d_img *tex) {
 	for (int i = 0; i < mesh->num_indices; i += 3) {
 		d_draw_prim_tri(
@@ -1538,7 +1522,7 @@ void d_draw_mesh(d_mesh *mesh, d_img *tex) {
 
 static void d_draw_model_node(d_model *model, d_model_node *node) {
 	d_gfx_t_push();
-	d_gfx_t_use(d_psr_mat4(&node->psr));
+	d_gfx_t_use(node->t);
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_draw_mesh(&node->meshes[i], model->num_images > 0 ? &model->images[0] : NULL);
 	}
@@ -1658,23 +1642,46 @@ void d_draw_bbox(box bbox, color c) {
 	d_draw_line3(p4, p8, c);
 }
 
-// TODO
+static void d_model_node_gen_bbox(d_model_node *node, box *bbox, mat4 t) {
+	t = mat4_mult(t, node->t);
+	for (int i = 0; i < node->num_meshes; i++) {
+		d_mesh *mesh = &node->meshes[i];
+		for (int j = 0; j < mesh->num_verts; j++) {
+			d_vertex *v = &mesh->verts[j];
+			vec3 pos = mat4_mult_vec3(t, v->pos);
+			bbox->p1.x = fminf(pos.x, bbox->p1.x);
+			bbox->p1.y = fminf(pos.y, bbox->p1.y);
+			bbox->p1.z = fminf(pos.z, bbox->p1.z);
+			bbox->p2.x = fmaxf(pos.x, bbox->p2.x);
+			bbox->p2.y = fmaxf(pos.y, bbox->p2.y);
+			bbox->p2.z = fmaxf(pos.z, bbox->p2.z);
+		}
+	}
+	for (int i = 0; i < node->num_children; i++) {
+		d_model_node_gen_bbox(&node->children[i], bbox, t);
+	}
+}
+
 static void d_model_gen_bbox(d_model *model) {
 	box bbox = boxf(vec3f(0, 0, 0), vec3f(0, 0, 0));
 	for (int i = 0; i < model->num_nodes; i++) {
-
+		d_model_node_gen_bbox(&model->nodes[i], &bbox, mat4u());
 	}
-	bbox = boxf(vec3f(-0.05, -0.05, -0.05), vec3f(0.05, 0.05, 0.05));
 	model->bbox = bbox;
+	model->center = vec3_scale(vec3_add(bbox.p1, bbox.p2), 0.5);
 }
 
 #ifdef CGLTF_IMPLEMENTATION
 
 static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 
-	model->psr.pos = vec3f(node->translation[0], node->translation[1], node->translation[2]);
-	model->psr.scale = vec3f(node->scale[0], node->scale[1], node->scale[2]);
-	model->psr.rot = quatf(node->rotation[0], node->rotation[1], node->rotation[2], node->rotation[3]);
+	model->t = mat4_mult(
+		mat4_mult(
+			mat4_translate(vec3f(node->translation[0], node->translation[1], node->translation[2])),
+			mat4_scale(vec3f(node->scale[0], node->scale[1], node->scale[2]))
+		),
+		mat4_rot_quat(quatf(node->rotation[0], node->rotation[1], node->rotation[2], node->rotation[3]))
+	);
 
 	int num_children = node->children_count;
 
