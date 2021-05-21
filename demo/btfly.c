@@ -16,7 +16,7 @@
 #define WIDTH 64
 #define HEIGHT 64
 
-d_model duck;
+d_model btfly;
 
 void init() {
 
@@ -28,7 +28,7 @@ void init() {
 
 	d_fs_init((d_fs_desc) {0});
 
-	duck = d_load_model("res/duck.glb");
+	btfly = d_load_model("res/btfly.glb");
 
 }
 
@@ -49,9 +49,11 @@ void frame() {
 	d_gfx_t_push();
 	d_gfx_t_move3(vec3f(WIDTH / 2, HEIGHT / 2, 0));
 	d_gfx_t_rot_y(d_app_time());
-	d_gfx_t_scale3(vec3f(0.2, -0.2, 0.2));
-	d_gfx_t_move3(vec3_scale(duck.center, -1));
-	d_draw_model(&duck);
+	d_gfx_t_rot_z(d_app_time() / 2);
+	d_gfx_t_scale3(vec3f(320, -320, 320));
+	d_gfx_t_move3(vec3_scale(btfly.center, -1));
+	d_draw_model(&btfly);
+// 	d_draw_bbox(btfly.bbox, colorx(0x0000ffff));
 	d_gfx_t_pop();
 
 	d_gfx_present();
@@ -60,7 +62,7 @@ void frame() {
 
 int main() {
 	d_app_run((d_app_desc) {
-		.title = "duck",
+		.title = "btfly",
 		.init = init,
 		.frame = frame,
 		.width = WIDTH,

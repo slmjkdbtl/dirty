@@ -1153,8 +1153,8 @@ static void d_uikit_run(const d_app_desc *desc) {
 #if defined(D_TERM)
 
 static void exit_alt_screen() {
-	write(STDOUT_FILENO, "\x1b[3J", 4);
-	printf("\033[?1049l");
+	printf("\x1b[3J");
+	printf("\x1b[?1049l");
 	exit(EXIT_SUCCESS);
 }
 
@@ -1165,7 +1165,7 @@ static void d_term_run(const d_app_desc *desc) {
 	attrs.c_lflag &= ~(ECHO | ICANON);
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &attrs);
 
-	printf("\033[?1049h\033[H");
+	printf("\x1b[?1049h\x1b[H");
 	atexit(exit_alt_screen);
 	signal(SIGINT, exit_alt_screen);
 
