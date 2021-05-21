@@ -13,8 +13,8 @@
 #include <d_app.h>
 #include <d_gfx.h>
 
-#define WIDTH 64
-#define HEIGHT 64
+#define WIDTH 60
+#define HEIGHT 60
 
 d_model btfly;
 

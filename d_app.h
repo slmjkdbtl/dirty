@@ -68,8 +68,8 @@ typedef enum {
 	D_KEY_MINUS,
 	D_KEY_EQUAL,
 	D_KEY_COMMA,
-	D_KEY_PERIOD,
-	D_KEY_BACKQUOTE,
+	D_KEY_DOT,
+	D_KEY_GRAVES,
 	D_KEY_SLASH,
 	D_KEY_BACKSLASH,
 	D_KEY_SEMICOLON,
@@ -82,9 +82,11 @@ typedef enum {
 	D_KEY_TAB,
 	D_KEY_SPACE,
 	D_KEY_BACKSPACE,
-	D_KEY_ENTER,
+	D_KEY_RETURN,
 	D_KEY_LBRACKET,
 	D_KEY_RBRACKET,
+	D_KEY_LPAREN,
+	D_KEY_RPAREN,
 	D_KEY_LSHIFT,
 	D_KEY_RSHIFT,
 	D_KEY_LALT,
@@ -194,11 +196,6 @@ vec2 d_app_touch_dpos(d_touch t);
 #include <string.h>
 #include <stdarg.h>
 #include <sys/time.h>
-
-#if defined(D_TERM)
-#include <termios.h>
-#include <unistd.h>
-#endif
 
 #if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL) && !defined(D_TERM)
 	#error "must define a present method (D_CPU, D_GL, D_METAL, D_TERM)"
@@ -760,16 +757,16 @@ static d_key d_cocoa_key(unsigned short k) {
 		case 0x2A: return D_KEY_BACKSLASH;
 		case 0x2B: return D_KEY_COMMA;
 		case 0x18: return D_KEY_EQUAL;
-		case 0x32: return D_KEY_BACKQUOTE;
+		case 0x32: return D_KEY_GRAVES;
 		case 0x21: return D_KEY_LBRACKET;
 		case 0x1B: return D_KEY_MINUS;
-		case 0x2F: return D_KEY_PERIOD;
+		case 0x2F: return D_KEY_DOT;
 		case 0x1E: return D_KEY_RBRACKET;
 		case 0x29: return D_KEY_SEMICOLON;
 		case 0x2C: return D_KEY_SLASH;
 		case 0x33: return D_KEY_BACKSPACE;
 		case 0x7D: return D_KEY_DOWN;
-		case 0x24: return D_KEY_ENTER;
+		case 0x24: return D_KEY_RETURN;
 		case 0x35: return D_KEY_ESC;
 		case 0x7A: return D_KEY_F1;
 		case 0x78: return D_KEY_F2;
@@ -1152,10 +1149,86 @@ static void d_uikit_run(const d_app_desc *desc) {
 // Term
 #if defined(D_TERM)
 
-static void exit_alt_screen() {
+#include <termios.h>
+#include <unistd.h>
+#include <poll.h>
+#include <sys/ioctl.h>
+
+static void d_term_size(int *w, int *h) {
+	struct winsize ws;
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_col != 0) {
+		*w = ws.ws_col;
+		*h = ws.ws_row * 2;
+	} else {
+		*w = 0;
+		*h = 0;
+	}
+}
+
+static void d_term_cleanup() {
 	printf("\x1b[3J");
 	printf("\x1b[?1049l");
+	printf("\x1b[?25h");
 	exit(EXIT_SUCCESS);
+}
+
+static d_key d_term_key(char c) {
+	switch (c) {
+		case 'q': return D_KEY_Q;
+		case 'w': return D_KEY_W;
+		case 'e': return D_KEY_E;
+		case 'r': return D_KEY_R;
+		case 't': return D_KEY_T;
+		case 'y': return D_KEY_Y;
+		case 'u': return D_KEY_U;
+		case 'i': return D_KEY_I;
+		case 'o': return D_KEY_O;
+		case 'p': return D_KEY_P;
+		case 'a': return D_KEY_A;
+		case 's': return D_KEY_S;
+		case 'd': return D_KEY_D;
+		case 'f': return D_KEY_F;
+		case 'g': return D_KEY_G;
+		case 'h': return D_KEY_H;
+		case 'j': return D_KEY_J;
+		case 'k': return D_KEY_K;
+		case 'l': return D_KEY_L;
+		case 'z': return D_KEY_Z;
+		case 'x': return D_KEY_X;
+		case 'c': return D_KEY_C;
+		case 'v': return D_KEY_V;
+		case 'b': return D_KEY_B;
+		case 'n': return D_KEY_N;
+		case 'm': return D_KEY_M;
+		case '1': return D_KEY_1;
+		case '2': return D_KEY_2;
+		case '3': return D_KEY_3;
+		case '4': return D_KEY_4;
+		case '5': return D_KEY_5;
+		case '6': return D_KEY_6;
+		case '7': return D_KEY_7;
+		case '8': return D_KEY_8;
+		case '9': return D_KEY_9;
+		case '0': return D_KEY_0;
+		case '`': return D_KEY_GRAVES;
+		case ',': return D_KEY_COMMA;
+		case '.': return D_KEY_DOT;
+		case '=': return D_KEY_EQUAL;
+		case '-': return D_KEY_MINUS;
+		case '/': return D_KEY_SLASH;
+		case '\\': return D_KEY_BACKSLASH;
+		case '\'': return D_KEY_QUOTE;
+		case '[': return D_KEY_LBRACKET;
+		case ']': return D_KEY_RBRACKET;
+		case '(': return D_KEY_LPAREN;
+		case ')': return D_KEY_RPAREN;
+		case ' ': return D_KEY_SPACE;
+		case 1: return D_KEY_RETURN;
+		case 9: return D_KEY_TAB;
+		case 27: return D_KEY_ESC;
+		case 127: return D_KEY_BACKSPACE;
+	}
+	return D_KEY_NONE;
 }
 
 static void d_term_run(const d_app_desc *desc) {
@@ -1165,22 +1238,42 @@ static void d_term_run(const d_app_desc *desc) {
 	attrs.c_lflag &= ~(ECHO | ICANON);
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &attrs);
 
-	printf("\x1b[?1049h\x1b[H");
-	atexit(exit_alt_screen);
-	signal(SIGINT, exit_alt_screen);
+	printf("\x1b[?1049h");
+	printf("\x1b[?25l");
+	printf("\x1b[H");
+	atexit(d_term_cleanup);
+	signal(SIGINT, d_term_cleanup);
+
+	struct pollfd poll_fds[1] = {
+		[0] = {
+			.fd = STDIN_FILENO,
+			.events = POLLIN,
+		}
+	};
 
 	d_app_init();
 
 	while (!d_app.quit) {
+
+		if (poll(poll_fds, 1, 0) != 0) {
+			char c;
+			read(STDIN_FILENO, &c, 1);
+			d_key k = d_term_key(c);
+			if (k) {
+				d_app.key_states[k] = D_BTN_PRESSED;
+			}
+		}
+
 		d_app_frame();
 		usleep(16000);
+
 	}
 
 }
 
 static void d_term_present(int w, int h, const color *buf) {
-	write(STDOUT_FILENO, "\x1b[3J", 4);
-	write(STDOUT_FILENO, "\x1b[H", 3);
+	printf("\x1b[3J");
+	printf("\x1b[H");
 	for (int y = 0; y < h; y += 2) {
 		for (int x = 0; x < w; x++) {
 			color c1 = buf[y * w + x];
@@ -1433,18 +1526,18 @@ static d_key d_web_key(const char *k, int loc) {
 	else if (streq(k, "=")) return D_KEY_EQUAL;
 	else if (streq(k, " ")) return D_KEY_SPACE;
 	else if (streq(k, ",")) return D_KEY_COMMA;
-	else if (streq(k, ".")) return D_KEY_PERIOD;
+	else if (streq(k, ".")) return D_KEY_DOT;
 	else if (streq(k, "/")) return D_KEY_SLASH;
 	else if (streq(k, "[")) return D_KEY_LBRACKET;
 	else if (streq(k, "]")) return D_KEY_RBRACKET;
 	else if (streq(k, "\\")) return D_KEY_BACKSLASH;
 	else if (streq(k, ";")) return D_KEY_SEMICOLON;
-	else if (streq(k, "Enter")) return D_KEY_ENTER;
+	else if (streq(k, "Enter")) return D_KEY_RETURN;
 	else if (streq(k, "Escape")) return D_KEY_ESC;
 	else if (streq(k, "Backspace")) return D_KEY_BACKSPACE;
 	else if (streq(k, "Tab")) return D_KEY_TAB;
 	else if (streq(k, "'")) return D_KEY_QUOTE;
-	else if (streq(k, "`")) return D_KEY_BACKQUOTE;
+	else if (streq(k, "`")) return D_KEY_GRAVES;
 	else if (streq(k, "F1")) return D_KEY_F1;
 	else if (streq(k, "F2")) return D_KEY_F2;
 	else if (streq(k, "F3")) return D_KEY_F3;
