@@ -1172,61 +1172,86 @@ static void d_term_cleanup() {
 	exit(EXIT_SUCCESS);
 }
 
-static d_key d_term_key(char c) {
-	switch (c) {
-		case 'q': return D_KEY_Q;
-		case 'w': return D_KEY_W;
-		case 'e': return D_KEY_E;
-		case 'r': return D_KEY_R;
-		case 't': return D_KEY_T;
-		case 'y': return D_KEY_Y;
-		case 'u': return D_KEY_U;
-		case 'i': return D_KEY_I;
-		case 'o': return D_KEY_O;
-		case 'p': return D_KEY_P;
-		case 'a': return D_KEY_A;
-		case 's': return D_KEY_S;
-		case 'd': return D_KEY_D;
-		case 'f': return D_KEY_F;
-		case 'g': return D_KEY_G;
-		case 'h': return D_KEY_H;
-		case 'j': return D_KEY_J;
-		case 'k': return D_KEY_K;
-		case 'l': return D_KEY_L;
-		case 'z': return D_KEY_Z;
-		case 'x': return D_KEY_X;
-		case 'c': return D_KEY_C;
-		case 'v': return D_KEY_V;
-		case 'b': return D_KEY_B;
-		case 'n': return D_KEY_N;
-		case 'm': return D_KEY_M;
-		case '1': return D_KEY_1;
-		case '2': return D_KEY_2;
-		case '3': return D_KEY_3;
-		case '4': return D_KEY_4;
-		case '5': return D_KEY_5;
-		case '6': return D_KEY_6;
-		case '7': return D_KEY_7;
-		case '8': return D_KEY_8;
-		case '9': return D_KEY_9;
-		case '0': return D_KEY_0;
-		case '`': return D_KEY_GRAVES;
-		case ',': return D_KEY_COMMA;
-		case '.': return D_KEY_DOT;
-		case '=': return D_KEY_EQUAL;
-		case '-': return D_KEY_MINUS;
-		case '/': return D_KEY_SLASH;
-		case '\\': return D_KEY_BACKSLASH;
-		case '\'': return D_KEY_QUOTE;
-		case '[': return D_KEY_LBRACKET;
-		case ']': return D_KEY_RBRACKET;
-		case '(': return D_KEY_LPAREN;
-		case ')': return D_KEY_RPAREN;
-		case ' ': return D_KEY_SPACE;
-		case 1: return D_KEY_RETURN;
-		case 9: return D_KEY_TAB;
-		case 27: return D_KEY_ESC;
-		case 127: return D_KEY_BACKSPACE;
+static d_key d_term_key(char *c, int size) {
+	switch (size) {
+		case 3:
+			switch (c[1]) {
+				case '[':
+					switch (c[2]) {
+						case 'A': return D_KEY_UP;
+						case 'B': return D_KEY_DOWN;
+						case 'C': return D_KEY_RIGHT;
+						case 'D': return D_KEY_LEFT;
+					}
+					break;
+				case 'O':
+					switch (c[2]) {
+						case 'P': return D_KEY_F1;
+						case 'Q': return D_KEY_F2;
+						case 'R': return D_KEY_F3;
+						case 'S': return D_KEY_F4;
+					}
+					break;
+			}
+			break;
+		case 1:
+			switch (c[0]) {
+				case 'q': return D_KEY_Q;
+				case 'w': return D_KEY_W;
+				case 'e': return D_KEY_E;
+				case 'r': return D_KEY_R;
+				case 't': return D_KEY_T;
+				case 'y': return D_KEY_Y;
+				case 'u': return D_KEY_U;
+				case 'i': return D_KEY_I;
+				case 'o': return D_KEY_O;
+				case 'p': return D_KEY_P;
+				case 'a': return D_KEY_A;
+				case 's': return D_KEY_S;
+				case 'd': return D_KEY_D;
+				case 'f': return D_KEY_F;
+				case 'g': return D_KEY_G;
+				case 'h': return D_KEY_H;
+				case 'j': return D_KEY_J;
+				case 'k': return D_KEY_K;
+				case 'l': return D_KEY_L;
+				case 'z': return D_KEY_Z;
+				case 'x': return D_KEY_X;
+				case 'c': return D_KEY_C;
+				case 'v': return D_KEY_V;
+				case 'b': return D_KEY_B;
+				case 'n': return D_KEY_N;
+				case 'm': return D_KEY_M;
+				case '1': return D_KEY_1;
+				case '2': return D_KEY_2;
+				case '3': return D_KEY_3;
+				case '4': return D_KEY_4;
+				case '5': return D_KEY_5;
+				case '6': return D_KEY_6;
+				case '7': return D_KEY_7;
+				case '8': return D_KEY_8;
+				case '9': return D_KEY_9;
+				case '0': return D_KEY_0;
+				case '`': return D_KEY_GRAVES;
+				case ',': return D_KEY_COMMA;
+				case '.': return D_KEY_DOT;
+				case '=': return D_KEY_EQUAL;
+				case '-': return D_KEY_MINUS;
+				case '/': return D_KEY_SLASH;
+				case ';': return D_KEY_SEMICOLON;
+				case '\\': return D_KEY_BACKSLASH;
+				case '\'': return D_KEY_QUOTE;
+				case '[': return D_KEY_LBRACKET;
+				case ']': return D_KEY_RBRACKET;
+				case '(': return D_KEY_LPAREN;
+				case ')': return D_KEY_RPAREN;
+				case ' ': return D_KEY_SPACE;
+				case 1: return D_KEY_RETURN;
+				case 9: return D_KEY_TAB;
+				case 27: return D_KEY_ESC;
+				case 127: return D_KEY_BACKSPACE;
+			}
+			break;
 	}
 	return D_KEY_NONE;
 }
@@ -1256,9 +1281,9 @@ static void d_term_run(const d_app_desc *desc) {
 	while (!d_app.quit) {
 
 		if (poll(poll_fds, 1, 0) != 0) {
-			char c;
-			read(STDIN_FILENO, &c, 1);
-			d_key k = d_term_key(c);
+			char c[4];
+			int size = read(STDIN_FILENO, &c, 4);
+			d_key k = d_term_key(c, size);
 			if (k) {
 				d_app.key_states[k] = D_BTN_PRESSED;
 			}

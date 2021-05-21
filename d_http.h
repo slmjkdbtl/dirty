@@ -211,6 +211,7 @@ void d_free_http_server(d_http_server *server) {
 	close(server->sock_fd);
 }
 
+// TODO: use poll(2)
 void d_http_server_listen(const d_http_server *server, d_http_handler handler) {
 
 	int chunk_size = D_HTTP_CHUNK_SIZE;

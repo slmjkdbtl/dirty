@@ -1232,7 +1232,7 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 	vec3 p3 = d_gfx_t_apply_vec3(v3.pos);
 
 	if (d_gfx.backface_cull) {
-		vec3 normal = vec3_cross(vec3_sub(p3, p1), vec3_sub(p2, p1));
+		vec3 normal = vec3_unit(vec3_cross(vec3_sub(p3, p1), vec3_sub(p2, p1)));
 		if (vec3_dot(normal, vec3f(0, 0, 1)) < 0) {
 			return;
 		}
@@ -1516,6 +1516,17 @@ void d_draw_mesh(d_mesh *mesh, d_img *tex) {
 	}
 }
 
+void d_draw_mesh_line(d_mesh *mesh, color c) {
+	for (int i = 0; i < mesh->num_indices; i += 3) {
+		d_vertex v1 = mesh->verts[mesh->indices[i + 0]];
+		d_vertex v2 = mesh->verts[mesh->indices[i + 1]];
+		d_vertex v3 = mesh->verts[mesh->indices[i + 2]];
+		d_draw_line3(v1.pos, v2.pos, c);
+		d_draw_line3(v2.pos, v3.pos, c);
+		d_draw_line3(v3.pos, v1.pos, c);
+	}
+}
+
 static void d_draw_model_node(d_model *model, d_model_node *node) {
 	d_gfx_t_push();
 	d_gfx_t_use(node->t);
@@ -1532,6 +1543,26 @@ void d_draw_model(d_model *model) {
 	d_gfx_t_push();
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_draw_model_node(model, &model->nodes[i]);
+	}
+	d_gfx_t_pop();
+}
+
+static void d_draw_model_node_line(d_model_node *node, color c) {
+	d_gfx_t_push();
+	d_gfx_t_use(node->t);
+	for (int i = 0; i < node->num_meshes; i++) {
+		d_draw_mesh_line(&node->meshes[i], c);
+	}
+	for (int i = 0; i < node->num_children; i++) {
+		d_draw_model_node_line(&node->children[i], c);
+	}
+	d_gfx_t_pop();
+}
+
+void d_draw_model_line(d_model *model, color c) {
+	d_gfx_t_push();
+	for (int i = 0; i < model->num_nodes; i++) {
+		d_draw_model_node_line(&model->nodes[i], c);
 	}
 	d_gfx_t_pop();
 }
