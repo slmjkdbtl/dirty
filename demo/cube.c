@@ -7,86 +7,13 @@
 #include <d_app.h>
 #include <d_gfx.h>
 
-#define WIDTH 480
-#define HEIGHT 480
+#define countof(x) (sizeof(x) / sizeof((x)[0]))
 
-d_mesh cube = (d_mesh) {
-	.verts = {
-		&(d_vertex) {
-			.pos = { 1, 1, 1 },
-		},
-		&(d_vertex) {
-			.pos = { -1, 1, 1 },
-		},
-	},
-	.num_verts = 2,
-};
+#define WIDTH 128
+#define HEIGHT 128
+#define SCALE 4
 
-// const VERTICES: [Vertex; 8] = [
-// 	Vertex {
-// 		pos: vec3!(1, 1, 1),
-// 		normal: vec3!(0, 0, 0),
-// 		uv: vec2!(0, 0),
-// 		color: rgba!(1, 1, 1, 1),
-// 	},
-// 	Vertex {
-// 		pos: vec3!(-1, 1, 1),
-// 		normal: vec3!(0, 0, 0),
-// 		uv: vec2!(0, 0),
-// 		color: rgba!(0, 1, 1, 1),
-// 	},
-// 	Vertex {
-// 		pos: vec3!(-1, -1, 1),
-// 		normal: vec3!(0, 0, 0),
-// 		uv: vec2!(0, 0),
-// 		color: rgba!(0, 0, 1, 1),
-// 	},
-// 	Vertex {
-// 		pos: vec3!(1, -1, 1),
-// 		normal: vec3!(0, 0, 0),
-// 		uv: vec2!(0, 0),
-// 		color: rgba!(1, 0, 1, 1),
-// 	},
-// 	Vertex {
-// 		pos: vec3!(1, 1, -1),
-// 		normal: vec3!(0, 0, 0),
-// 		uv: vec2!(0, 0),
-// 		color: rgba!(1, 1, 0, 1),
-// 	},
-// 	Vertex {
-// 		pos: vec3!(-1, 1, -1),
-// 		normal: vec3!(0, 0, 0),
-// 		uv: vec2!(0, 0),
-// 		color: rgba!(0, 1, 0, 1),
-// 	},
-// 	Vertex {
-// 		pos: vec3!(-1, -1, -1),
-// 		normal: vec3!(0, 0, 0),
-// 		uv: vec2!(0, 0),
-// 		color: rgba!(0, 0, 0, 1),
-// 	},
-// 	Vertex {
-// 		pos: vec3!(1, -1, -1),
-// 		normal: vec3!(0, 0, 0),
-// 		uv: vec2!(0, 0),
-// 		color: rgba!(1, 0, 0, 1),
-// 	},
-// ];
-
-// const INDICES: [u32; 36] = [
-// 	0, 1, 2,
-// 	0, 2, 3,
-// 	4, 0, 3,
-// 	4, 3, 7,
-// 	4, 5, 1,
-// 	4, 1, 0,
-// 	5, 4, 7,
-// 	5, 7, 6,
-// 	1, 5, 6,
-// 	1, 6, 2,
-// 	3, 2, 6,
-// 	3, 6, 7,
-// ];
+d_mesh cube;
 
 void init() {
 
@@ -96,7 +23,73 @@ void init() {
 		.clear_color = colori(0, 0, 0, 255),
 	});
 
-	printf("%f\n", cube.verts[1].pos.x);
+	d_vertex verts[] = {
+		[0] = (d_vertex) {
+			.pos = vec3f(1, 1, 1),
+			.normal = vec3f(0, 0, 0),
+			.uv = vec2f(0, 0),
+			.color = colori(255, 255, 255, 255),
+		},
+		[1] = (d_vertex) {
+			.pos = vec3f(-1, 1, 1),
+			.normal = vec3f(0, 0, 0),
+			.uv = vec2f(0, 0),
+			.color = colori(0, 255, 255, 255),
+		},
+		[2] = (d_vertex) {
+			.pos = vec3f(-1, -1, 1),
+			.normal = vec3f(0, 0, 0),
+			.uv = vec2f(0, 0),
+			.color = colori(0, 0, 255, 255),
+		},
+		[3] = (d_vertex) {
+			.pos = vec3f(1, -1, 1),
+			.normal = vec3f(0, 0, 0),
+			.uv = vec2f(0, 0),
+			.color = colori(255, 0, 255, 255),
+		},
+		[4] = (d_vertex) {
+			.pos = vec3f(1, 1, -1),
+			.normal = vec3f(0, 0, 0),
+			.uv = vec2f(0, 0),
+			.color = colori(255, 255, 0, 255),
+		},
+		[5] = (d_vertex) {
+			.pos = vec3f(-1, 1, -1),
+			.normal = vec3f(0, 0, 0),
+			.uv = vec2f(0, 0),
+			.color = colori(0, 255, 0, 255),
+		},
+		[6] = (d_vertex) {
+			.pos = vec3f(-1, -1, -1),
+			.normal = vec3f(0, 0, 0),
+			.uv = vec2f(0, 0),
+			.color = colori(0, 0, 0, 255),
+		},
+		[7] = (d_vertex) {
+			.pos = vec3f(1, -1, -1),
+			.normal = vec3f(0, 0, 0),
+			.uv = vec2f(0, 0),
+			.color = colori(255, 0, 0, 255),
+		},
+	};
+
+	d_index indices[] = {
+		0, 1, 2,
+		0, 2, 3,
+		4, 0, 3,
+		4, 3, 7,
+		4, 5, 1,
+		4, 1, 0,
+		5, 4, 7,
+		5, 7, 6,
+		1, 5, 6,
+		1, 6, 2,
+		3, 2, 6,
+		3, 6, 7,
+	};
+
+	cube = d_make_mesh(verts, countof(verts), indices, countof(indices));
 
 }
 
@@ -106,8 +99,17 @@ void frame() {
 		d_app_quit();
 	}
 
+	int s = d_gfx_width() / 4;
+
 	d_gfx_clear();
+	d_gfx_t_push();
+	d_gfx_t_move3(vec3f(d_gfx_width() / 2, d_gfx_height() / 2, 0));
+	d_gfx_t_scale3(vec3f(s, s, s));
+	d_gfx_t_rot_x(d_app_time());
+	d_gfx_t_rot_y(d_app_time());
+	d_gfx_t_rot_z(d_app_time());
 	d_draw_mesh(&cube, NULL);
+	d_gfx_t_pop();
 	d_gfx_present();
 
 }
@@ -117,7 +119,7 @@ int main() {
 		.title = "cube",
 		.init = init,
 		.frame = frame,
-		.width = WIDTH,
-		.height = HEIGHT,
+		.width = WIDTH * SCALE,
+		.height = HEIGHT * SCALE,
 	});
 }

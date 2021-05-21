@@ -71,10 +71,12 @@ typedef struct {
 	color color;
 } d_vertex;
 
+typedef uint32_t d_index;
+
 typedef struct {
 	d_vertex *verts;
 	int num_verts;
-	uint32_t *indices;
+	d_index *indices;
 	int num_indices;
 } d_mesh;
 
@@ -187,6 +189,7 @@ void d_gfx_bbuf_clear();
 
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 static uint8_t unscii_bytes[] = {
 	0x08, 0x08, 0x13, 0x05, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
@@ -1575,6 +1578,21 @@ static void d_mesh_gen_normals(d_mesh *mesh) {
 
 }
 
+d_mesh d_make_mesh(d_vertex *verts, int num_verts, d_index *indices, int num_indices) {
+	int verts_size = sizeof(d_vertex) * num_verts;
+	int indices_size = sizeof(d_index) * num_indices;
+	d_vertex *verts2 = malloc(verts_size);
+	d_index *indices2 = malloc(indices_size);
+	memcpy(verts2, verts, verts_size);
+	memcpy(indices2, indices, indices_size);
+	return (d_mesh) {
+		.verts = verts2,
+		.num_verts = num_verts,
+		.indices = indices2,
+		.num_indices = num_indices,
+	};
+}
+
 void d_free_mesh(d_mesh *mesh) {
 	free(mesh->verts);
 	free(mesh->indices);
@@ -1745,7 +1763,7 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 
 		// TODO: sometimes no indices
 		int num_indices = prim->indices->count;
-		uint32_t *indices = calloc(num_indices, sizeof(uint32_t));
+		d_index *indices = calloc(num_indices, sizeof(d_index));
 
 		for (int j = 0; j < prim->indices->count; j++) {
 			cgltf_accessor_read_uint(prim->indices, j, &indices[j], 1);

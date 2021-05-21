@@ -15,6 +15,7 @@
 
 #define WIDTH 60
 #define HEIGHT 60
+#define SCALE 4
 
 d_model btfly;
 
@@ -65,7 +66,7 @@ int main() {
 		.title = "btfly",
 		.init = init,
 		.frame = frame,
-		.width = WIDTH,
-		.height = HEIGHT,
+		.width = WIDTH * SCALE,
+		.height = HEIGHT * SCALE,
 	});
 }
