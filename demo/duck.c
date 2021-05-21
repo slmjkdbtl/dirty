@@ -6,15 +6,15 @@
 #include <cgltf.h>
 
 #define D_IMPL
-#define D_CPU
+#define D_TERM
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_fs.h>
 #include <d_app.h>
 #include <d_gfx.h>
 
-#define WIDTH 120
-#define HEIGHT 120
+#define WIDTH 64
+#define HEIGHT 64
 
 d_model duck;
 
@@ -47,9 +47,10 @@ void frame() {
 	d_blit_bg();
 
 	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(WIDTH / 2, 100, 0));
+	d_gfx_t_move3(vec3f(WIDTH / 2, HEIGHT / 2, 0));
 	d_gfx_t_rot_y(d_app_time());
-	d_gfx_t_scale3(vec3f(0.5, -0.5, 0.5));
+	d_gfx_t_scale3(vec3f(0.2, -0.2, 0.2));
+	d_gfx_t_move3(vec3_scale(duck.center, -1));
 	d_draw_model(&duck);
 	d_gfx_t_pop();
 

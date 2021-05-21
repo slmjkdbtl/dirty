@@ -195,6 +195,11 @@ vec2 d_app_touch_dpos(d_touch t);
 #include <stdarg.h>
 #include <sys/time.h>
 
+#if defined(D_TERM)
+#include <termios.h>
+#include <unistd.h>
+#endif
+
 #if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL) && !defined(D_TERM)
 	#error "must define a present method (D_CPU, D_GL, D_METAL, D_TERM)"
 #endif
@@ -1147,8 +1152,47 @@ static void d_uikit_run(const d_app_desc *desc) {
 // Term
 #if defined(D_TERM)
 
+static void exit_alt_screen() {
+	write(STDOUT_FILENO, "\x1b[3J", 4);
+	printf("\033[?1049l");
+	exit(EXIT_SUCCESS);
+}
+
 static void d_term_run(const d_app_desc *desc) {
-	// TODO
+
+	struct termios attrs;
+	tcgetattr(STDIN_FILENO, &attrs);
+	attrs.c_lflag &= ~(ECHO | ICANON);
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, &attrs);
+
+	printf("\033[?1049h\033[H");
+	atexit(exit_alt_screen);
+	signal(SIGINT, exit_alt_screen);
+
+	d_app_init();
+
+	while (!d_app.quit) {
+		d_app_frame();
+		usleep(16000);
+	}
+
+}
+
+static void d_term_present(int w, int h, const color *buf) {
+	write(STDOUT_FILENO, "\x1b[3J", 4);
+	write(STDOUT_FILENO, "\x1b[H", 3);
+	for (int y = 0; y < h; y += 2) {
+		for (int x = 0; x < w; x++) {
+			color c1 = buf[y * w + x];
+			color c2 = buf[(y + 1) * w + x];
+			printf(
+				"\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm\u2580\x1b[0m",
+				c1.r, c1.g, c1.b,
+				c2.r, c2.g, c2.b
+			);
+		}
+		printf("\n");
+	}
 }
 
 #endif // D_TERM
@@ -1844,25 +1888,24 @@ bool d_app_active() {
 }
 
 void d_app_present(int w, int h, const color *buf) {
-
 #if defined(D_GL)
 	d_gl_present(w, h, buf);
 #elif defined(D_METAL)
 	d_mtl_present(w, h, buf);
+#elif defined(D_TERM)
+	d_term_present(w, h, buf);
 #elif defined(D_CPU)
-#if defined(D_COCOA)
-	d_cocoa_present(w, h, buf);
-#elif defined(D_UIKIT)
-	d_uikit_present(w, h, buf);
-#elif defined(D_X11)
-	d_x11_present(w, h, buf);
-#elif defined(D_CANVAS)
-	d_canvas_present(w, h, buf);
+	#if defined(D_COCOA)
+		d_cocoa_present(w, h, buf);
+	#elif defined(D_UIKIT)
+		d_uikit_present(w, h, buf);
+	#elif defined(D_X11)
+		d_x11_present(w, h, buf);
+	#elif defined(D_CANVAS)
+		d_canvas_present(w, h, buf);
+	#endif
 #endif
-#endif
-
 }
 
 #endif
 #endif
-

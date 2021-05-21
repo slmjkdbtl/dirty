@@ -1079,7 +1079,9 @@ void d_gfx_blit_pixel(int x, int y, color c) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
-	img->pixels[y * img->width + x] = c;
+	if (c.a != 0) {
+		img->pixels[y * img->width + x] = c;
+	}
 }
 
 color d_gfx_get(int x, int y) {
