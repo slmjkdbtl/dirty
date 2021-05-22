@@ -213,6 +213,30 @@ void d_free_http_server(d_http_server *server) {
 	close(server->sock_fd);
 }
 
+static char *d_read_all(int fd, int chunk_size, int *osize) {
+
+	char *data = malloc(chunk_size);
+	int total_size = 0;
+	int iter = 0;
+
+	while (1) {
+		int size = read(fd, data + iter * chunk_size, chunk_size);
+		total_size += size;
+		if (size < chunk_size) {
+			break;
+		}
+		iter++;
+		data = realloc(data, (iter + 1) * chunk_size);
+	}
+
+	if (osize) {
+		*osize = total_size;
+	}
+
+	return data;
+
+}
+
 #define D_HTTP_MAX_PFDS 1024
 
 void d_http_serve(int port, d_http_handler handler) {
@@ -237,7 +261,7 @@ void d_http_serve(int port, d_http_handler handler) {
 		if (poll(pfds, num_pfds, -1) > 0) {
 
 			if(pfds[0].revents & POLLIN) {
-				// TODO
+// 				char *cmd = d_read_all(STDIN_FILENO, 64, NULL);
 			}
 
 			if(pfds[1].revents & POLLIN) {
@@ -247,7 +271,7 @@ void d_http_serve(int port, d_http_handler handler) {
 						break;
 					}
 					if (num_pfds + 1 >= D_HTTP_MAX_PFDS) {
-						// TODO
+						// TODO: grow list
 						break;
 					}
 					pfds[num_pfds++] = (struct pollfd) {
@@ -262,15 +286,10 @@ void d_http_serve(int port, d_http_handler handler) {
 				if (pfds[i].revents & POLLIN) {
 
 					int conn_fd = pfds[i].fd;
-					int chunk_size = D_HTTP_CHUNK_SIZE;
-					char *req_msg = malloc(chunk_size);
-					int iter = 0;
 
-					while (read(conn_fd, req_msg + iter * chunk_size, chunk_size) >= chunk_size) {
-						iter++;
-						req_msg = realloc(req_msg, (iter + 1) * chunk_size);
-					}
-
+					char *req_msg = d_read_all(conn_fd, D_HTTP_CHUNK_SIZE, NULL);
+					// TODO: parse req msg
+					// TODO: res msg builder abstractions
 					char *res_msg = handler(req_msg);
 
 					write(conn_fd, res_msg, strlen(res_msg));

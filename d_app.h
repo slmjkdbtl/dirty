@@ -1154,20 +1154,12 @@ static void d_uikit_run(const d_app_desc *desc) {
 #include <poll.h>
 #include <sys/ioctl.h>
 
-static void d_term_size(int *w, int *h) {
-	struct winsize ws;
-	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) != -1 && ws.ws_col != 0) {
-		*w = ws.ws_col;
-		*h = ws.ws_row * 2;
-	} else {
-		*w = 0;
-		*h = 0;
-	}
-}
-
 static void d_term_cleanup() {
+	// clear
 	printf("\x1b[3J");
+	// exit alternate screen
 	printf("\x1b[?1049l");
+	// show cursor
 	printf("\x1b[?25h");
 	exit(EXIT_SUCCESS);
 }
@@ -1258,14 +1250,15 @@ static d_key d_term_key(char *c, int size) {
 
 static void d_term_run(const d_app_desc *desc) {
 
+	// raw mode
 	struct termios attrs;
 	tcgetattr(STDIN_FILENO, &attrs);
 	attrs.c_lflag &= ~(ECHO | ICANON);
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &attrs);
-
+	// alternate screen
 	printf("\x1b[?1049h");
+	// hide cursor
 	printf("\x1b[?25l");
-	printf("\x1b[H");
 	atexit(d_term_cleanup);
 	signal(SIGINT, d_term_cleanup);
 
@@ -1283,7 +1276,7 @@ static void d_term_run(const d_app_desc *desc) {
 		if (poll(pfds, 1, 0) > 0) {
 			if (pfds[0].revents == POLLIN) {
 				char c[4];
-				int size = read(STDIN_FILENO, &c, 4);
+				int size = read(STDIN_FILENO, c, 4);
 				d_key k = d_term_key(c, size);
 				if (k) {
 					d_app.key_states[k] = D_BTN_PRESSED;
@@ -1292,6 +1285,7 @@ static void d_term_run(const d_app_desc *desc) {
 		}
 
 		d_app_frame();
+		// TODO: sleep based on dt
 		usleep(16000);
 
 	}
@@ -1299,10 +1293,23 @@ static void d_term_run(const d_app_desc *desc) {
 }
 
 static void d_term_present(int w, int h, const color *buf) {
+
+	// clear
 	printf("\x1b[3J");
+	// cursor
 	printf("\x1b[H");
-	for (int y = 0; y < h; y += 2) {
-		for (int x = 0; x < w; x++) {
+
+	int tw = w;
+	int th = h;
+	struct winsize term_size;
+
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &term_size) != -1 && term_size.ws_col != 0) {
+		tw = mini(w, term_size.ws_col);
+		th = mini(h, term_size.ws_row * 2 - 2);
+	}
+
+	for (int y = 0; y < th; y += 2) {
+		for (int x = 0; x < tw; x++) {
 			color c1 = buf[y * w + x];
 			color c2 = buf[(y + 1) * w + x];
 			printf(
@@ -1313,6 +1320,7 @@ static void d_term_present(int w, int h, const color *buf) {
 		}
 		printf("\n");
 	}
+
 }
 
 #endif // D_TERM

@@ -103,6 +103,7 @@ void d_gfx_init(d_gfx_desc);
 #ifdef D_APP_H
 void d_gfx_present();
 vec2 d_gfx_mouse_pos();
+vec2 d_gfx_mouse_dpos();
 #endif
 
 int d_gfx_width();
@@ -762,6 +763,14 @@ vec2 d_gfx_mouse_pos() {
 	return vec2f(
 		mpos.x * d_gfx_width() / d_app_width(),
 		mpos.y * d_gfx_height() / d_app_height()
+	);
+}
+
+vec2 d_gfx_mouse_dpos() {
+	vec2 mdpos = d_app_mouse_dpos();
+	return vec2f(
+		mdpos.x * d_gfx_width() / d_app_width(),
+		mdpos.y * d_gfx_height() / d_app_height()
 	);
 }
 
