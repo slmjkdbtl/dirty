@@ -46,9 +46,6 @@ typedef struct {
 typedef char *(*d_http_handler)(const char*);
 
 void d_http_serve(int port, d_http_handler handler);
-d_http_server d_make_http_server(int port);
-void d_free_http_server(d_http_server *server);
-void d_http_server_listen(const d_http_server *server, d_http_handler handler);
 
 d_http_res d_http_fetch(const char *host, const char *msg);
 d_http_client d_make_http_client(const char *host);
@@ -168,51 +165,6 @@ static char const *status_text[] = {
 	"", "", "", "", "", "", "", "", "", "",
 };
 
-d_http_server d_make_http_server(int port) {
-
-	int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-
-	if (sock_fd == -1) {
-		fprintf(stderr, "failed to create socket\n");
-	}
-
-	setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, (int[]){1}, sizeof(int));
-	ioctl(sock_fd, FIONBIO, (int[]){1});
-
-	struct sockaddr_in server_addr = {
-		.sin_family = AF_INET,
-		.sin_addr = {
-			.s_addr = INADDR_ANY,
-		},
-		.sin_port = htons(port),
-	};
-
-	if (bind(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-		switch (errno) {
-			case EACCES:
-				fprintf(stderr, "port %d is in protected\n", port);
-				break;
-			case EADDRINUSE:
-				fprintf(stderr, "port %d is in use\n", port);
-				break;
-			default:
-				fprintf(stderr, "failed to bind socket\n");
-				break;
-		}
-	}
-
-	listen(sock_fd, 64);
-
-	return (d_http_server) {
-		.sock_fd = sock_fd,
-	};
-
-}
-
-void d_free_http_server(d_http_server *server) {
-	close(server->sock_fd);
-}
-
 static char *d_read_all(int fd, int chunk_size, int *osize) {
 
 	char *data = malloc(chunk_size);
@@ -237,67 +189,118 @@ static char *d_read_all(int fd, int chunk_size, int *osize) {
 
 }
 
-#define D_HTTP_MAX_PFDS 1024
+#define D_HTTP_MAX_PFDS 256
+#define ON (int[]){1}
 
 void d_http_serve(int port, d_http_handler handler) {
 
-	d_http_server server = d_make_http_server(port);
+	int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+
+	if (sock_fd == -1) {
+		fprintf(stderr, "failed to create socket\n");
+	}
+
+	setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, ON, sizeof(int));
+	ioctl(sock_fd, FIONBIO, ON);
+
+	struct sockaddr_in addr = {
+		.sin_family = AF_INET,
+		.sin_addr = {
+			.s_addr = INADDR_ANY,
+		},
+		.sin_port = htons(port),
+	};
+
+	if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+		switch (errno) {
+			case EACCES:
+				fprintf(stderr, "port %d is in protected\n", port);
+				break;
+			case EADDRINUSE:
+				fprintf(stderr, "port %d is in use\n", port);
+				break;
+			default:
+				fprintf(stderr, "failed to bind socket\n");
+				break;
+		}
+	}
+
+	listen(sock_fd, 64);
 
 	struct pollfd pfds[D_HTTP_MAX_PFDS] = {
 		[0] = {
-			.fd = STDIN_FILENO,
-			.events = POLLIN,
-		},
-		[1] = {
-			.fd = server.sock_fd,
+			.fd = sock_fd,
 			.events = POLLIN,
 		},
 	};
 
-	int num_pfds = 2;
+	int num_pfds = 1;
+// 	int num_conns = 0;
+
+// 	while (1) {
+
+// 		int conn_fd = accept(sock_fd, NULL, NULL);
+
+// 		char *req_msg = d_read_all(conn_fd, D_HTTP_CHUNK_SIZE, NULL);
+// 		char *res_msg = handler(req_msg);
+
+// 		write(conn_fd, res_msg, strlen(res_msg));
+// 		free(req_msg);
+// 		close(conn_fd);
+// 		printf("%d\n", ++num_conns);
+
+// 	}
 
 	while (1) {
 
-		if (poll(pfds, num_pfds, -1) > 0) {
+		// TODO: sometimes this blocks on actual pending requests
+		int poll_res = poll(pfds, num_pfds, -1);
 
-			if(pfds[0].revents & POLLIN) {
-// 				char *cmd = d_read_all(STDIN_FILENO, 64, NULL);
-			}
+// 		printf("%d\n", poll_res);
 
-			if(pfds[1].revents & POLLIN) {
-				while (1) {
-					int conn_fd = accept(server.sock_fd, NULL, NULL);
-					if (conn_fd < 0) {
-						break;
-					}
-					if (num_pfds + 1 >= D_HTTP_MAX_PFDS) {
-						// TODO: grow list
-						break;
-					}
-					pfds[num_pfds++] = (struct pollfd) {
-						.fd = conn_fd,
-						.events = POLLIN,
-					};
+		if (poll_res <= 0) {
+// 			fprintf(stderr, "err\n");
+			continue;
+		}
+
+		if(pfds[0].revents & POLLIN) {
+			while (1) {
+// 				printf("start accept: %d\n", ++num_conns);
+				int conn_fd = accept(sock_fd, NULL, NULL);
+				if (conn_fd < 0) {
+					break;
 				}
-			}
-
-			for (int i = 2; i < num_pfds; i++) {
-
-				if (pfds[i].revents & POLLIN) {
-
-					int conn_fd = pfds[i].fd;
-
-					char *req_msg = d_read_all(conn_fd, D_HTTP_CHUNK_SIZE, NULL);
-					// TODO: parse req msg
-					// TODO: res msg builder abstractions
-					char *res_msg = handler(req_msg);
-
-					write(conn_fd, res_msg, strlen(res_msg));
-					free(req_msg);
-					close(conn_fd);
-					pfds[i--] = pfds[--num_pfds];
-
+// 				printf("end accept: %d (%d)\n", conn_fd, num_conns);
+				if (num_pfds + 1 >= D_HTTP_MAX_PFDS) {
+					// TODO: grow list
+					break;
 				}
+				pfds[num_pfds++] = (struct pollfd) {
+					.fd = conn_fd,
+					.events = POLLIN,
+				};
+			}
+		}
+
+		for (int i = 1; i < num_pfds; i++) {
+
+			if (pfds[i].revents & POLLIN) {
+
+				int conn_fd = pfds[i].fd;
+
+// 				printf("start read: %d (%d)\n", conn_fd, num_conns);
+				char *req_msg = d_read_all(conn_fd, D_HTTP_CHUNK_SIZE, NULL);
+				// TODO: parse req msg
+				// TODO: res msg builder abstractions
+				char *res_msg = handler(req_msg);
+// 				printf("end read: %d (%d)\n", conn_fd, num_conns);
+
+// 				printf("start write: %d (%d)\n", conn_fd, num_conns);
+				write(conn_fd, res_msg, strlen(res_msg));
+// 				printf("end write: %d (%d)\n", conn_fd, num_conns);
+				free(req_msg);
+				close(conn_fd);
+				pfds[i--] = pfds[--num_pfds];
 
 			}
 
@@ -305,7 +308,7 @@ void d_http_serve(int port, d_http_handler handler) {
 
 	}
 
-	d_free_http_server(&server);
+	close(sock_fd);
 
 }
 
@@ -329,6 +332,9 @@ d_http_client d_make_http_client(const char *host) {
 
 	connect(sock_fd, res->ai_addr, res->ai_addrlen);
 	freeaddrinfo(res);
+
+// 	SSL_CTX *sctx = 0;
+// 	SSL *ssl = SSL_new(sctx);
 
 	return (d_http_client) {
 		.sock_fd = sock_fd,
@@ -374,7 +380,7 @@ static int atoin(const char *str, int n) {
 	return num;
 }
 
-static char *makestr(char *src, int len) {
+static char *strnmake(char *src, int len) {
 	char *str = malloc(len + 1);
 	strncpy(str, src, len);
 	str[len] = '\0';
@@ -448,7 +454,7 @@ d_http_res d_http_client_send(const d_http_client *client, const char *req_msg) 
 				}
 
 				int key_len = (key_end - res_msg) - cursor;
-				char *key = makestr(res_msg + cursor, key_len);
+				char *key = strnmake(res_msg + cursor, key_len);
 				cursor = key_end - res_msg + 2;
 
 				char *val_end = strstr(res_msg + cursor, "\r\n");
@@ -458,7 +464,7 @@ d_http_res d_http_client_send(const d_http_client *client, const char *req_msg) 
 				}
 
 				int val_len = (val_end - res_msg) - cursor;
-				char *val = makestr(res_msg + cursor, val_len);
+				char *val = strnmake(res_msg + cursor, val_len);
 				cursor = val_end - res_msg + 2;
 
 				headers[num_headers] = (d_http_header) {
@@ -485,7 +491,7 @@ d_http_res d_http_client_send(const d_http_client *client, const char *req_msg) 
 
 	}
 
-	char *body = makestr(res_msg + cursor, body_len);
+	char *body = strnmake(res_msg + cursor, body_len);
 	free(res_msg);
 
 	return (d_http_res) {
