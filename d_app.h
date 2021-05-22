@@ -1269,7 +1269,7 @@ static void d_term_run(const d_app_desc *desc) {
 	atexit(d_term_cleanup);
 	signal(SIGINT, d_term_cleanup);
 
-	struct pollfd poll_fds[1] = {
+	struct pollfd pfds[1] = {
 		[0] = {
 			.fd = STDIN_FILENO,
 			.events = POLLIN,
@@ -1280,12 +1280,14 @@ static void d_term_run(const d_app_desc *desc) {
 
 	while (!d_app.quit) {
 
-		if (poll(poll_fds, 1, 0) != 0) {
-			char c[4];
-			int size = read(STDIN_FILENO, &c, 4);
-			d_key k = d_term_key(c, size);
-			if (k) {
-				d_app.key_states[k] = D_BTN_PRESSED;
+		if (poll(pfds, 1, 0) > 0) {
+			if (pfds[0].revents == POLLIN) {
+				char c[4];
+				int size = read(STDIN_FILENO, &c, 4);
+				d_key k = d_term_key(c, size);
+				if (k) {
+					d_app.key_states[k] = D_BTN_PRESSED;
+				}
 			}
 		}
 

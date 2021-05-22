@@ -79,6 +79,7 @@ void d_free_http_res(d_http_res *res);
 #include <netdb.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <netinet/in.h>
 // #include <openssl/ssl.h>
 
@@ -176,6 +177,7 @@ d_http_server d_make_http_server(int port) {
 	}
 
 	setsockopt(sock_fd, SOL_SOCKET, SO_REUSEPORT, (int[]){1}, sizeof(int));
+	ioctl(sock_fd, FIONBIO, (int[]){1});
 
 	struct sockaddr_in server_addr = {
 		.sin_family = AF_INET,
@@ -211,33 +213,77 @@ void d_free_http_server(d_http_server *server) {
 	close(server->sock_fd);
 }
 
-// TODO: use poll(2)
-void d_http_server_listen(const d_http_server *server, d_http_handler handler) {
-
-	int chunk_size = D_HTTP_CHUNK_SIZE;
-	int conn_fd = accept(server->sock_fd, NULL, NULL);
-	char *req_msg = malloc(chunk_size);
-	int iter = 0;
-
-	while (read(conn_fd, req_msg + iter * chunk_size, chunk_size) >= chunk_size) {
-		iter++;
-		req_msg = realloc(req_msg, (iter + 1) * chunk_size);
-	}
-
-	char *res_msg = handler(req_msg);
-
-	write(conn_fd, res_msg, strlen(res_msg));
-	free(req_msg);
-	close(conn_fd);
-
-}
+#define D_HTTP_MAX_PFDS 1024
 
 void d_http_serve(int port, d_http_handler handler) {
 
 	d_http_server server = d_make_http_server(port);
 
+	struct pollfd pfds[D_HTTP_MAX_PFDS] = {
+		[0] = {
+			.fd = STDIN_FILENO,
+			.events = POLLIN,
+		},
+		[1] = {
+			.fd = server.sock_fd,
+			.events = POLLIN,
+		},
+	};
+
+	int num_pfds = 2;
+
 	while (1) {
-		d_http_server_listen(&server, handler);
+
+		if (poll(pfds, num_pfds, -1) > 0) {
+
+			if(pfds[0].revents & POLLIN) {
+				// TODO
+			}
+
+			if(pfds[1].revents & POLLIN) {
+				while (1) {
+					int conn_fd = accept(server.sock_fd, NULL, NULL);
+					if (conn_fd < 0) {
+						break;
+					}
+					if (num_pfds + 1 >= D_HTTP_MAX_PFDS) {
+						// TODO
+						break;
+					}
+					pfds[num_pfds++] = (struct pollfd) {
+						.fd = conn_fd,
+						.events = POLLIN,
+					};
+				}
+			}
+
+			for (int i = 2; i < num_pfds; i++) {
+
+				if (pfds[i].revents & POLLIN) {
+
+					int conn_fd = pfds[i].fd;
+					int chunk_size = D_HTTP_CHUNK_SIZE;
+					char *req_msg = malloc(chunk_size);
+					int iter = 0;
+
+					while (read(conn_fd, req_msg + iter * chunk_size, chunk_size) >= chunk_size) {
+						iter++;
+						req_msg = realloc(req_msg, (iter + 1) * chunk_size);
+					}
+
+					char *res_msg = handler(req_msg);
+
+					write(conn_fd, res_msg, strlen(res_msg));
+					free(req_msg);
+					close(conn_fd);
+					pfds[i--] = pfds[--num_pfds];
+
+				}
+
+			}
+
+		}
+
 	}
 
 	d_free_http_server(&server);
