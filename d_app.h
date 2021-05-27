@@ -1152,6 +1152,7 @@ static void d_uikit_run(const d_app_desc *desc) {
 #include <termios.h>
 #include <unistd.h>
 #include <poll.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 
 static void d_term_cleanup() {
@@ -1306,18 +1307,33 @@ static void d_term_present(int w, int h, const color *buf) {
 		th = mini(h, term_size.ws_row * 2 - 2);
 	}
 
+	color prev_c1 = colorx(0x00000000);
+	color prev_c2 = colorx(0x00000000);
+
 	for (int y = 0; y < th; y += 2) {
 		for (int x = 0; x < tw; x++) {
 			color c1 = buf[y * w + x];
 			color c2 = buf[(y + 1) * w + x];
-			printf(
-				"\x1b[38;2;%d;%d;%dm\x1b[48;2;%d;%d;%dm\u2580\x1b[0m",
-				c1.r, c1.g, c1.b,
-				c2.r, c2.g, c2.b
-			);
+			if (!color_eq(c1, prev_c1)) {
+				printf(
+					"\x1b[38;2;%d;%d;%dm",
+					c1.r, c1.g, c1.b
+				);
+			}
+			if (!color_eq(c2, prev_c2)) {
+				printf(
+					"\x1b[48;2;%d;%d;%dm",
+					c2.r, c2.g, c2.b
+				);
+			}
+			printf("\u2580");
+			prev_c1 = c1;
+			prev_c2 = c2;
 		}
 		printf("\n");
 	}
+
+	printf("\x1b[0m");
 
 }
 

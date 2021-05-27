@@ -7,6 +7,7 @@
 
 #define D_IMPL
 #define D_CPU
+#define D_FS_ASYNC
 #include <d_plat.h>
 #include <d_fs.h>
 #include <d_math.h>

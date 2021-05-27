@@ -10,6 +10,9 @@
 typedef struct d_gfx_desc {
 	int width;
 	int height;
+	bool no_depth_test;
+	bool backface_cull;
+	bool anti_alias;
 	color clear_color;
 } d_gfx_desc;
 
@@ -172,7 +175,7 @@ void d_gfx_drawon(d_img *img);
 d_img *d_gfx_canvas();
 void d_gfx_set_shader(d_gfx_shader func);
 void d_gfx_set_backface_cull(bool b);
-void d_gfx_set_zbuf_test(bool b);
+void d_gfx_set_depth_test(bool b);
 void d_gfx_set_bbuf_write(bool b);
 void d_gfx_set_bbuf_test(bool b);
 bool d_gfx_bbuf_get(int x, int y);
@@ -718,12 +721,13 @@ static uint8_t unscii_bytes[] = {
 typedef struct {
 	d_img def_canvas;
 	d_img *cur_canvas;
-	d_ibuf zbuf;
+	d_ibuf depth_buf;
 	d_bbuf bbuf;
-	bool zbuf_test;
+	bool depth_test;
+	bool backface_cull;
+	bool anti_alias;
 	bool bbuf_write;
 	bool bbuf_test;
-	bool backface_cull;
 	d_font def_font;
 	d_font *cur_font;
 	color clear_color;
@@ -739,12 +743,13 @@ static d_gfx_ctx d_gfx;
 void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.def_canvas = d_make_img(desc.width, desc.height);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
-	d_gfx.zbuf = d_make_ibuf(desc.width, desc.height);
+	d_gfx.depth_buf = d_make_ibuf(desc.width, desc.height);
 	d_gfx.bbuf = d_make_bbuf(desc.width, desc.height);
-	d_gfx.zbuf_test = true;
+	d_gfx.depth_test = !desc.no_depth_test;
+	d_gfx.backface_cull = desc.backface_cull;
+	d_gfx.anti_alias = desc.anti_alias;
 	d_gfx.bbuf_write = false;
 	d_gfx.bbuf_test = false;
-	d_gfx.backface_cull = true;
 	d_gfx.def_font = d_parse_font(unscii_bytes);
 	d_gfx.cur_font = &d_gfx.def_font;
 	d_gfx.blend = D_BLEND_ALPHA;
@@ -1004,7 +1009,7 @@ void d_free_font(d_font *f) {
 
 void d_gfx_clear() {
 	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
-	d_ibuf_clear(&d_gfx.zbuf, -INT_MAX);
+	d_ibuf_clear(&d_gfx.depth_buf, -INT_MAX);
 }
 
 void d_gfx_bbuf_clear() {
@@ -1015,8 +1020,8 @@ void d_gfx_set_backface_cull(bool b) {
 	d_gfx.backface_cull = b;
 }
 
-void d_gfx_set_zbuf_test(bool b) {
-	d_gfx.zbuf_test = b;
+void d_gfx_set_depth_test(bool b) {
+	d_gfx.depth_test = b;
 }
 
 void d_gfx_set_bbuf_write(bool b) {
@@ -1036,9 +1041,9 @@ void d_gfx_draw_pixel(int x, int y, int z, color c) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
-	if (d_gfx.zbuf_test) {
-		if (d_ibuf_get(&d_gfx.zbuf, x, y) <= z) {
-			d_ibuf_set(&d_gfx.zbuf, x, y, z);
+	if (d_gfx.depth_test) {
+		if (d_ibuf_get(&d_gfx.depth_buf, x, y) <= z) {
+			d_ibuf_set(&d_gfx.depth_buf, x, y, z);
 		} else {
 			return;
 		}

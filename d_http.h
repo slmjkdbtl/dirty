@@ -80,7 +80,7 @@ void d_free_http_res(d_http_res *res);
 #include <netinet/in.h>
 // #include <openssl/ssl.h>
 
-#define D_HTTP_CHUNK_SIZE 2048
+#define D_HTTP_CHUNK_SIZE 1024
 
 static char const *status_text[] = {
 	"", "", "", "", "", "", "", "", "", "",
@@ -169,16 +169,14 @@ static char *d_read_all(int fd, int chunk_size, int *osize) {
 
 	char *data = malloc(chunk_size);
 	int total_size = 0;
-	int iter = 0;
 
 	while (1) {
-		int size = read(fd, data + iter * chunk_size, chunk_size);
+		int size = read(fd, data + total_size, chunk_size);
 		total_size += size;
 		if (size < chunk_size) {
 			break;
 		}
-		iter++;
-		data = realloc(data, (iter + 1) * chunk_size);
+		data = realloc(data, total_size + chunk_size);
 	}
 
 	if (osize) {
@@ -235,7 +233,6 @@ void d_http_serve(int port, d_http_handler handler) {
 	};
 
 	int num_pfds = 1;
-// 	int num_conns = 0;
 
 // 	while (1) {
 
@@ -247,7 +244,6 @@ void d_http_serve(int port, d_http_handler handler) {
 // 		write(conn_fd, res_msg, strlen(res_msg));
 // 		free(req_msg);
 // 		close(conn_fd);
-// 		printf("%d\n", ++num_conns);
 
 // 	}
 
@@ -256,21 +252,17 @@ void d_http_serve(int port, d_http_handler handler) {
 		// TODO: sometimes this blocks on actual pending requests
 		int poll_res = poll(pfds, num_pfds, -1);
 
-// 		printf("%d\n", poll_res);
-
 		if (poll_res <= 0) {
-// 			fprintf(stderr, "err\n");
+			fprintf(stderr, "err\n");
 			continue;
 		}
 
 		if(pfds[0].revents & POLLIN) {
 			while (1) {
-// 				printf("start accept: %d\n", ++num_conns);
 				int conn_fd = accept(sock_fd, NULL, NULL);
 				if (conn_fd < 0) {
 					break;
 				}
-// 				printf("end accept: %d (%d)\n", conn_fd, num_conns);
 				if (num_pfds + 1 >= D_HTTP_MAX_PFDS) {
 					// TODO: grow list
 					break;
@@ -288,16 +280,13 @@ void d_http_serve(int port, d_http_handler handler) {
 
 				int conn_fd = pfds[i].fd;
 
-// 				printf("start read: %d (%d)\n", conn_fd, num_conns);
-				char *req_msg = d_read_all(conn_fd, D_HTTP_CHUNK_SIZE, NULL);
+				char *req_msg = d_read_all(conn_fd, 4, NULL);
+// 				char *req_msg = d_read_all(conn_fd, D_HTTP_CHUNK_SIZE, NULL);
 				// TODO: parse req msg
 				// TODO: res msg builder abstractions
 				char *res_msg = handler(req_msg);
-// 				printf("end read: %d (%d)\n", conn_fd, num_conns);
 
-// 				printf("start write: %d (%d)\n", conn_fd, num_conns);
 				write(conn_fd, res_msg, strlen(res_msg));
-// 				printf("end write: %d (%d)\n", conn_fd, num_conns);
 				free(req_msg);
 				close(conn_fd);
 				pfds[i--] = pfds[--num_pfds];
@@ -380,13 +369,6 @@ static int atoin(const char *str, int n) {
 	return num;
 }
 
-static char *strnmake(char *src, int len) {
-	char *str = malloc(len + 1);
-	strncpy(str, src, len);
-	str[len] = '\0';
-	return str;
-}
-
 // TODO: parse url
 // TODO: send_ex with headers
 // TODO: https
@@ -454,7 +436,7 @@ d_http_res d_http_client_send(const d_http_client *client, const char *req_msg) 
 				}
 
 				int key_len = (key_end - res_msg) - cursor;
-				char *key = strnmake(res_msg + cursor, key_len);
+				char *key = strndup(res_msg + cursor, key_len);
 				cursor = key_end - res_msg + 2;
 
 				char *val_end = strstr(res_msg + cursor, "\r\n");
@@ -464,7 +446,7 @@ d_http_res d_http_client_send(const d_http_client *client, const char *req_msg) 
 				}
 
 				int val_len = (val_end - res_msg) - cursor;
-				char *val = strnmake(res_msg + cursor, val_len);
+				char *val = strndup(res_msg + cursor, val_len);
 				cursor = val_end - res_msg + 2;
 
 				headers[num_headers] = (d_http_header) {
@@ -491,7 +473,7 @@ d_http_res d_http_client_send(const d_http_client *client, const char *req_msg) 
 
 	}
 
-	char *body = strnmake(res_msg + cursor, body_len);
+	char *body = strndup(res_msg + cursor, body_len);
 	free(res_msg);
 
 	return (d_http_res) {

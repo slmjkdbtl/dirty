@@ -1,5 +1,7 @@
 // wengwengweng
 
+// TODO: async
+
 #ifndef D_FS_H
 #define D_FS_H
 
@@ -17,9 +19,15 @@ typedef struct {
 	const char *data_name;
 } d_fs_desc;
 
+typedef uint64_t d_fs_task;
+
 void d_fs_init(d_fs_desc);
 char *d_read_text(const char *path);
 uint8_t *d_read_bytes(const char *path, size_t *size);
+#ifdef D_FS_ASYNC
+d_fs_task d_read_text_async(const char *path);
+d_fs_task d_read_bytes_async(const char *path, size_t *size);
+#endif
 char **d_glob(const char *path, const char *ext);
 void d_free_dir(char **list);
 bool d_is_file(const char *path);
@@ -51,6 +59,11 @@ char *d_basename(const char *path);
 #include <dirent.h>
 #include <sys/stat.h>
 
+#ifdef D_FS_ASYNC
+#include <pthread.h>
+static void *d_fs_thread(void *args);
+#endif
+
 #if defined(D_MACOS) || defined(D_IOS)
 	#import <Foundation/Foundation.h>
 #endif
@@ -60,6 +73,7 @@ char *d_basename(const char *path);
 typedef struct {
 	char res_path[D_PATH_MAX];
 	char data_path[D_PATH_MAX];
+	d_fs_task last_task_id;
 } d_fs_ctx;
 
 static d_fs_ctx d_fs;
@@ -100,6 +114,17 @@ void d_fs_init(d_fs_desc desc) {
 // 		sprintf(d_fs.data_path, "%s/%s/", d_fs.data_path, desc.data_name);
 // 		mkdir(d_fs.data_path, 0700);
 	}
+
+#ifdef D_FS_ASYNC
+
+	pthread_t id;
+
+	if (pthread_create(&id, NULL, d_fs_thread, NULL) < 0) {
+		fprintf(stderr, "failed to start fs thread\n");
+		return;
+	}
+
+#endif
 
 }
 
@@ -342,6 +367,26 @@ char *d_basename(const char *path) {
 	buf[len] = '\0';
 	return buf;
 }
+
+#ifdef D_FS_ASYNC
+
+d_fs_task d_read_text_async(const char *path) {
+	d_fs_task id = d_fs.last_task_id++;
+	// TODO
+	return id;
+}
+
+void *d_fs_aynsc_get(d_fs_task id) {
+	// TODO
+	return NULL;
+}
+
+static void *d_fs_thread(void *args) {
+	// TODO
+	return NULL;
+}
+
+#endif
 
 #endif
 #endif
