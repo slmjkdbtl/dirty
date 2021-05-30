@@ -70,7 +70,7 @@ void frame() {
 		d_gfx_t_move3(vec3f(60, 80, 0));
 		d_gfx_t_rot_y(d_app_time());
 		d_gfx_t_rot_z(d_app_time());
-		d_gfx_t_scale3(vec3f(600, -600, 600));
+		d_gfx_t_scale3(vec3f(6, -6, 6));
 		d_gfx_t_move3(vec3_scale(btfly.center, -1));
 		d_draw_model(&btfly);
 		d_draw_bbox(btfly.bbox, colorx(0x0000ffff));

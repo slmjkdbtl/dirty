@@ -83,6 +83,18 @@ typedef struct {
 	int num_indices;
 } d_mesh;
 
+typedef struct {
+	vec3 pos;
+	quat rot;
+	vec3 scale;
+} d_transform;
+
+typedef struct {
+	char *name;
+	d_transform *frames;
+	int num_frames;
+} d_model_anim;
+
 typedef struct d_model_node {
 	mat4 t;
 	struct d_model_node *children;
@@ -96,6 +108,9 @@ typedef struct {
 	int num_nodes;
 	d_img *images;
 	int num_images;
+	d_model_anim *anims;
+	int num_anims;
+	int num_frames;
 	box bbox;
 	vec3 center;
 } d_model;
@@ -1281,7 +1296,14 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 // 	vec3 n2 = vec3_unit(d_gfx_t_apply_vec3(v2.normal));
 // 	vec3 n3 = vec3_unit(d_gfx_t_apply_vec3(v3.normal));
 
+	int gw = d_gfx_width();
+	int gh = d_gfx_height();
+
 	for (int y = y1; y < y3; y++) {
+
+		if (y < 0 || y >= gh) {
+			continue;
+		}
 
 		bool prebend = y < y2;
 
@@ -1318,19 +1340,29 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 		int x_len = x_end - x_start;
 
 		for (int x = mini(x_start, x_end); x < maxi(x_start, x_end); x++) {
+
+			if (x < 0 || x >= gw) {
+				continue;
+			}
+
 			int z = mapi(x, x_start, x_end, z_start, z_end);
 			float t = (float)(x - x_start) / (float)x_len;
+
 			color c = same_color
 				? col_start
 				: color_lerp(col_start, col_end, t);
+
 // 			vec3 normal = vec3_lerp(normal_start, normal_end, t);
 // 			int l = mapf(normal.x + normal.y + normal.z, -3, 3, -255, 255);
 // 			c = color_lighten(c, l);
+
 			if (tex) {
 				vec2 uv = vec2_lerp(uv_start, uv_end, t);
 				c = color_mix(d_img_get(tex, tex->width * uv.x, tex->height * uv.y), c);
 			}
+
 			d_gfx_draw_pixel(x, y, z, c);
+
 		}
 
 	}
@@ -1654,6 +1686,12 @@ void d_free_model_node(d_model_node *node) {
 	memset(node, 0, sizeof(d_model_node));
 }
 
+void d_free_model_anim(d_model_anim *anim) {
+	free(anim->frames);
+	free(anim->name);
+	memset(anim, 0, sizeof(d_model_anim));
+}
+
 static d_model d_model_empty() {
 	return (d_model) {
 		.nodes = NULL,
@@ -1668,6 +1706,9 @@ static d_model d_model_empty() {
 void d_free_model(d_model *model) {
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_free_model_node(&model->nodes[i]);
+	}
+	for (int i = 0; i < model->num_anims; i++) {
+		d_free_model_anim(&model->anims[i]);
 	}
 	for (int i = 0; i < model->num_images; i++) {
 		d_free_img(&model->images[i]);
@@ -1861,10 +1902,55 @@ static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 	}
 
 	int num_anims = doc->animations_count;
+	model.num_anims = num_anims;
+	model.anims = malloc(sizeof(d_model_anim) * num_anims);
 
 	for (int i = 0; i < num_anims; i++) {
-// 		cgltf_animation *anim = &doc->animations[i];
+
+		cgltf_animation *canim = &doc->animations[i];
+		d_model_anim anim;
+		anim.name = strdup(canim->name);
+		int num_frames = 0;
+
+		for (int j = 0; j < canim->samplers_count; j++) {
+			cgltf_animation_sampler *samp = &canim->samplers[j];
+			num_frames = maxi(num_frames, samp->output->count);
+		}
+
+		anim.frames = malloc(sizeof(d_transform) * num_frames);
 		// TODO
+		model.num_frames = num_frames;
+
+		for (int j = 0; j < canim->channels_count; j++) {
+			cgltf_animation_channel *chan = &canim->channels[j];
+			cgltf_animation_sampler *samp = chan->sampler;
+			cgltf_accessor *acc = samp->output;
+			switch (chan->target_path) {
+				case cgltf_animation_path_type_translation:
+// 					assert(acc->type == cgltf_type_vec3);
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&anim.frames[k].pos, 3);
+					}
+					break;
+				case cgltf_animation_path_type_rotation:
+// 					assert(acc->type == cgltf_type_vec4);
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&anim.frames[k].rot, 4);
+					}
+					break;
+				case cgltf_animation_path_type_scale:
+// 					assert(acc->type == cgltf_type_vec3);
+					for(int k = 0; k < acc->count; k++) {
+						cgltf_accessor_read_float(acc, k, (float*)&anim.frames[k].scale, 3);
+					}
+					break;
+				default:
+					break;
+			}
+		}
+
+		model.anims[i] = anim;
+
 	}
 
 	cgltf_free(doc);

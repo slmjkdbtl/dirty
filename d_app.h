@@ -1162,6 +1162,8 @@ static void d_term_cleanup() {
 	printf("\x1b[?1049l");
 	// show cursor
 	printf("\x1b[?25h");
+	// reset color
+	printf("\x1b[0m");
 	exit(EXIT_SUCCESS);
 }
 
@@ -1319,16 +1321,16 @@ static void d_term_present(int w, int h, const color *buf) {
 					"\x1b[38;2;%d;%d;%dm",
 					c1.r, c1.g, c1.b
 				);
+				prev_c1 = c1;
 			}
 			if (!color_eq(c2, prev_c2)) {
 				printf(
 					"\x1b[48;2;%d;%d;%dm",
 					c2.r, c2.g, c2.b
 				);
+				prev_c2 = c2;
 			}
 			printf("\u2580");
-			prev_c1 = c1;
-			prev_c2 = c2;
 		}
 		printf("\n");
 	}
