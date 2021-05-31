@@ -953,8 +953,10 @@ void d_img_save(const d_img *img, const char *path) {
 }
 
 d_img d_img_clone(const d_img *img) {
-	d_img img2 = d_make_img(img->width, img->height);
-	memcpy(img2.pixels, img->pixels, img->width * img->height * sizeof(color));
+	int w = img->width;
+	int h = img->height;
+	d_img img2 = d_make_img(w, h);
+	memcpy(img2.pixels, img->pixels, w * h * sizeof(color));
 	return img2;
 }
 
@@ -1141,7 +1143,11 @@ color d_gfx_get(int x, int y) {
 void d_blit_img(d_img *img, vec2 pos) {
 	for (int x = 0; x < img->width; x++) {
 		for (int y = 0; y < img->height; y++) {
-			d_gfx_blit_pixel(x + pos.x, y + pos.y, img->pixels[y * img->width + x]);
+			d_gfx_blit_pixel(
+				x + pos.x,
+				y + pos.y,
+				img->pixels[y * img->width + x]
+			);
 		}
 	}
 }
@@ -1254,14 +1260,24 @@ void d_vertex_swap(d_vertex *v1, d_vertex *v2) {
 	*v1 = v3;
 }
 
-void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
+void d_draw_prim_tri(
+	d_vertex v1,
+	d_vertex v2,
+	d_vertex v3,
+	d_img *tex
+) {
 
 	vec3 p1 = d_gfx_t_apply_vec3(v1.pos);
 	vec3 p2 = d_gfx_t_apply_vec3(v2.pos);
 	vec3 p3 = d_gfx_t_apply_vec3(v3.pos);
 
 	if (d_gfx.backface_cull) {
-		vec3 normal = vec3_unit(vec3_cross(vec3_sub(p3, p1), vec3_sub(p2, p1)));
+		vec3 normal = vec3_unit(
+			vec3_cross(
+				vec3_sub(p3, p1),
+				vec3_sub(p2, p1)
+			)
+		);
 		if (vec3_dot(normal, vec3f(0, 0, 1)) < 0) {
 			return;
 		}
@@ -1358,7 +1374,10 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 
 			if (tex) {
 				vec2 uv = vec2_lerp(uv_start, uv_end, t);
-				c = color_mix(d_img_get(tex, tex->width * uv.x, tex->height * uv.y), c);
+				c = color_mix(
+					d_img_get(tex, tex->width * uv.x, tex->height * uv.y),
+					c
+				);
 			}
 
 			d_gfx_draw_pixel(x, y, z, c);
@@ -1369,7 +1388,13 @@ void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex) {
 
 }
 
-void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img *tex) {
+void d_draw_prim_quad(
+	d_vertex v1,
+	d_vertex v2,
+	d_vertex v3,
+	d_vertex v4,
+	d_img *tex
+) {
 	d_draw_prim_tri(v1, v2, v3, tex);
 	d_draw_prim_tri(v1, v3, v4, tex);
 }
@@ -1577,7 +1602,10 @@ static void d_draw_model_node(d_model *model, d_model_node *node) {
 	d_gfx_t_push();
 	d_gfx_t_use(node->t);
 	for (int i = 0; i < node->num_meshes; i++) {
-		d_draw_mesh(&node->meshes[i], model->num_images > 0 ? &model->images[0] : NULL);
+		d_draw_mesh(
+			&node->meshes[i],
+			model->num_images > 0 ? &model->images[0] : NULL
+		);
 	}
 	for (int i = 0; i < node->num_children; i++) {
 		d_draw_model_node(model, &node->children[i]);
@@ -1643,7 +1671,10 @@ static void d_mesh_gen_normals(d_mesh *mesh) {
 		d_vertex *v1 = &mesh->verts[mesh->indices[i + 0]];
 		d_vertex *v2 = &mesh->verts[mesh->indices[i + 1]];
 		d_vertex *v3 = &mesh->verts[mesh->indices[i + 2]];
-		vec3 n = vec3_cross(vec3_sub(v3->pos, v1->pos), vec3_sub(v2->pos, v1->pos));
+		vec3 n = vec3_cross(
+			vec3_sub(v3->pos, v1->pos),
+			vec3_sub(v2->pos, v1->pos)
+		);
 		v1->normal = vec3_add(v1->normal, n);
 		v2->normal = vec3_add(v2->normal, n);
 		v3->normal = vec3_add(v3->normal, n);
@@ -1655,19 +1686,29 @@ static void d_mesh_gen_normals(d_mesh *mesh) {
 
 }
 
-d_mesh d_make_mesh(d_vertex *verts, int num_verts, d_index *indices, int num_indices) {
+d_mesh d_make_mesh(
+	d_vertex *verts,
+	int num_verts,
+	d_index *indices,
+	int num_indices
+) {
+
 	int verts_size = sizeof(d_vertex) * num_verts;
 	int indices_size = sizeof(d_index) * num_indices;
+
 	d_vertex *verts2 = malloc(verts_size);
 	d_index *indices2 = malloc(indices_size);
+
 	memcpy(verts2, verts, verts_size);
 	memcpy(indices2, indices, indices_size);
+
 	return (d_mesh) {
 		.verts = verts2,
 		.num_verts = num_verts,
 		.indices = indices2,
 		.num_indices = num_indices,
 	};
+
 }
 
 void d_free_mesh(d_mesh *mesh) {
@@ -1739,7 +1780,11 @@ void d_draw_bbox(box bbox, color c) {
 	d_draw_line3(p4, p8, c);
 }
 
-static void d_model_node_gen_bbox(d_model_node *node, box *bbox, mat4 t) {
+static void d_model_node_gen_bbox(
+	d_model_node *node,
+	box *bbox,
+	mat4 t
+) {
 	t = mat4_mult(t, node->t);
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_mesh *mesh = &node->meshes[i];
@@ -1768,16 +1813,45 @@ static void d_model_gen_bbox(d_model *model) {
 	model->center = vec3_scale(vec3_add(bbox.p1, bbox.p2), 0.5);
 }
 
+static void d_assert(bool b, const char *fmt, ...) {
+	if (!b) {
+		va_list args;
+		va_start(args, fmt);
+		vprintf(fmt, args);
+		va_end(args);
+		exit(EXIT_FAILURE);
+	}
+}
+
 #ifdef CGLTF_IMPLEMENTATION
 
 static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 
 	model->t = mat4_mult(
 		mat4_mult(
-			mat4_translate(vec3f(node->translation[0], node->translation[1], node->translation[2])),
-			mat4_scale(vec3f(node->scale[0], node->scale[1], node->scale[2]))
+			mat4_translate(
+				vec3f(
+					node->translation[0],
+					node->translation[1],
+					node->translation[2]
+				)
+			),
+			mat4_scale(
+				vec3f(
+					node->scale[0],
+					node->scale[1],
+					node->scale[2]
+				)
+			)
 		),
-		mat4_rot_quat(quatf(node->rotation[0], node->rotation[1], node->rotation[2], node->rotation[3]))
+		mat4_rot_quat(
+			quatf(
+				node->rotation[0],
+				node->rotation[1],
+				node->rotation[2],
+				node->rotation[3]
+			)
+		)
 	);
 
 	int num_children = node->children_count;
@@ -1814,31 +1888,63 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 			cgltf_attribute *attr = &prim->attributes[j];
 			cgltf_accessor *acc = attr->data;
 
-// 			d_assert(acc->count == num_verts, "bad gltf\n");
+			d_assert(acc->count == num_verts, "bad gltf\n");
 
 			switch (attr->type) {
 				case cgltf_attribute_type_position:
-// 					d_assert(acc->type == cgltf_type_vec3, "gltf pos must be vec3\n");
+					d_assert(
+						acc->type == cgltf_type_vec3,
+						"gltf pos must be vec3\n"
+					);
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, (float*)&verts[k].pos, 3);
+						cgltf_accessor_read_float(
+							acc,
+							k,
+							(float*)&verts[k].pos,
+							3
+						);
 					}
 					break;
 				case cgltf_attribute_type_normal:
-// 					d_assert(acc->type == cgltf_type_vec3, "gltf normal must be vec3\n");
+					d_assert(
+						acc->type == cgltf_type_vec3,
+						"gltf normal must be vec3\n"
+					);
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, (float*)&verts[k].normal, 3);
+						cgltf_accessor_read_float(
+							acc,
+							k,
+							(float*)&verts[k].normal,
+							3
+						);
 					}
 					break;
 				case cgltf_attribute_type_texcoord:
-// 					d_assert(acc->type == cgltf_type_vec2, "gltf texcoord must be vec2\n");
+					d_assert(
+						acc->type == cgltf_type_vec2,
+						"gltf texcoord must be vec2\n"
+					);
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, (float*)&verts[k].uv, 2);
+						cgltf_accessor_read_float(
+							acc,
+							k,
+							(float*)&verts[k].uv,
+							2
+						);
 					}
 					break;
 				case cgltf_attribute_type_color:
-// 					d_assert(acc->type == cgltf_type_vec4, "gltf color must be vec4\n");
+					d_assert(
+						acc->type == cgltf_type_vec4,
+						"gltf color must be vec4\n"
+					);
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, (float*)&verts[k].color, 4);
+						cgltf_accessor_read_float(
+							acc,
+							k,
+							(float*)&verts[k].color,
+							4
+						);
 					}
 					break;
 				default:
@@ -1927,21 +2033,45 @@ static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 			cgltf_accessor *acc = samp->output;
 			switch (chan->target_path) {
 				case cgltf_animation_path_type_translation:
-// 					assert(acc->type == cgltf_type_vec3);
+					d_assert(
+						acc->type == cgltf_type_vec3,
+						"gltf anim translation must be vec3\n"
+					);
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, (float*)&anim.frames[k].pos, 3);
+						cgltf_accessor_read_float(
+							acc,
+							k,
+							(float*)&anim.frames[k].pos,
+							3
+						);
 					}
 					break;
 				case cgltf_animation_path_type_rotation:
-// 					assert(acc->type == cgltf_type_vec4);
+					d_assert(
+						acc->type == cgltf_type_vec4,
+						"gltf anim rotation must be vec4\n"
+					);
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, (float*)&anim.frames[k].rot, 4);
+						cgltf_accessor_read_float(
+							acc,
+							k,
+							(float*)&anim.frames[k].rot,
+							4
+						);
 					}
 					break;
 				case cgltf_animation_path_type_scale:
-// 					assert(acc->type == cgltf_type_vec3);
+					d_assert(
+						acc->type == cgltf_type_vec3,
+						"gltf anim scale must be vec3\n"
+					);
 					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(acc, k, (float*)&anim.frames[k].scale, 3);
+						cgltf_accessor_read_float(
+							acc,
+							k,
+							(float*)&anim.frames[k].scale,
+							3
+						);
 					}
 					break;
 				default:

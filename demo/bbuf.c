@@ -67,7 +67,7 @@ void frame() {
 	d_gfx_t_push();
 	d_gfx_t_move3(vec3f(60, 80, 0));
 	d_gfx_t_rot_y(d_app_time());
-	d_gfx_t_scale3(vec3f(600, -600, 600));
+	d_gfx_t_scale3(vec3f(6, -6, 6));
 	d_draw_model(&btfly);
 	d_gfx_t_pop();
 
@@ -86,8 +86,7 @@ void frame() {
 	if (d_gfx_bbuf_get(mpos.x, mpos.y)) {
 		d_blit_rect(
 			vec2f(0, 0),
-			vec2f(d_gfx_width(),
-			d_gfx_height()),
+			vec2f(d_gfx_width(), d_gfx_height()),
 			colori((sin(t) + 1) / 2 * 255, (cos(t) + 1) / 2 * 255, 255, 255)
 		);
 	} else {
