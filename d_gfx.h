@@ -101,6 +101,8 @@ typedef struct d_model_node {
 	int num_children;
 	d_mesh *meshes;
 	int num_meshes;
+	d_model_anim *anims;
+	int num_anims;
 } d_model_node;
 
 typedef struct {
@@ -108,9 +110,6 @@ typedef struct {
 	int num_nodes;
 	d_img *images;
 	int num_images;
-	d_model_anim *anims;
-	int num_anims;
-	int num_frames;
 	box bbox;
 	vec3 center;
 } d_model;
@@ -988,8 +987,8 @@ d_font d_parse_font(const uint8_t *bytes) {
 	uint8_t *pixels = malloc(size);
 	memcpy(pixels, (uint8_t*)(bytes + D_FNT_HEADER_SIZE), size);
 
-	d_font f = {0};
-
+	d_font f;
+	memset(&f, 0, sizeof(d_font));
 	f.gw = data->gw;
 	f.gh = data->gh;
 	f.rows = data->rows;
@@ -1598,9 +1597,26 @@ void d_draw_mesh_line(d_mesh *mesh, color c) {
 	}
 }
 
+static mat4 d_transform_mat4(d_transform t) {
+	return mat4_mult(
+		mat4_mult(
+			mat4_translate(t.pos),
+			mat4_scale(t.scale)
+		),
+		mat4_rot_quat(t.rot)
+	);
+}
+
 static void d_draw_model_node(d_model *model, d_model_node *node) {
 	d_gfx_t_push();
 	d_gfx_t_use(node->t);
+	// TODO
+	for (int i = 0; i < node->num_anims; i++) {
+		d_model_anim *anim = &node->anims[i];
+		int f = (int)(d_app_time() * 40) % anim->num_frames;
+		d_transform t = anim->frames[f];
+		d_gfx_t_use(d_transform_mat4(t));
+	}
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_draw_mesh(
 			&node->meshes[i],
@@ -1717,20 +1733,23 @@ void d_free_mesh(d_mesh *mesh) {
 	memset(mesh, 0, sizeof(d_mesh));
 }
 
-void d_free_model_node(d_model_node *node) {
+static void d_free_model_anim(d_model_anim *anim) {
+	free(anim->frames);
+	free(anim->name);
+	memset(anim, 0, sizeof(d_model_anim));
+}
+
+static void d_free_model_node(d_model_node *node) {
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_free_mesh(&node->meshes[i]);
 	}
 	for (int i = 0; i < node->num_children; i++) {
 		d_free_model_node(&node->children[i]);
 	}
+	for (int i = 0; i < node->num_anims; i++) {
+		d_free_model_anim(&node->anims[i]);
+	}
 	memset(node, 0, sizeof(d_model_node));
-}
-
-void d_free_model_anim(d_model_anim *anim) {
-	free(anim->frames);
-	free(anim->name);
-	memset(anim, 0, sizeof(d_model_anim));
 }
 
 static d_model d_model_empty() {
@@ -1747,9 +1766,6 @@ static d_model d_model_empty() {
 void d_free_model(d_model *model) {
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_free_model_node(&model->nodes[i]);
-	}
-	for (int i = 0; i < model->num_anims; i++) {
-		d_free_model_anim(&model->anims[i]);
 	}
 	for (int i = 0; i < model->num_images; i++) {
 		d_free_img(&model->images[i]);
@@ -1817,7 +1833,7 @@ static void d_assert(bool b, const char *fmt, ...) {
 	if (!b) {
 		va_list args;
 		va_start(args, fmt);
-		vprintf(fmt, args);
+		vfprintf(stderr, fmt, args);
 		va_end(args);
 		exit(EXIT_FAILURE);
 	}
@@ -1825,57 +1841,62 @@ static void d_assert(bool b, const char *fmt, ...) {
 
 #ifdef CGLTF_IMPLEMENTATION
 
-static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
+static void d_parse_model_node(
+	d_model *model,
+	d_model_node *node,
+	cgltf_node *cnode,
+	cgltf_data *doc
+) {
 
-	model->t = mat4_mult(
+	node->t = mat4_mult(
 		mat4_mult(
 			mat4_translate(
 				vec3f(
-					node->translation[0],
-					node->translation[1],
-					node->translation[2]
+					cnode->translation[0],
+					cnode->translation[1],
+					cnode->translation[2]
 				)
 			),
 			mat4_scale(
 				vec3f(
-					node->scale[0],
-					node->scale[1],
-					node->scale[2]
+					cnode->scale[0],
+					cnode->scale[1],
+					cnode->scale[2]
 				)
 			)
 		),
 		mat4_rot_quat(
 			quatf(
-				node->rotation[0],
-				node->rotation[1],
-				node->rotation[2],
-				node->rotation[3]
+				cnode->rotation[0],
+				cnode->rotation[1],
+				cnode->rotation[2],
+				cnode->rotation[3]
 			)
 		)
 	);
 
-	int num_children = node->children_count;
+	int num_children = cnode->children_count;
 
-	model->num_children = num_children;
-	model->children = malloc(sizeof(d_model_node) * num_children);
+	node->num_children = num_children;
+	node->children = malloc(sizeof(d_model_node) * num_children);
 
 	for (int i = 0; i < num_children; i++) {
-		d_parse_model_node(node->children[i], &model->children[i]);
+		d_parse_model_node(model, &node->children[i], cnode->children[i], doc);
 	}
 
-	if (!node->mesh) {
-		model->num_meshes = 0;
-		model->meshes = malloc(0);
+	if (!cnode->mesh) {
+		node->num_meshes = 0;
+		node->meshes = malloc(0);
 		return;
 	}
 
-	int num_meshes = node->mesh->primitives_count;
-	model->num_meshes = num_meshes;
-	model->meshes = malloc(sizeof(d_mesh) * num_meshes);
+	int num_meshes = cnode->mesh->primitives_count;
+	node->num_meshes = num_meshes;
+	node->meshes = malloc(sizeof(d_mesh) * num_meshes);
 
 	for (int i = 0; i < num_meshes; i++) {
 
-		cgltf_primitive *prim = &node->mesh->primitives[i];
+		cgltf_primitive *prim = &cnode->mesh->primitives[i];
 		int num_verts = prim->attributes[0].data->count;
 		d_vertex *verts = calloc(num_verts, sizeof(d_vertex));
 
@@ -1948,6 +1969,7 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 					}
 					break;
 				default:
+					fprintf(stderr, "unknown gltf vert attrib\n");
 					break;
 			}
 
@@ -1961,22 +1983,113 @@ static void d_parse_model_node(cgltf_node *node, d_model_node *model) {
 			cgltf_accessor_read_uint(prim->indices, j, &indices[j], 1);
 		}
 
-		model->meshes[i] = (d_mesh) {
+		node->meshes[i] = (d_mesh) {
 			.verts = verts,
 			.num_verts = num_verts,
 			.indices = indices,
 			.num_indices = num_indices,
 		};
 
-		d_mesh_gen_normals(&model->meshes[i]);
+		d_mesh_gen_normals(&node->meshes[i]);
 
+	}
+
+	node->num_anims = 0;
+	node->anims = malloc(0);
+
+	for (int i = 0; i < doc->animations_count; i++) {
+
+		cgltf_animation *canim = &doc->animations[i];
+
+		// TODO: squash same anims
+		for (int j = 0; j < canim->channels_count; j++) {
+
+			cgltf_animation_channel *chan = &canim->channels[j];
+
+			if (chan->target_node == cnode) {
+
+				node->anims = realloc(
+					node->anims,
+					sizeof(d_model_anim) * (node->num_anims + 1)
+				);
+
+				d_model_anim anim;
+				memset(&anim, 0, sizeof(d_model_anim));
+				anim.name = strdup(canim->name);
+
+				cgltf_animation_sampler *samp = chan->sampler;
+				cgltf_accessor *acc = samp->output;
+
+				int num_frames = acc->count;
+				anim.num_frames = num_frames;
+				// TODO: cache calculated matrices
+				anim.frames = malloc(sizeof(d_transform) * num_frames);
+
+				for (int k = 0; k < num_frames; k++) {
+					anim.frames[k].scale = vec3f(1, 1, 1);
+					anim.frames[k].rot = quatf(0, 0, 0, 1);
+				}
+
+				switch (chan->target_path) {
+					case cgltf_animation_path_type_translation:
+						d_assert(
+							acc->type == cgltf_type_vec3,
+							"gltf anim translation must be vec3\n"
+						);
+						for(int k = 0; k < num_frames; k++) {
+							cgltf_accessor_read_float(
+								acc,
+								k,
+								(float*)&anim.frames[k].pos,
+								3
+							);
+						}
+						break;
+					case cgltf_animation_path_type_rotation:
+						d_assert(
+							acc->type == cgltf_type_vec4,
+							"gltf anim rotation must be vec4\n"
+						);
+						for(int k = 0; k < num_frames; k++) {
+							cgltf_accessor_read_float(
+								acc,
+								k,
+								(float*)&anim.frames[k].rot,
+								4
+							);
+						}
+						break;
+					case cgltf_animation_path_type_scale:
+						d_assert(
+							acc->type == cgltf_type_vec3,
+							"gltf anim scale must be vec3\n"
+						);
+						for(int k = 0; k < num_frames; k++) {
+							cgltf_accessor_read_float(
+								acc,
+								k,
+								(float*)&anim.frames[k].scale,
+								3
+							);
+						}
+						break;
+					default:
+						fprintf(stderr, "unknown gltf anim prop\n");
+						break;
+				}
+
+				node->anims[node->num_anims++] = anim;
+
+			}
+		}
 	}
 
 }
 
 static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 
-	cgltf_options options = {0};
+	cgltf_options options;
+	memset(&options, 0, sizeof(cgltf_options));
 	cgltf_data *doc = NULL;
 	cgltf_result res = cgltf_parse(&options, bytes, size, &doc);
 	cgltf_load_buffers(&options, doc, NULL);
@@ -1992,10 +2105,6 @@ static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 	model.num_nodes = num_nodes;
 	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
 
-	for (int i = 0; i < num_nodes; i++) {
-		d_parse_model_node(doc->scene->nodes[i], &model.nodes[i]);
-	}
-
 	int num_textures = doc->textures_count;
 	model.num_images = num_textures;
 	model.images = malloc(sizeof(d_img) * num_textures);
@@ -2007,80 +2116,8 @@ static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 		model.images[i] = d_parse_img(data + view->offset, view->size);
 	}
 
-	int num_anims = doc->animations_count;
-	model.num_anims = num_anims;
-	model.anims = malloc(sizeof(d_model_anim) * num_anims);
-
-	for (int i = 0; i < num_anims; i++) {
-
-		cgltf_animation *canim = &doc->animations[i];
-		d_model_anim anim;
-		anim.name = strdup(canim->name);
-		int num_frames = 0;
-
-		for (int j = 0; j < canim->samplers_count; j++) {
-			cgltf_animation_sampler *samp = &canim->samplers[j];
-			num_frames = maxi(num_frames, samp->output->count);
-		}
-
-		anim.frames = malloc(sizeof(d_transform) * num_frames);
-		// TODO
-		model.num_frames = num_frames;
-
-		for (int j = 0; j < canim->channels_count; j++) {
-			cgltf_animation_channel *chan = &canim->channels[j];
-			cgltf_animation_sampler *samp = chan->sampler;
-			cgltf_accessor *acc = samp->output;
-			switch (chan->target_path) {
-				case cgltf_animation_path_type_translation:
-					d_assert(
-						acc->type == cgltf_type_vec3,
-						"gltf anim translation must be vec3\n"
-					);
-					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(
-							acc,
-							k,
-							(float*)&anim.frames[k].pos,
-							3
-						);
-					}
-					break;
-				case cgltf_animation_path_type_rotation:
-					d_assert(
-						acc->type == cgltf_type_vec4,
-						"gltf anim rotation must be vec4\n"
-					);
-					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(
-							acc,
-							k,
-							(float*)&anim.frames[k].rot,
-							4
-						);
-					}
-					break;
-				case cgltf_animation_path_type_scale:
-					d_assert(
-						acc->type == cgltf_type_vec3,
-						"gltf anim scale must be vec3\n"
-					);
-					for(int k = 0; k < acc->count; k++) {
-						cgltf_accessor_read_float(
-							acc,
-							k,
-							(float*)&anim.frames[k].scale,
-							3
-						);
-					}
-					break;
-				default:
-					break;
-			}
-		}
-
-		model.anims[i] = anim;
-
+	for (int i = 0; i < num_nodes; i++) {
+		d_parse_model_node(&model, &model.nodes[i], doc->scene->nodes[i], doc);
 	}
 
 	cgltf_free(doc);
