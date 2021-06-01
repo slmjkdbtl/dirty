@@ -187,6 +187,7 @@ mat4 mat4_rot_quat(quat);
 
 quat quatf(float, float, float, float);
 quat quatu();
+quat quat_mult(quat q1, quat q2);
 
 quad quadf(float, float, float, float);
 quad quadu();
@@ -817,6 +818,15 @@ quat quatf(float x, float y, float z, float w) {
 
 quat quatu() {
 	return quatf(0.0, 0.0, 0.0, 1.0);
+}
+
+quat quat_mult(quat q1, quat q2) {
+	return quatf(
+		q1.x * q2.x,
+		q1.y * q2.y,
+		q1.z * q2.z,
+		q1.w * q2.w
+	);
 }
 
 quad quadf(float x, float y, float w, float h) {

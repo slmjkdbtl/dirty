@@ -68,8 +68,9 @@ void frame() {
 	for (int i = 0; i < 1; i++) {
 		d_gfx_t_push();
 		d_gfx_t_move3(vec3f(60, 80, 0));
-		d_gfx_t_rot_y(d_app_time());
-		d_gfx_t_rot_z(d_app_time());
+		d_gfx_t_rot_y(d_gfx_mouse_pos().x / 100);
+		d_gfx_t_rot_x(d_gfx_mouse_pos().y / 100);
+// 		d_gfx_t_rot_z(d_app_time());
 		d_gfx_t_scale3(vec3f(6, -6, 6));
 		d_gfx_t_move3(vec3_scale(btfly.center, -1));
 		d_draw_model(&btfly);

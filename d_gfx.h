@@ -91,7 +91,7 @@ typedef struct {
 
 typedef struct {
 	char *name;
-	d_transform *frames;
+	mat4 *frames;
 	int num_frames;
 } d_model_anim;
 
@@ -208,6 +208,8 @@ void d_gfx_bbuf_clear();
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+
+#define D_MAX_TSTACK 64
 
 static uint8_t unscii_bytes[] = {
 	0x08, 0x08, 0x13, 0x05, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
@@ -730,8 +732,6 @@ static uint8_t unscii_bytes[] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-#define MAX_TSTACK 64
-
 typedef struct {
 	d_img def_canvas;
 	d_img *cur_canvas;
@@ -748,7 +748,7 @@ typedef struct {
 	d_blend blend;
 	d_wrap wrap;
 	mat4 t;
-	mat4 tstack[MAX_TSTACK];
+	mat4 tstack[D_MAX_TSTACK];
 	int tstack_len;
 } d_gfx_ctx;
 
@@ -770,7 +770,7 @@ void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.wrap = D_WRAP_BORDER;
 	d_gfx.clear_color = desc.clear_color;
 	d_gfx.t = mat4u();
-	memset(d_gfx.tstack, 0, sizeof(mat4) * MAX_TSTACK);
+	memset(d_gfx.tstack, 0, sizeof(mat4) * D_MAX_TSTACK);
 	d_gfx.tstack_len = 0;
 	d_gfx_clear();
 }
@@ -1520,7 +1520,7 @@ void d_draw_line2(vec2 p1, vec2 p2, int w, color c) {
 }
 
 void d_gfx_t_push() {
-	if (d_gfx.tstack_len >= MAX_TSTACK) {
+	if (d_gfx.tstack_len >= D_MAX_TSTACK) {
 		fprintf(stderr, "tstack overflow\n");
 		return;
 	}
@@ -1607,15 +1607,25 @@ static mat4 d_transform_mat4(d_transform t) {
 	);
 }
 
+static d_transform d_transform_apply(d_transform t1, d_transform t2) {
+	return (d_transform) {
+		.pos = vec3_add(t1.pos, t2.pos),
+		.rot = quat_mult(t1.rot, t2.rot),
+		.scale = vec3_mult(t1.scale, t2.scale),
+	};
+}
+
 static void d_draw_model_node(d_model *model, d_model_node *node) {
 	d_gfx_t_push();
-	d_gfx_t_use(node->t);
 	// TODO
-	for (int i = 0; i < node->num_anims; i++) {
-		d_model_anim *anim = &node->anims[i];
-		int f = (int)(d_app_time() * 40) % anim->num_frames;
-		d_transform t = anim->frames[f];
-		d_gfx_t_use(d_transform_mat4(t));
+	if (node->num_anims) {
+		for (int i = 0; i < node->num_anims; i++) {
+			d_model_anim *anim = &node->anims[i];
+			int f = (int)(d_app_time() * 20) % anim->num_frames;
+			d_gfx_t_use(anim->frames[f]);
+		}
+	} else {
+		d_gfx_t_use(node->t);
 	}
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_draw_mesh(
@@ -1749,6 +1759,9 @@ static void d_free_model_node(d_model_node *node) {
 	for (int i = 0; i < node->num_anims; i++) {
 		d_free_model_anim(&node->anims[i]);
 	}
+	free(node->meshes);
+	free(node->children);
+	free(node->anims);
 	memset(node, 0, sizeof(d_model_node));
 }
 
@@ -1770,6 +1783,8 @@ void d_free_model(d_model *model) {
 	for (int i = 0; i < model->num_images; i++) {
 		d_free_img(&model->images[i]);
 	}
+	free(model->nodes);
+	free(model->images);
 	memset(model, 0, sizeof(d_model));
 }
 
@@ -1848,32 +1863,28 @@ static void d_parse_model_node(
 	cgltf_data *doc
 ) {
 
-	node->t = mat4_mult(
-		mat4_mult(
-			mat4_translate(
-				vec3f(
-					cnode->translation[0],
-					cnode->translation[1],
-					cnode->translation[2]
-				)
-			),
-			mat4_scale(
-				vec3f(
-					cnode->scale[0],
-					cnode->scale[1],
-					cnode->scale[2]
-				)
-			)
+	memset(node, 0, sizeof(d_model_node));
+
+	d_transform t = (d_transform) {
+		.pos = vec3f(
+			cnode->translation[0],
+			cnode->translation[1],
+			cnode->translation[2]
 		),
-		mat4_rot_quat(
-			quatf(
-				cnode->rotation[0],
-				cnode->rotation[1],
-				cnode->rotation[2],
-				cnode->rotation[3]
-			)
-		)
-	);
+		.rot = quatf(
+			cnode->rotation[0],
+			cnode->rotation[1],
+			cnode->rotation[2],
+			cnode->rotation[3]
+		),
+		.scale = vec3f(
+			cnode->scale[0],
+			cnode->scale[1],
+			cnode->scale[2]
+		),
+	};
+
+	node->t = d_transform_mat4(t);
 
 	int num_children = cnode->children_count;
 
@@ -1975,7 +1986,7 @@ static void d_parse_model_node(
 
 		}
 
-		// TODO: sometimes no indices
+		// TODO: some file have no indices
 		int num_indices = prim->indices->count;
 		d_index *indices = calloc(num_indices, sizeof(d_index));
 
@@ -2002,6 +2013,7 @@ static void d_parse_model_node(
 		cgltf_animation *canim = &doc->animations[i];
 
 		// TODO: squash same anims
+		// TODO: UB around here?
 		for (int j = 0; j < canim->channels_count; j++) {
 
 			cgltf_animation_channel *chan = &canim->channels[j];
@@ -2015,19 +2027,18 @@ static void d_parse_model_node(
 
 				d_model_anim anim;
 				memset(&anim, 0, sizeof(d_model_anim));
-				anim.name = strdup(canim->name);
+				anim.name = malloc(strlen(canim->name) + 1);
+				strcpy(anim.name, canim->name);
 
 				cgltf_animation_sampler *samp = chan->sampler;
 				cgltf_accessor *acc = samp->output;
 
 				int num_frames = acc->count;
 				anim.num_frames = num_frames;
-				// TODO: cache calculated matrices
-				anim.frames = malloc(sizeof(d_transform) * num_frames);
+				anim.frames = malloc(num_frames * sizeof(mat4));
 
 				for (int k = 0; k < num_frames; k++) {
-					anim.frames[k].scale = vec3f(1, 1, 1);
-					anim.frames[k].rot = quatf(0, 0, 0, 1);
+					anim.frames[k] = mat4u();
 				}
 
 				switch (chan->target_path) {
@@ -2037,12 +2048,14 @@ static void d_parse_model_node(
 							"gltf anim translation must be vec3\n"
 						);
 						for(int k = 0; k < num_frames; k++) {
+							d_transform t2 = t;
 							cgltf_accessor_read_float(
 								acc,
 								k,
-								(float*)&anim.frames[k].pos,
+								(float*)&t2.pos,
 								3
 							);
+							anim.frames[k] = d_transform_mat4(t2);
 						}
 						break;
 					case cgltf_animation_path_type_rotation:
@@ -2051,12 +2064,14 @@ static void d_parse_model_node(
 							"gltf anim rotation must be vec4\n"
 						);
 						for(int k = 0; k < num_frames; k++) {
+							d_transform t2 = t;
 							cgltf_accessor_read_float(
 								acc,
 								k,
-								(float*)&anim.frames[k].rot,
+								(float*)&t2.rot,
 								4
 							);
+							anim.frames[k] = d_transform_mat4(t2);
 						}
 						break;
 					case cgltf_animation_path_type_scale:
@@ -2065,12 +2080,14 @@ static void d_parse_model_node(
 							"gltf anim scale must be vec3\n"
 						);
 						for(int k = 0; k < num_frames; k++) {
+							d_transform t2 = t;
 							cgltf_accessor_read_float(
 								acc,
 								k,
-								(float*)&anim.frames[k].scale,
+								(float*)&t2.scale,
 								3
 							);
+							anim.frames[k] = d_transform_mat4(t2);
 						}
 						break;
 					default:
@@ -2101,10 +2118,6 @@ static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 		return model;
 	}
 
-	int num_nodes = doc->scene->nodes_count;
-	model.num_nodes = num_nodes;
-	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
-
 	int num_textures = doc->textures_count;
 	model.num_images = num_textures;
 	model.images = malloc(sizeof(d_img) * num_textures);
@@ -2115,6 +2128,10 @@ static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 		uint8_t *data = view->buffer->data;
 		model.images[i] = d_parse_img(data + view->offset, view->size);
 	}
+
+	int num_nodes = doc->scene->nodes_count;
+	model.num_nodes = num_nodes;
+	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
 
 	for (int i = 0; i < num_nodes; i++) {
 		d_parse_model_node(&model, &model.nodes[i], doc->scene->nodes[i], doc);
