@@ -60,6 +60,10 @@ CFLAGS += -ObjC
 CFLAGS += -arch x86_64
 endif
 
+ifeq ($(TARGET),web)
+CFLAGS += -s ALLOW_MEMORY_GROWTH=1
+endif
+
 ifeq ($(TARGET),macos)
 LDFLAGS += -framework Cocoa
 LDFLAGS += -framework OpenGL

@@ -14,6 +14,7 @@
 #define SCALE 4
 
 d_mesh cube;
+vec3 rot;
 
 void init() {
 
@@ -90,6 +91,7 @@ void init() {
 	};
 
 	cube = d_make_mesh(verts, countof(verts), indices, countof(indices));
+	d_mesh_gen_normals(&cube);
 
 }
 
@@ -99,15 +101,25 @@ void frame() {
 		d_app_quit();
 	}
 
+	vec2 mdpos = d_gfx_mouse_dpos();
+
+	if (d_app_mouse_down(D_MOUSE_LEFT)) {
+		rot.x += mdpos.y / 100;
+		rot.y += mdpos.x / 100;
+	}
+
 	int s = d_gfx_width() / 4;
 
 	d_gfx_clear();
 	d_gfx_t_push();
 	d_gfx_t_move3(vec3f(d_gfx_width() / 2, d_gfx_height() / 2, 0));
-	d_gfx_t_scale3(vec3f(s, s, s));
-	d_gfx_t_rot_x(d_app_time());
-	d_gfx_t_rot_y(d_app_time());
-	d_gfx_t_rot_z(d_app_time());
+// 	d_gfx_t_rot_x(d_app_time());
+// 	d_gfx_t_rot_y(d_app_time());
+// 	d_gfx_t_rot_z(d_app_time());
+	d_gfx_t_rot_x(rot.x);
+	d_gfx_t_rot_y(rot.y);
+	d_gfx_t_scale3(vec3f(s, -s, s));
+// 	d_gfx_t_rot_z(d_app_time());
 	d_draw_mesh(&cube, NULL);
 	d_gfx_t_pop();
 	d_gfx_present();

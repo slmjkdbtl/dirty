@@ -154,6 +154,15 @@ void d_free_bbuf(d_bbuf*);
 void d_bbuf_set(d_bbuf *bbuf, int x, int y, bool v);
 bool d_bbuf_get(d_bbuf *bbuf, int x, int y);
 
+d_mesh d_make_mesh(
+	d_vertex *verts,
+	int num_verts,
+	d_index *indices,
+	int num_indices
+);
+void d_free_mesh(d_mesh *mesh);
+void d_mesh_gen_normals(d_mesh *mesh);
+
 d_font d_parse_font(uint8_t *bytes);
 void d_free_font(d_font *font);
 
@@ -175,6 +184,7 @@ void d_draw_img(d_img *img, vec2 pos);
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
 void d_draw_line(vec2 p1, vec2 p2, color c);
+void d_draw_line3(vec3 p1, vec3 p2, color c);
 void d_draw_mesh(d_mesh *mesh, d_img *tex);
 void d_draw_model(d_model *model);
 void d_draw_bbox(box bbox, color c);
@@ -1701,7 +1711,7 @@ d_img *d_gfx_canvas() {
 	return d_gfx.cur_canvas;
 }
 
-static void d_mesh_gen_normals(d_mesh *mesh) {
+void d_mesh_gen_normals(d_mesh *mesh) {
 
 	for (int i = 0; i < mesh->num_verts; i++) {
 		mesh->verts[i].normal = vec3f(0, 0, 0);

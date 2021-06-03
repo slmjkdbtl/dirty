@@ -6,7 +6,7 @@
 #include <cgltf.h>
 
 #define D_IMPL
-#define D_GL
+#define D_CPU
 #define D_FS_ASYNC
 #include <d_plat.h>
 #include <d_fs.h>
@@ -40,7 +40,9 @@ typedef struct {
 	d_model model;
 } model;
 
-model models[4];
+#define NUM_MODELS 4
+
+model models[NUM_MODELS];
 
 vec3 rot;
 bool show_bbox;
@@ -109,7 +111,7 @@ void frame() {
 	d_gfx_clear();
 	d_blit_bg();
 
-	for (int i = 0; i < 4; i++) {
+	for (int i = 0; i < NUM_MODELS; i++) {
 		model *m = &models[i];
 		d_gfx_t_push();
 		d_gfx_t_move3(m->pos);

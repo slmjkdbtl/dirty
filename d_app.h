@@ -1638,6 +1638,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_set_size(int w, int h) {
 }
 
 EMSCRIPTEN_KEEPALIVE void d_cjs_set_mouse_pos(float x, float y) {
+	d_app.mouse_dpos = vec2_sub(vec2f(x, y), d_app.mouse_pos);
 	d_app.mouse_pos = vec2f(x, y);
 }
 
