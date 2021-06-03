@@ -40,7 +40,7 @@ typedef struct {
 	d_model model;
 } model;
 
-model models[3];
+model models[4];
 
 vec3 rot;
 bool show_bbox;
@@ -63,7 +63,7 @@ void init() {
 	};
 
 	models[1] = (model) {
-		.pos = vec3f(140, 160, 0),
+		.pos = vec3f(160, 160, 0),
 		.rot = vec3f(0.2, 0.3, 0.2),
 		.scale = vec3f(1, -1, 1),
 		.model = d_load_model("res/tv.glb"),
@@ -74,6 +74,13 @@ void init() {
 		.rot = vec3f(0.5, -0.5, 0),
 		.scale = vec3f(1, -1, 1),
 		.model = d_load_model("res/flower.glb"),
+	};
+
+	models[3] = (model) {
+		.pos = vec3f(40, 190, 0),
+		.rot = vec3f(0.5, -0.5, 0),
+		.scale = vec3f(1, -1, 1),
+		.model = d_load_model("res/sprayer.glb"),
 	};
 
 }
@@ -102,7 +109,7 @@ void frame() {
 	d_gfx_clear();
 	d_blit_bg();
 
-	for (int i = 0; i < 3; i++) {
+	for (int i = 0; i < 4; i++) {
 		model *m = &models[i];
 		d_gfx_t_push();
 		d_gfx_t_move3(m->pos);
