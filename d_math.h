@@ -184,6 +184,7 @@ mat4 mat4_rot_x(float);
 mat4 mat4_rot_y(float);
 mat4 mat4_rot_z(float);
 mat4 mat4_rot_quat(quat);
+mat4 mat4_lerp(mat4 m1, mat4 m2, float t);
 
 quat quatf(float, float, float, float);
 quat quatu();
@@ -752,6 +753,14 @@ mat4 mat4_rot_quat(quat q) {
 			q.x, q.y, q.z, q.w
 		)
 	);
+}
+
+mat4 mat4_lerp(mat4 m1, mat4 m2, float t) {
+	mat4 m3;
+	for (int i = 0; i < 16; i++) {
+		m3.m[i] = lerpf(m1.m[i], m2.m[i], t);
+	}
+	return m3;
 }
 
 mat4 mat4_ortho(float w, float h, float near, float far) {

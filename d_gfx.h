@@ -11,7 +11,7 @@ typedef struct d_gfx_desc {
 	int width;
 	int height;
 	bool no_depth_test;
-	bool backface_cull;
+	bool no_backface_cull;
 	bool anti_alias;
 	color clear_color;
 } d_gfx_desc;
@@ -90,8 +90,13 @@ typedef struct {
 } d_transform;
 
 typedef struct {
+	mat4 transform;
+	float time;
+} d_model_anim_frame;
+
+typedef struct {
 	char *name;
-	mat4 *frames;
+	d_model_anim_frame *frames;
 	int num_frames;
 } d_model_anim;
 
@@ -127,29 +132,29 @@ int d_gfx_width();
 int d_gfx_height();
 
 d_img d_make_img(int w, int h);
-d_img d_parse_img(const uint8_t *bytes, size_t size);
+d_img d_parse_img(uint8_t *bytes, size_t size);
 #ifdef D_FS_H
-d_img d_load_img(const char *path);
+d_img d_load_img(char *path);
 #endif
 void d_img_set(d_img *img, int x, int y, color c);
-color d_img_get(const d_img *img, int x, int y);
+color d_img_get(d_img *img, int x, int y);
 void d_img_fill(d_img *img, color c);
-void d_img_save(const d_img *img, const char *path);
-d_img d_img_clone(const d_img *img);
+void d_img_save(d_img *img, char *path);
+d_img d_img_clone(d_img *img);
 void d_free_img(d_img *img);
 
 d_ibuf d_make_ibuf(int w, int h);
 void d_free_ibuf(d_ibuf*);
 void d_ibuf_set(d_ibuf *ibuf, int x, int y, int v);
-int d_ibuf_get(const d_ibuf *ibuf, int x, int y);
+int d_ibuf_get(d_ibuf *ibuf, int x, int y);
 void d_ibuf_clear(d_ibuf *ibuf, int v);
 
 d_bbuf d_make_bbuf(int w, int h);
 void d_free_bbuf(d_bbuf*);
 void d_bbuf_set(d_bbuf *bbuf, int x, int y, bool v);
-bool d_bbuf_get(const d_bbuf *bbuf, int x, int y);
+bool d_bbuf_get(d_bbuf *bbuf, int x, int y);
 
-d_font d_parse_font(const uint8_t *bytes);
+d_font d_parse_font(uint8_t *bytes);
 void d_free_font(d_font *font);
 
 void d_gfx_clear();
@@ -159,7 +164,7 @@ void d_gfx_draw_pixel(int x, int y, int z, color c);
 void d_gfx_blit_pixel(int x, int y, color c);
 color d_gfx_get(int x, int y);
 void d_blit_img(d_img *img, vec2 pos);
-void d_blit_text(const char *text, vec2 pos, color c);
+void d_blit_text(char *text, vec2 pos, color c);
 void d_blit_bg();
 void d_blit_rect(vec2 p1, vec2 p2, color c);
 void d_blit_circle(vec2 center, float r, color c);
@@ -760,7 +765,7 @@ void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.depth_buf = d_make_ibuf(desc.width, desc.height);
 	d_gfx.bbuf = d_make_bbuf(desc.width, desc.height);
 	d_gfx.depth_test = !desc.no_depth_test;
-	d_gfx.backface_cull = desc.backface_cull;
+	d_gfx.backface_cull = !desc.no_backface_cull;
 	d_gfx.anti_alias = desc.anti_alias;
 	d_gfx.bbuf_write = false;
 	d_gfx.bbuf_test = false;
@@ -826,7 +831,7 @@ void d_ibuf_set(d_ibuf *ibuf, int x, int y, int v) {
 	ibuf->buf[y * ibuf->width + x] = v;
 }
 
-int d_ibuf_get(const d_ibuf *ibuf, int x, int y) {
+int d_ibuf_get(d_ibuf *ibuf, int x, int y) {
 	return ibuf->buf[y * ibuf->width + x];
 }
 
@@ -853,7 +858,7 @@ void d_bbuf_set(d_bbuf *bbuf, int x, int y, bool b) {
 	bbuf->buf[y * bbuf->width + x] = b;
 }
 
-bool d_bbuf_get(const d_bbuf *bbuf, int x, int y) {
+bool d_bbuf_get(d_bbuf *bbuf, int x, int y) {
 	return bbuf->buf[y * bbuf->width + x];
 }
 
@@ -882,7 +887,7 @@ d_img d_img_empty() {
 static uint8_t png_magic[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
 static uint8_t jpeg_magic[] = { 0xff, 0xd8, 0xff };
 
-d_img d_parse_img(const uint8_t *bytes, size_t size) {
+d_img d_parse_img(uint8_t *bytes, size_t size) {
 	if (
 		memcmp(bytes, png_magic, sizeof(png_magic)) == 0
 		|| memcmp(bytes, jpeg_magic, sizeof(jpeg_magic)) == 0
@@ -907,11 +912,11 @@ d_img d_parse_img(const uint8_t *bytes, size_t size) {
 }
 
 #ifdef D_FS_H
-d_img d_load_img(const char *path) {
+d_img d_load_img(char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
 	if (!bytes) {
-		fprintf(stderr, "failed to read '%s'\n", path);
+		fprintf(stderr, "failed to load img from '%s'\n", path);
 		return d_img_empty();
 	}
 	d_img img = d_parse_img(bytes, size);
@@ -924,7 +929,7 @@ void d_img_set(d_img *img, int x, int y, color c) {
 	img->pixels[y * img->width + x] = c;
 }
 
-color d_img_get(const d_img *img, int x, int y) {
+color d_img_get(d_img *img, int x, int y) {
 	return img->pixels[y * img->width + x];
 }
 
@@ -934,7 +939,7 @@ void d_img_fill(d_img *img, color c) {
 	}
 }
 
-void d_img_save(const d_img *img, const char *path) {
+void d_img_save(d_img *img, char *path) {
 
 #ifdef STB_IMAGE_WRITE_IMPLEMENTATION
 	stbi_write_png(
@@ -951,7 +956,7 @@ void d_img_save(const d_img *img, const char *path) {
 
 }
 
-d_img d_img_clone(const d_img *img) {
+d_img d_img_clone(d_img *img) {
 	int w = img->width;
 	int h = img->height;
 	d_img img2 = d_make_img(w, h);
@@ -980,7 +985,7 @@ typedef struct {
 	uint8_t *pixels;
 } d_fnt_bin;
 
-d_font d_parse_font(const uint8_t *bytes) {
+d_font d_parse_font(uint8_t *bytes) {
 
 	d_fnt_bin *data = (d_fnt_bin*)bytes;
 	int size = sizeof(uint8_t) * data->gw * data->gh * data->cols * data->rows;
@@ -1005,11 +1010,23 @@ d_font d_parse_font(const uint8_t *bytes) {
 
 }
 
+d_font d_font_empty() {
+	return (d_font) {
+		.gw = 0,
+		.gh = 0,
+		.rows = 0,
+		.cols = 0,
+		.map = {0},
+		.pixels = malloc(0),
+	};
+}
+
 #ifdef D_FS_H
-d_font d_load_font(const char *path) {
+d_font d_load_font(char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
 	if (!bytes) {
+		fprintf(stderr, "failed to load font from '%s'\n", path);
 		return (d_font) {0};
 	}
 	d_font font = d_parse_font(bytes);
@@ -1187,7 +1204,7 @@ void d_blit_circle(vec2 center, float r, color c) {
 	}
 }
 
-void d_blit_text(const char *text, vec2 pos, color c) {
+void d_blit_text(char *text, vec2 pos, color c) {
 
 	int num_chars = strlen(text);
 	d_font *font = &d_gfx.def_font;
@@ -1368,7 +1385,7 @@ void d_draw_prim_tri(
 				: color_lerp(col_start, col_end, t);
 
 // 			vec3 normal = vec3_lerp(normal_start, normal_end, t);
-// 			int l = mapf(normal.x + normal.y + normal.z, -3, 3, -255, 255);
+// 			int l = mapf(normal.x + normal.y + normal.z, 3, -3, -255, 255);
 // 			c = color_lighten(c, l);
 
 			if (tex) {
@@ -1619,11 +1636,8 @@ static void d_draw_model_node(d_model *model, d_model_node *node) {
 	d_gfx_t_push();
 	// TODO
 	if (node->num_anims) {
-		for (int i = 0; i < node->num_anims; i++) {
-			d_model_anim *anim = &node->anims[i];
-			int f = (int)(d_app_time() * 20) % anim->num_frames;
-			d_gfx_t_use(anim->frames[f]);
-		}
+		d_model_anim *anim = &node->anims[0];
+		d_gfx_t_use(anim->frames[(int)(d_app_time() * 60) % anim->num_frames].transform);
 	} else {
 		d_gfx_t_use(node->t);
 	}
@@ -1767,9 +1781,9 @@ static void d_free_model_node(d_model_node *node) {
 
 static d_model d_model_empty() {
 	return (d_model) {
-		.nodes = NULL,
+		.nodes = malloc(0),
 		.num_nodes = 0,
-		.images = NULL,
+		.images = malloc(0),
 		.num_images = 0,
 		.bbox = boxf(vec3f(0, 0, 0), vec3f(0, 0, 0)),
 		.center = vec3f(0, 0, 0),
@@ -1844,7 +1858,7 @@ static void d_model_gen_bbox(d_model *model) {
 	model->center = vec3_scale(vec3_add(bbox.p1, bbox.p2), 0.5);
 }
 
-static void d_assert(bool b, const char *fmt, ...) {
+static void d_assert(bool b, char *fmt, ...) {
 	if (!b) {
 		va_list args;
 		va_start(args, fmt);
@@ -1980,7 +1994,7 @@ static void d_parse_model_node(
 					}
 					break;
 				default:
-					fprintf(stderr, "unknown gltf vert attrib\n");
+					fprintf(stderr, "unknown gltf vert attrib: %d\n", attr->type);
 					break;
 			}
 
@@ -2031,63 +2045,80 @@ static void d_parse_model_node(
 				strcpy(anim.name, canim->name);
 
 				cgltf_animation_sampler *samp = chan->sampler;
-				cgltf_accessor *acc = samp->output;
+				cgltf_accessor *frames_acc = samp->output;
+				cgltf_accessor *time_acc = samp->input;
 
-				int num_frames = acc->count;
+				d_assert(
+					frames_acc->count == time_acc->count,
+					"invalid gltf anim\n"
+				);
+
+				int num_frames = frames_acc->count;
 				anim.num_frames = num_frames;
-				anim.frames = malloc(num_frames * sizeof(mat4));
+				anim.frames = malloc(num_frames * sizeof(d_model_anim_frame));
+
+				d_assert(
+					time_acc->type == cgltf_type_scalar,
+					"gltf anim time must be scalar\n"
+				);
 
 				for (int k = 0; k < num_frames; k++) {
-					anim.frames[k] = mat4u();
+					cgltf_accessor_read_float(
+						time_acc,
+						k,
+						&anim.frames[k].time,
+						1
+					);
+					anim.frames[k].transform = mat4u();
 				}
 
 				switch (chan->target_path) {
 					case cgltf_animation_path_type_translation:
 						d_assert(
-							acc->type == cgltf_type_vec3,
+							frames_acc->type == cgltf_type_vec3,
 							"gltf anim translation must be vec3\n"
 						);
 						for(int k = 0; k < num_frames; k++) {
 							d_transform t2 = t;
 							cgltf_accessor_read_float(
-								acc,
+								frames_acc,
 								k,
 								(float*)&t2.pos,
 								3
 							);
-							anim.frames[k] = d_transform_mat4(t2);
+							anim.frames[k].transform = d_transform_mat4(t2);
 						}
 						break;
 					case cgltf_animation_path_type_rotation:
 						d_assert(
-							acc->type == cgltf_type_vec4,
+							frames_acc->type == cgltf_type_vec4,
 							"gltf anim rotation must be vec4\n"
 						);
 						for(int k = 0; k < num_frames; k++) {
 							d_transform t2 = t;
 							cgltf_accessor_read_float(
-								acc,
+								frames_acc,
 								k,
 								(float*)&t2.rot,
 								4
 							);
-							anim.frames[k] = d_transform_mat4(t2);
+							anim.frames[k].transform = d_transform_mat4(t2);
 						}
 						break;
 					case cgltf_animation_path_type_scale:
 						d_assert(
-							acc->type == cgltf_type_vec3,
+							frames_acc->type == cgltf_type_vec3,
 							"gltf anim scale must be vec3\n"
 						);
 						for(int k = 0; k < num_frames; k++) {
 							d_transform t2 = t;
 							cgltf_accessor_read_float(
-								acc,
+								frames_acc,
 								k,
 								(float*)&t2.scale,
 								3
 							);
-							anim.frames[k] = d_transform_mat4(t2);
+							anim.frames[k].transform = d_transform_mat4(t2);
 						}
 						break;
 					default:
@@ -2103,7 +2134,7 @@ static void d_parse_model_node(
 
 }
 
-static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
+static d_model d_parse_model_glb(uint8_t *bytes, int size) {
 
 	cgltf_options options;
 	memset(&options, 0, sizeof(cgltf_options));
@@ -2149,7 +2180,7 @@ static d_model d_parse_model_glb(const uint8_t *bytes, int size) {
 
 static uint8_t glb_magic[] = { 0x67, 0x6c, 0x54, 0x46 };
 
-d_model d_parse_model(const uint8_t *bytes, int size) {
+d_model d_parse_model(uint8_t *bytes, int size) {
 	if (memcmp(bytes, glb_magic, sizeof(glb_magic)) == 0) {
 #ifdef CGLTF_IMPLEMENTATION
 		return d_parse_model_glb(bytes, size);
@@ -2164,11 +2195,11 @@ d_model d_parse_model(const uint8_t *bytes, int size) {
 }
 
 #ifdef D_FS_H
-d_model d_load_model(const char *path) {
+d_model d_load_model(char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
 	if (!bytes) {
-		fprintf(stderr, "failed to read '%s'\n", path);
+		fprintf(stderr, "failed to load model from '%s'\n", path);
 		return d_model_empty();
 	}
 	d_model model = d_parse_model(bytes, size);

@@ -123,20 +123,20 @@ typedef struct {
 	void (*init)();
 	void (*frame)();
 	void (*quit)();
-	const char *title;
+	char *title;
 	int width;
 	int height;
 	bool fullscreen;
 	bool vsync;
 	bool hidpi;
-	const char *canvas_root;
+	char *canvas_root;
 } d_app_desc;
 
 typedef uint8_t d_touch;
 
 void d_app_run(d_app_desc desc);
 void d_app_quit();
-void d_app_present(int w, int h, const color *buf);
+void d_app_present(int w, int h, color *buf);
 
 bool d_app_fullscreen();
 void d_app_set_fullscreen(bool b);
@@ -147,7 +147,7 @@ void d_app_set_mouse_locked(bool b);
 bool d_app_mouse_hidden();
 void d_app_set_mouse_hidden(bool b);
 
-void d_app_set_title(const char *title);
+void d_app_set_title(char *title);
 
 bool d_app_keyboard_shown();
 void d_app_set_keyboard_shown(bool b);
@@ -267,13 +267,6 @@ vec2 d_app_touch_dpos(d_touch t);
 #endif
 
 #define D_MAX_TOUCHES 8
-
-static float quad_verts[] = {
-	-1, -1, 0, 1,
-	-1, 1, 0, 0,
-	1, -1, 1, 1,
-	1, 1, 1, 0,
-};
 
 #if defined(D_COCOA)
 
@@ -441,7 +434,14 @@ static void d_app_frame() {
 // OpenGL
 #if defined(D_GL)
 
-static const char *vs_src =
+static float quad_verts[] = {
+	-1, -1, 0, 1,
+	-1, 1, 0, 0,
+	1, -1, 1, 1,
+	1, 1, 1, 0,
+};
+
+static char const *vs_src =
 #ifndef D_GLES
 "#version 120\n"
 #endif
@@ -534,7 +534,7 @@ static void d_gl_init() {
 
 }
 
-static void d_gl_present(int w, int h, const color *buf) {
+static void d_gl_present(int w, int h, color *buf) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
 	glUseProgram(d_app.gl_prog);
@@ -581,7 +581,14 @@ static void d_gl_present(int w, int h, const color *buf) {
 // Metal
 #if defined(D_METAL)
 
-static const char *shader_src =
+static float quad_verts[] = {
+	-1, -1, 0, 1,
+	-1, 1, 0, 0,
+	1, -1, 1, 1,
+	1, 1, 1, 0,
+};
+
+static char *shader_src =
 "using namespace metal;"
 "struct VertexIn {"
 	"float2 pos;"
@@ -648,7 +655,7 @@ static void d_mtl_init() {
 
 }
 
-static void d_mtl_present(int w, int h, const color *buf) {
+static void d_mtl_present(int w, int h, color *buf) {
 
 	id<MTLCommandBuffer> cmd_buf = [d_app.mtl_queue commandBuffer];
 	MTLRenderPassDescriptor *desc = [d_app.view currentRenderPassDescriptor];
@@ -797,7 +804,7 @@ static d_key d_cocoa_key(unsigned short k) {
 	return D_KEY_NONE;
 }
 
-void d_cocoa_present(int w, int h, const color *buf) {
+void d_cocoa_present(int w, int h, color *buf) {
 
 	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
@@ -974,7 +981,7 @@ void d_cocoa_present(int w, int h, const color *buf) {
 }
 @end
 
-static void d_cocoa_run(const d_app_desc *desc) {
+static void d_cocoa_run(d_app_desc *desc) {
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:[[DAppDelegate alloc] init]];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -1041,7 +1048,7 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *eve
 
 }
 
-void d_uikit_present(int w, int h, const color *buf) {
+void d_uikit_present(int w, int h, color *buf) {
 
 	CGContextRef ctx = UIGraphicsGetCurrentContext();
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
@@ -1139,7 +1146,7 @@ void d_uikit_present(int w, int h, const color *buf) {
 }
 @end
 
-static void d_uikit_run(const d_app_desc *desc) {
+static void d_uikit_run(d_app_desc *desc) {
 	UIApplicationMain(0, nil, nil, NSStringFromClass([DAppDelegate class]));
 }
 
@@ -1251,7 +1258,7 @@ static d_key d_term_key(char *c, int size) {
 	return D_KEY_NONE;
 }
 
-static void d_term_run(const d_app_desc *desc) {
+static void d_term_run(d_app_desc *desc) {
 
 	// raw mode
 	struct termios attrs;
@@ -1293,7 +1300,7 @@ static void d_term_run(const d_app_desc *desc) {
 
 }
 
-static void d_term_present(int w, int h, const color *buf) {
+static void d_term_present(int w, int h, color *buf) {
 
 	// clear
 	printf("\x1b[3J");
@@ -1353,7 +1360,7 @@ static d_key d_x11_key(unsigned short k) {
 }
 
 // TODO: better way to scale?
-static void d_x11_present(int w, int h, const color *buf) {
+static void d_x11_present(int w, int h, color *buf) {
 
 	color *buf2 = malloc(d_app.width * d_app.height * sizeof(color));
 
@@ -1395,7 +1402,7 @@ static void d_x11_present(int w, int h, const color *buf) {
 
 }
 
-static void d_x11_run(const d_app_desc *desc) {
+static void d_x11_run(d_app_desc *desc) {
 
 	Display *dis = XOpenDisplay(NULL);
 	d_app.display = dis;
@@ -1531,11 +1538,11 @@ static void d_x11_run(const d_app_desc *desc) {
 // Web
 #if defined(D_CANVAS)
 
-static bool streq(const char *s1, const char *s2) {
+static bool streq(char *s1, char *s2) {
 	return strcmp(s1, s2) == 0;
 }
 
-static d_key d_web_key(const char *k, int loc) {
+static d_key d_web_key(char *k, int loc) {
 
 	if      (streq(k, "a")) return D_KEY_A;
 	else if (streq(k, "b")) return D_KEY_B;
@@ -1634,7 +1641,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_set_mouse_pos(float x, float y) {
 	d_app.mouse_pos = vec2f(x, y);
 }
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(const char *key, int loc, bool rep) {
+EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(char *key, int loc, bool rep) {
 	d_key k = d_web_key(key, loc);
 	if (!k) {
 		return;
@@ -1646,7 +1653,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(const char *key, int loc, bool rep) {
 	}
 }
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_key_release(const char *key, int loc) {
+EMSCRIPTEN_KEEPALIVE void d_cjs_key_release(char *key, int loc) {
 	d_key k = d_web_key(key, loc);
 	if (!k) {
 		return;
@@ -1682,11 +1689,11 @@ EM_JS(bool, d_js_fullscreen, (), {
 	return dirty.fullscreen;
 })
 
-EM_JS(bool, d_js_set_title, (const char *title), {
+EM_JS(bool, d_js_set_title, (char *title), {
 	document.title = UTF8ToString(title);
 })
 
-EM_JS(void, d_js_canvas_init, (const char *root, int w, int h), {
+EM_JS(void, d_js_canvas_init, (char *root, int w, int h), {
 
 	window.dirty = {};
 
@@ -1757,7 +1764,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame() {
 	d_app_frame();
 }
 
-EM_JS(void, d_canvas_present, (int w, int h, const color *buf), {
+EM_JS(void, d_canvas_present, (int w, int h, color *buf), {
 
 	const canvas = dirty.canvas;
 	const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
@@ -1784,7 +1791,7 @@ EM_JS(void, d_js_run_loop, (), {
 
 })
 
-static void d_canvas_run(const d_app_desc *desc) {
+static void d_canvas_run(d_app_desc *desc) {
 	d_js_canvas_init(desc->canvas_root, d_app.width, d_app.height);
 	d_app_init();
 	d_js_run_loop();
@@ -1873,7 +1880,7 @@ bool d_app_mouse_hidden() {
 	return false;
 }
 
-void d_app_set_title(const char *title) {
+void d_app_set_title(char *title) {
 #if defined(D_COCOA)
 	@autoreleasepool {
 		[d_app.window setTitle:[NSString stringWithUTF8String:title]];
@@ -2031,7 +2038,7 @@ bool d_app_active() {
 	return true;
 }
 
-void d_app_present(int w, int h, const color *buf) {
+void d_app_present(int w, int h, color *buf) {
 #if defined(D_GL)
 	d_gl_present(w, h, buf);
 #elif defined(D_METAL)

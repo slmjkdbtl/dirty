@@ -6,7 +6,7 @@
 #include <cgltf.h>
 
 #define D_IMPL
-#define D_CPU
+#define D_GL
 #define D_FS_ASYNC
 #include <d_plat.h>
 #include <d_fs.h>
@@ -20,7 +20,7 @@
 
 #define FMT_MAX 256
 
-static const char *d_fmt(const char *fmt, ...) {
+static char *d_fmt(char *fmt, ...) {
 
 	static char buf[FMT_MAX];
 	va_list args;
@@ -33,8 +33,17 @@ static const char *d_fmt(const char *fmt, ...) {
 
 }
 
-d_model duck;
-d_model btfly;
+typedef struct {
+	vec3 pos;
+	vec3 rot;
+	vec3 scale;
+	d_model model;
+} model;
+
+model models[3];
+
+vec3 rot;
+bool show_bbox;
 
 void init() {
 
@@ -46,8 +55,26 @@ void init() {
 
 	d_fs_init((d_fs_desc) {0});
 
-	duck = d_load_model("res/duck.glb");
-	btfly = d_load_model("res/btfly.glb");
+	models[0] = (model) {
+		.pos = vec3f(60, 80, 0),
+		.rot = vec3f(0.24, 0.48, 0),
+		.scale = vec3f(6, -6, 6),
+		.model = d_load_model("res/btfly.glb"),
+	};
+
+	models[1] = (model) {
+		.pos = vec3f(140, 160, 0),
+		.rot = vec3f(0.2, 0.3, 0.2),
+		.scale = vec3f(1, -1, 1),
+		.model = d_load_model("res/tv.glb"),
+	};
+
+	models[2] = (model) {
+		.pos = vec3f(160, 60, 0),
+		.rot = vec3f(0.5, -0.5, 0),
+		.scale = vec3f(1, -1, 1),
+		.model = d_load_model("res/flower.glb"),
+	};
 
 }
 
@@ -61,32 +88,35 @@ void frame() {
 		d_app_set_fullscreen(!d_app_fullscreen());
 	}
 
-	d_gfx_clear();
-
-	d_blit_bg();
-
-	for (int i = 0; i < 1; i++) {
-		d_gfx_t_push();
-		d_gfx_t_move3(vec3f(60, 80, 0));
-		d_gfx_t_rot_y(d_gfx_mouse_pos().x / 100);
-		d_gfx_t_rot_x(d_gfx_mouse_pos().y / 100);
-// 		d_gfx_t_rot_z(d_app_time());
-		d_gfx_t_scale3(vec3f(6, -6, 6));
-		d_gfx_t_move3(vec3_scale(btfly.center, -1));
-		d_draw_model(&btfly);
-		d_draw_bbox(btfly.bbox, colorx(0x0000ffff));
-		d_gfx_t_pop();
+	if (d_app_key_pressed(D_KEY_TAB)) {
+		show_bbox = !show_bbox;
 	}
 
-	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(140, 160, 0));
-	d_gfx_t_rot_y(d_app_time());
-// 	d_gfx_t_rot_z(d_app_time());
-	d_gfx_t_scale3(vec3f(1, -1, 1));
-	d_gfx_t_move3(vec3_scale(duck.center, -1));
-	d_draw_model(&duck);
-// 	d_draw_bbox(duck.bbox, colorx(0x0000ffff));
-	d_gfx_t_pop();
+	vec2 mdpos = d_gfx_mouse_dpos();
+
+	if (d_app_mouse_down(D_MOUSE_LEFT)) {
+		rot.x += mdpos.y / 100;
+		rot.y += mdpos.x / 100;
+	}
+
+	d_gfx_clear();
+	d_blit_bg();
+
+	for (int i = 0; i < 3; i++) {
+		model *m = &models[i];
+		d_gfx_t_push();
+		d_gfx_t_move3(m->pos);
+		d_gfx_t_rot_y(m->rot.y + rot.y);
+		d_gfx_t_rot_x(m->rot.x + rot.x);
+		d_gfx_t_rot_z(m->rot.z);
+		d_gfx_t_scale3(m->scale);
+		d_gfx_t_move3(vec3_scale(m->model.center, -1));
+		d_draw_model(&m->model);
+		if (show_bbox) {
+			d_draw_bbox(m->model.bbox, colorx(0x0000ffff));
+		}
+		d_gfx_t_pop();
+	}
 
 	d_gfx_present();
 

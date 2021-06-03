@@ -43,14 +43,14 @@ typedef struct {
 	int sock_fd;
 } d_http_client;
 
-typedef char *(*d_http_handler)(const char*);
+typedef char *(*d_http_handler)(char*);
 
 void d_http_serve(int port, d_http_handler handler);
 
-d_http_res d_http_fetch(const char *host, const char *msg);
-d_http_client d_make_http_client(const char *host);
+d_http_res d_http_fetch(char *host, char *msg);
+d_http_client d_make_http_client(char *host);
 void d_free_http_client(d_http_client *client);
-d_http_res d_http_client_send(const d_http_client *client, const char *req_msg);
+d_http_res d_http_client_send(d_http_client *client, char *req_msg);
 
 void d_free_http_req(d_http_req *req);
 void d_free_http_res(d_http_res *res);
@@ -82,7 +82,7 @@ void d_free_http_res(d_http_res *res);
 
 #define D_HTTP_CHUNK_SIZE 1024
 
-static char const *status_text[] = {
+static char *status_text[] = {
 	"", "", "", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "", "", "",
@@ -249,7 +249,7 @@ void d_http_serve(int port, d_http_handler handler) {
 
 	while (1) {
 
-		// TODO: sometimes this blocks on actual pending requests
+		// TODO: (macos) sometimes this blocks on actual pending requests
 		int poll_res = poll(pfds, num_pfds, -1);
 
 		if (poll_res <= 0) {
@@ -301,7 +301,7 @@ void d_http_serve(int port, d_http_handler handler) {
 
 }
 
-d_http_client d_make_http_client(const char *host) {
+d_http_client d_make_http_client(char *host) {
 
 	struct addrinfo *res;
 
@@ -361,7 +361,7 @@ void d_free_http_req(d_http_req *req) {
 	}
 }
 
-static int atoin(const char *str, int n) {
+static int atoin(char *str, int n) {
 	int num = 0;
 	for (int i = 0; i < n; i++) {
 		num = num * 10 + (str[i] - '0');
@@ -372,7 +372,7 @@ static int atoin(const char *str, int n) {
 // TODO: parse url
 // TODO: send_ex with headers
 // TODO: https
-d_http_res d_http_client_send(const d_http_client *client, const char *req_msg) {
+d_http_res d_http_client_send(d_http_client *client, char *req_msg) {
 
 	write(client->sock_fd, req_msg, strlen(req_msg));
 
@@ -485,7 +485,7 @@ d_http_res d_http_client_send(const d_http_client *client, const char *req_msg) 
 
 }
 
-d_http_res d_http_fetch(const char *host, const char *req_msg) {
+d_http_res d_http_fetch(char *host, char *req_msg) {
 	d_http_client client = d_make_http_client(host);
 	d_http_res res = d_http_client_send(&client, req_msg);
 	d_free_http_client(&client);

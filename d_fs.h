@@ -14,34 +14,34 @@
 #include <stdlib.h>
 
 typedef struct {
-	const char *path;
-	const char *data_org;
-	const char *data_name;
+	char *path;
+	char *data_org;
+	char *data_name;
 } d_fs_desc;
 
 typedef uint64_t d_fs_task;
 
 void d_fs_init(d_fs_desc);
-char *d_read_text(const char *path);
-uint8_t *d_read_bytes(const char *path, size_t *size);
+char *d_read_text(char *path);
+uint8_t *d_read_bytes(char *path, size_t *size);
 #ifdef D_FS_ASYNC
-d_fs_task d_read_text_async(const char *path);
-d_fs_task d_read_bytes_async(const char *path, size_t *size);
+d_fs_task d_read_text_async(char *path);
+d_fs_task d_read_bytes_async(char *path, size_t *size);
 #endif
-char **d_glob(const char *path, const char *ext);
+char **d_glob(char *path, char *ext);
 void d_free_dir(char **list);
-bool d_is_file(const char *path);
-bool d_is_dir(const char *path);
+bool d_is_file(char *path);
+bool d_is_dir(char *path);
 
-char *d_data_read_text(const char *path);
-uint8_t *d_data_read_bytes(const char *path, size_t *size);
-void d_data_write_text(const char *path, const char *content);
-void d_data_write_bytes(const char *path, const uint8_t *content, size_t size);
-bool d_data_is_file(const char *path);
-bool d_data_is_dir(const char *path);
+char *d_data_read_text(char *path);
+uint8_t *d_data_read_bytes(char *path, size_t *size);
+void d_data_write_text(char *path, char *content);
+void d_data_write_bytes(char *path, uint8_t *content, size_t size);
+bool d_data_is_file(char *path);
+bool d_data_is_dir(char *path);
 
-char *d_extname(const char *path);
-char *d_basename(const char *path);
+char *d_extname(char *path);
+char *d_basename(char *path);
 
 #endif
 
@@ -95,14 +95,14 @@ void d_fs_init(d_fs_desc desc) {
 
 	if (desc.data_org && desc.data_name) {
 #if defined(D_MACOS) || defined(D_IOS)
-		const char *home = getenv("HOME");
+		char *home = getenv("HOME");
 		if (home) {
 			sprintf(d_fs.data_path, "%s/Library/Application Support", home);
 		}
 #elif defined(D_WINDOWS)
 #elif defined(D_LINUX)
-		const char *home = getenv("HOME");
-		const char *xdg_data = getenv("XDG_DATA_HOME");
+		char *home = getenv("HOME");
+		char *xdg_data = getenv("XDG_DATA_HOME");
 		if (xdg_data) {
 			sprintf(d_fs.data_path, "%s", xdg_data);
 		} else if (home) {
@@ -128,7 +128,7 @@ void d_fs_init(d_fs_desc desc) {
 
 }
 
-static const char *fmt(const char *fmt, ...) {
+static char *fmt(char *fmt, ...) {
 
 	static char buf[D_PATH_MAX];
 	va_list args;
@@ -141,7 +141,7 @@ static const char *fmt(const char *fmt, ...) {
 
 }
 
-static char *read_text(const char *path) {
+static char *read_text(char *path) {
 
 	FILE *file = fopen(path, "r");
 
@@ -169,7 +169,7 @@ static char *read_text(const char *path) {
 
 }
 
-static uint8_t *read_bytes(const char *path, size_t *osize) {
+static uint8_t *read_bytes(char *path, size_t *osize) {
 
 	FILE *file = fopen(path, "rb");
 
@@ -199,7 +199,7 @@ static uint8_t *read_bytes(const char *path, size_t *osize) {
 
 }
 
-static bool write_text(const char *path, const char *text) {
+static bool write_text(char *path, char *text) {
 
 	FILE *file = fopen(path, "w");
 
@@ -222,7 +222,7 @@ static bool write_text(const char *path, const char *text) {
 
 }
 
-static bool write_bytes(const char *path, const uint8_t *data, size_t size) {
+static bool write_bytes(char *path, uint8_t *data, size_t size) {
 
 	FILE *file = fopen(path, "wb");
 
@@ -244,17 +244,17 @@ static bool write_bytes(const char *path, const uint8_t *data, size_t size) {
 
 }
 
-static bool is_file(const char *path) {
+static bool is_file(char *path) {
 	struct stat sb;
 	return stat(path, &sb) == 0 && S_ISREG(sb.st_mode);
 }
 
-static bool is_dir(const char *path) {
+static bool is_dir(char *path) {
 	struct stat sb;
 	return stat(path, &sb) == 0 && S_ISDIR(sb.st_mode);
 }
 
-static char **glob(const char *path, const char *ext) {
+static char **glob(char *path, char *ext) {
 
 	DIR *dir = opendir(path);
 
@@ -301,53 +301,53 @@ void d_free_dir(char **list) {
 	free(list);
 }
 
-char *d_read_text(const char *path) {
+char *d_read_text(char *path) {
 	return read_text(fmt("%s%s", d_fs.res_path, path));
 }
 
-uint8_t *d_read_bytes(const char *path, size_t *size) {
+uint8_t *d_read_bytes(char *path, size_t *size) {
 	return read_bytes(fmt("%s%s", d_fs.res_path, path), size);
 }
 
-char **d_glob(const char *path, const char *ext) {
+char **d_glob(char *path, char *ext) {
 	return glob(fmt("%s%s", d_fs.res_path, path), ext);
 }
 
-bool d_is_file(const char *path) {
+bool d_is_file(char *path) {
 	return is_file(fmt("%s%s", d_fs.res_path, path));
 }
 
-bool d_is_dir(const char *path) {
+bool d_is_dir(char *path) {
 	return is_dir(fmt("%s%s", d_fs.res_path, path));
 }
 
-char *d_data_read_text(const char *path) {
+char *d_data_read_text(char *path) {
 	return read_text(fmt("%s%s", d_fs.data_path, path));
 }
 
-uint8_t *d_data_read_bytes(const char *path, size_t *size) {
+uint8_t *d_data_read_bytes(char *path, size_t *size) {
 	return read_bytes(fmt("%s%s", d_fs.data_path, path), size);
 }
 
-bool d_data_is_file(const char *path) {
+bool d_data_is_file(char *path) {
 	return is_file(fmt("%s%s", d_fs.data_path, path));
 }
 
-bool d_data_is_dir(const char *path) {
+bool d_data_is_dir(char *path) {
 	return is_dir(fmt("%s%s", d_fs.data_path, path));
 }
 
 // TODO: recursive mkdir?
-void d_data_write_text(const char *path, const char *content) {
+void d_data_write_text(char *path, char *content) {
 	write_text(fmt("%s%s", d_fs.data_path, path), content);
 }
 
-void d_data_write_bytes(const char *path, const uint8_t *content, size_t size) {
+void d_data_write_bytes(char *path, uint8_t *content, size_t size) {
 	write_bytes(fmt("%s%s", d_fs.data_path, path), content, size);
 }
 
-char *d_extname(const char *path) {
-	const char *dot = strrchr(path, '.');
+char *d_extname(char *path) {
+	char *dot = strrchr(path, '.');
 	if (!dot) {
 		return NULL;
 	}
@@ -356,9 +356,9 @@ char *d_extname(const char *path) {
 	return buf;
 }
 
-char *d_basename(const char *path) {
-	const char *dot = strrchr(path, '.');
-	const char *slash = strrchr(path, '/');
+char *d_basename(char *path) {
+	char *dot = strrchr(path, '.');
+	char *slash = strrchr(path, '/');
 	dot = dot ? dot : path + strlen(path);
 	slash = slash ? slash + 1 : path;
 	int len = dot - slash;
@@ -370,7 +370,7 @@ char *d_basename(const char *path) {
 
 #ifdef D_FS_ASYNC
 
-d_fs_task d_read_text_async(const char *path) {
+d_fs_task d_read_text_async(char *path) {
 	d_fs_task id = d_fs.last_task_id++;
 	// TODO
 	return id;

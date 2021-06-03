@@ -23,7 +23,7 @@ typedef struct {
 
 // sound playback control handle
 typedef struct {
-	const d_sound *src;
+	d_sound *src;
 	int pos;
 	bool loop;
 	float volume;
@@ -49,15 +49,17 @@ typedef struct {
 void d_audio_init(d_audio_desc);
 
 // SOUND
-d_sound d_make_sound(const short *frames, int num_frames);
-d_sound d_parse_sound(const uint8_t *bytes);
-d_sound d_load_sound(const char *path);
-float d_sound_sample(const d_sound *snd, float time);
-float d_sound_len(const d_sound *snd);
+d_sound d_make_sound(short *frames, int num_frames);
+d_sound d_parse_sound(uint8_t *bytes);
+#ifdef D_FS_H
+d_sound d_load_sound(char *path);
+#endif
+float d_sound_sample(d_sound *snd, float time);
+float d_sound_len(d_sound *snd);
 void d_free_sound(d_sound *sound);
 // play a sound, returning a handle for control
-d_playback *d_play(const d_sound *sound);
-d_playback *d_play_ex(const d_sound *sound, d_play_conf conf);
+d_playback *d_play(d_sound *sound);
+d_playback *d_play_ex(d_sound *sound, d_play_conf conf);
 void d_playback_seek(d_playback *pb, float time);
 float d_playback_time(d_playback *pb);
 
@@ -70,7 +72,7 @@ float d_synth_peek(int n);
 
 // voice
 d_voice d_make_voice();
-void d_voice_process(d_voice *v, const d_envelope *e, float dt);
+void d_voice_process(d_voice *v, d_envelope *e, float dt);
 
 // built in wave forms
 float d_wav_sin(float freq, float t);
@@ -338,7 +340,7 @@ typedef struct {
 	int16_t *frames;
 } d_snd_bin;
 
-d_sound d_make_sound(const short *frames, int num_frames) {
+d_sound d_make_sound(short *frames, int num_frames) {
 	int size = sizeof(short) * num_frames;
 	short *frames_n = malloc(size);
 	memcpy(frames_n, frames, size);
@@ -348,7 +350,7 @@ d_sound d_make_sound(const short *frames, int num_frames) {
 	};
 }
 
-d_sound d_parse_sound(const uint8_t *bytes) {
+d_sound d_parse_sound(uint8_t *bytes) {
 
 	d_snd_bin *data = (d_snd_bin*)bytes;
 	int size = sizeof(int16_t) * data->num_frames;
@@ -362,38 +364,42 @@ d_sound d_parse_sound(const uint8_t *bytes) {
 
 }
 
-d_sound d_load_sound(const char *path) {
+d_sound d_sound_empty() {
+	return (d_sound) {
+		.num_frames = 0,
+		.frames = malloc(0),
+	};
+}
 
+#ifdef D_FS_H
+d_sound d_load_sound(char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
 	if (!bytes) {
-		return (d_sound) {
-			.num_frames = 0,
-			.frames = NULL,
-		};
+		fprintf(stderr, "failed to load sound from '%s'\n", path);
+		return d_sound_empty();
 	}
 	d_sound snd = d_parse_sound(bytes);
 	free(bytes);
-
 	return snd;
-
 }
+#endif // #ifdef D_FS_H
 
-float d_sound_sample(const d_sound *snd, float time) {
+float d_sound_sample(d_sound *snd, float time) {
 	int pos = clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1);
 	return (float)snd->frames[pos] / SHRT_MAX;
 }
 
-float d_sound_len(const d_sound *snd) {
+float d_sound_len(d_sound *snd) {
 	return (float)snd->num_frames / (float)D_SAMPLE_RATE;
 }
 
 void d_free_sound(d_sound *snd) {
 	free(snd->frames);
-	snd->frames = NULL;
+	memset(snd, 0, sizeof(d_sound));
 }
 
-d_playback *d_play(const d_sound *snd) {
+d_playback *d_play(d_sound *snd) {
 	return d_play_ex(snd, (d_play_conf) {
 		.loop = false,
 		.paused = false,
@@ -401,7 +407,7 @@ d_playback *d_play(const d_sound *snd) {
 	});
 }
 
-d_playback *d_play_ex(const d_sound *snd, d_play_conf conf) {
+d_playback *d_play_ex(d_sound *snd, d_play_conf conf) {
 
 	int pos = clampi((int)(conf.time * D_SAMPLE_RATE), 0, snd->num_frames - 1);
 
@@ -501,7 +507,7 @@ void d_synth_release(int note) {
 	d_audio.synth.notes[note].active = false;
 }
 
-void d_voice_process(d_voice *v, const d_envelope *e, float dt) {
+void d_voice_process(d_voice *v, d_envelope *e, float dt) {
 
 	if (!v->alive) {
 		return;
@@ -603,6 +609,5 @@ void d_synth_wav(float (*func)(float freq, float t)) {
 	d_audio.synth.wav_func = func;
 }
 
-#endif
-#endif
-
+#endif // #ifndef D_AUDIO_IMPL_ONCE
+#endif // #ifdef D_AUDIO_IMPL
