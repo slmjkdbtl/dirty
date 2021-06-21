@@ -3,7 +3,7 @@
 #define D_IMPL
 #include <d_http.h>
 
-char *handler(const char *msg) {
+char *handler(char *msg) {
 	printf("%s\n", msg);
 	return "HTTP/1.1 200 OK\r\n\r\nhi\n";
 }

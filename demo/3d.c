@@ -43,7 +43,6 @@ typedef struct {
 #define NUM_MODELS 4
 
 model models[NUM_MODELS];
-
 vec3 rot;
 bool show_bbox;
 
@@ -65,7 +64,7 @@ void init() {
 	};
 
 	models[1] = (model) {
-		.pos = vec3f(160, 160, 0),
+		.pos = vec3f(160, 140, 0),
 		.rot = vec3f(0.2, 0.3, 0.2),
 		.scale = vec3f(1, -1, 1),
 		.model = d_load_model("res/tv.glb"),

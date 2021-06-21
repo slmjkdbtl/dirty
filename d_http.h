@@ -170,7 +170,7 @@ static char *d_read_all(int fd, int chunk_size, int *osize) {
 	char *data = malloc(chunk_size);
 	int total_size = 0;
 
-	while (1) {
+	for (;;) {
 		int size = read(fd, data + total_size, chunk_size);
 		total_size += size;
 		if (size < chunk_size) {
@@ -234,7 +234,7 @@ void d_http_serve(int port, d_http_handler handler) {
 
 	int num_pfds = 1;
 
-// 	while (1) {
+// 	for (;;) {
 
 // 		int conn_fd = accept(sock_fd, NULL, NULL);
 
@@ -247,7 +247,7 @@ void d_http_serve(int port, d_http_handler handler) {
 
 // 	}
 
-	while (1) {
+	for (;;) {
 
 		// TODO: (macos) sometimes this blocks on actual pending requests
 		int poll_res = poll(pfds, num_pfds, -1);
@@ -258,7 +258,7 @@ void d_http_serve(int port, d_http_handler handler) {
 		}
 
 		if(pfds[0].revents & POLLIN) {
-			while (1) {
+			for (;;) {
 				int conn_fd = accept(sock_fd, NULL, NULL);
 				if (conn_fd < 0) {
 					break;
@@ -386,7 +386,7 @@ d_http_res d_http_client_send(d_http_client *client, char *req_msg) {
 	int num_headers = 0;
 	d_http_header *headers = malloc(sizeof(d_http_header));
 
-	while (1) {
+	for (;;) {
 
 		bread += read(client->sock_fd, res_msg + bread, D_HTTP_CHUNK_SIZE);
 		res_msg = realloc(res_msg, bread + D_HTTP_CHUNK_SIZE);
@@ -421,7 +421,7 @@ d_http_res d_http_client_send(d_http_client *client, char *req_msg) {
 
 		if (!body_pos) {
 
-			while (1) {
+			for (;;) {
 
 				if (res_msg[cursor] == '\r' && res_msg[cursor + 1] == '\n') {
 					cursor += 2;
