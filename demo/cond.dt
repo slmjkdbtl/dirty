@@ -1,0 +1,11 @@
+$ a = 11
+if (a == 1) {
+	print("ohyes!")
+} else if (a == 11) {
+	print("hmm...")
+} else if (a == 111) {
+	print(fread("Makefile"))
+	print("wow...")
+} else {
+	print("ohno!")
+}

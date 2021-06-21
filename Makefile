@@ -29,7 +29,7 @@ CC := xcrun -sdk iphonesimulator clang
 endif
 
 DEMO := hi
-DEMO_BIN_PATH := build/$(TARGET)
+BIN_PATH := build/$(TARGET)
 DEMO_PATH := demo
 
 # flags
@@ -110,7 +110,7 @@ endif
 # files
 DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
 DEMOS := $(patsubst $(DEMO_PATH)/%.c, %, $(DEMO_FILES))
-DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(DEMO_BIN_PATH)/%, $(DEMO_FILES))
+DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(BIN_PATH)/%, $(DEMO_FILES))
 
 PREFIX := /usr/local
 
@@ -118,9 +118,9 @@ PREFIX := /usr/local
 default: run
 
 .PHONY: run
-run: $(DEMO_BIN_PATH)/$(DEMO)
+run: $(BIN_PATH)/$(DEMO)
 ifeq ($(TARGET),web)
-	cd $(DEMO_BIN_PATH); \
+	cd $(BIN_PATH); \
 		PORT=8000 fserv
 else ifeq ($(TARGET),iossim)
 	$(MAKE) bundle
@@ -136,17 +136,17 @@ else
 endif
 
 .PHONY: debug
-debug: $(DEMO_BIN_PATH)/$(DEMO)
+debug: $(BIN_PATH)/$(DEMO)
 	lldb $<
 
 .PHONY: demo
-demo: $(DEMO_BIN_PATH)/$(DEMO)
+demo: $(BIN_PATH)/$(DEMO)
 
 .PHONY: demos
 demos: $(DEMO_TARGETS)
 
 .PHONY: bundle
-bundle: $(DEMO_BIN_PATH)/$(DEMO)
+bundle: $(BIN_PATH)/$(DEMO)
 ifeq ($(TARGET),macos)
 	mkdir -p $<.app/Contents/MacOS
 	mkdir -p $<.app/Contents/Resources
@@ -156,30 +156,33 @@ ifeq ($(TARGET),macos)
 else ifeq ($(TARGET),iossim)
 	mkdir -p $<.app
 	cp $< $<.app/
-	cp -r $(DEMO_BIN_PATH)/res $<.app/
+	cp -r $(BIN_PATH)/res $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
 else ifeq ($(TARGET),ios)
 	mkdir -p $<.app
 	cp $< $<.app/
-	cp -r $(DEMO_BIN_PATH)/res $<.app/
+	cp -r $(BIN_PATH)/res $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
 # 	cp $(PROFILE) $<.app/embedded.mobileprovision
 # 	codesign -s "$(CODESIGN)" $<.app
 endif
 
-$(DEMO_BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
-	@mkdir -p $(DEMO_BIN_PATH)
+$(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
+	@mkdir -p $(BIN_PATH)
 ifeq ($(TARGET),web)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@.js $<
-	sed 's/{{name}}/$*/' misc/web.html > $(DEMO_BIN_PATH)/index.html
+	sed 's/{{name}}/$*/' misc/web.html > $(BIN_PATH)/index.html
 else
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
 endif
-	rsync -a --delete $(DEMO_PATH)/res $(DEMO_BIN_PATH)/
+	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
+
+$(BIN_PATH)/dirty: dirty.c *.h
+	cc $(CFLAGS) $< -o $@
 
 .PHONY: install
-install:
-	install dirty.h $(PREFIX)/include/
+install: $(BIN_PATH)/dirty
+	install $(BIN_PATH)/dirty /usr/local/bin/dirty
 
 .PHONY: clean
 clean:

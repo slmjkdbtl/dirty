@@ -1,0 +1,10 @@
+$ a = 123
+
+$ test = fn() {
+  $ b = 345
+  b = 4123
+  -> b
+}
+
+print(a)
+print(test())
