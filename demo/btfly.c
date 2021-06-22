@@ -30,7 +30,7 @@ void init() {
 
 	d_fs_init((d_fs_desc) {0});
 
-	btfly = d_load_model("res/btfly.glb");
+	btfly = d_model_load("res/btfly.glb");
 
 }
 

@@ -49,14 +49,14 @@ typedef struct {
 void d_audio_init(d_audio_desc);
 
 // SOUND
-d_sound d_make_sound(short *frames, int num_frames);
-d_sound d_parse_sound(uint8_t *bytes);
+d_sound d_sound_new(short *frames, int num_frames);
+d_sound d_sound_parse(uint8_t *bytes);
 #ifdef D_FS_H
-d_sound d_load_sound(char *path);
+d_sound d_sound_load(char *path);
 #endif
 float d_sound_sample(d_sound *snd, float time);
 float d_sound_len(d_sound *snd);
-void d_free_sound(d_sound *sound);
+void d_sound_free(d_sound *sound);
 // play a sound, returning a handle for control
 d_playback *d_play(d_sound *sound);
 d_playback *d_play_ex(d_sound *sound, d_play_conf conf);
@@ -71,7 +71,7 @@ void d_synth_wav(float (*func)(float freq, float t));
 float d_synth_peek(int n);
 
 // voice
-d_voice d_make_voice();
+d_voice d_voice_new();
 void d_voice_process(d_voice *v, d_envelope *e, float dt);
 
 // built in wave forms
@@ -132,7 +132,7 @@ typedef struct {
 	float (*wav_func)(float freq, float t);
 } d_synth;
 
-d_synth d_make_synth();
+d_synth d_synth_new();
 float d_synth_next();
 
 typedef struct {
@@ -322,7 +322,7 @@ static void d_alsa_init() {
 void d_audio_init(d_audio_desc desc) {
 	d_audio.volume = 1.0;
 	d_audio.user_stream = desc.stream;
-	d_audio.synth = d_make_synth();
+	d_audio.synth = d_synth_new();
 #if defined(D_COREAUDIO)
 	d_ca_init();
 #elif defined(D_WEBAUDIO)
@@ -340,7 +340,7 @@ typedef struct {
 	int16_t *frames;
 } d_snd_bin;
 
-d_sound d_make_sound(short *frames, int num_frames) {
+d_sound d_sound_new(short *frames, int num_frames) {
 	int size = sizeof(short) * num_frames;
 	short *frames_n = malloc(size);
 	memcpy(frames_n, frames, size);
@@ -350,7 +350,7 @@ d_sound d_make_sound(short *frames, int num_frames) {
 	};
 }
 
-d_sound d_parse_sound(uint8_t *bytes) {
+d_sound d_sound_parse(uint8_t *bytes) {
 
 	d_snd_bin *data = (d_snd_bin*)bytes;
 	int size = sizeof(int16_t) * data->num_frames;
@@ -372,14 +372,14 @@ d_sound d_sound_empty() {
 }
 
 #ifdef D_FS_H
-d_sound d_load_sound(char *path) {
+d_sound d_sound_load(char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
 	if (!bytes) {
 		fprintf(stderr, "failed to load sound from '%s'\n", path);
 		return d_sound_empty();
 	}
-	d_sound snd = d_parse_sound(bytes);
+	d_sound snd = d_sound_parse(bytes);
 	free(bytes);
 	return snd;
 }
@@ -394,7 +394,7 @@ float d_sound_len(d_sound *snd) {
 	return (float)snd->num_frames / (float)D_SAMPLE_RATE;
 }
 
-void d_free_sound(d_sound *snd) {
+void d_sound_free(d_sound *snd) {
 	free(snd->frames);
 	memset(snd, 0, sizeof(d_sound));
 }
@@ -465,7 +465,7 @@ float d_wav_noise(float freq, float t) {
 	return randf(-1.0, 1.0);
 }
 
-d_synth d_make_synth() {
+d_synth d_synth_new() {
 	return (d_synth) {
 		.notes = {0},
 		.volume = 0.5,
@@ -481,7 +481,7 @@ d_synth d_make_synth() {
 	};
 }
 
-d_voice d_make_voice() {
+d_voice d_voice_new() {
 	return (d_voice) {
 		.active = true,
 		.life = 0.0,
@@ -496,7 +496,7 @@ void d_synth_play(int note) {
 		fprintf(stderr, "note out of bound: '%d'\n", note);
 		return;
 	}
-	d_audio.synth.notes[note] = d_make_voice();
+	d_audio.synth.notes[note] = d_voice_new();
 }
 
 void d_synth_release(int note) {

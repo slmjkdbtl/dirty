@@ -90,7 +90,7 @@ void init() {
 		3, 6, 7,
 	};
 
-	cube = d_make_mesh(verts, countof(verts), indices, countof(indices));
+	cube = d_mesh_new(verts, countof(verts), indices, countof(indices));
 	d_mesh_gen_normals(&cube);
 
 }

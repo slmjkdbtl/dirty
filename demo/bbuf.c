@@ -45,8 +45,8 @@ void init() {
 
 	d_fs_init((d_fs_desc) {0});
 
-	duck = d_load_model("res/duck.glb");
-	btfly = d_load_model("res/btfly.glb");
+	duck = d_model_load("res/duck.glb");
+	btfly = d_model_load("res/btfly.glb");
 
 }
 

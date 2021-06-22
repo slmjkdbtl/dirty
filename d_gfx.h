@@ -131,40 +131,50 @@ vec2 d_gfx_mouse_dpos();
 int d_gfx_width();
 int d_gfx_height();
 
-d_img d_make_img(int w, int h);
-d_img d_parse_img(uint8_t *bytes, size_t size);
+d_img d_img_new(int w, int h);
+d_img d_img_parse(uint8_t *bytes, size_t size);
 #ifdef D_FS_H
-d_img d_load_img(char *path);
+d_img d_img_load(char *path);
 #endif
 void d_img_set(d_img *img, int x, int y, color c);
 color d_img_get(d_img *img, int x, int y);
 void d_img_fill(d_img *img, color c);
 void d_img_save(d_img *img, char *path);
 d_img d_img_clone(d_img *img);
-void d_free_img(d_img *img);
+void d_img_free(d_img *img);
 
-d_ibuf d_make_ibuf(int w, int h);
-void d_free_ibuf(d_ibuf*);
+d_ibuf d_ibuf_new(int w, int h);
+void d_ibuf_free(d_ibuf*);
 void d_ibuf_set(d_ibuf *ibuf, int x, int y, int v);
 int d_ibuf_get(d_ibuf *ibuf, int x, int y);
 void d_ibuf_clear(d_ibuf *ibuf, int v);
 
-d_bbuf d_make_bbuf(int w, int h);
-void d_free_bbuf(d_bbuf*);
+d_bbuf d_bbuf_new(int w, int h);
+void d_bbuf_free(d_bbuf*);
 void d_bbuf_set(d_bbuf *bbuf, int x, int y, bool v);
 bool d_bbuf_get(d_bbuf *bbuf, int x, int y);
 
-d_mesh d_make_mesh(
+d_mesh d_mesh_new(
 	d_vertex *verts,
 	int num_verts,
 	d_index *indices,
 	int num_indices
 );
-void d_free_mesh(d_mesh *mesh);
+void d_mesh_free(d_mesh *mesh);
 void d_mesh_gen_normals(d_mesh *mesh);
 
-d_font d_parse_font(uint8_t *bytes);
-void d_free_font(d_font *font);
+d_font d_font_parse(uint8_t *bytes);
+#ifdef D_FS_H
+d_font d_font_load(char *path);
+#endif
+void d_font_free(d_font *font);
+
+d_model d_model_parse(uint8_t *bytes, int size);
+#ifdef D_FS_H
+d_model d_model_load(char *path);
+#endif
+void d_model_gen_bbox(d_model *model);
+void d_model_free(d_model *model);
 
 void d_gfx_clear();
 void d_gfx_set_blend(d_blend b);
@@ -770,16 +780,16 @@ typedef struct {
 static d_gfx_ctx d_gfx;
 
 void d_gfx_init(d_gfx_desc desc) {
-	d_gfx.def_canvas = d_make_img(desc.width, desc.height);
+	d_gfx.def_canvas = d_img_new(desc.width, desc.height);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
-	d_gfx.depth_buf = d_make_ibuf(desc.width, desc.height);
-	d_gfx.bbuf = d_make_bbuf(desc.width, desc.height);
+	d_gfx.depth_buf = d_ibuf_new(desc.width, desc.height);
+	d_gfx.bbuf = d_bbuf_new(desc.width, desc.height);
 	d_gfx.depth_test = !desc.no_depth_test;
 	d_gfx.backface_cull = !desc.no_backface_cull;
 	d_gfx.anti_alias = desc.anti_alias;
 	d_gfx.bbuf_write = false;
 	d_gfx.bbuf_test = false;
-	d_gfx.def_font = d_parse_font(unscii_bytes);
+	d_gfx.def_font = d_font_parse(unscii_bytes);
 	d_gfx.cur_font = &d_gfx.def_font;
 	d_gfx.blend = D_BLEND_ALPHA;
 	d_gfx.wrap = D_WRAP_BORDER;
@@ -824,7 +834,7 @@ int d_gfx_height() {
 	return d_gfx.cur_canvas->height;
 }
 
-d_ibuf d_make_ibuf(int w, int h) {
+d_ibuf d_ibuf_new(int w, int h) {
 	return (d_ibuf) {
 		.width = w,
 		.height = h,
@@ -832,7 +842,7 @@ d_ibuf d_make_ibuf(int w, int h) {
 	};
 }
 
-void d_free_ibuf(d_ibuf *ibuf) {
+void d_ibuf_free(d_ibuf *ibuf) {
 	free(ibuf->buf);
 	memset(ibuf, 0, sizeof(d_ibuf));
 }
@@ -851,7 +861,7 @@ void d_ibuf_clear(d_ibuf *ibuf, int v) {
 	}
 }
 
-d_bbuf d_make_bbuf(int w, int h) {
+d_bbuf d_bbuf_new(int w, int h) {
 	return (d_bbuf) {
 		.width = w,
 		.height = h,
@@ -859,7 +869,7 @@ d_bbuf d_make_bbuf(int w, int h) {
 	};
 }
 
-void d_free_bbuf(d_bbuf *bbuf) {
+void d_bbuf_free(d_bbuf *bbuf) {
 	free(bbuf->buf);
 	memset(bbuf, 0, sizeof(d_bbuf));
 }
@@ -878,7 +888,7 @@ void d_bbuf_clear(d_bbuf *bbuf, bool b) {
 	}
 }
 
-d_img d_make_img(int w, int h) {
+d_img d_img_new(int w, int h) {
 	return (d_img) {
 		.width = w,
 		.height = h,
@@ -897,7 +907,7 @@ d_img d_img_empty() {
 static uint8_t png_magic[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
 static uint8_t jpeg_magic[] = { 0xff, 0xd8, 0xff };
 
-d_img d_parse_img(uint8_t *bytes, size_t size) {
+d_img d_img_parse(uint8_t *bytes, size_t size) {
 	if (
 		memcmp(bytes, png_magic, sizeof(png_magic)) == 0
 		|| memcmp(bytes, jpeg_magic, sizeof(jpeg_magic)) == 0
@@ -922,14 +932,14 @@ d_img d_parse_img(uint8_t *bytes, size_t size) {
 }
 
 #ifdef D_FS_H
-d_img d_load_img(char *path) {
+d_img d_img_load(char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
 	if (!bytes) {
 		fprintf(stderr, "failed to load img from '%s'\n", path);
 		return d_img_empty();
 	}
-	d_img img = d_parse_img(bytes, size);
+	d_img img = d_img_parse(bytes, size);
 	free(bytes);
 	return img;
 }
@@ -969,12 +979,12 @@ void d_img_save(d_img *img, char *path) {
 d_img d_img_clone(d_img *img) {
 	int w = img->width;
 	int h = img->height;
-	d_img img2 = d_make_img(w, h);
+	d_img img2 = d_img_new(w, h);
 	memcpy(img2.pixels, img->pixels, w * h * sizeof(color));
 	return img2;
 }
 
-void d_free_img(d_img *img) {
+void d_img_free(d_img *img) {
 	free(img->pixels);
 	memset(img, 0, sizeof(d_img));
 }
@@ -995,7 +1005,7 @@ typedef struct {
 	uint8_t *pixels;
 } d_fnt_bin;
 
-d_font d_parse_font(uint8_t *bytes) {
+d_font d_font_parse(uint8_t *bytes) {
 
 	d_fnt_bin *data = (d_fnt_bin*)bytes;
 	int size = sizeof(uint8_t) * data->gw * data->gh * data->cols * data->rows;
@@ -1032,20 +1042,20 @@ d_font d_font_empty() {
 }
 
 #ifdef D_FS_H
-d_font d_load_font(char *path) {
+d_font d_font_load(char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
 	if (!bytes) {
 		fprintf(stderr, "failed to load font from '%s'\n", path);
 		return (d_font) {0};
 	}
-	d_font font = d_parse_font(bytes);
+	d_font font = d_font_parse(bytes);
 	free(bytes);
 	return font;
 }
 #endif // #ifdef D_FS_H
 
-void d_free_font(d_font *f) {
+void d_font_free(d_font *f) {
 	free(f->pixels);
 	memset(f, 0, sizeof(d_font));
 }
@@ -1736,7 +1746,7 @@ void d_mesh_gen_normals(d_mesh *mesh) {
 
 }
 
-d_mesh d_make_mesh(
+d_mesh d_mesh_new(
 	d_vertex *verts,
 	int num_verts,
 	d_index *indices,
@@ -1761,7 +1771,7 @@ d_mesh d_make_mesh(
 
 }
 
-void d_free_mesh(d_mesh *mesh) {
+void d_mesh_free(d_mesh *mesh) {
 	free(mesh->verts);
 	free(mesh->indices);
 	memset(mesh, 0, sizeof(d_mesh));
@@ -1775,7 +1785,7 @@ static void d_free_model_anim(d_model_anim *anim) {
 
 static void d_free_model_node(d_model_node *node) {
 	for (int i = 0; i < node->num_meshes; i++) {
-		d_free_mesh(&node->meshes[i]);
+		d_mesh_free(&node->meshes[i]);
 	}
 	for (int i = 0; i < node->num_children; i++) {
 		d_free_model_node(&node->children[i]);
@@ -1805,7 +1815,7 @@ void d_free_model(d_model *model) {
 		d_free_model_node(&model->nodes[i]);
 	}
 	for (int i = 0; i < model->num_images; i++) {
-		d_free_img(&model->images[i]);
+		d_img_free(&model->images[i]);
 	}
 	free(model->nodes);
 	free(model->images);
@@ -1859,7 +1869,7 @@ static void d_model_node_gen_bbox(
 	}
 }
 
-static void d_model_gen_bbox(d_model *model) {
+void d_model_gen_bbox(d_model *model) {
 	box bbox = boxf(vec3f(0, 0, 0), vec3f(0, 0, 0));
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_model_node_gen_bbox(&model->nodes[i], &bbox, mat4u());
@@ -1880,7 +1890,7 @@ static void d_assert(bool b, char *fmt, ...) {
 
 #ifdef CGLTF_IMPLEMENTATION
 
-static void d_parse_model_node(
+static void d_model_parse_node(
 	d_model *model,
 	d_model_node *node,
 	cgltf_node *cnode,
@@ -1916,7 +1926,7 @@ static void d_parse_model_node(
 	node->children = malloc(sizeof(d_model_node) * num_children);
 
 	for (int i = 0; i < num_children; i++) {
-		d_parse_model_node(model, &node->children[i], cnode->children[i], doc);
+		d_model_parse_node(model, &node->children[i], cnode->children[i], doc);
 	}
 
 	if (!cnode->mesh) {
@@ -2144,7 +2154,7 @@ static void d_parse_model_node(
 
 }
 
-static d_model d_parse_model_glb(uint8_t *bytes, int size) {
+static d_model d_model_parse_glb(uint8_t *bytes, int size) {
 
 	cgltf_options options;
 	memset(&options, 0, sizeof(cgltf_options));
@@ -2167,7 +2177,7 @@ static d_model d_parse_model_glb(uint8_t *bytes, int size) {
 		cgltf_image *img = doc->textures[i].image;
 		cgltf_buffer_view *view = img->buffer_view;
 		uint8_t *data = view->buffer->data;
-		model.images[i] = d_parse_img(data + view->offset, view->size);
+		model.images[i] = d_img_parse(data + view->offset, view->size);
 	}
 
 	int num_nodes = doc->scene->nodes_count;
@@ -2175,7 +2185,7 @@ static d_model d_parse_model_glb(uint8_t *bytes, int size) {
 	model.nodes = malloc(sizeof(d_model_node) * num_nodes);
 
 	for (int i = 0; i < num_nodes; i++) {
-		d_parse_model_node(&model, &model.nodes[i], doc->scene->nodes[i], doc);
+		d_model_parse_node(&model, &model.nodes[i], doc->scene->nodes[i], doc);
 	}
 
 	cgltf_free(doc);
@@ -2190,10 +2200,10 @@ static d_model d_parse_model_glb(uint8_t *bytes, int size) {
 
 static uint8_t glb_magic[] = { 0x67, 0x6c, 0x54, 0x46 };
 
-d_model d_parse_model(uint8_t *bytes, int size) {
+d_model d_model_parse(uint8_t *bytes, int size) {
 	if (memcmp(bytes, glb_magic, sizeof(glb_magic)) == 0) {
 #ifdef CGLTF_IMPLEMENTATION
-		return d_parse_model_glb(bytes, size);
+		return d_model_parse_glb(bytes, size);
 #else
 		fprintf(stderr, "glb support requires 'cgltf.h'\n");
 		return d_model_empty();
@@ -2205,14 +2215,14 @@ d_model d_parse_model(uint8_t *bytes, int size) {
 }
 
 #ifdef D_FS_H
-d_model d_load_model(char *path) {
+d_model d_model_load(char *path) {
 	size_t size;
 	uint8_t *bytes = d_read_bytes(path, &size);
 	if (!bytes) {
 		fprintf(stderr, "failed to load model from '%s'\n", path);
 		return d_model_empty();
 	}
-	d_model model = d_parse_model(bytes, size);
+	d_model model = d_model_parse(bytes, size);
 	free(bytes);
 	return model;
 }

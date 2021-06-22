@@ -319,19 +319,19 @@ typedef struct {
 	dt_token name;
 	bool captured;
 	int depth;
-} dt_c_local;
+} dt_local;
 
 typedef struct {
 	int idx;
 	bool local;
-} dt_c_upval;
+} dt_upval;
 
 typedef struct dt_funcenv {
 	struct dt_funcenv *parent;
 	int depth;
-	dt_c_local locals[UINT8_MAX];
+	dt_local locals[UINT8_MAX];
 	int num_locals;
-	dt_c_upval upvals[UINT8_MAX];
+	dt_upval upvals[UINT8_MAX];
 	int num_upvals;
 	dt_chunk chunk;
 } dt_funcenv;
@@ -578,7 +578,7 @@ dt_str dt_str_clone(dt_str *str) {
 
 void dt_str_free(dt_str *str) {
 	free(str->chars);
-	str->chars = NULL;
+	memset(str, 0, sizeof(dt_str));
 }
 
 dt_val dt_str_concat(dt_str *a, dt_str *b) {
@@ -640,9 +640,7 @@ dt_arr dt_arr_new() {
 
 void dt_arr_free(dt_arr *arr) {
 	free(arr->values);
-	arr->values = NULL;
-	arr->len = 0;
-	arr->cap = 0;
+	memset(arr, 0, sizeof(dt_arr));
 }
 
 dt_val dt_arr_get(dt_arr *arr, int idx) {
@@ -757,9 +755,7 @@ void dt_map_free(dt_map *map) {
 	}
 
 	free(map->entries);
-	map->cnt = 0;
-	map->cap = 0;
-	map->entries = NULL;
+	memset(map, 0, sizeof(dt_map));
 
 }
 
@@ -888,12 +884,21 @@ bool dt_val_truthiness(dt_val *val) {
 	);
 }
 
-void dt_chunk_init(dt_chunk *c) {
-	c->cnt = 0;
-	c->cap = 0;
-	c->code = NULL;
-	c->lines = NULL;
-	c->consts = dt_arr_new();
+static dt_chunk dt_chunk_new() {
+	return (dt_chunk) {
+		.cnt = 0,
+		.cap = 0,
+		.code = malloc(0),
+		.lines = malloc(0),
+		.consts = dt_arr_new(),
+	};
+}
+
+static void dt_chunk_free(dt_chunk *c) {
+	free(c->code);
+	free(c->lines);
+	dt_arr_free(&c->consts);
+	memset(c, 0, sizeof(dt_chunk));
 }
 
 char *dt_op_name(dt_op op) {
@@ -1050,34 +1055,22 @@ int dt_chunk_add_const(dt_chunk *c, dt_val val) {
 	return c->consts.len - 1;
 }
 
-void dt_chunk_free(dt_chunk *c) {
-	if (c->code) {
-		free(c->code);
-	}
-	if (c->lines) {
-		free(c->lines);
-	}
-	dt_arr_free(&c->consts);
-}
-
-void dt_vm_init(dt_vm *vm) {
-	vm->func = NULL;
-	vm->ip = NULL;
-	vm->env = NULL;
-	memset(vm->stack, 0, sizeof(dt_val) * DT_STACK_MAX);
-	memset(vm->upvals, 0, sizeof(int) * UINT8_MAX);
-	vm->num_upvals = 0;
-	vm->stack_top = vm->stack;
-	vm->stack_offset = 0;
-}
-
-dt_vm dt_vm_new() {
-	dt_vm vm;
-	dt_vm_init(&vm);
+static dt_vm dt_vm_new() {
+	dt_vm vm = (dt_vm) {
+		.func = NULL,
+		.ip = NULL,
+		.stack = {0},
+		.stack_top = NULL,
+		.stack_offset = 0,
+		.env = NULL,
+		.upvals = {0},
+		.num_upvals = 0,
+	};
+	vm.stack_top = vm.stack;
 	return vm;
 }
 
-void dt_vm_push(dt_vm *vm, dt_val val) {
+static void dt_vm_push(dt_vm *vm, dt_val val) {
 	*vm->stack_top = val;
 	vm->stack_top++;
 	if (vm->stack_top - vm->stack >= DT_STACK_MAX) {
@@ -1085,7 +1078,7 @@ void dt_vm_push(dt_vm *vm, dt_val val) {
 	}
 }
 
-dt_val dt_vm_pop(dt_vm *vm) {
+static dt_val dt_vm_pop(dt_vm *vm) {
 	if (vm->stack_top == vm->stack) {
 		dt_fail("stack underflow\n");
 		return dt_nil;
@@ -1094,6 +1087,7 @@ dt_val dt_vm_pop(dt_vm *vm) {
 	return *vm->stack_top;
 }
 
+// TODO: return NULL when out
 dt_val *dt_vm_peek(dt_vm *vm, int idx) {
 	return vm->stack_top + idx - 1;
 }
@@ -1129,7 +1123,7 @@ static void dt_vm_pop_close(dt_vm *vm) {
 
 }
 
-void dt_vm_stack_print(dt_vm *vm) {
+static void dt_vm_stack_print(dt_vm *vm) {
 
 	printf("[ ");
 
@@ -1142,12 +1136,12 @@ void dt_vm_stack_print(dt_vm *vm) {
 
 }
 
-void dt_vm_stack_println(dt_vm *vm) {
+static void dt_vm_stack_println(dt_vm *vm) {
 	dt_vm_stack_print(vm);
 	printf("\n");
 }
 
-void dt_vm_run(dt_vm *vm, dt_func *func) {
+static void dt_vm_run(dt_vm *vm, dt_func *func) {
 
 	vm->func = func;
 	dt_chunk *chunk = &func->logic->chunk;
@@ -1746,16 +1740,12 @@ void dt_vm_run(dt_vm *vm, dt_func *func) {
 
 }
 
-void dt_scanner_init(dt_scanner *s, char *src) {
-	s->start = src;
-	s->cur = src;
-	s->line = 1;
-}
-
-dt_scanner dt_scanner_new(char *src) {
-	dt_scanner s;
-	dt_scanner_init(&s, src);
-	return s;
+static dt_scanner dt_scanner_new(char *src) {
+	return (dt_scanner) {
+		.start = src,
+		.cur = src,
+		.line = 1,
+	};
 }
 
 static bool dt_scanner_ended(dt_scanner *s) {
@@ -2061,16 +2051,16 @@ static void dt_c_err(dt_compiler *c, char *fmt, ...) {
 	exit(EXIT_FAILURE);
 }
 
-void dt_c_emit(dt_compiler *c, uint8_t byte) {
+static void dt_c_emit(dt_compiler *c, uint8_t byte) {
 	dt_chunk_push(&c->env->chunk, byte, c->parser.prev.line);
 }
 
-void dt_c_emit2(dt_compiler *c, uint8_t b1, uint8_t b2) {
+static void dt_c_emit2(dt_compiler *c, uint8_t b1, uint8_t b2) {
 	dt_c_emit(c, b1);
 	dt_c_emit(c, b2);
 }
 
-void dt_c_push_const(dt_compiler *c, dt_val val) {
+static void dt_c_push_const(dt_compiler *c, dt_val val) {
 	int idx = dt_chunk_add_const(&c->env->chunk, val);
 	dt_c_emit2(c, DT_OP_CONST, idx);
 }
@@ -2169,7 +2159,7 @@ static int dt_c_find_local(dt_compiler *c, dt_token *name) {
 	dt_funcenv *e = c->env;
 
 	for (int i = e->num_locals - 1; i >= 0; i--) {
-		dt_c_local *val = &e->locals[i];
+		dt_local *val = &e->locals[i];
 		if (dt_token_eq(name, &val->name)) {
 			return i;
 		}
@@ -2185,7 +2175,7 @@ static int dt_c_add_upval(dt_compiler *c, int idx, bool local) {
 
 	// find existing upval
 	for (int i = 0; i < e->num_upvals; i++) {
-		dt_c_upval *val = &e->upvals[i];
+		dt_upval *val = &e->upvals[i];
 		if (val->idx == idx && val->local == local) {
 			return i;
 		}
@@ -2240,7 +2230,7 @@ static void dt_c_add_local(dt_compiler *c, dt_token name) {
 		dt_c_err(c, "too many local variables in one scope\n");
 		return;
 	}
-	dt_c_local *l = &c->env->locals[c->env->num_locals++];
+	dt_local *l = &c->env->locals[c->env->num_locals++];
 	l->name = name;
 	l->depth = c->env->depth;
 	l->captured = false;
@@ -2272,7 +2262,7 @@ static void dt_c_scope_end(dt_compiler *c) {
 	e->depth--;
 
 	while (e->num_locals > 0) {
-		dt_c_local *l = &e->locals[e->num_locals - 1];
+		dt_local *l = &e->locals[e->num_locals - 1];
 		if (l->depth <= e->depth) {
 			break;
 		}
@@ -2504,36 +2494,37 @@ static void dt_c_unary(dt_compiler *c) {
 	}
 }
 
-void dt_funcenv_init(dt_funcenv *env) {
-	dt_chunk_init(&env->chunk);
-	env->depth = 0;
-	env->num_locals = 0;
-	memset(env->locals, 0, sizeof(dt_c_local) * UINT8_MAX);
-	env->num_upvals = 0;
-	memset(env->upvals, 0, sizeof(dt_c_upval) * UINT8_MAX);
-	env->parent = NULL;
+static dt_funcenv dt_funcenv_new() {
+	return (dt_funcenv) {
+		.parent = NULL,
+		.depth = 0,
+		.locals = {0},
+		.num_locals = 0,
+		.upvals = {0},
+		.num_upvals = 0,
+		.chunk = dt_chunk_new(),
+	};
 }
 
-void dt_funcenv_free(dt_funcenv *env) {
+static void dt_funcenv_free(dt_funcenv *env) {
 	dt_chunk_free(&env->chunk);
-	env->parent = NULL;
-}
-
-void dt_compiler_init(dt_compiler *c, char *code) {
-	dt_funcenv_init(&c->base_env);
-	dt_scanner_init(&c->scanner, code);
-	c->env = &c->base_env;
+	memset(env, 0, sizeof(dt_funcenv));
 }
 
 dt_compiler dt_compiler_new(char *code) {
-	dt_compiler c;
-	dt_compiler_init(&c, code);
+	dt_compiler c = (dt_compiler) {
+		.scanner = dt_scanner_new(code),
+		.parser = {0},
+		.base_env = dt_funcenv_new(),
+		.env = NULL,
+	};
+	c.env = &c.base_env;
 	return c;
 }
 
 void dt_compiler_free(dt_compiler *c) {
 	dt_funcenv_free(&c->base_env);
-	c->env = NULL;
+	memset(c, 0, sizeof(dt_compiler));
 }
 
 static void dt_c_func(dt_compiler *c) {
@@ -2541,8 +2532,7 @@ static void dt_c_func(dt_compiler *c) {
 	dt_c_consume(c, DT_TOKEN_FN);
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 
-	dt_funcenv env;
-	dt_funcenv_init(&env);
+	dt_funcenv env = dt_funcenv_new();
 
 	dt_funcenv *prev_env = c->env;
 	c->env = &env;

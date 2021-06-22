@@ -15,7 +15,7 @@ void init() {
 		.height = 240,
 		.clear_color = colori(0, 0, 0, 255),
 	});
-	img = d_make_img(d_gfx_width(), d_gfx_height());
+	img = d_img_new(d_gfx_width(), d_gfx_height());
 }
 
 void frame() {

@@ -48,8 +48,8 @@ typedef char *(*d_http_handler)(char*);
 void d_http_serve(int port, d_http_handler handler);
 
 d_http_res d_http_fetch(char *host, char *msg);
-d_http_client d_make_http_client(char *host);
-void d_free_http_client(d_http_client *client);
+d_http_client d_http_client_new(char *host);
+void d_http_client_free(d_http_client *client);
 d_http_res d_http_client_send(d_http_client *client, char *req_msg);
 
 void d_free_http_req(d_http_req *req);
@@ -301,7 +301,7 @@ void d_http_serve(int port, d_http_handler handler) {
 
 }
 
-d_http_client d_make_http_client(char *host) {
+d_http_client d_http_client_new(char *host) {
 
 	struct addrinfo *res;
 
@@ -331,7 +331,7 @@ d_http_client d_make_http_client(char *host) {
 
 }
 
-void d_free_http_client(d_http_client *client) {
+void d_http_client_free(d_http_client *client) {
 	close(client->sock_fd);
 }
 
@@ -486,9 +486,9 @@ d_http_res d_http_client_send(d_http_client *client, char *req_msg) {
 }
 
 d_http_res d_http_fetch(char *host, char *req_msg) {
-	d_http_client client = d_make_http_client(host);
+	d_http_client client = d_http_client_new(host);
 	d_http_res res = d_http_client_send(&client, req_msg);
-	d_free_http_client(&client);
+	d_http_client_free(&client);
 	return res;
 }
 

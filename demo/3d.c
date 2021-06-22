@@ -60,28 +60,28 @@ void init() {
 		.pos = vec3f(60, 80, 0),
 		.rot = vec3f(0.24, 0.48, 0),
 		.scale = vec3f(6, -6, 6),
-		.model = d_load_model("res/btfly.glb"),
+		.model = d_model_load("res/btfly.glb"),
 	};
 
 	models[1] = (model) {
 		.pos = vec3f(160, 140, 0),
 		.rot = vec3f(0.2, 0.3, 0.2),
 		.scale = vec3f(1, -1, 1),
-		.model = d_load_model("res/tv.glb"),
+		.model = d_model_load("res/tv.glb"),
 	};
 
 	models[2] = (model) {
 		.pos = vec3f(160, 60, 0),
 		.rot = vec3f(0.5, -0.5, 0),
 		.scale = vec3f(1, -1, 1),
-		.model = d_load_model("res/flower.glb"),
+		.model = d_model_load("res/flower.glb"),
 	};
 
 	models[3] = (model) {
 		.pos = vec3f(40, 190, 0),
 		.rot = vec3f(0.5, -0.5, 0),
 		.scale = vec3f(1, -1, 1),
-		.model = d_load_model("res/sprayer.glb"),
+		.model = d_model_load("res/sprayer.glb"),
 	};
 
 }

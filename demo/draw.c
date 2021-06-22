@@ -27,7 +27,7 @@ void init() {
 		.clear_color = colori(0, 0, 0, 255),
 	});
 
-	canvas = d_make_img(WIDTH, HEIGHT);
+	canvas = d_img_new(WIDTH, HEIGHT);
 
 }
 

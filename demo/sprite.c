@@ -43,7 +43,7 @@ void init() {
 
 	d_fs_init((d_fs_desc) {0});
 
-	img = d_load_img("res/wizard.png");
+	img = d_img_load("res/wizard.png");
 
 }
 

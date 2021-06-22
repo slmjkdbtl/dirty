@@ -105,7 +105,7 @@ typedef struct {
 	vec2 dir;
 } ray2;
 
-d_rng d_make_rng(uint64_t seed);
+d_rng d_rng_new(uint64_t seed);
 float d_rng_gen(d_rng *rng);
 float randf(float, float);
 
@@ -219,7 +219,7 @@ void swapf(float*, float*);
 #ifndef D_MATH_IMPL_ONCE
 #define D_MATH_IMPL_ONCE
 
-d_rng d_make_rng(uint64_t seed) {
+d_rng d_rng_new(uint64_t seed) {
 	return (d_rng) {
 		.seed = seed,
 	};
