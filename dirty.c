@@ -44,7 +44,7 @@ static dt_val dt_f_app_run(dt_vm *vm, int nargs) {
 
 int main(int argc, char **argv) {
 	dt_map env = dt_make_map();
-	dt_loadstd(&env);
+	dt_load_std(&env);
 	dt_setf(&env, "app_run", dt_f_app_run);
 	if (argc >= 2) {
 		dt_dofile(&env, argv[1]);

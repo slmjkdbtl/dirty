@@ -1,5 +1,15 @@
 // wengwengweng
 
+// TODO: garbage collection
+// TODO: error handling
+// TODO: ... to access func arguments
+// TODO: 'this'
+// TODO: trait
+// TODO: module
+// TODO: loops
+// TODO: threading
+// TODO: utf8
+
 #ifndef D_LANG_H
 #define D_LANG_H
 
@@ -79,7 +89,7 @@ typedef struct dt_vm {
 } dt_vm;
 
 dt_map dt_make_map();
-void dt_loadstd(dt_map *map);
+void dt_load_std(dt_map *map);
 void dt_setf(dt_map *map, char *name, dt_cfunc *func);
 dt_val dt_eval(dt_map *env, char *src);
 dt_val dt_dofile(dt_map *env, char *path);
@@ -1914,7 +1924,7 @@ static dt_token dt_scanner_scan(dt_scanner *s) {
 
 }
 
-static char *dt_read_file(char *path) {
+static char *dt_read_file(char *path, size_t *osize) {
 
 	FILE *file = fopen(path, "r");
 
@@ -1929,6 +1939,10 @@ static char *dt_read_file(char *path) {
 	char *buf = malloc(size + 1);
 	size_t size_read = fread(buf, sizeof(char), size, file);
 	buf[size_read] = '\0';
+
+	if (osize) {
+		*osize = size_read;
+	}
 
 	fclose(file);
 
@@ -2232,6 +2246,7 @@ static void dt_c_cond(dt_compiler *c) {
 
 }
 
+// TODO
 static void dt_c_loop(dt_compiler *c) {
 
 	dt_c_consume(c, DT_TOKEN_LOOP);
@@ -2603,7 +2618,12 @@ static dt_val dt_f_print(dt_vm *vm, int nargs) {
 
 }
 
-dt_val dt_f_type(dt_vm *vm, int nargs) {
+// TODO
+static dt_val dt_f_error(dt_vm *vm, int nargs) {
+	return dt_nil;
+}
+
+static dt_val dt_f_type(dt_vm *vm, int nargs) {
 	dt_check_nargs("type", 1, nargs);
 	dt_val *val = dt_vm_peek(vm, 0);
 	char *tname = dt_type_name(val->type);
@@ -2641,32 +2661,19 @@ static dt_val dt_f_dofile(dt_vm *vm, int nargs) {
 }
 
 static dt_val dt_f_fread(dt_vm *vm, int nargs) {
-
 	dt_check_nargs("fread", 1, nargs);
 	dt_check_arg(vm, 0, DT_VAL_STR);
 	char *path = dt_vm_peek(vm, 0)->data.str.chars;
-
-	FILE *file = fopen(path, "r");
-
-	if (!file) {
-		return dt_nil;
-	}
-
-	fseek(file, 0L, SEEK_END);
-	size_t size = ftell(file);
-	fseek(file, 0, SEEK_SET);
-
-	char *buf = malloc(size + 1);
-	size_t size_read = fread(buf, sizeof(char), size, file);
-	buf[size_read] = '\0';
-
-	fclose(file);
-
-	return dt_make_str2(buf, size_read);
-
+	size_t size;
+	char *content = dt_read_file(path, &size);
+	return dt_make_str2(content, size);
 }
 
-void dt_loadstd(dt_map *env) {
+static dt_val dt_f_mod(dt_vm *vm, int nargs) {
+	return dt_nil;
+}
+
+void dt_load_std(dt_map *env) {
 	dt_setf(env, "print", dt_f_print);
 	dt_setf(env, "type", dt_f_type);
 	dt_setf(env, "exit", dt_f_exit);
@@ -2674,6 +2681,8 @@ void dt_loadstd(dt_map *env) {
 	dt_setf(env, "system", dt_f_system);
 	dt_setf(env, "eval", dt_f_eval);
 	dt_setf(env, "dofile", dt_f_dofile);
+	dt_setf(env, "error", dt_f_error);
+	dt_setf(env, "mod", dt_f_mod);
 }
 
 // TODO: mem audit
@@ -2712,7 +2721,7 @@ dt_val dt_eval(dt_map *env, char *code) {
 
 dt_val dt_dofile(dt_map *env, char *path) {
 
-	char *code = dt_read_file(path);
+	char *code = dt_read_file(path, NULL);
 
 	if (!code) {
 		fprintf(stderr, "failed to read '%s'\n", path);
