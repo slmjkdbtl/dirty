@@ -178,7 +178,7 @@ endif
 	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
 
 $(BIN_PATH)/dirty: dirty.c *.h
-	cc $(CFLAGS) $< -o $@
+	cc $(CFLAGS) $(LDFLAGS) $< -o $@
 
 .PHONY: install
 install: $(BIN_PATH)/dirty

@@ -35,6 +35,8 @@ a.print()
 print(a.x(), a.y())
 b.print()
 
+-> b.x()
+
 -- $ test = nil
 -- $ test2 = nil
 

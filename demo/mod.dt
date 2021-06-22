@@ -1,0 +1,2 @@
+$ a = dofile("demo/one.dt")
+print(a)
