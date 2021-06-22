@@ -1,5 +1,17 @@
 $ a = 1
+
 loop {
 	a = a + 1
 	print(a)
+	if (a > 10) {
+		break
+	}
 }
+
+print("done")
+
+-- for x in 0..10 {
+	-- ...
+-- }
+
+-- for ()
