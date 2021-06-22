@@ -47,7 +47,8 @@ int main(int argc, char **argv) {
 	dt_load_std(&env);
 	dt_map_set_cfunc(&env, "app_run", dt_f_app_run);
 	if (argc >= 2) {
-		dt_dofile(&env, argv[1]);
+		dt_dofile_ex(argv[1], &env);
 	}
+	dt_map_free(&env);
 	return 0;
 }
