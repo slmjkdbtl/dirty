@@ -73,16 +73,16 @@ typedef struct dt_vm {
 	dt_val stack[DT_STACK_MAX];
 	dt_val *stack_top;
 	int stack_offset;
-	dt_map globals;
+	dt_map *env;
 	dt_val **upvals[UINT8_MAX];
 	int num_upvals;
 } dt_vm;
 
-dt_vm dt_vm_make();
-void dt_loadstd(dt_vm *vm);
-dt_val dt_eval(dt_vm *vm, char *src);
-dt_val dt_dofile(dt_vm *vm, char *path);
-void dt_setf(dt_vm *vm, char *name, dt_cfunc *func);
+dt_map dt_make_map();
+void dt_loadstd(dt_map *map);
+void dt_setf(dt_map *map, char *name, dt_cfunc *func);
+dt_val dt_eval(dt_map *env, char *src);
+dt_val dt_dofile(dt_map *env, char *path);
 void dt_val_println(dt_val *val);
 
 #endif
@@ -129,7 +129,6 @@ typedef enum {
 	DT_OP_AND,
 	DT_OP_LEN,
 	DT_OP_POP,
-	DT_OP_DEFG,
 	DT_OP_GETG,
 	DT_OP_INDEX,
 	DT_OP_SETG,
@@ -816,7 +815,6 @@ char *dt_op_name(dt_op op) {
 		case DT_OP_AND:      return "AND";
 		case DT_OP_LEN:      return "LEN";
 		case DT_OP_POP:      return "POP";
-		case DT_OP_DEFG:     return "DEFG";
 		case DT_OP_SETG:     return "SETG";
 		case DT_OP_GETG:     return "GETG";
 		case DT_OP_SETL:     return "SETL";
@@ -843,12 +841,6 @@ int dt_chunk_peek_at(dt_chunk *c, int idx) {
 		case DT_OP_CONST: {
 			uint8_t idx2 = c->code[idx + 1];
 			printf("CONST ");
-			dt_val_print(&c->consts.values[idx2]);
-			return idx + 2;
-		}
-		case DT_OP_DEFG: {
-			uint8_t idx2 = c->code[idx + 1];
-			printf("DEFG ");
 			dt_val_print(&c->consts.values[idx2]);
 			return idx + 2;
 		}
@@ -966,21 +958,17 @@ void dt_chunk_free(dt_chunk *c) {
 void dt_vm_init(dt_vm *vm) {
 	vm->func = NULL;
 	vm->ip = NULL;
+	vm->env = NULL;
 	memset(vm->stack, 0, sizeof(dt_val) * DT_STACK_MAX);
 	memset(vm->upvals, 0, sizeof(int) * UINT8_MAX);
 	vm->num_upvals = 0;
 	vm->stack_top = vm->stack;
-	vm->globals = dt_make_map();
 	vm->stack_offset = 0;
 }
 
-void dt_vm_setg(dt_vm *vm, char *name, dt_val val) {
+void dt_setf(dt_map *env, char *name, dt_cfunc *func) {
 	dt_str key = dt_make_str(name, strlen(name));
-	dt_map_set(&vm->globals, &key, val);
-}
-
-void dt_setf(dt_vm *vm, char *name, dt_cfunc *func) {
-	dt_vm_setg(vm, name, (dt_val) {
+	dt_map_set(env, &key, (dt_val) {
 		.type = DT_VAL_CFUNC,
 		.data = {
 			.cfunc = func,
@@ -1380,26 +1368,33 @@ void dt_vm_run(dt_vm *vm, dt_func *func) {
 			case DT_OP_POP:
 				dt_vm_pop(vm);
 				break;
-			case DT_OP_DEFG: {
+			case DT_OP_GETG: {
+				if (!vm->env) {
+					dt_vm_push(vm, dt_nil);
+				}
 				dt_val name = chunk->consts.values[*vm->ip++];
-				dt_val val = dt_vm_pop(vm);
 				if (name.type == DT_VAL_STR) {
-					dt_map_set(&vm->globals, &name.data.str, val);
+					dt_val val = dt_map_get(vm->env, &name.data.str);
+					dt_vm_push(vm, val);
 				} else {
 					dt_vm_err(
 						vm,
 						"expected var name to be 'str' found '%s'\n",
 						dt_type_name(name.type)
 					);
+					dt_vm_push(vm, dt_nil);
 				}
 				break;
 			}
 			case DT_OP_SETG: {
+				if (!vm->env) {
+					dt_vm_push(vm, dt_nil);
+				}
 				dt_val name = chunk->consts.values[*vm->ip++];
 				if (name.type == DT_VAL_STR) {
-					if (dt_map_exists(&vm->globals, &name.data.str)) {
+					if (dt_map_exists(vm->env, &name.data.str)) {
 						dt_val *val = dt_vm_peek(vm, 0);
-						dt_map_set(&vm->globals, &name.data.str, *val);
+						dt_map_set(vm->env, &name.data.str, *val);
 					} else {
 						dt_vm_err(vm, "'%s' is not declared\n", name.data.str.chars);
 					}
@@ -1409,21 +1404,6 @@ void dt_vm_run(dt_vm *vm, dt_func *func) {
 						"expected var name to be 'str' found '%s'\n",
 						dt_type_name(name.type)
 					);
-				}
-				break;
-			}
-			case DT_OP_GETG: {
-				dt_val name = chunk->consts.values[*vm->ip++];
-				if (name.type == DT_VAL_STR) {
-					dt_val val = dt_map_get(&vm->globals, &name.data.str);
-					dt_vm_push(vm, val);
-				} else {
-					dt_vm_err(
-						vm,
-						"expected var name to be 'str' found '%s'\n",
-						dt_type_name(name.type)
-					);
-					dt_vm_push(vm, dt_nil);
 				}
 				break;
 			}
@@ -1662,10 +1642,6 @@ void dt_vm_run(dt_vm *vm, dt_func *func) {
 
 	}
 
-}
-
-void dt_vm_free(dt_vm *vm) {
-	dt_free_map(&vm->globals);
 }
 
 void dt_scanner_init(dt_scanner *s, char *src) {
@@ -2652,10 +2628,7 @@ static dt_val dt_f_eval(dt_vm *vm, int nargs) {
 	dt_check_nargs("eval", 1, nargs);
 	dt_check_arg(vm, 0, DT_VAL_STR);
 	char *code = dt_vm_peek(vm, 0)->data.str.chars;
-	dt_vm vm2 = dt_vm_make();
-	vm2.globals = vm->globals;
-	dt_val ret = dt_eval(&vm2, code);
-	// TODO: free vm
+	dt_val ret = dt_eval(vm->env, code);
 	return ret;
 }
 
@@ -2663,10 +2636,7 @@ static dt_val dt_f_dofile(dt_vm *vm, int nargs) {
 	dt_check_nargs("eval", 1, nargs);
 	dt_check_arg(vm, 0, DT_VAL_STR);
 	char *path = dt_vm_peek(vm, 0)->data.str.chars;
-	dt_vm vm2 = dt_vm_make();
-	vm2.globals = vm->globals;
-	dt_val ret = dt_dofile(&vm2, path);
-	// TODO: free vm
+	dt_val ret = dt_dofile(vm->env, path);
 	return ret;
 }
 
@@ -2696,38 +2666,28 @@ static dt_val dt_f_fread(dt_vm *vm, int nargs) {
 
 }
 
-dt_vm dt_vm_make() {
+void dt_loadstd(dt_map *env) {
+	dt_setf(env, "print", dt_f_print);
+	dt_setf(env, "type", dt_f_type);
+	dt_setf(env, "exit", dt_f_exit);
+	dt_setf(env, "fread", dt_f_fread);
+	dt_setf(env, "system", dt_f_system);
+	dt_setf(env, "eval", dt_f_eval);
+	dt_setf(env, "dofile", dt_f_dofile);
+}
+
+// TODO: mem audit
+dt_val dt_eval(dt_map *env, char *code) {
+
 	dt_vm vm;
 	dt_vm_init(&vm);
-	return vm;
-}
 
-void dt_loadstd(dt_vm *vm) {
-	dt_setf(vm, "print", dt_f_print);
-	dt_setf(vm, "type", dt_f_type);
-	dt_setf(vm, "exit", dt_f_exit);
-	dt_setf(vm, "fread", dt_f_fread);
-	dt_setf(vm, "system", dt_f_system);
-	dt_setf(vm, "eval", dt_f_eval);
-	dt_setf(vm, "dofile", dt_f_dofile);
-}
-
-// TODO: return a dt_val
-dt_val dt_eval(dt_vm *vm, char *code) {
-
-	vm->func = NULL;
-	vm->ip = NULL;
-	memset(vm->stack, 0, sizeof(dt_val) * DT_STACK_MAX);
-	memset(vm->upvals, 0, sizeof(int) * UINT8_MAX);
-	vm->num_upvals = 0;
-	vm->stack_top = vm->stack;
-	vm->stack_offset = 0;
+	vm.env = env;
 
 	dt_compiler c;
 	dt_compiler_init(&c, code);
 	dt_c_nxt(&c);
 
-	// TODO: capture ->
 	while (c.parser.cur.type != DT_TOKEN_END) {
 		dt_c_stmt(&c);
 	}
@@ -2735,6 +2695,7 @@ dt_val dt_eval(dt_vm *vm, char *code) {
 	dt_c_emit(&c, DT_OP_NIL);
 	dt_c_emit(&c, DT_OP_STOP);
 
+	// TODO: clean
 	dt_func func = (dt_func) {
 		.logic = &(dt_logic) {
 			.chunk = c.env->chunk,
@@ -2743,21 +2704,22 @@ dt_val dt_eval(dt_vm *vm, char *code) {
 		.upvals = NULL,
 	};
 
-	dt_vm_run(vm, &func);
+	dt_vm_run(&vm, &func);
 
-	return *dt_vm_peek(vm, 0);
+	return *dt_vm_peek(&vm, 0);
 
 }
 
-dt_val dt_dofile(dt_vm *vm, char *path) {
+dt_val dt_dofile(dt_map *env, char *path) {
 
 	char *code = dt_read_file(path);
 
 	if (!code) {
-		dt_fail("failed to read '%s'\n", path);
+		fprintf(stderr, "failed to read '%s'\n", path);
+		return dt_nil;
 	}
 
-	dt_val ret = dt_eval(vm, code);
+	dt_val ret = dt_eval(env, code);
 	free(code);
 
 	return ret;

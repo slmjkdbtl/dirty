@@ -1,2 +1,2 @@
-$ a = dofile("demo/one.dt")
+$ a = dofile("demo/six.dt")
 print(a)

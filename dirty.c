@@ -43,11 +43,11 @@ static dt_val dt_f_app_run(dt_vm *vm, int nargs) {
 }
 
 int main(int argc, char **argv) {
-	dt_vm vm = dt_vm_make();
-	dt_loadstd(&vm);
-	dt_setf(&vm, "app_run", dt_f_app_run);
+	dt_map env = dt_make_map();
+	dt_loadstd(&env);
+	dt_setf(&env, "app_run", dt_f_app_run);
 	if (argc >= 2) {
-		dt_dofile(&vm, argv[1]);
+		dt_dofile(&env, argv[1]);
 	}
 	return 0;
 }
