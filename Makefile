@@ -178,11 +178,16 @@ endif
 	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
 
 $(BIN_PATH)/dirty: dirty.c *.h
+	@mkdir -p $(BIN_PATH)
 	cc $(CFLAGS) $(LDFLAGS) $< -o $@
+
+.PHONY: runscript
+runscript: $(BIN_PATH)/dirty
+	$< $(ARGS)
 
 .PHONY: install
 install: $(BIN_PATH)/dirty
-	install $(BIN_PATH)/dirty /usr/local/bin/dirty
+	install $< /usr/local/bin/dirty
 
 .PHONY: clean
 clean:

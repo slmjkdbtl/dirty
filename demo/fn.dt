@@ -1,15 +1,15 @@
-$ get6 = fn() {
-	$ two = fn() { -> 2 }()
-	$ four = fn() { -> 4 }()
-	-> two + four
+$ get6 = ~ () {
+	$ two = ~ () { ~> 2 }()
+	$ four = ~ () { ~> 4 }()
+	~> two + four
 }
 
 $ six = get6()
 
 print(six)
 
-$ add = fn(a, b) {
-	-> a + b
+$ add = ~ (a, b) {
+	~> a + b
 }
 
 $ sum = add(2, 3)

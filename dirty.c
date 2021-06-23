@@ -12,40 +12,67 @@
 #include <d_gfx.h>
 #include <d_lang.h>
 
+dt_vm *g_vm;
+dt_func *app_frame;
+dt_func *app_init;
+
 void init() {
-	d_gfx_init((d_gfx_desc) {
-		.width = 240,
-		.height = 240,
-		.clear_color = colori(0, 0, 0, 255),
-	});
+	if (app_init) {
+		dt_vm_call_0(g_vm, app_init);
+	}
 }
 
 void frame() {
-
-	if (d_app_key_pressed(D_KEY_ESC)) {
-		d_app_quit();
+	if (app_frame) {
+		dt_vm_call_0(g_vm, app_frame);
 	}
-
-	d_blit_text("hi", vec2f(0, 0), colori(255, 255, 255, 255));
-	d_gfx_present();
-
 }
 
-static dt_val dt_f_app_run(dt_vm *vm, int nargs) {
-	d_app_run((d_app_desc) {
-		.title = "hi",
+dt_val dt_f_app_run(dt_vm *vm, int nargs) {
+	g_vm = vm;
+	d_app_desc desc = (d_app_desc) {
+		.title = "",
 		.init = init,
 		.frame = frame,
-		.width = 240,
-		.height = 240,
-	});
+		.width = 480,
+		.height = 480,
+	};
+	if (nargs >= 1) {
+		dt_map *conf = dt_vm_get_map(vm, 0);
+		dt_val frame = dt_map_get2(conf, "frame");
+		if (dt_is_func(&frame)) {
+			app_frame = frame.data.func;
+		}
+		dt_val init = dt_map_get2(conf, "init");
+		if (dt_is_func(&init)) {
+			app_init = init.data.func;
+		}
+		dt_val width = dt_map_get2(conf, "width");
+		if (dt_is_num(&width)) {
+			desc.width = width.data.num;
+		}
+		dt_val height = dt_map_get2(conf, "height");
+		if (dt_is_num(&height)) {
+			desc.height = height.data.num;
+		}
+	}
+	d_app_run(desc);
 	return dt_nil;
+}
+
+void load_app(dt_map *env) {
+	// TODO
+	dt_map app = dt_map_new();
+	dt_map_set_cfunc(&app, "run", dt_f_app_run);
+	dt_map *appm = malloc(sizeof(dt_map));
+	memcpy(appm, &app, sizeof(dt_map));
+	dt_map_set_map(env, "app", appm);
 }
 
 int main(int argc, char **argv) {
 	dt_map env = dt_map_new();
 	dt_load_std(&env);
-	dt_map_set_cfunc(&env, "app_run", dt_f_app_run);
+	load_app(&env);
 	if (argc >= 2) {
 		dt_dofile_ex(argv[1], &env);
 	}

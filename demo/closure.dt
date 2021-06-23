@@ -1,25 +1,25 @@
-$ uid = fn(name) {
+$ uid = ~ (name) {
 	$ id = 0
-	-> fn() {
+	~> ~ () {
 		id += 1
-		-> id
+		~> id
 	}
 }()
 
-$ vec2 = fn(x, y) {
-	-> {
+$ vec2 = ~ (x, y) {
+	~> {
 		id: uid(),
-		x: fn() {
-			-> x
+		x: ~ () {
+			~> x
 		},
-		y: fn() {
-			-> y
+		y: ~ () {
+			~> y
 		},
-		print: fn() {
+		print: ~ () {
 			print(x, y)
 		},
-		add: fn(p) {
-			-> vec2(x + p.x(), y + p.y())
+		add: ~ (p) {
+			~> vec2(x + p.x(), y + p.y())
 		},
 	}
 }
@@ -32,4 +32,4 @@ b.print()
 print("a.id:", a.id)
 print("b.id:", b.id)
 
--> b.x()
+~> b.x()
