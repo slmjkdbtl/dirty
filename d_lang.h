@@ -250,6 +250,7 @@ typedef enum {
 	DT_OP_JMP_COND,
 	DT_OP_REWIND,
 	DT_OP_CLOSE,
+	DT_OP_SPREAD,
 } dt_op;
 
 typedef enum {
@@ -315,12 +316,11 @@ typedef enum {
 typedef enum {
 	DT_PREC_NONE,
 	DT_PREC_ASSIGN,  // =
-	DT_PREC_LOGICAL, // || &&
-	DT_PREC_EQUAL,   // == !=
-	DT_PREC_COMPARE, // < > <= >=
+	DT_PREC_LOGIC, // || &&
+	DT_PREC_EQ,   // == !=
+	DT_PREC_CMP, // < > <= >=
 	DT_PREC_TERM,    // + -
-	DT_PREC_FACTOR,  // * / %
-	DT_PREC_POWER,  // ^
+	DT_PREC_FACTOR,  // * /
 	DT_PREC_UNARY,   // ! - #
 	DT_PREC_CALL,    // () [] .
 	DT_PREC_PRIMARY
@@ -668,6 +668,7 @@ dt_val dt_str_replace(dt_val src, dt_val old, dt_val new) {
 	return dt_val_strn(chars, len);
 }
 
+// TODO: with capacity
 dt_arr dt_arr_new() {
 	return (dt_arr) {
 		.len = 0,
@@ -1015,6 +1016,7 @@ char *dt_op_name(dt_op op) {
 		case DT_OP_JMP_COND: return "JMP_COND";
 		case DT_OP_REWIND:   return "REWIND";
 		case DT_OP_CLOSE:    return "CLOSE";
+		case DT_OP_SPREAD:   return "SPREAD";
 	}
 }
 
@@ -1504,6 +1506,37 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 					dt_vm_err(
 						vm,
 						"cannot pow a '%s' by '%s'\n",
+						dt_type_name(a.type),
+						dt_type_name(b.type)
+					);
+					dt_vm_push(vm, dt_nil);
+				}
+				break;
+			}
+
+			case DT_OP_SPREAD: {
+				dt_val b = dt_vm_pop(vm);
+				dt_val a = dt_vm_pop(vm);
+				if (a.type == DT_VAL_NUM && b.type == DT_VAL_NUM) {
+					// TODO
+					int len = b.data.num - a.data.num;
+					dt_arr arr = dt_arr_new();
+					if (len >= 0) {
+						for (int i = 0; i < len; i++) {
+							dt_arr_set(&arr, i, dt_val_num(a.data.num + i));
+						}
+					} else {
+						for (int i = 0; i < -len; i++) {
+							dt_arr_set(&arr, i, dt_val_num(a.data.num - i));
+						}
+					}
+					dt_arr *arrm = malloc(sizeof(dt_arr));
+					memcpy(arrm, &arr, sizeof(dt_arr));
+					dt_vm_push(vm, dt_val_arr(arrm));
+				} else {
+					dt_vm_err(
+						vm,
+						"cannot spread a '%s' and '%s'\n",
 						dt_type_name(a.type),
 						dt_type_name(b.type)
 					);
@@ -2803,20 +2836,19 @@ static dt_parse_rule dt_rules[] = {
 	[DT_TOKEN_PLUS]          = { NULL,       dt_c_binary, DT_PREC_TERM },
 	[DT_TOKEN_SLASH]         = { NULL,       dt_c_binary, DT_PREC_FACTOR },
 	[DT_TOKEN_STAR]          = { NULL,       dt_c_binary, DT_PREC_FACTOR },
-	[DT_TOKEN_PERCENT]       = { NULL,       dt_c_binary, DT_PREC_FACTOR },
-	[DT_TOKEN_CARET]         = { NULL,       dt_c_binary, DT_PREC_POWER },
+	[DT_TOKEN_DOT_DOT]       = { NULL,       dt_c_binary, DT_PREC_UNARY },
 	[DT_TOKEN_HASH]          = { dt_c_unary, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_BANG]          = { dt_c_unary, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_BANG_EQ]       = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_EQ]            = { NULL,       NULL,        DT_PREC_NONE },
-	[DT_TOKEN_EQ_EQ]         = { NULL,       dt_c_binary, DT_PREC_EQUAL },
-	[DT_TOKEN_GT]            = { NULL,       dt_c_binary, DT_PREC_COMPARE },
-	[DT_TOKEN_GT_EQ]         = { NULL,       dt_c_binary, DT_PREC_COMPARE },
-	[DT_TOKEN_LT]            = { NULL,       dt_c_binary, DT_PREC_COMPARE },
-	[DT_TOKEN_LT_EQ]         = { NULL,       dt_c_binary, DT_PREC_COMPARE },
-	[DT_TOKEN_LT_LT]         = { NULL,       dt_c_binary, DT_PREC_COMPARE },
-	[DT_TOKEN_OR_OR]         = { NULL,       dt_c_binary, DT_PREC_LOGICAL },
-	[DT_TOKEN_AND_AND]       = { NULL,       dt_c_binary, DT_PREC_LOGICAL },
+	[DT_TOKEN_EQ_EQ]         = { NULL,       dt_c_binary, DT_PREC_EQ },
+	[DT_TOKEN_GT]            = { NULL,       dt_c_binary, DT_PREC_CMP },
+	[DT_TOKEN_GT_EQ]         = { NULL,       dt_c_binary, DT_PREC_CMP },
+	[DT_TOKEN_LT]            = { NULL,       dt_c_binary, DT_PREC_CMP },
+	[DT_TOKEN_LT_EQ]         = { NULL,       dt_c_binary, DT_PREC_CMP },
+	[DT_TOKEN_LT_LT]         = { NULL,       dt_c_binary, DT_PREC_CMP },
+	[DT_TOKEN_OR_OR]         = { NULL,       dt_c_binary, DT_PREC_LOGIC },
+	[DT_TOKEN_AND_AND]       = { NULL,       dt_c_binary, DT_PREC_LOGIC },
 	[DT_TOKEN_IDENT]         = { dt_c_ident, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_STR]           = { dt_c_str,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_NUM]           = { dt_c_num,   NULL,        DT_PREC_NONE },
@@ -2863,8 +2895,8 @@ static void dt_c_binary(dt_compiler *c) {
 		case DT_TOKEN_SLASH:
 			dt_c_emit(c, DT_OP_DIV);
 			break;
-		case DT_TOKEN_CARET:
-			dt_c_emit(c, DT_OP_POW);
+		case DT_TOKEN_DOT_DOT:
+			dt_c_emit(c, DT_OP_SPREAD);
 			break;
 		case DT_TOKEN_EQ_EQ:
 			dt_c_emit(c, DT_OP_EQ);
