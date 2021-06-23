@@ -42,10 +42,18 @@ static dt_val dt_f_app_run(dt_vm *vm, int nargs) {
 	return dt_nil;
 }
 
+static dt_val dt_f_twice(dt_vm *vm, int nargs) {
+	dt_val *val = dt_vm_get(vm, 0);
+	dt_vm_call_1(vm, val->data.func, dt_val_num(1));
+	dt_vm_call_1(vm, val->data.func, dt_val_num(1));
+	return dt_nil;
+}
+
 int main(int argc, char **argv) {
 	dt_map env = dt_map_new();
 	dt_load_std(&env);
 	dt_map_set_cfunc(&env, "app_run", dt_f_app_run);
+	dt_map_set_cfunc(&env, "twice", dt_f_twice);
 	if (argc >= 2) {
 		dt_dofile_ex(argv[1], &env);
 	}

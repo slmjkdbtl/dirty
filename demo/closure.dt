@@ -1,3 +1,7 @@
+twice(fn(t) {
+	print(t)
+})
+
 $ uid = fn(name) {
 	$ id = 0
 	-> fn() {
