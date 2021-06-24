@@ -8,8 +8,6 @@
 -- 	}
 -- }
 
-"$(myvar) 123"
-
 $ arr = ["a", "b", "c", "d"]
 
 print(arr[1..3])
@@ -24,6 +22,12 @@ print(arr[1..3])
 	print(i)
 }
 
-@ (i \ { qwe: "3", b: "6" }) {
-	print(i)
+$ person = {
+	name: "Jack",
+	age: 7,
+	dead: T,
+}
+
+@ (i \ person) {
+	print(i, person[i])
 }

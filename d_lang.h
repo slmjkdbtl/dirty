@@ -20,6 +20,7 @@
 // TODO: string interpolation
 // TODO: big JMP
 // TODO: iter map
+// TODO: single ctx handle
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -263,8 +264,8 @@ typedef enum {
 	DT_OP_REWIND,
 	DT_OP_CLOSE,
 	DT_OP_SPREAD,
+	DT_OP_ITER_PREP,
 	DT_OP_ITER,
-	DT_OP_ITER_INC,
 } dt_op;
 
 typedef struct {
@@ -1009,46 +1010,46 @@ static void dt_chunk_free(dt_chunk *c) {
 
 char *dt_op_name(dt_op op) {
 	switch (op) {
-		case DT_OP_STOP:     return "STOP";
-		case DT_OP_CONST:    return "CONST";
-		case DT_OP_NIL:      return "NIL";
-		case DT_OP_TRUE:     return "TRUE";
-		case DT_OP_FALSE:    return "FALSE";
-		case DT_OP_ADD:      return "ADD";
-		case DT_OP_SUB:      return "SUB";
-		case DT_OP_MUL:      return "MUL";
-		case DT_OP_DIV:      return "DIV";
-		case DT_OP_MOD:      return "MOD";
-		case DT_OP_POW:      return "POW";
-		case DT_OP_NEG:      return "NEG";
-		case DT_OP_NOT:      return "NOT";
-		case DT_OP_EQ:       return "EQ";
-		case DT_OP_GT:       return "GT";
-		case DT_OP_GT_EQ:    return "GT_EQ";
-		case DT_OP_LT:       return "LT";
-		case DT_OP_LT_EQ:    return "LT_EQ";
-		case DT_OP_OR:       return "OR";
-		case DT_OP_AND:      return "AND";
-		case DT_OP_LEN:      return "LEN";
-		case DT_OP_POP:      return "POP";
-		case DT_OP_SETG:     return "SETG";
-		case DT_OP_GETG:     return "GETG";
-		case DT_OP_SETL:     return "SETL";
-		case DT_OP_GETL:     return "GETL";
-		case DT_OP_SETU:     return "SETU";
-		case DT_OP_GETU:     return "GETU";
-		case DT_OP_INDEX:    return "INDEX";
-		case DT_OP_CALL:     return "CALL";
-		case DT_OP_FUNC:     return "FUNC";
-		case DT_OP_MKARR:    return "MKARR";
-		case DT_OP_MKMAP:    return "MKMAP";
-		case DT_OP_JMP:      return "JMP";
-		case DT_OP_JMP_COND: return "JMP_COND";
-		case DT_OP_REWIND:   return "REWIND";
-		case DT_OP_CLOSE:    return "CLOSE";
-		case DT_OP_SPREAD:   return "SPREAD";
-		case DT_OP_ITER:     return "ITER";
-		case DT_OP_ITER_INC: return "ITER_INC";
+		case DT_OP_STOP:      return "STOP";
+		case DT_OP_CONST:     return "CONST";
+		case DT_OP_NIL:       return "NIL";
+		case DT_OP_TRUE:      return "TRUE";
+		case DT_OP_FALSE:     return "FALSE";
+		case DT_OP_ADD:       return "ADD";
+		case DT_OP_SUB:       return "SUB";
+		case DT_OP_MUL:       return "MUL";
+		case DT_OP_DIV:       return "DIV";
+		case DT_OP_MOD:       return "MOD";
+		case DT_OP_POW:       return "POW";
+		case DT_OP_NEG:       return "NEG";
+		case DT_OP_NOT:       return "NOT";
+		case DT_OP_EQ:        return "EQ";
+		case DT_OP_GT:        return "GT";
+		case DT_OP_GT_EQ:     return "GT_EQ";
+		case DT_OP_LT:        return "LT";
+		case DT_OP_LT_EQ:     return "LT_EQ";
+		case DT_OP_OR:        return "OR";
+		case DT_OP_AND:       return "AND";
+		case DT_OP_LEN:       return "LEN";
+		case DT_OP_POP:       return "POP";
+		case DT_OP_SETG:      return "SETG";
+		case DT_OP_GETG:      return "GETG";
+		case DT_OP_SETL:      return "SETL";
+		case DT_OP_GETL:      return "GETL";
+		case DT_OP_SETU:      return "SETU";
+		case DT_OP_GETU:      return "GETU";
+		case DT_OP_INDEX:     return "INDEX";
+		case DT_OP_CALL:      return "CALL";
+		case DT_OP_FUNC:      return "FUNC";
+		case DT_OP_MKARR:     return "MKARR";
+		case DT_OP_MKMAP:     return "MKMAP";
+		case DT_OP_JMP:       return "JMP";
+		case DT_OP_JMP_COND:  return "JMP_COND";
+		case DT_OP_REWIND:    return "REWIND";
+		case DT_OP_CLOSE:     return "CLOSE";
+		case DT_OP_SPREAD:    return "SPREAD";
+		case DT_OP_ITER_PREP: return "ITER_PREP";
+		case DT_OP_ITER:      return "ITER";
 	}
 }
 
@@ -1132,14 +1133,14 @@ int dt_chunk_peek_at(dt_chunk *c, int idx) {
 			printf("REWIND %d", dis);
 			return idx + 2;
 		}
-		case DT_OP_ITER: {
+		case DT_OP_ITER_PREP: {
 			uint8_t dis = c->code[idx + 1];
 			printf("ITER %d", dis);
 			return idx + 2;
 		}
-		case DT_OP_ITER_INC: {
+		case DT_OP_ITER: {
 			uint8_t dis = c->code[idx + 1];
-			printf("ITER_INC %d", dis);
+			printf("ITER %d", dis);
 			return idx + 2;
 		}
 		default:
@@ -2055,13 +2056,12 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 			}
 
 			// TODO: clean
-			case DT_OP_ITER: {
+			case DT_OP_ITER_PREP: {
 				dt_val iter = dt_vm_get(vm, 0);
 				int dis = *vm->ip++;
 				switch (iter.type) {
 					case DT_VAL_ARR:
 						if (iter.data.arr->len == 0) {
-							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
@@ -2070,7 +2070,6 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 						break;
 					case DT_VAL_STR:
 						if (iter.data.str.len == 0) {
-							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
@@ -2079,12 +2078,11 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 						break;
 					case DT_VAL_MAP:
 						if (iter.data.map->cnt == 0) {
-							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
 						int i = 0;
-						for (i; i < iter.data.map->cap; i++) {
+						for (; i < iter.data.map->cap; i++) {
 							if (iter.data.map->entries[i]) {
 								break;
 							}
@@ -2098,7 +2096,6 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 						break;
 					case DT_VAL_RANGE:
 						if (iter.data.range.start == iter.data.range.end) {
-							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
@@ -2111,33 +2108,30 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 							"'%s' is not iterable\n",
 							dt_type_name(iter.type)
 						);
-						dt_vm_push(vm, dt_nil);
+						vm->ip += dis;
 						break;
 				}
 				break;
 			}
 
 			// TODO: clean
-			case DT_OP_ITER_INC: {
+			case DT_OP_ITER: {
 				int dis = *vm->ip++;
 				dt_vm_pop(vm);
+
 				dt_val n = dt_vm_pop(vm);
 				dt_val iter = dt_vm_get(vm, 0);
 				n.data.num++;
 				switch (iter.type) {
 					case DT_VAL_ARR:
-						if (n.data.num >= iter.data.arr->len) {
-							dt_vm_pop(vm);
-						} else {
+						if (n.data.num < iter.data.arr->len) {
 							dt_vm_push(vm, n);
 							dt_vm_push(vm, dt_arr_get(iter.data.arr, n.data.num));
 							vm->ip -= dis;
 						}
 						break;
 					case DT_VAL_STR:
-						if (n.data.num >= iter.data.str.len) {
-							dt_vm_pop(vm);
-						} else {
+						if (n.data.num < iter.data.str.len) {
 							dt_vm_push(vm, n);
 							dt_vm_push(
 								vm,
@@ -2151,18 +2145,15 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 						break;
 					case DT_VAL_MAP:
 						if (n.data.num >= iter.data.map->cap) {
-							dt_vm_pop(vm);
 						} else {
 							int i = n.data.num;
-							for (i; i < iter.data.map->cap; i++) {
+							for (; i < iter.data.map->cap; i++) {
 								if (iter.data.map->entries[i]) {
 									n.data.num = i;
 									break;
 								}
 							}
-							if (i == iter.data.map->cap) {
-								dt_vm_pop(vm);
-							} else {
+							if (i < iter.data.map->cap) {
 								dt_str key = iter.data.map->entries[(int)n.data.num]->key;
 								dt_vm_push(vm, n);
 								dt_vm_push(
@@ -2182,9 +2173,7 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 						} else {
 							done = n.data.num >= end - start;
 						}
-						if (done) {
-							dt_vm_pop(vm);
-						} else {
+						if (!done) {
 							dt_vm_push(vm, n);
 							if (end < start) {
 								dt_vm_push(vm, dt_val_num(start - n.data.num));
@@ -2201,9 +2190,7 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 							"'%s' is not iterable\n",
 							dt_type_name(iter.type)
 						);
-						vm->ip++;
-						vm->ip++;
-						dt_vm_pop(vm);
+						// unreachable
 						break;
 				}
 				break;
@@ -2722,7 +2709,7 @@ static void dt_c_add_local(dt_compiler *c, dt_token name) {
 	l->captured = false;
 }
 
-static void dt_c_squat_local(dt_compiler *c) {
+static void dt_c_skip_local(dt_compiler *c) {
 	if (c->env->num_locals >= UINT8_MAX) {
 		dt_c_err(c, "too many local variables in one scope\n");
 		return;
@@ -2841,24 +2828,19 @@ static void dt_c_loop(dt_compiler *c) {
 		dt_c_consume(c, DT_TOKEN_IDENT);
 		dt_token namet = c->parser.prev;
 		// iter
-		dt_c_squat_local(c);
+		dt_c_skip_local(c);
 		// i
-		dt_c_squat_local(c);
+		dt_c_skip_local(c);
 		// item
 		dt_c_add_local(c, namet);
 		dt_c_consume(c, DT_TOKEN_BACKSLASH);
 		dt_c_expr(c);
-		dt_c_emit2(c, DT_OP_ITER, 0);
+		dt_c_emit2(c, DT_OP_ITER_PREP, 0);
 		dt_c_consume(c, DT_TOKEN_RPAREN);
 
 		int start = c->env->chunk.cnt;
 
 		dt_c_block(c);
-
-		// TODO
-		c->env->num_locals--;
-		c->env->num_locals--;
-		c->env->num_locals--;
 
 		int dis = c->env->chunk.cnt - start + 2;
 
@@ -2866,8 +2848,13 @@ static void dt_c_loop(dt_compiler *c) {
 			dt_c_err(c, "jump too large\n");
 		}
 
-		dt_c_emit2(c, DT_OP_ITER_INC, dis);
+		dt_c_emit2(c, DT_OP_ITER, dis);
 		c->env->chunk.code[start - 1] = dis;
+
+		dt_c_emit(c, DT_OP_POP);
+		c->env->num_locals--;
+		c->env->num_locals--;
+		c->env->num_locals--;
 
 	} else {
 
