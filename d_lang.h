@@ -15,6 +15,7 @@
 // TODO: standalone bytecode
 // TODO: mem audit
 // TODO: type
+// TODO: index set
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -1824,7 +1825,6 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 							if (range.start >= arr->len || range.end > arr->len) {
 								dt_vm_push(vm, dt_nil);
 							} else {
-								// TODO
 								int len = range.end - range.start;
 								dt_arr *arr2 = dt_arr_new();
 								for (int i = 0; i < len; i++) {
@@ -2029,14 +2029,27 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 				break;
 			}
 
+			// TODO: skip if empty
 			case DT_OP_ITER: {
 				dt_val iter = dt_vm_get(vm, 0);
 				dt_vm_push(vm, dt_val_num(0));
 				switch (iter.type) {
 					case DT_VAL_ARR:
+						if (iter.data.arr->len == 0) {
+							// TODO
+						}
 						dt_vm_push(vm, dt_arr_get(iter.data.arr, 0));
 						break;
+					case DT_VAL_STR:
+						if (iter.data.str.len == 0) {
+							// TODO
+						}
+						dt_vm_push(vm, dt_val_strn(iter.data.str.chars, 1));
+						break;
 					case DT_VAL_RANGE:
+						if (iter.data.range.start == iter.data.range.end) {
+							// TODO
+						}
 						dt_vm_push(vm, dt_val_num(iter.data.range.start));
 						break;
 					default:
@@ -2065,6 +2078,22 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 						} else {
 							dt_vm_push(vm, n);
 							dt_vm_push(vm, dt_arr_get(iter.data.arr, n.data.num));
+						}
+						break;
+					case DT_VAL_STR:
+						if (n.data.num >= iter.data.str.len) {
+							vm->ip++;
+							vm->ip++;
+							dt_vm_pop(vm);
+						} else {
+							dt_vm_push(vm, n);
+							dt_vm_push(
+								vm,
+								dt_val_strn(
+									iter.data.str.chars + (int)n.data.num,
+									1
+								)
+							);
 						}
 						break;
 					case DT_VAL_RANGE: {
@@ -2096,7 +2125,9 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 							"'%s' is not iterable\n",
 							dt_type_name(iter.type)
 						);
-						dt_vm_push(vm, dt_nil);
+						vm->ip++;
+						vm->ip++;
+						dt_vm_pop(vm);
 						break;
 				}
 				break;
