@@ -1,15 +1,14 @@
-$ a = 0
+-- $ a = 0
 
-@ {
-	print(a)
-	% (a > 100000) {
--- 		@> ?
-		print("big")
-	} | {
-		print("small")
-	}
-	a = a + 1
-}
+-- @ {
+-- 	print(a)
+-- 	% (a > 100000) {
+-- 		print("big")
+-- 	} | {
+-- 		print("small")
+-- 	}
+-- 	a = a + 1
+-- }
 
 $ arr = ["a", "b", "c", "d"]
 

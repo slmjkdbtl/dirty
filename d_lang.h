@@ -1135,13 +1135,15 @@ int dt_chunk_peek_at(dt_chunk *c, int idx) {
 			return idx + 3;
 		}
 		case DT_OP_ITER_PREP: {
-			uint8_t dis = c->code[idx + 1];
-			printf("ITER %d", dis);
-			return idx + 2;
+			uint8_t d1 = c->code[idx + 1];
+			uint8_t d2 = c->code[idx + 2];
+			printf("ITER_PREP %d", d1 << 8 | d2);
+			return idx + 3;
 		}
 		case DT_OP_ITER: {
-			uint8_t dis = c->code[idx + 1];
-			printf("ITER %d", dis);
+			uint8_t d1 = c->code[idx + 1];
+			uint8_t d2 = c->code[idx + 2];
+			printf("ITER %d", d1 << 8 | d2);
 			return idx + 2;
 		}
 		default:
@@ -2057,7 +2059,7 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 			// TODO: clean
 			case DT_OP_ITER_PREP: {
 				dt_val iter = dt_vm_get(vm, 0);
-				int dis = *vm->ip++;
+				int dis = *vm->ip++ << 8 | *vm->ip++;
 				switch (iter.type) {
 					case DT_VAL_ARR:
 						if (iter.data.arr->len == 0) {
@@ -2115,7 +2117,7 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 
 			// TODO: clean
 			case DT_OP_ITER: {
-				int dis = *vm->ip++;
+				int dis = *vm->ip++ << 8 | *vm->ip++;
 				dt_vm_pop(vm);
 
 				dt_val n = dt_vm_pop(vm);
@@ -2835,21 +2837,22 @@ static void dt_c_loop(dt_compiler *c) {
 		dt_c_add_local(c, namet);
 		dt_c_consume(c, DT_TOKEN_BACKSLASH);
 		dt_c_expr(c);
-		dt_c_emit2(c, DT_OP_ITER_PREP, 0);
+		dt_c_emit3(c, DT_OP_ITER_PREP, 0, 0);
 		dt_c_consume(c, DT_TOKEN_RPAREN);
 
 		int start = c->env->chunk.cnt;
 
 		dt_c_block(c);
 
-		int dis = c->env->chunk.cnt - start + 2;
+		int dis = c->env->chunk.cnt - start + 3;
 
-		if (dis >= UINT8_MAX) {
+		if (dis >= UINT16_MAX) {
 			dt_c_err(c, "jump too large\n");
 		}
 
-		dt_c_emit2(c, DT_OP_ITER, dis);
-		c->env->chunk.code[start - 1] = dis;
+		dt_c_emit3(c, DT_OP_ITER, dis >> 8, dis & 0xff);
+		c->env->chunk.code[start - 2] = dis >> 8;
+		c->env->chunk.code[start - 1] = dis & 0xff;
 
 		dt_c_emit(c, DT_OP_POP);
 		// TODO: use dt_c_scope_end() ?
@@ -2865,7 +2868,7 @@ static void dt_c_loop(dt_compiler *c) {
 
 		int dis = c->env->chunk.cnt - start + 3;
 
-		if (dis >= UINT8_MAX) {
+		if (dis >= UINT16_MAX) {
 			dt_c_err(c, "jump too large\n");
 		}
 
