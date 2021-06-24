@@ -32,6 +32,7 @@ typedef enum {
 	DT_VAL_ARR,
 	DT_VAL_MAP,
 	DT_VAL_LOGIC,
+	DT_VAL_RANGE,
 	DT_VAL_FUNC,
 	DT_VAL_CFUNC,
 	DT_VAL_CDATA,
@@ -55,6 +56,11 @@ typedef bool dt_bool;
 
 typedef struct dt_val (dt_cfunc)(struct dt_vm *vm, int nargs);
 
+typedef struct {
+	int start;
+	int end;
+} dt_range;
+
 typedef struct dt_val {
 	dt_val_ty type;
 	union {
@@ -67,6 +73,7 @@ typedef struct dt_val {
 		struct dt_logic *logic;
 		struct dt_func  *func;
 		dt_cfunc        *cfunc;
+		dt_range         range;
 	} data;
 } dt_val;
 
@@ -251,7 +258,14 @@ typedef enum {
 	DT_OP_REWIND,
 	DT_OP_CLOSE,
 	DT_OP_SPREAD,
+	DT_OP_ITER,
+	DT_OP_ITER_INC,
 } dt_op;
+
+typedef struct {
+	dt_arr *arr;
+	int idx;
+} dt_iter;
 
 typedef enum {
 	// sym
@@ -306,8 +320,8 @@ typedef enum {
 	DT_TOKEN_STR,
 	DT_TOKEN_NUM,
 	// key
-	DT_TOKEN_TRUE,
-	DT_TOKEN_FALSE,
+	DT_TOKEN_T,
+	DT_TOKEN_F,
 	// util
 	DT_TOKEN_ERR,
 	DT_TOKEN_END,
@@ -439,8 +453,8 @@ char *dt_token_name(dt_token_ty ty) {
 		case DT_TOKEN_IDENT: return "IDENT";
 		case DT_TOKEN_STR: return "STR";
 		case DT_TOKEN_NUM: return "NUM";
-		case DT_TOKEN_TRUE: return "TRUE";
-		case DT_TOKEN_FALSE: return "FALSE";
+		case DT_TOKEN_T: return "T";
+		case DT_TOKEN_F: return "F";
 		case DT_TOKEN_ERR: return "ERR";
 		case DT_TOKEN_END: return "END";
 	}
@@ -462,6 +476,7 @@ char *dt_type_name(dt_val_ty ty) {
 		case DT_VAL_ARR: return "arr";
 		case DT_VAL_MAP: return "map";
 		case DT_VAL_LOGIC: return "logic";
+		case DT_VAL_RANGE: return "range";
 		case DT_VAL_FUNC: return "func";
 		case DT_VAL_CFUNC: return "cfunc";
 		case DT_VAL_CDATA: return "cdata";
@@ -491,7 +506,8 @@ void dt_val_print(dt_val *val) {
 			break;
 // 		case DT_VAL_MAP: printf("<map#%p>", val->map); break;
 		case DT_VAL_MAP: printf("<map>"); break;
-		case DT_VAL_LOGIC: printf("logic"); break;
+		case DT_VAL_LOGIC: printf("<logic>"); break;
+		case DT_VAL_RANGE: printf("<range>"); break;
 // 		case DT_VAL_FUNC: printf("<func#%p>", val->func); break;
 		case DT_VAL_FUNC: printf("<func>"); break;
 // 		case DT_VAL_CFUNC: printf("<cfunc#%p>", val->cfunc); break;
@@ -592,6 +608,15 @@ dt_val dt_val_func(dt_func *func) {
 		.type = DT_VAL_FUNC,
 		.data = {
 			.func = func,
+		},
+	};
+}
+
+dt_val dt_val_range(dt_range range) {
+	return (dt_val) {
+		.type = DT_VAL_RANGE,
+		.data = {
+			.range = range,
 		},
 	};
 }
@@ -1017,6 +1042,8 @@ char *dt_op_name(dt_op op) {
 		case DT_OP_REWIND:   return "REWIND";
 		case DT_OP_CLOSE:    return "CLOSE";
 		case DT_OP_SPREAD:   return "SPREAD";
+		case DT_OP_ITER:     return "ITER";
+		case DT_OP_ITER_INC: return "ITER_INC";
 	}
 }
 
@@ -1518,21 +1545,10 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
 				if (a.type == DT_VAL_NUM && b.type == DT_VAL_NUM) {
-					// TODO
-					int len = b.data.num - a.data.num;
-					dt_arr arr = dt_arr_new();
-					if (len >= 0) {
-						for (int i = 0; i < len; i++) {
-							dt_arr_set(&arr, i, dt_val_num(a.data.num + i));
-						}
-					} else {
-						for (int i = 0; i < -len; i++) {
-							dt_arr_set(&arr, i, dt_val_num(a.data.num - i));
-						}
-					}
-					dt_arr *arrm = malloc(sizeof(dt_arr));
-					memcpy(arrm, &arr, sizeof(dt_arr));
-					dt_vm_push(vm, dt_val_arr(arrm));
+					dt_vm_push(vm, dt_val_range((dt_range) {
+						.start = a.data.num,
+						.end = b.data.num,
+					}));
 				} else {
 					dt_vm_err(
 						vm,
@@ -1930,7 +1946,7 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 					} else {
 						dt_vm_err(
 							vm,
-							"expected key to be 'str' found '%s'\n",
+							"expected key to be 'str', found '%s'\n",
 							dt_type_name(key.type)
 						);
 					}
@@ -1955,7 +1971,7 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 				if (cond.type != DT_VAL_BOOL) {
 					dt_vm_err(
 						vm,
-						"expected cond to be 'bool' found '%s'\n",
+						"expected cond to be 'bool', found '%s'\n",
 						dt_type_name(cond.type)
 					);
 				} else {
@@ -1970,6 +1986,79 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 			case DT_OP_REWIND: {
 				int dis = *vm->ip++;
 				vm->ip -= dis;
+				break;
+			}
+
+			case DT_OP_ITER: {
+				dt_val iter = dt_vm_get(vm, 0);
+				dt_vm_push(vm, dt_val_num(0));
+				switch (iter.type) {
+					case DT_VAL_ARR:
+						dt_vm_push(vm, dt_arr_get(iter.data.arr, 0));
+						break;
+					case DT_VAL_RANGE:
+						dt_vm_push(vm, dt_val_num(iter.data.range.start));
+						break;
+					default:
+						dt_vm_err(
+							vm,
+							"'%s' is not iterable\n",
+							dt_type_name(iter.type)
+						);
+						dt_vm_push(vm, dt_nil);
+						break;
+				}
+				break;
+			}
+
+			case DT_OP_ITER_INC: {
+				dt_vm_pop(vm);
+				dt_val n = dt_vm_pop(vm);
+				dt_val iter = dt_vm_get(vm, 0);
+				n.data.num++;
+				switch (iter.type) {
+					case DT_VAL_ARR:
+						if (n.data.num >= iter.data.arr->len) {
+							vm->ip++;
+							vm->ip++;
+							dt_vm_pop(vm);
+						} else {
+							dt_vm_push(vm, n);
+							dt_vm_push(vm, dt_arr_get(iter.data.arr, n.data.num));
+						}
+						break;
+					case DT_VAL_RANGE: {
+						int start = iter.data.range.start;
+						int end = iter.data.range.end;
+						bool done = false;
+						if (end < start) {
+							done = n.data.num >= start - end;
+						} else {
+							done = n.data.num >= end - start;
+						}
+						if (done) {
+							vm->ip++;
+							vm->ip++;
+							dt_vm_pop(vm);
+						} else {
+							dt_vm_push(vm, n);
+							if (end < start) {
+								dt_vm_push(vm, dt_val_num(start - n.data.num));
+							} else {
+								dt_vm_push(vm, dt_val_num(start + n.data.num));
+							}
+						}
+						break;
+					}
+					default:
+						dt_vm_err(
+							vm,
+							"'%s' is not iterable\n",
+							dt_type_name(iter.type)
+						);
+						dt_vm_push(vm, dt_nil);
+						break;
+				}
 				break;
 			}
 
@@ -2113,10 +2202,10 @@ static bool dt_scanner_check_key(dt_scanner *s, char *key) {
 }
 
 static dt_token_ty dt_scanner_ident_type(dt_scanner *s) {
-	if        (dt_scanner_check_key(s, "true")) {
-		return DT_TOKEN_TRUE;
-	} else if (dt_scanner_check_key(s, "false")) {
-		return DT_TOKEN_FALSE;
+	if        (dt_scanner_check_key(s, "T")) {
+		return DT_TOKEN_T;
+	} else if (dt_scanner_check_key(s, "F")) {
+		return DT_TOKEN_F;
 	} else {
 		return DT_TOKEN_IDENT;
 	}
@@ -2344,8 +2433,8 @@ static void dt_c_lit(dt_compiler *c) {
 	dt_c_nxt(c);
 	switch (c->parser.prev.type) {
 		case DT_TOKEN_QUESTION: dt_c_emit(c, DT_OP_NIL); break;
-		case DT_TOKEN_TRUE: dt_c_emit(c, DT_OP_TRUE); break;
-		case DT_TOKEN_FALSE: dt_c_emit(c, DT_OP_FALSE); break;
+		case DT_TOKEN_T: dt_c_emit(c, DT_OP_TRUE); break;
+		case DT_TOKEN_F: dt_c_emit(c, DT_OP_FALSE); break;
 		default: dt_c_err(c, "cannot process as literal\n");
 	}
 }
@@ -2463,6 +2552,7 @@ static int dt_c_find_upval(dt_compiler *c, dt_token *name) {
 
 }
 
+// TODO: check dup here
 static void dt_c_add_local(dt_compiler *c, dt_token name) {
 	if (c->env->num_locals >= UINT8_MAX) {
 		dt_c_err(c, "too many local variables in one scope\n");
@@ -2470,6 +2560,22 @@ static void dt_c_add_local(dt_compiler *c, dt_token name) {
 	}
 	dt_local *l = &c->env->locals[c->env->num_locals++];
 	l->name = name;
+	l->depth = c->env->depth;
+	l->captured = false;
+}
+
+static void dt_c_add_squat(dt_compiler *c) {
+	if (c->env->num_locals >= UINT8_MAX) {
+		dt_c_err(c, "too many local variables in one scope\n");
+		return;
+	}
+	dt_local *l = &c->env->locals[c->env->num_locals++];
+	l->name = (dt_token) {
+		.type = DT_TOKEN_IDENT,
+		.start = NULL,
+		.len = 0,
+		.line = 0,
+	};
 	l->depth = c->env->depth;
 	l->captured = false;
 }
@@ -2577,30 +2683,75 @@ static void dt_c_loop(dt_compiler *c) {
 
 	dt_c_consume(c, DT_TOKEN_AT);
 
-// 	if (dt_c_match(c, DT_TOKEN_LPAREN)) {
-// 		dt_c_consume(c, DT_TOKEN_IDENT);
-// 		dt_token namet = c->parser.prev;
-// 		dt_c_add_local(c, namet);
-// 		dt_c_consume(c, DT_TOKEN_BACKSLASH);
-// 		dt_c_expr(c);
-// 		dt_c_consume(c, DT_TOKEN_RPAREN);
-// 	}
+	if (dt_c_match(c, DT_TOKEN_LPAREN)) {
 
-	int start = c->env->chunk.cnt;
-	dt_c_block(c);
+		dt_c_consume(c, DT_TOKEN_IDENT);
+		dt_token namet = c->parser.prev;
+		// iter
+		dt_c_add_squat(c);
+		// i
+		dt_c_add_squat(c);
+		// item
+		dt_c_add_local(c, namet);
+		dt_c_consume(c, DT_TOKEN_BACKSLASH);
+		dt_c_expr(c);
+		dt_c_emit(c, DT_OP_ITER);
+		dt_c_consume(c, DT_TOKEN_RPAREN);
 
-	int dis = c->env->chunk.cnt - start + 2;
+		int start = c->env->chunk.cnt;
 
-	if (dis >= UINT8_MAX) {
-		dt_c_err(c, "jump too large\n");
+		dt_c_block(c);
+
+		dt_c_emit(c, DT_OP_ITER_INC);
+
+// 		dt_c_emit(c, DT_OP_POP);
+// 		dt_c_emit(c, DT_OP_POP);
+		c->env->num_locals--;
+		c->env->num_locals--;
+		c->env->num_locals--;
+
+		int dis = c->env->chunk.cnt - start + 2;
+
+		if (dis >= UINT8_MAX) {
+			dt_c_err(c, "jump too large\n");
+		}
+
+		dt_c_emit2(c, DT_OP_REWIND, dis);
+
+	} else {
+
+		int start = c->env->chunk.cnt;
+
+		dt_c_block(c);
+
+		int dis = c->env->chunk.cnt - start + 2;
+
+		if (dis >= UINT8_MAX) {
+			dt_c_err(c, "jump too large\n");
+		}
+
+		dt_c_emit2(c, DT_OP_REWIND, dis);
+
 	}
-
-	dt_c_emit2(c, DT_OP_REWIND, dis);
 
 }
 
-static void dt_c_return(dt_compiler *c) {
+static void dt_c_end_func(dt_compiler *c) {
 	dt_c_consume(c, DT_TOKEN_TILDE_GT);
+	dt_c_expr(c);
+	dt_c_emit(c, DT_OP_STOP);
+}
+
+// TODO
+static void dt_c_end_loop(dt_compiler *c) {
+	dt_c_consume(c, DT_TOKEN_AT_GT);
+	dt_c_expr(c);
+	dt_c_emit(c, DT_OP_STOP);
+}
+
+// TODO
+static void dt_c_end_cond(dt_compiler *c) {
+	dt_c_consume(c, DT_TOKEN_PERCENT_GT);
 	dt_c_expr(c);
 	dt_c_emit(c, DT_OP_STOP);
 }
@@ -2614,9 +2765,9 @@ static void dt_c_stmt(dt_compiler *c) {
 		case DT_TOKEN_LBRACE:     dt_c_block(c); break;
 		case DT_TOKEN_PERCENT:    dt_c_cond(c); break;
 		case DT_TOKEN_AT:         dt_c_loop(c); break;
-		case DT_TOKEN_TILDE_GT:   dt_c_return(c); break;
-		case DT_TOKEN_AT_GT:      dt_c_return(c); break;
-		case DT_TOKEN_PERCENT_GT: dt_c_return(c); break;
+		case DT_TOKEN_TILDE_GT:   dt_c_end_func(c); break;
+		case DT_TOKEN_AT_GT:      dt_c_end_loop(c); break;
+		case DT_TOKEN_PERCENT_GT: dt_c_end_cond(c); break;
 		default: {
 			dt_c_expr(c);
 			dt_c_emit(c, DT_OP_POP);
@@ -2853,8 +3004,8 @@ static dt_parse_rule dt_rules[] = {
 	[DT_TOKEN_STR]           = { dt_c_str,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_NUM]           = { dt_c_num,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AND]           = { NULL,       NULL,        DT_PREC_NONE },
-	[DT_TOKEN_TRUE]          = { dt_c_lit,   NULL,        DT_PREC_NONE },
-	[DT_TOKEN_FALSE]         = { dt_c_lit,   NULL,        DT_PREC_NONE },
+	[DT_TOKEN_T]             = { dt_c_lit,   NULL,        DT_PREC_NONE },
+	[DT_TOKEN_F]         = { dt_c_lit,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_QUESTION]      = { dt_c_lit,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_OR]            = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_ERR]           = { NULL,       NULL,        DT_PREC_NONE },
@@ -3020,7 +3171,15 @@ static dt_val dt_f_fread(dt_vm *vm, int nargs) {
 
 // TODO
 static dt_val dt_f_mod(dt_vm *vm, int nargs) {
-	return dt_nil;
+	if (nargs == 0) {
+		return dt_nil;
+	}
+	char *path = dt_vm_get_cstr(vm, 0);
+	char abs_path[PATH_MAX + 1];
+	char *ptr = realpath(path, abs_path);
+	dt_val ret = dt_dofile_ex(abs_path, vm->env);
+	free(path);
+	return ret;
 }
 
 void dt_load_std(dt_map *env) {
