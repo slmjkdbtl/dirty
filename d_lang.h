@@ -15,12 +15,10 @@
 // TODO: standalone bytecode
 // TODO: mem audit
 // TODO: type
-// TODO: unlimited jump
 // TODO: small string
 // TODO: string interpolation
-// TODO: big JMP
-// TODO: iter map
 // TODO: single ctx handle
+// TODO: string add
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -1119,19 +1117,22 @@ int dt_chunk_peek_at(dt_chunk *c, int idx) {
 			return idx + 2;
 		}
 		case DT_OP_JMP: {
-			uint8_t dis = c->code[idx + 1];
-			printf("JMP %d", dis);
-			return idx + 2;
+			uint8_t d1 = c->code[idx + 1];
+			uint8_t d2 = c->code[idx + 2];
+			printf("JMP %d", d1 << 8 | d2);
+			return idx + 3;
 		}
 		case DT_OP_JMP_COND: {
-			uint8_t dis = c->code[idx + 1];
-			printf("JMP_COND %d", dis);
-			return idx + 2;
+			uint8_t d1 = c->code[idx + 1];
+			uint8_t d2 = c->code[idx + 2];
+			printf("JMP_COND %d", d1 << 8 | d2);
+			return idx + 3;
 		}
 		case DT_OP_REWIND: {
-			uint8_t dis = c->code[idx + 1];
-			printf("REWIND %d", dis);
-			return idx + 2;
+			uint8_t d1 = c->code[idx + 1];
+			uint8_t d2 = c->code[idx + 2];
+			printf("REWIND %d", d1 << 8 | d2);
+			return idx + 3;
 		}
 		case DT_OP_ITER_PREP: {
 			uint8_t dis = c->code[idx + 1];
@@ -2025,13 +2026,12 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 			}
 
 			case DT_OP_JMP: {
-				int dis = *vm->ip++;
-				vm->ip += dis;
+				vm->ip += *vm->ip++ << 8 | *vm->ip++;
 				break;
 			}
 
 			case DT_OP_JMP_COND: {
-				int dis = *vm->ip++;
+				int dis = *vm->ip++ << 8 | *vm->ip++;
 				dt_val cond = dt_vm_pop(vm);
 				bool jump = true;
 				if (cond.type != DT_VAL_BOOL) {
@@ -2050,8 +2050,7 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 			}
 
 			case DT_OP_REWIND: {
-				int dis = *vm->ip++;
-				vm->ip -= dis;
+				vm->ip -= *vm->ip++ << 8 | *vm->ip++;
 				break;
 			}
 
@@ -2781,7 +2780,7 @@ static void dt_c_cond(dt_compiler *c) {
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
-	dt_c_emit2(c, DT_OP_JMP_COND, 0);
+	dt_c_emit3(c, DT_OP_JMP_COND, 0, 0);
 	int if_start = c->env->chunk.cnt;
 	dt_c_block(c);
 	int if_dis = c->env->chunk.cnt - if_start;
@@ -2789,8 +2788,8 @@ static void dt_c_cond(dt_compiler *c) {
 	if (dt_c_match(c, DT_TOKEN_OR)) {
 
 		// for JMP(1)
-		if_dis += 2;
-		dt_c_emit2(c, DT_OP_JMP, 0);
+		if_dis += 3;
+		dt_c_emit3(c, DT_OP_JMP, 0, 0);
 		int else_start = c->env->chunk.cnt;
 
 		if (c->parser.cur.type == DT_TOKEN_PERCENT) {
@@ -2801,19 +2800,21 @@ static void dt_c_cond(dt_compiler *c) {
 
 		int else_dis = c->env->chunk.cnt - else_start;
 
-		if (else_dis >= UINT8_MAX) {
+		if (else_dis >= UINT16_MAX) {
 			dt_c_err(c, "jump too large\n");
 		}
 
-		c->env->chunk.code[else_start - 1] = else_dis;
+		c->env->chunk.code[else_start - 2] = else_dis >> 8;
+		c->env->chunk.code[else_start - 1] = else_dis & 0xff;
 
 	}
 
-	if (if_dis >= UINT8_MAX) {
+	if (if_dis >= UINT16_MAX) {
 		dt_c_err(c, "jump too large\n");
 	}
 
-	c->env->chunk.code[if_start - 1] = if_dis;
+	c->env->chunk.code[if_start - 2] = if_dis >> 8;
+	c->env->chunk.code[if_start - 1] = if_dis & 0xff;
 
 }
 
@@ -2822,7 +2823,6 @@ static void dt_c_loop(dt_compiler *c) {
 
 	dt_c_consume(c, DT_TOKEN_AT);
 
-	// TODO: ugly
 	if (dt_c_match(c, DT_TOKEN_LPAREN)) {
 
 		dt_c_consume(c, DT_TOKEN_IDENT);
@@ -2852,6 +2852,7 @@ static void dt_c_loop(dt_compiler *c) {
 		c->env->chunk.code[start - 1] = dis;
 
 		dt_c_emit(c, DT_OP_POP);
+		// TODO: use dt_c_scope_end() ?
 		c->env->num_locals--;
 		c->env->num_locals--;
 		c->env->num_locals--;
@@ -2862,13 +2863,13 @@ static void dt_c_loop(dt_compiler *c) {
 
 		dt_c_block(c);
 
-		int dis = c->env->chunk.cnt - start + 2;
+		int dis = c->env->chunk.cnt - start + 3;
 
 		if (dis >= UINT8_MAX) {
 			dt_c_err(c, "jump too large\n");
 		}
 
-		dt_c_emit2(c, DT_OP_REWIND, dis);
+		dt_c_emit3(c, DT_OP_REWIND, dis >> 8, dis & 0xff);
 
 	}
 
@@ -2884,14 +2885,14 @@ static void dt_c_end_func(dt_compiler *c) {
 static void dt_c_end_loop(dt_compiler *c) {
 	dt_c_consume(c, DT_TOKEN_AT_GT);
 	dt_c_expr(c);
-	dt_c_emit2(c, DT_OP_JMP, 0);
+	dt_c_emit3(c, DT_OP_JMP, 0, 0);
 }
 
 // TODO
 static void dt_c_end_cond(dt_compiler *c) {
 	dt_c_consume(c, DT_TOKEN_PERCENT_GT);
 	dt_c_expr(c);
-	dt_c_emit2(c, DT_OP_JMP, 0);
+	dt_c_emit3(c, DT_OP_JMP, 0, 0);
 }
 
 static void dt_c_stmt(dt_compiler *c) {
