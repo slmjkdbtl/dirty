@@ -15,7 +15,7 @@
 // TODO: standalone bytecode
 // TODO: mem audit
 // TODO: type
-// TODO: index set
+// TODO: unlimited jump
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -1124,7 +1124,17 @@ int dt_chunk_peek_at(dt_chunk *c, int idx) {
 		}
 		case DT_OP_REWIND: {
 			uint8_t dis = c->code[idx + 1];
-			printf("BACK %d", dis);
+			printf("REWIND %d", dis);
+			return idx + 2;
+		}
+		case DT_OP_ITER: {
+			uint8_t dis = c->code[idx + 1];
+			printf("ITER %d", dis);
+			return idx + 2;
+		}
+		case DT_OP_ITER_INC: {
+			uint8_t dis = c->code[idx + 1];
+			printf("ITER_INC %d", dis);
 			return idx + 2;
 		}
 		default:
@@ -1821,14 +1831,22 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 							dt_vm_push(vm, dt_arr_get(val.data.arr, key.data.num));
 						} else if (key.type == DT_VAL_RANGE) {
 							dt_range range = key.data.range;
+							if (range.end < range.start) {
+								int tmp = range.start;
+								range.start = range.end;
+								range.end = tmp;
+							}
 							dt_arr *arr = val.data.arr;
 							if (range.start >= arr->len || range.end > arr->len) {
 								dt_vm_push(vm, dt_nil);
 							} else {
-								int len = range.end - range.start;
 								dt_arr *arr2 = dt_arr_new();
-								for (int i = 0; i < len; i++) {
-									dt_arr_set(arr2, i, dt_arr_get(arr, i + range.start));
+								for (int i = range.start; i < range.end; i++) {
+									dt_arr_set(
+										arr2,
+										i - range.start,
+										dt_arr_get(arr, i)
+									);
 								}
 								dt_vm_push(vm, dt_val_arr(arr2));
 							}
@@ -1864,6 +1882,11 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 							}
 						} else if (key.type == DT_VAL_RANGE) {
 							dt_range range = key.data.range;
+							if (range.end < range.start) {
+								int tmp = range.start;
+								range.start = range.end;
+								range.end = tmp;
+							}
 							dt_str str = val.data.str;
 							if (range.start >= str.len || range.end > str.len) {
 								dt_vm_push(vm, dt_nil);
@@ -2029,26 +2052,36 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 				break;
 			}
 
-			// TODO: skip if empty
+			// TODO: clean
 			case DT_OP_ITER: {
 				dt_val iter = dt_vm_get(vm, 0);
+				int dis = *vm->ip++;
 				dt_vm_push(vm, dt_val_num(0));
 				switch (iter.type) {
 					case DT_VAL_ARR:
 						if (iter.data.arr->len == 0) {
-							// TODO
+							dt_vm_pop(vm);
+							dt_vm_pop(vm);
+							vm->ip += dis;
+							break;
 						}
 						dt_vm_push(vm, dt_arr_get(iter.data.arr, 0));
 						break;
 					case DT_VAL_STR:
 						if (iter.data.str.len == 0) {
-							// TODO
+							dt_vm_pop(vm);
+							dt_vm_pop(vm);
+							vm->ip += dis;
+							break;
 						}
 						dt_vm_push(vm, dt_val_strn(iter.data.str.chars, 1));
 						break;
 					case DT_VAL_RANGE:
 						if (iter.data.range.start == iter.data.range.end) {
-							// TODO
+							dt_vm_pop(vm);
+							dt_vm_pop(vm);
+							vm->ip += dis;
+							break;
 						}
 						dt_vm_push(vm, dt_val_num(iter.data.range.start));
 						break;
@@ -2064,7 +2097,9 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 				break;
 			}
 
+			// TODO: clean
 			case DT_OP_ITER_INC: {
+				int dis = *vm->ip++;
 				dt_vm_pop(vm);
 				dt_val n = dt_vm_pop(vm);
 				dt_val iter = dt_vm_get(vm, 0);
@@ -2072,18 +2107,15 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 				switch (iter.type) {
 					case DT_VAL_ARR:
 						if (n.data.num >= iter.data.arr->len) {
-							vm->ip++;
-							vm->ip++;
 							dt_vm_pop(vm);
 						} else {
 							dt_vm_push(vm, n);
 							dt_vm_push(vm, dt_arr_get(iter.data.arr, n.data.num));
+							vm->ip -= dis;
 						}
 						break;
 					case DT_VAL_STR:
 						if (n.data.num >= iter.data.str.len) {
-							vm->ip++;
-							vm->ip++;
 							dt_vm_pop(vm);
 						} else {
 							dt_vm_push(vm, n);
@@ -2094,6 +2126,7 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 									1
 								)
 							);
+							vm->ip -= dis;
 						}
 						break;
 					case DT_VAL_RANGE: {
@@ -2106,8 +2139,6 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 							done = n.data.num >= end - start;
 						}
 						if (done) {
-							vm->ip++;
-							vm->ip++;
 							dt_vm_pop(vm);
 						} else {
 							dt_vm_push(vm, n);
@@ -2116,6 +2147,7 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 							} else {
 								dt_vm_push(vm, dt_val_num(start + n.data.num));
 							}
+							vm->ip -= dis;
 						}
 						break;
 					}
@@ -2766,17 +2798,13 @@ static void dt_c_loop(dt_compiler *c) {
 		dt_c_add_local(c, namet);
 		dt_c_consume(c, DT_TOKEN_BACKSLASH);
 		dt_c_expr(c);
-		dt_c_emit(c, DT_OP_ITER);
+		dt_c_emit2(c, DT_OP_ITER, 0);
 		dt_c_consume(c, DT_TOKEN_RPAREN);
 
 		int start = c->env->chunk.cnt;
 
 		dt_c_block(c);
 
-		dt_c_emit(c, DT_OP_ITER_INC);
-
-// 		dt_c_emit(c, DT_OP_POP);
-// 		dt_c_emit(c, DT_OP_POP);
 		// TODO
 		c->env->num_locals--;
 		c->env->num_locals--;
@@ -2788,7 +2816,8 @@ static void dt_c_loop(dt_compiler *c) {
 			dt_c_err(c, "jump too large\n");
 		}
 
-		dt_c_emit2(c, DT_OP_REWIND, dis);
+		dt_c_emit2(c, DT_OP_ITER_INC, dis);
+		c->env->chunk.code[start - 1] = dis;
 
 	} else {
 
@@ -2818,14 +2847,14 @@ static void dt_c_end_func(dt_compiler *c) {
 static void dt_c_end_loop(dt_compiler *c) {
 	dt_c_consume(c, DT_TOKEN_AT_GT);
 	dt_c_expr(c);
-	dt_c_emit(c, DT_OP_STOP);
+	dt_c_emit2(c, DT_OP_JMP, 0);
 }
 
 // TODO
 static void dt_c_end_cond(dt_compiler *c) {
 	dt_c_consume(c, DT_TOKEN_PERCENT_GT);
 	dt_c_expr(c);
-	dt_c_emit(c, DT_OP_STOP);
+	dt_c_emit2(c, DT_OP_JMP, 0);
 }
 
 static void dt_c_stmt(dt_compiler *c) {
@@ -2896,6 +2925,7 @@ static void dt_c_ident(dt_compiler *c) {
 		idx = dt_chunk_add_const(&c->env->chunk, name);
 	}
 
+	// TODO: member assign
 	// assign
 	if (dt_c_match(c, DT_TOKEN_EQ)) {
 
