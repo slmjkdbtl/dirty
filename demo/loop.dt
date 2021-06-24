@@ -8,11 +8,12 @@
 -- 	}
 -- }
 
-@ (i \ ["a", "b", "c"]) {
-	print(i)
-	@ (j \ 3..5) {
-		print(j)
-	}
+print([4, 6, 2, 1][0..5])
+
+$ arr = ["a", "b", "c"]
+
+@ (i \ 0..#arr) {
+	print(arr[i])
 }
 
 print("done")

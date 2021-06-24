@@ -1818,6 +1818,22 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 					case DT_VAL_ARR:
 						if (key.type == DT_VAL_NUM) {
 							dt_vm_push(vm, dt_arr_get(val.data.arr, key.data.num));
+						} else if (key.type == DT_VAL_RANGE) {
+							dt_range range = key.data.range;
+							dt_arr *arr = val.data.arr;
+							if (range.start >= arr->len || range.end > arr->len) {
+								dt_vm_push(vm, dt_nil);
+							} else {
+								// TODO
+								int len = range.end - range.start;
+								dt_arr arr2 = dt_arr_new();
+								for (int i = 0; i < len; i++) {
+									dt_arr_set(&arr2, i, dt_arr_get(arr, i + range.start));
+								}
+								dt_arr *arrm = malloc(sizeof(dt_arr));
+								memcpy(arrm, &arr2, sizeof(dt_arr));
+								dt_vm_push(vm, dt_val_arr(arrm));
+							}
 						} else {
 							dt_vm_err(
 								vm,
@@ -1834,6 +1850,38 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 							dt_vm_err(
 								vm,
 								"invalid map idx type '%s'\n",
+								dt_type_name(val.type)
+							);
+							dt_vm_push(vm, dt_nil);
+						}
+						break;
+					case DT_VAL_STR:
+						if (key.type == DT_VAL_NUM) {
+							int idx = (int)key.data.num;
+							dt_str str = val.data.str;
+							if (idx >= str.len) {
+								dt_vm_push(vm, dt_nil);
+							} else {
+								dt_vm_push(vm, dt_val_strn(str.chars + idx, 1));
+							}
+						} else if (key.type == DT_VAL_RANGE) {
+							dt_range range = key.data.range;
+							dt_str str = val.data.str;
+							if (range.start >= str.len || range.end > str.len) {
+								dt_vm_push(vm, dt_nil);
+							} else {
+								dt_vm_push(
+									vm,
+									dt_val_strn(
+										str.chars + range.start,
+										range.end - range.start
+									)
+								);
+							}
+						} else {
+							dt_vm_err(
+								vm,
+								"invalid str idx type '%s'\n",
 								dt_type_name(val.type)
 							);
 							dt_vm_push(vm, dt_nil);
@@ -3176,7 +3224,7 @@ static dt_val dt_f_mod(dt_vm *vm, int nargs) {
 	}
 	char *path = dt_vm_get_cstr(vm, 0);
 	char abs_path[PATH_MAX + 1];
-	char *ptr = realpath(path, abs_path);
+	realpath(path, abs_path);
 	dt_val ret = dt_dofile_ex(abs_path, vm->env);
 	free(path);
 	return ret;
