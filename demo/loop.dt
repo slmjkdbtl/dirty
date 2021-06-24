@@ -8,6 +8,8 @@
 -- 	}
 -- }
 
+"$(myvar) 123"
+
 $ arr = ["a", "b", "c", "d"]
 
 print(arr[1..3])
@@ -22,4 +24,6 @@ print(arr[1..3])
 	print(i)
 }
 
-print("done")
+@ (i \ { qwe: "3", b: "6" }) {
+	print(i)
+}

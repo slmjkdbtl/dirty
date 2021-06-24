@@ -16,6 +16,10 @@
 // TODO: mem audit
 // TODO: type
 // TODO: unlimited jump
+// TODO: small string
+// TODO: string interpolation
+// TODO: big JMP
+// TODO: iter map
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -769,7 +773,7 @@ dt_val dt_arr_rm(dt_arr *arr, int idx) {
 	return v;
 }
 
-void dt_arr_print(dt_arr *arr) {
+void dt_arr_print(dt_arr* arr) {
 	printf("[ ");
 	for (int i = 0; i < arr->len; i++) {
 		dt_val_print(&arr->values[i]);
@@ -777,16 +781,16 @@ void dt_arr_print(dt_arr *arr) {
 	printf(" ]\n");
 }
 
-dt_map *dt_map_new() {
-	dt_map *map = malloc(sizeof(dt_map));
+dt_map* dt_map_new() {
+	dt_map* map = malloc(sizeof(dt_map));
 	map->cnt = 0;
 	map->cap = DT_MAP_INIT_SIZE;
 	map->entries = calloc(DT_MAP_INIT_SIZE, sizeof(dt_entry*));
 	return map;
 }
 
-dt_arr *dt_map_keys(dt_map *map) {
-	dt_arr *arr = dt_arr_new();
+dt_arr* dt_map_keys(dt_map* map) {
+	dt_arr* arr = dt_arr_new();
 	for (int i = 0; i < map->cap; i++) {
 		if (map->entries[i]) {
 			dt_arr_push(arr, (dt_val) {
@@ -1054,10 +1058,11 @@ int dt_chunk_peek_at(dt_chunk *c, int idx) {
 
 	switch (ins) {
 		case DT_OP_CONST: {
-			uint8_t idx2 = c->code[idx + 1];
+			uint8_t i2 = c->code[idx + 1];
+			uint8_t i3 = c->code[idx + 1];
 			printf("CONST ");
-			dt_val_print(&c->consts->values[idx2]);
-			return idx + 2;
+			dt_val_print(&c->consts->values[i2 << 8 | i3]);
+			return idx + 3;
 		}
 		case DT_OP_SETG: {
 			uint8_t idx2 = c->code[idx + 1];
@@ -1157,13 +1162,8 @@ void dt_chunk_push(dt_chunk *c, uint8_t byte, int line) {
 
 }
 
-void dt_chunk_push2(dt_chunk *c, uint8_t b1, uint8_t b2, int line) {
-	dt_chunk_push(c, b1, line);
-	dt_chunk_push(c, b2, line);
-}
-
 int dt_chunk_add_const(dt_chunk *c, dt_val val) {
-	if (c->consts->len >= UINT8_MAX) {
+	if (c->consts->len >= UINT16_MAX) {
 		dt_fail("constant overflow\n");
 	}
 	dt_arr_push(c->consts, val);
@@ -1430,8 +1430,10 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 		switch (ins) {
 
 			case DT_OP_CONST: {
-				dt_val constant = chunk->consts->values[*vm->ip++];
-				dt_vm_push(vm, constant);
+				dt_vm_push(
+					vm,
+					chunk->consts->values[*vm->ip++ << 8 | *vm->ip++]
+				);
 				break;
 			}
 
@@ -2056,33 +2058,51 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 			case DT_OP_ITER: {
 				dt_val iter = dt_vm_get(vm, 0);
 				int dis = *vm->ip++;
-				dt_vm_push(vm, dt_val_num(0));
 				switch (iter.type) {
 					case DT_VAL_ARR:
 						if (iter.data.arr->len == 0) {
 							dt_vm_pop(vm);
-							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
+						dt_vm_push(vm, dt_val_num(0));
 						dt_vm_push(vm, dt_arr_get(iter.data.arr, 0));
 						break;
 					case DT_VAL_STR:
 						if (iter.data.str.len == 0) {
 							dt_vm_pop(vm);
+							vm->ip += dis;
+							break;
+						}
+						dt_vm_push(vm, dt_val_num(0));
+						dt_vm_push(vm, dt_val_strn(iter.data.str.chars, 1));
+						break;
+					case DT_VAL_MAP:
+						if (iter.data.map->cnt == 0) {
 							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
-						dt_vm_push(vm, dt_val_strn(iter.data.str.chars, 1));
+						int i = 0;
+						for (i; i < iter.data.map->cap; i++) {
+							if (iter.data.map->entries[i]) {
+								break;
+							}
+						}
+						dt_vm_push(vm, dt_val_num(i));
+						dt_str key = iter.data.map->entries[i]->key;
+						dt_vm_push(
+							vm,
+							dt_val_strn(key.chars, key.len)
+						);
 						break;
 					case DT_VAL_RANGE:
 						if (iter.data.range.start == iter.data.range.end) {
 							dt_vm_pop(vm);
-							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
+						dt_vm_push(vm, dt_val_num(0));
 						dt_vm_push(vm, dt_val_num(iter.data.range.start));
 						break;
 					default:
@@ -2127,6 +2147,30 @@ static void dt_vm_run(dt_vm *vm, dt_func *func) {
 								)
 							);
 							vm->ip -= dis;
+						}
+						break;
+					case DT_VAL_MAP:
+						if (n.data.num >= iter.data.map->cap) {
+							dt_vm_pop(vm);
+						} else {
+							int i = n.data.num;
+							for (i; i < iter.data.map->cap; i++) {
+								if (iter.data.map->entries[i]) {
+									n.data.num = i;
+									break;
+								}
+							}
+							if (i == iter.data.map->cap) {
+								dt_vm_pop(vm);
+							} else {
+								dt_str key = iter.data.map->entries[(int)n.data.num]->key;
+								dt_vm_push(vm, n);
+								dt_vm_push(
+									vm,
+									dt_val_strn(key.chars, key.len)
+								);
+								vm->ip -= dis;
+							}
 						}
 						break;
 					case DT_VAL_RANGE: {
@@ -2490,9 +2534,15 @@ static void dt_c_emit2(dt_compiler *c, uint8_t b1, uint8_t b2) {
 	dt_c_emit(c, b2);
 }
 
+static void dt_c_emit3(dt_compiler *c, uint8_t b1, uint8_t b2, uint8_t b3) {
+	dt_c_emit(c, b1);
+	dt_c_emit(c, b2);
+	dt_c_emit(c, b3);
+}
+
 static void dt_c_push_const(dt_compiler *c, dt_val val) {
-	int idx = dt_chunk_add_const(&c->env->chunk, val);
-	dt_c_emit2(c, DT_OP_CONST, idx);
+	uint16_t idx = dt_chunk_add_const(&c->env->chunk, val);
+	dt_c_emit3(c, DT_OP_CONST, idx >> 8, idx & 0xff);
 }
 
 static void dt_c_nxt(dt_compiler *c) {
