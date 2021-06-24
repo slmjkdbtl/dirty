@@ -61,21 +61,18 @@ dt_val dt_f_app_run(dt_vm *vm, int nargs) {
 }
 
 void load_app(dt_map *env) {
-	// TODO
-	dt_map app = dt_map_new();
-	dt_map_set_cfunc(&app, "run", dt_f_app_run);
-	dt_map *appm = malloc(sizeof(dt_map));
-	memcpy(appm, &app, sizeof(dt_map));
-	dt_map_set_map(env, "app", appm);
+	dt_map *app = dt_map_new();
+	dt_map_set_cfunc(app, "run", dt_f_app_run);
+	dt_map_set_map(env, "app", app);
 }
 
 int main(int argc, char **argv) {
-	dt_map env = dt_map_new();
-	dt_load_std(&env);
-	load_app(&env);
+	dt_map *env = dt_map_new();
+	dt_load_std(env);
+	load_app(env);
 	if (argc >= 2) {
-		dt_dofile_ex(argv[1], &env);
+		dt_dofile_ex(argv[1], env);
 	}
-	dt_map_free(&env);
+	dt_map_free(env);
 	return 0;
 }
