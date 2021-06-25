@@ -2295,7 +2295,22 @@ static void dt_scanner_skip_ws(dt_scanner* s) {
 			case '-':
 				if (dt_scanner_peek_nxt(s) == '-') {
 					if (dt_scanner_peek_nxt_nxt(s) == '-') {
-						while (strncmp(s->cur - 3, "---", 3) != 0 && !dt_scanner_ended(s)) {
+						dt_scanner_nxt(s);
+						dt_scanner_nxt(s);
+						dt_scanner_nxt(s);
+						for (;;) {
+							if (dt_scanner_peek(s) == '\n') {
+								s->line++;
+							}
+							if (strncmp(s->cur, "---", 3) == 0) {
+								dt_scanner_nxt(s);
+								dt_scanner_nxt(s);
+								dt_scanner_nxt(s);
+								break;
+							}
+							if (dt_scanner_ended(s)) {
+								break;
+							}
 							dt_scanner_nxt(s);
 						}
 					} else {
@@ -2303,6 +2318,8 @@ static void dt_scanner_skip_ws(dt_scanner* s) {
 							dt_scanner_nxt(s);
 						}
 					}
+				} else {
+					return;
 				}
 				break;
 			default:
