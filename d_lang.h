@@ -2063,6 +2063,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				switch (iter.type) {
 					case DT_VAL_ARR:
 						if (iter.data.arr->len == 0) {
+							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
@@ -2071,6 +2072,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						break;
 					case DT_VAL_STR:
 						if (iter.data.str.len == 0) {
+							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
@@ -2079,6 +2081,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						break;
 					case DT_VAL_MAP:
 						if (iter.data.map->cnt == 0) {
+							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
@@ -2097,6 +2100,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						break;
 					case DT_VAL_RANGE:
 						if (iter.data.range.start == iter.data.range.end) {
+							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
@@ -2129,6 +2133,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_vm_push(vm, n);
 							dt_vm_push(vm, dt_arr_get(iter.data.arr, n.data.num));
 							vm->ip -= dis;
+						} else {
+							dt_vm_pop(vm);
 						}
 						break;
 					case DT_VAL_STR:
@@ -2142,10 +2148,13 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 								)
 							);
 							vm->ip -= dis;
+						} else {
+							dt_vm_pop(vm);
 						}
 						break;
 					case DT_VAL_MAP:
 						if (n.data.num >= iter.data.map->cap) {
+							dt_vm_pop(vm);
 						} else {
 							int i = n.data.num;
 							for (; i < iter.data.map->cap; i++) {
@@ -2182,6 +2191,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 								dt_vm_push(vm, dt_val_num(start + n.data.num));
 							}
 							vm->ip -= dis;
+						} else {
+							dt_vm_pop(vm);
 						}
 						break;
 					}
@@ -2513,19 +2524,41 @@ static void dt_c_err(dt_compiler* c, char* fmt, ...) {
 	exit(EXIT_FAILURE);
 }
 
-static void dt_c_emit(dt_compiler* c, uint8_t byte) {
-	dt_chunk_push(&c->env->chunk, byte, c->parser.prev.line);
+static void dt_c_emit(dt_compiler* c, dt_op op) {
+	dt_chunk_push(&c->env->chunk, op, c->parser.prev.line);
 }
 
-static void dt_c_emit2(dt_compiler* c, uint8_t b1, uint8_t b2) {
-	dt_c_emit(c, b1);
-	dt_c_emit(c, b2);
+static void dt_c_emit2(dt_compiler* c, dt_op op, uint8_t a1) {
+	dt_c_emit(c, op);
+	dt_c_emit(c, a1);
 }
 
-static void dt_c_emit3(dt_compiler* c, uint8_t b1, uint8_t b2, uint8_t b3) {
-	dt_c_emit(c, b1);
-	dt_c_emit(c, b2);
-	dt_c_emit(c, b3);
+static void dt_c_emit3(dt_compiler* c, dt_op op, uint8_t a1, uint8_t a2) {
+	dt_c_emit(c, op);
+	dt_c_emit(c, a1);
+	dt_c_emit(c, a2);
+}
+
+static void dt_c_emit_jmp(dt_compiler* c, dt_op op, uint16_t dis) {
+	dt_c_emit3(c, op, dis >> 8, dis & 0xff);
+}
+
+static int dt_c_emit_jmp_empty(dt_compiler* c, dt_op op) {
+	dt_c_emit3(c, op, 0, 0);
+	return c->env->chunk.cnt;
+}
+
+static void dt_c_patch_jmp(dt_compiler* c, int pos) {
+
+	int dis = c->env->chunk.cnt - pos;
+
+	if (dis >= UINT16_MAX) {
+		dt_c_err(c, "jump too large\n");
+	}
+
+	c->env->chunk.code[pos - 2] = dis >> 8;
+	c->env->chunk.code[pos - 1] = dis & 0xff;
+
 }
 
 static void dt_c_push_const(dt_compiler* c, dt_val val) {
@@ -2776,24 +2809,21 @@ static void dt_c_block(dt_compiler* c) {
 
 }
 
-// TODO: abstract patching / dis calc
 static void dt_c_cond(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_PERCENT);
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
-	dt_c_emit3(c, DT_OP_JMP_COND, 0, 0);
-	int if_start = c->env->chunk.cnt;
+	int if_start = dt_c_emit_jmp_empty(c, DT_OP_JMP_COND);
 	dt_c_block(c);
 	int if_dis = c->env->chunk.cnt - if_start;
 
 	if (dt_c_match(c, DT_TOKEN_OR)) {
 
-		// for JMP(1)
+		// for JMP(2)
 		if_dis += 3;
-		dt_c_emit3(c, DT_OP_JMP, 0, 0);
-		int else_start = c->env->chunk.cnt;
+		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
 
 		if (c->parser.cur.type == DT_TOKEN_PERCENT) {
 			dt_c_cond(c);
@@ -2801,14 +2831,7 @@ static void dt_c_cond(dt_compiler* c) {
 			dt_c_block(c);
 		}
 
-		int else_dis = c->env->chunk.cnt - else_start;
-
-		if (else_dis >= UINT16_MAX) {
-			dt_c_err(c, "jump too large\n");
-		}
-
-		c->env->chunk.code[else_start - 2] = else_dis >> 8;
-		c->env->chunk.code[else_start - 1] = else_dis & 0xff;
+		dt_c_patch_jmp(c, pos);
 
 	}
 
@@ -2816,6 +2839,7 @@ static void dt_c_cond(dt_compiler* c) {
 		dt_c_err(c, "jump too large\n");
 	}
 
+	// TODO: patchable?
 	c->env->chunk.code[if_start - 2] = if_dis >> 8;
 	c->env->chunk.code[if_start - 1] = if_dis & 0xff;
 
@@ -2838,25 +2862,20 @@ static void dt_c_loop(dt_compiler* c) {
 		dt_c_add_local(c, namet);
 		dt_c_consume(c, DT_TOKEN_BACKSLASH);
 		dt_c_expr(c);
-		dt_c_emit3(c, DT_OP_ITER_PREP, 0, 0);
 		dt_c_consume(c, DT_TOKEN_RPAREN);
-
-		int start = c->env->chunk.cnt;
+		int pos = dt_c_emit_jmp_empty(c, DT_OP_ITER_PREP);
 
 		dt_c_block(c);
 
-		int dis = c->env->chunk.cnt - start + 3;
+		int dis = c->env->chunk.cnt - pos + 3;
 
 		if (dis >= UINT16_MAX) {
 			dt_c_err(c, "jump too large\n");
 		}
 
-		dt_c_emit3(c, DT_OP_ITER, dis >> 8, dis & 0xff);
-		c->env->chunk.code[start - 2] = dis >> 8;
-		c->env->chunk.code[start - 1] = dis & 0xff;
+		dt_c_emit_jmp(c, DT_OP_ITER, dis);
+		dt_c_patch_jmp(c, pos);
 
-		dt_c_emit(c, DT_OP_POP);
-		// TODO: use dt_c_scope_end() ?
 		c->env->num_locals--;
 		c->env->num_locals--;
 		c->env->num_locals--;
@@ -2873,7 +2892,7 @@ static void dt_c_loop(dt_compiler* c) {
 			dt_c_err(c, "jump too large\n");
 		}
 
-		dt_c_emit3(c, DT_OP_REWIND, dis >> 8, dis & 0xff);
+		dt_c_emit_jmp(c, DT_OP_REWIND, dis);
 
 	}
 
