@@ -1,35 +1,35 @@
-# num
+-- num
 (= a 123)
-# str
+-- str
 (= b "oh hi")
-# bool
-(= c true)
-# nil
+-- bool
+(= c T)
+-- nil
 (= c ?)
-# arr
+-- arr
 (= d (# 1 2 3 4 5))
-# map
+-- map
 (= e (~
 	"andy" 9
 	"jack" 6
 ))
 
-# func
+-- func
 (= f (-> (a) [
 	(= i 1)
 	i
 ]))
 
-# access
+-- access
 (print d[1])
 (print e["andy"])
 
-# inc 1 to all
+-- inc 1 to all
 (map d (-> (n) (+ n 1)))
 
-# loop
+-- loop
 (= a 1)
-(while (a < 3) (
+(while (< a 3) (
 	(print a)
 	(= a (+ a 1))
 ))
@@ -38,7 +38,7 @@
 	(print "oh hi mark")
 ]))
 
-# branch
+-- branch
 (cond
 	(&& (== a 1) true) (f1)
 	(== a 2) (f2)

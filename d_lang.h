@@ -25,7 +25,7 @@
 #ifndef D_LANG_H
 #define D_LANG_H
 
-#define DT_STACK_MAX 256
+#define DT_STACK_MAX 1024
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -266,6 +266,7 @@ typedef enum {
 	DT_OP_SPREAD,
 	DT_OP_ITER_PREP,
 	DT_OP_ITER,
+	DT_OP_ARGS,
 } dt_op;
 
 typedef struct {
@@ -320,6 +321,7 @@ typedef enum {
 	DT_TOKEN_OR_OR, // ||
 	DT_TOKEN_TILDE_GT, // ~>
 	DT_TOKEN_AT_GT, // @>
+	DT_TOKEN_AT_CARET, // @^
 	DT_TOKEN_PERCENT_GT, // %>
 	// lit
 	DT_TOKEN_IDENT,
@@ -375,14 +377,29 @@ typedef struct {
 	bool local;
 } dt_upval;
 
+typedef enum {
+	DT_SCOPE_NORMAL,
+	DT_SCOPE_LOOP,
+	DT_SCOPE_COND,
+} dt_scope_ty;
+
+typedef struct {
+	int pos;
+	int depth;
+	dt_scope_ty ty;
+} dt_jumper;
+
 typedef struct dt_funcenv {
 	struct dt_funcenv* parent;
-	int depth;
+	dt_chunk chunk;
+	int cur_depth;
+	dt_scope_ty scopes[UINT8_MAX];
 	dt_local locals[UINT8_MAX];
 	int num_locals;
 	dt_upval upvals[UINT8_MAX];
 	int num_upvals;
-	dt_chunk chunk;
+	dt_jumper jumpers[UINT8_MAX];
+	int num_jumpers;
 } dt_funcenv;
 
 typedef struct {
@@ -455,6 +472,7 @@ char* dt_token_name(dt_token_ty ty) {
 		case DT_TOKEN_OR_OR: return "OR_OR";
 		case DT_TOKEN_TILDE_GT: return "TILDE_GT";
 		case DT_TOKEN_AT_GT: return "AT_GT";
+		case DT_TOKEN_AT_CARET: return "AT_CARET";
 		case DT_TOKEN_PERCENT_GT: return "PERCENT_GT";
 		case DT_TOKEN_IDENT: return "IDENT";
 		case DT_TOKEN_STR: return "STR";
@@ -1050,6 +1068,7 @@ char* dt_op_name(dt_op op) {
 		case DT_OP_SPREAD:    return "SPREAD";
 		case DT_OP_ITER_PREP: return "ITER_PREP";
 		case DT_OP_ITER:      return "ITER";
+		case DT_OP_ARGS:      return "ARGS";
 	}
 }
 
@@ -1621,6 +1640,10 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_vm_push(vm, dt_val_num(a.data.str.len));
 				} else if (a.type == DT_VAL_ARR) {
 					dt_vm_push(vm, dt_val_num(a.data.arr->len));
+				} else if (a.type == DT_VAL_MAP) {
+					dt_vm_push(vm, dt_val_num(a.data.map->cnt));
+				} else if (a.type == DT_VAL_RANGE) {
+					dt_vm_push(vm, dt_val_num(abs(a.data.range.end - a.data.range.start)));
 				} else {
 					dt_vm_err(
 						vm,
@@ -1832,6 +1855,12 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_SETU: {
 				*vm->func->upvals[*vm->ip++] = dt_vm_get(vm, 0);
+				break;
+			}
+
+			case DT_OP_ARGS: {
+				// TODO
+				dt_vm_push(vm, dt_nil);
 				break;
 			}
 
@@ -2294,6 +2323,7 @@ static void dt_scanner_skip_ws(dt_scanner* s) {
 				break;
 			case '-':
 				if (dt_scanner_peek_nxt(s) == '-') {
+					// TODO
 					if (dt_scanner_peek_nxt_nxt(s) == '-') {
 						dt_scanner_nxt(s);
 						dt_scanner_nxt(s);
@@ -2503,6 +2533,8 @@ static dt_token dt_scanner_scan(dt_scanner* s) {
 		case '@':
 			if (dt_scanner_match(s, '>')) {
 				return dt_scanner_make_token(s, DT_TOKEN_AT_GT);
+			} else if (dt_scanner_match(s, '^')) {
+				return dt_scanner_make_token(s, DT_TOKEN_AT_CARET);
 			} else {
 				return dt_scanner_make_token(s, DT_TOKEN_AT);
 			}
@@ -2773,7 +2805,7 @@ static void dt_c_add_local(dt_compiler* c, dt_token name) {
 	}
 	dt_local* l = &c->env->locals[c->env->num_locals++];
 	l->name = name;
-	l->depth = c->env->depth;
+	l->depth = c->env->cur_depth;
 	l->captured = false;
 }
 
@@ -2789,7 +2821,7 @@ static void dt_c_skip_local(dt_compiler* c) {
 		.len = 0,
 		.line = 0,
 	};
-	l->depth = c->env->depth;
+	l->depth = c->env->cur_depth;
 	l->captured = false;
 }
 
@@ -2802,19 +2834,19 @@ static void dt_c_decl(dt_compiler* c) {
 	dt_c_expr(c);
 }
 
-static void dt_c_scope_begin(dt_compiler* c) {
-	c->env->depth++;
+static void dt_c_scope_begin(dt_compiler* c, dt_scope_ty ty) {
+	c->env->scopes[c->env->cur_depth++] = ty;
 }
 
 static void dt_c_scope_end(dt_compiler* c) {
 
 	dt_funcenv* e = c->env;
 
-	e->depth--;
+	e->cur_depth--;
 
 	while (e->num_locals > 0) {
 		dt_local* l = &e->locals[e->num_locals - 1];
-		if (l->depth <= e->depth) {
+		if (l->depth <= e->cur_depth) {
 			break;
 		}
 		if (l->captured) {
@@ -2829,10 +2861,10 @@ static void dt_c_scope_end(dt_compiler* c) {
 
 static void dt_c_stmt(dt_compiler* c);
 
-static void dt_c_block(dt_compiler* c) {
+static int dt_c_block(dt_compiler* c, dt_scope_ty ty) {
 
 	dt_c_consume(c, DT_TOKEN_LBRACE);
-	dt_c_scope_begin(c);
+	dt_c_scope_begin(c, ty);
 
 	while (c->parser.cur.type != DT_TOKEN_RBRACE) {
 		dt_c_stmt(c);
@@ -2840,6 +2872,8 @@ static void dt_c_block(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_RBRACE);
 	dt_c_scope_end(c);
+
+	return c->env->cur_depth + 1;
 
 }
 
@@ -2850,7 +2884,7 @@ static void dt_c_cond(dt_compiler* c) {
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
 	int if_start = dt_c_emit_jmp_empty(c, DT_OP_JMP_COND);
-	dt_c_block(c);
+	dt_c_block(c, DT_SCOPE_COND);
 	int if_dis = c->env->chunk.cnt - if_start;
 
 	if (dt_c_match(c, DT_TOKEN_OR)) {
@@ -2862,7 +2896,7 @@ static void dt_c_cond(dt_compiler* c) {
 		if (c->parser.cur.type == DT_TOKEN_PERCENT) {
 			dt_c_cond(c);
 		} else {
-			dt_c_block(c);
+			dt_c_block(c, DT_SCOPE_COND);
 		}
 
 		dt_c_patch_jmp(c, pos);
@@ -2899,7 +2933,7 @@ static void dt_c_loop(dt_compiler* c) {
 		dt_c_consume(c, DT_TOKEN_RPAREN);
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_ITER_PREP);
 
-		dt_c_block(c);
+		dt_c_block(c, DT_SCOPE_LOOP);
 
 		int dis = c->env->chunk.cnt - pos + 3;
 
@@ -2917,9 +2951,7 @@ static void dt_c_loop(dt_compiler* c) {
 	} else {
 
 		int start = c->env->chunk.cnt;
-
-		dt_c_block(c);
-
+		int depth = dt_c_block(c, DT_SCOPE_LOOP);
 		int dis = c->env->chunk.cnt - start + 3;
 
 		if (dis >= UINT16_MAX) {
@@ -2927,6 +2959,14 @@ static void dt_c_loop(dt_compiler* c) {
 		}
 
 		dt_c_emit_jmp(c, DT_OP_REWIND, dis);
+
+		for (int i = 0; i < c->env->num_jumpers; i++) {
+			dt_jumper j = c->env->jumpers[i];
+			if (j.depth = depth) {
+				dt_c_patch_jmp(c, j.pos);
+				c->env->jumpers[i--] = c->env->jumpers[--c->env->num_jumpers];
+			}
+		}
 
 	}
 
@@ -2938,18 +2978,33 @@ static void dt_c_end_func(dt_compiler* c) {
 	dt_c_emit(c, DT_OP_STOP);
 }
 
-// TODO
+static void dt_c_add_jumper(dt_compiler* c, dt_scope_ty ty, int pos) {
+	int depth = -1;
+	for (int i = c->env->cur_depth - 1; i >= 0; i--) {
+		if (c->env->scopes[i] == ty) {
+			depth = i;
+			break;
+		}
+	}
+	if (depth == -1) {
+		dt_c_err(c, "cannot jump here\n");
+	}
+	c->env->jumpers[c->env->num_jumpers++] = (dt_jumper) {
+		.ty = ty,
+		.pos = pos,
+		.depth = depth,
+	};
+}
+
 static void dt_c_end_loop(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AT_GT);
-	dt_c_expr(c);
-	dt_c_emit3(c, DT_OP_JMP, 0, 0);
+	dt_c_add_jumper(c, DT_SCOPE_LOOP, dt_c_emit_jmp_empty(c, DT_OP_JMP));
 }
 
 // TODO
-static void dt_c_end_cond(dt_compiler* c) {
-	dt_c_consume(c, DT_TOKEN_PERCENT_GT);
-	dt_c_expr(c);
-	dt_c_emit3(c, DT_OP_JMP, 0, 0);
+static void dt_c_nxt_loop(dt_compiler* c) {
+	dt_c_consume(c, DT_TOKEN_AT_CARET);
+	dt_c_add_jumper(c, DT_SCOPE_LOOP, dt_c_emit_jmp_empty(c, DT_OP_JMP));
 }
 
 static void dt_c_stmt(dt_compiler* c) {
@@ -2958,12 +3013,12 @@ static void dt_c_stmt(dt_compiler* c) {
 
 	switch (t) {
 		case DT_TOKEN_DOLLAR:     dt_c_decl(c); break;
-		case DT_TOKEN_LBRACE:     dt_c_block(c); break;
+		case DT_TOKEN_LBRACE:     dt_c_block(c, DT_SCOPE_NORMAL); break;
 		case DT_TOKEN_PERCENT:    dt_c_cond(c); break;
 		case DT_TOKEN_AT:         dt_c_loop(c); break;
 		case DT_TOKEN_TILDE_GT:   dt_c_end_func(c); break;
 		case DT_TOKEN_AT_GT:      dt_c_end_loop(c); break;
-		case DT_TOKEN_PERCENT_GT: dt_c_end_cond(c); break;
+		case DT_TOKEN_AT_CARET:   dt_c_nxt_loop(c); break;
 		default: {
 			dt_c_expr(c);
 			dt_c_emit(c, DT_OP_POP);
@@ -3000,6 +3055,11 @@ static void dt_c_call(dt_compiler* c) {
 
 }
 
+static void dt_c_args(dt_compiler* c) {
+	dt_c_consume(c, DT_TOKEN_DOT_DOT_DOT);
+	dt_c_emit(c, DT_OP_ARGS);
+}
+
 static void dt_c_ident(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_IDENT);
@@ -3031,6 +3091,8 @@ static void dt_c_ident(dt_compiler* c) {
 
 		// get
 		dt_c_emit2(c, get_op, idx);
+
+		// TODO: check index assign
 
 		// op assign
 		if (dt_c_match(c, DT_TOKEN_PLUS_EQ)) {
@@ -3083,12 +3145,15 @@ static void dt_c_unary(dt_compiler* c) {
 static dt_funcenv dt_funcenv_new() {
 	return (dt_funcenv) {
 		.parent = NULL,
-		.depth = 0,
+		.chunk = dt_chunk_new(),
+		.scopes = {0},
+		.cur_depth = 0,
 		.locals = {0},
 		.num_locals = 0,
 		.upvals = {0},
 		.num_upvals = 0,
-		.chunk = dt_chunk_new(),
+		.jumpers = {0},
+		.num_jumpers = 0,
 	};
 }
 
@@ -3185,6 +3250,7 @@ static dt_parse_rule dt_rules[] = {
 	[DT_TOKEN_SLASH]         = { NULL,       dt_c_binary, DT_PREC_FACTOR },
 	[DT_TOKEN_STAR]          = { NULL,       dt_c_binary, DT_PREC_FACTOR },
 	[DT_TOKEN_DOT_DOT]       = { NULL,       dt_c_binary, DT_PREC_UNARY },
+	[DT_TOKEN_DOT_DOT_DOT]   = { dt_c_args,  NULL,        DT_PREC_NONE },
 	[DT_TOKEN_HASH]          = { dt_c_unary, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_BANG]          = { dt_c_unary, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_BANG_EQ]       = { NULL,       NULL,        DT_PREC_NONE },
