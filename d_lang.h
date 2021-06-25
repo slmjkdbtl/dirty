@@ -2,7 +2,7 @@
 
 // TODO: garbage collection
 // TODO: error handling
-// TODO: ... to access func arguments
+// TODO: ... to access func args
 // TODO: 'this'
 // TODO: trait
 // TODO: module
@@ -19,6 +19,8 @@
 // TODO: single ctx handle
 // TODO: string add
 // TODO: break loop
+// TODO: tail call opti
+// TODO: str " escape
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -2271,6 +2273,13 @@ static char dt_scanner_peek_nxt(dt_scanner* s) {
 	return s->cur[1];
 }
 
+static char dt_scanner_peek_nxt_nxt(dt_scanner* s) {
+	if (dt_scanner_ended(s)) {
+		return '\0';
+	}
+	return s->cur[2];
+}
+
 static void dt_scanner_skip_ws(dt_scanner* s) {
 	for (;;) {
 		char c = *s->cur;
@@ -2284,13 +2293,16 @@ static void dt_scanner_skip_ws(dt_scanner* s) {
 				dt_scanner_nxt(s);
 				break;
 			case '-':
-				// TODO: comment block with ---
 				if (dt_scanner_peek_nxt(s) == '-') {
-					while (*s->cur != '\n' && !dt_scanner_ended(s)) {
-						dt_scanner_nxt(s);
+					if (dt_scanner_peek_nxt_nxt(s) == '-') {
+						while (strncmp(s->cur - 3, "---", 3) != 0 && !dt_scanner_ended(s)) {
+							dt_scanner_nxt(s);
+						}
+					} else {
+						while (*s->cur != '\n' && !dt_scanner_ended(s)) {
+							dt_scanner_nxt(s);
+						}
 					}
-				} else {
-					return;
 				}
 				break;
 			default:
