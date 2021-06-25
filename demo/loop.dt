@@ -2,17 +2,23 @@ $ a = 0
 
 @ {
 	print(a)
-	a = a + 1
-	% (a > 10) {
+	a += 1
+
+
+	% (a > 2) {
+		$ e = 456
+		print(e, "oh done")
 		@>
 	}
+	$ c = 4
+	$ d = 4
+	$ e = 4
+	$ f = 4
 }
 
 $ arr = ["a", "b", "c", "d"]
 
 print(arr[1..3])
-
--- arr[#arr] = 123
 
 @ (i \ arr) {
 	print(i)

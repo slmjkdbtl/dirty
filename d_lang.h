@@ -126,7 +126,7 @@ typedef struct dt_vm {
 	dt_val*  stack_top;
 	int      stack_offset;
 	dt_map*  env;
-	dt_val** upvals[UINT8_MAX];
+	dt_val** open_upvals[UINT8_MAX];
 	int      num_upvals;
 } dt_vm;
 
@@ -1203,7 +1203,7 @@ static dt_vm dt_vm_new() {
 		.stack_top = NULL,
 		.stack_offset = 0,
 		.env = NULL,
-		.upvals = {0},
+		.open_upvals = {0},
 		.num_upvals = 0,
 	};
 	vm.stack_top = vm.stack;
@@ -1308,13 +1308,13 @@ static void dt_vm_pop_close(dt_vm* vm) {
 	dt_val* upval = NULL;
 
 	for (int i = 0; i < vm->num_upvals; i++) {
-		if (top == *vm->upvals[i]) {
+		if (top == *vm->open_upvals[i]) {
 			if (!upval) {
 				upval = malloc(sizeof(dt_val));
 				memcpy(upval, top, sizeof(dt_val));
 			}
-			*vm->upvals[i] = upval;
-			vm->upvals[i--] = vm->upvals[--vm->num_upvals];
+			*vm->open_upvals[i] = upval;
+			vm->open_upvals[i--] = vm->open_upvals[--vm->num_upvals];
 		}
 	}
 
@@ -1981,7 +1981,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					if (local) {
 						dt_val* upval = &vm->stack[vm->stack_offset + idx];
 						func->upvals[i] = upval;
-						vm->upvals[vm->num_upvals++] = &func->upvals[i];
+						vm->open_upvals[vm->num_upvals++] = &func->upvals[i];
 					} else {
 						func->upvals[i] = vm->func->upvals[idx];
 					}
@@ -2873,7 +2873,7 @@ static int dt_c_block(dt_compiler* c, dt_scope_ty ty) {
 	dt_c_consume(c, DT_TOKEN_RBRACE);
 	dt_c_scope_end(c);
 
-	return c->env->cur_depth + 1;
+	return c->env->cur_depth;
 
 }
 
@@ -2913,7 +2913,7 @@ static void dt_c_cond(dt_compiler* c) {
 
 }
 
-// TODO
+// TODO: don't skip pop
 static void dt_c_loop(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_AT);
@@ -2932,9 +2932,7 @@ static void dt_c_loop(dt_compiler* c) {
 		dt_c_expr(c);
 		dt_c_consume(c, DT_TOKEN_RPAREN);
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_ITER_PREP);
-
-		dt_c_block(c, DT_SCOPE_LOOP);
-
+		int depth = dt_c_block(c, DT_SCOPE_LOOP);
 		int dis = c->env->chunk.cnt - pos + 3;
 
 		if (dis >= UINT16_MAX) {
@@ -2947,6 +2945,14 @@ static void dt_c_loop(dt_compiler* c) {
 		c->env->num_locals--;
 		c->env->num_locals--;
 		c->env->num_locals--;
+
+		for (int i = 0; i < c->env->num_jumpers; i++) {
+			dt_jumper j = c->env->jumpers[i];
+			if (j.depth == depth) {
+				dt_c_patch_jmp(c, j.pos);
+				c->env->jumpers[i--] = c->env->jumpers[--c->env->num_jumpers];
+			}
+		}
 
 	} else {
 
@@ -2962,7 +2968,7 @@ static void dt_c_loop(dt_compiler* c) {
 
 		for (int i = 0; i < c->env->num_jumpers; i++) {
 			dt_jumper j = c->env->jumpers[i];
-			if (j.depth = depth) {
+			if (j.depth == depth) {
 				dt_c_patch_jmp(c, j.pos);
 				c->env->jumpers[i--] = c->env->jumpers[--c->env->num_jumpers];
 			}
@@ -2978,7 +2984,7 @@ static void dt_c_end_func(dt_compiler* c) {
 	dt_c_emit(c, DT_OP_STOP);
 }
 
-static void dt_c_add_jumper(dt_compiler* c, dt_scope_ty ty, int pos) {
+static void dt_c_add_jumper(dt_compiler* c, dt_scope_ty ty, dt_op op) {
 	int depth = -1;
 	for (int i = c->env->cur_depth - 1; i >= 0; i--) {
 		if (c->env->scopes[i] == ty) {
@@ -2988,7 +2994,20 @@ static void dt_c_add_jumper(dt_compiler* c, dt_scope_ty ty, int pos) {
 	}
 	if (depth == -1) {
 		dt_c_err(c, "cannot jump here\n");
+		return;
 	}
+	for (int i = c->env->num_locals - 1; i >= 0; i--) {
+		dt_local l = c->env->locals[i];
+		if (l.depth <= depth) {
+			break;
+		}
+		if (l.captured) {
+			dt_c_emit(c, DT_OP_CLOSE);
+		} else {
+			dt_c_emit(c, DT_OP_POP);
+		}
+	}
+	int pos = dt_c_emit_jmp_empty(c, op);
 	c->env->jumpers[c->env->num_jumpers++] = (dt_jumper) {
 		.ty = ty,
 		.pos = pos,
@@ -2998,13 +3017,13 @@ static void dt_c_add_jumper(dt_compiler* c, dt_scope_ty ty, int pos) {
 
 static void dt_c_end_loop(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AT_GT);
-	dt_c_add_jumper(c, DT_SCOPE_LOOP, dt_c_emit_jmp_empty(c, DT_OP_JMP));
+	dt_c_add_jumper(c, DT_SCOPE_LOOP, DT_OP_JMP);
 }
 
 // TODO
 static void dt_c_nxt_loop(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AT_CARET);
-	dt_c_add_jumper(c, DT_SCOPE_LOOP, dt_c_emit_jmp_empty(c, DT_OP_JMP));
+	dt_c_add_jumper(c, DT_SCOPE_LOOP, DT_OP_JMP);
 }
 
 static void dt_c_stmt(dt_compiler* c) {
