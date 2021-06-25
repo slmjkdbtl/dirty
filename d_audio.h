@@ -9,7 +9,7 @@ typedef struct {
 
 // a static sound
 typedef struct {
-	short *frames;
+	short* frames;
 	int num_frames;
 } d_sound;
 
@@ -23,7 +23,7 @@ typedef struct {
 
 // sound playback control handle
 typedef struct {
-	d_sound *src;
+	d_sound* src;
 	int pos;
 	bool loop;
 	float volume;
@@ -49,30 +49,30 @@ typedef struct {
 void d_audio_init(d_audio_desc);
 
 // SOUND
-d_sound d_sound_new(short *frames, int num_frames);
-d_sound d_sound_parse(uint8_t *bytes);
+d_sound d_sound_new(short* frames, int num_frames);
+d_sound d_sound_parse(uint8_t* bytes);
 #ifdef D_FS_H
-d_sound d_sound_load(char *path);
+d_sound d_sound_load(char* path);
 #endif
-float d_sound_sample(d_sound *snd, float time);
-float d_sound_len(d_sound *snd);
-void d_sound_free(d_sound *sound);
+float d_sound_sample(d_sound* snd, float time);
+float d_sound_len(d_sound* snd);
+void d_sound_free(d_sound* sound);
 // play a sound, returning a handle for control
-d_playback *d_play(d_sound *sound);
-d_playback *d_play_ex(d_sound *sound, d_play_conf conf);
-void d_playback_seek(d_playback *pb, float time);
-float d_playback_time(d_playback *pb);
+d_playback* d_play(d_sound* sound);
+d_playback* d_play_ex(d_sound* sound, d_play_conf conf);
+void d_playback_seek(d_playback* pb, float time);
+float d_playback_time(d_playback* pb);
 
 // SYNTH
 void d_synth_play(int note);
 void d_synth_release(int note);
-d_envelope *d_synth_envelope();
+d_envelope* d_synth_envelope();
 void d_synth_wav(float (*func)(float freq, float t));
 float d_synth_peek(int n);
 
 // voice
 d_voice d_voice_new();
-void d_voice_process(d_voice *v, d_envelope *e, float dt);
+void d_voice_process(d_voice* v, d_envelope* e, float dt);
 
 // built in wave forms
 float d_wav_sin(float freq, float t);
@@ -151,7 +151,7 @@ static float d_audio_next() {
 
 	for (int j = 0; j < d_audio.num_playbacks; j++) {
 
-		d_playback *p = &d_audio.playbacks[j];
+		d_playback* p = &d_audio.playbacks[j];
 
 		if (p->paused || p->done) {
 			continue;
@@ -190,10 +190,10 @@ static float d_audio_next() {
 
 #if defined(D_COREAUDIO)
 
-static void d_ca_stream(void *udata, AudioQueueRef queue, AudioQueueBufferRef buffer) {
+static void d_ca_stream(void* udata, AudioQueueRef queue, AudioQueueBufferRef buffer) {
 
 	int num_frames = buffer->mAudioDataByteSize / (sizeof(float) * D_NUM_CHANNELS);
-	float *data = (float*)buffer->mAudioData;
+	float* data = (float*)buffer->mAudioData;
 
 	for (int i = 0; i < num_frames; i++) {
 		data[i] = d_audio_next();
@@ -312,7 +312,7 @@ static void d_webaudio_init() {
 #if defined(D_ALSA)
 
 static void d_alsa_init() {
-// 	snd_pcm_t *dev = NULL;
+// 	snd_pcm_t* dev = NULL;
 // 	snd_pcm_open(dev, "default", SND_PCM_STREAM_PLAYBACK, 0);
 	// TODO
 }
@@ -337,12 +337,12 @@ void d_audio_init(d_audio_desc desc) {
 
 typedef struct {
 	uint32_t num_frames;
-	int16_t *frames;
+	int16_t* frames;
 } d_snd_bin;
 
-d_sound d_sound_new(short *frames, int num_frames) {
+d_sound d_sound_new(short* frames, int num_frames) {
 	int size = sizeof(short) * num_frames;
-	short *frames_n = malloc(size);
+	short* frames_n = malloc(size);
 	memcpy(frames_n, frames, size);
 	return (d_sound) {
 		.frames = frames_n,
@@ -350,11 +350,11 @@ d_sound d_sound_new(short *frames, int num_frames) {
 	};
 }
 
-d_sound d_sound_parse(uint8_t *bytes) {
+d_sound d_sound_parse(uint8_t* bytes) {
 
-	d_snd_bin *data = (d_snd_bin*)bytes;
+	d_snd_bin* data = (d_snd_bin*)bytes;
 	int size = sizeof(int16_t) * data->num_frames;
-	int16_t *frames = malloc(size);
+	int16_t* frames = malloc(size);
 	memcpy(frames, (int16_t*)(bytes + D_SND_HEADER_SIZE), size);
 
 	return (d_sound) {
@@ -372,9 +372,9 @@ d_sound d_sound_empty() {
 }
 
 #ifdef D_FS_H
-d_sound d_sound_load(char *path) {
+d_sound d_sound_load(char* path) {
 	size_t size;
-	uint8_t *bytes = d_read_bytes(path, &size);
+	uint8_t* bytes = d_read_bytes(path, &size);
 	if (!bytes) {
 		fprintf(stderr, "failed to load sound from '%s'\n", path);
 		return d_sound_empty();
@@ -385,21 +385,21 @@ d_sound d_sound_load(char *path) {
 }
 #endif // #ifdef D_FS_H
 
-float d_sound_sample(d_sound *snd, float time) {
+float d_sound_sample(d_sound* snd, float time) {
 	int pos = clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1);
 	return (float)snd->frames[pos] / SHRT_MAX;
 }
 
-float d_sound_len(d_sound *snd) {
+float d_sound_len(d_sound* snd) {
 	return (float)snd->num_frames / (float)D_SAMPLE_RATE;
 }
 
-void d_sound_free(d_sound *snd) {
+void d_sound_free(d_sound* snd) {
 	free(snd->frames);
 	memset(snd, 0, sizeof(d_sound));
 }
 
-d_playback *d_play(d_sound *snd) {
+d_playback* d_play(d_sound* snd) {
 	return d_play_ex(snd, (d_play_conf) {
 		.loop = false,
 		.paused = false,
@@ -407,7 +407,7 @@ d_playback *d_play(d_sound *snd) {
 	});
 }
 
-d_playback *d_play_ex(d_sound *snd, d_play_conf conf) {
+d_playback* d_play_ex(d_sound* snd, d_play_conf conf) {
 
 	int pos = clampi((int)(conf.time * D_SAMPLE_RATE), 0, snd->num_frames - 1);
 
@@ -433,11 +433,11 @@ d_playback *d_play_ex(d_sound *snd, d_play_conf conf) {
 
 }
 
-void d_playback_seek(d_playback *pb, float time) {
+void d_playback_seek(d_playback* pb, float time) {
 	pb->pos = clampi(time * D_SAMPLE_RATE, 0, pb->src->num_frames - 1);
 }
 
-float d_playback_time(d_playback *pb) {
+float d_playback_time(d_playback* pb) {
 	return (float)pb->pos / (float)D_SAMPLE_RATE;
 }
 
@@ -507,7 +507,7 @@ void d_synth_release(int note) {
 	d_audio.synth.notes[note].active = false;
 }
 
-void d_voice_process(d_voice *v, d_envelope *e, float dt) {
+void d_voice_process(d_voice* v, d_envelope* e, float dt) {
 
 	if (!v->alive) {
 		return;
@@ -555,7 +555,7 @@ void d_voice_process(d_voice *v, d_envelope *e, float dt) {
 
 float d_synth_next() {
 
-	d_synth *synth = &d_audio.synth;
+	d_synth* synth = &d_audio.synth;
 	float frame = 0.0;
 	float dt = 1.0 / (float)synth->sample_rate;
 
@@ -563,7 +563,7 @@ float d_synth_next() {
 
 	for (int i = 0; i < D_SYNTH_NOTES; i++) {
 
-		d_voice *v = &synth->notes[i];
+		d_voice* v = &synth->notes[i];
 
 		d_voice_process(v, &synth->envelope, dt);
 
@@ -590,7 +590,7 @@ float d_synth_next() {
 }
 
 float d_synth_peek(int n) {
-	d_synth *synth = &d_audio.synth;
+	d_synth* synth = &d_audio.synth;
 	if (synth->buf_size == 0) {
 		return 0.0;
 	}
@@ -601,7 +601,7 @@ float d_synth_peek(int n) {
 	return synth->buf[idx];
 }
 
-d_envelope *d_synth_envelope() {
+d_envelope* d_synth_envelope() {
 	return &d_audio.synth.envelope;
 }
 

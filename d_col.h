@@ -25,7 +25,7 @@ bool d_col_line_circle(line2 l, circle c);
 #ifndef D_COL_IMPL_ONCE
 #define D_COL_IMPL_ONCE
 
-static void fix_rect(rect *r) {
+static void fix_rect(rect* r) {
 	vec2 pp1 = vec2_min(r->p1, r->p2);
 	vec2 pp2 = vec2_max(r->p1, r->p2);
 	r->p1 = pp1;

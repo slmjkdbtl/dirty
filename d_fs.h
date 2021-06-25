@@ -14,34 +14,34 @@
 #include <stdlib.h>
 
 typedef struct {
-	char *path;
-	char *data_org;
-	char *data_name;
+	char* path;
+	char* data_org;
+	char* data_name;
 } d_fs_desc;
 
 typedef uint64_t d_fs_task;
 
 void d_fs_init(d_fs_desc);
-char *d_read_text(char *path);
-uint8_t *d_read_bytes(char *path, size_t *size);
+char* d_read_text(char* path);
+uint8_t* d_read_bytes(char* path, size_t* size);
 #ifdef D_FS_ASYNC
-d_fs_task d_read_text_async(char *path);
-d_fs_task d_read_bytes_async(char *path, size_t *size);
+d_fs_task d_read_text_async(char* path);
+d_fs_task d_read_bytes_async(char* path, size_t* size);
 #endif
-char **d_glob(char *path, char *ext);
-void d_free_dir(char **list);
-bool d_is_file(char *path);
-bool d_is_dir(char *path);
+char** d_glob(char* path, char* ext);
+void d_free_dir(char** list);
+bool d_is_file(char* path);
+bool d_is_dir(char* path);
 
-char *d_data_read_text(char *path);
-uint8_t *d_data_read_bytes(char *path, size_t *size);
-void d_data_write_text(char *path, char *content);
-void d_data_write_bytes(char *path, uint8_t *content, size_t size);
-bool d_data_is_file(char *path);
-bool d_data_is_dir(char *path);
+char* d_data_read_text(char* path);
+uint8_t* d_data_read_bytes(char* path, size_t* size);
+void d_data_write_text(char* path, char* content);
+void d_data_write_bytes(char* path, uint8_t* content, size_t size);
+bool d_data_is_file(char* path);
+bool d_data_is_dir(char* path);
 
-char *d_extname(char *path);
-char *d_basename(char *path);
+char* d_extname(char* path);
+char* d_basename(char* path);
 
 #endif
 
@@ -61,7 +61,7 @@ char *d_basename(char *path);
 
 #ifdef D_FS_ASYNC
 #include <pthread.h>
-static void *d_fs_thread(void *args);
+static void* d_fs_thread(void* args);
 #endif
 
 #if defined(D_MACOS) || defined(D_IOS)
@@ -85,7 +85,7 @@ void d_fs_init(d_fs_desc desc) {
 	} else {
 #if defined(D_MACOS) || defined(D_IOS)
 		@autoreleasepool {
-			const char *res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
+			const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
 			sprintf(d_fs.res_path, "%s/", res_path);
 		}
 #elif defined(D_WINDOWS)
@@ -95,14 +95,14 @@ void d_fs_init(d_fs_desc desc) {
 
 	if (desc.data_org && desc.data_name) {
 #if defined(D_MACOS) || defined(D_IOS)
-		char *home = getenv("HOME");
+		char* home = getenv("HOME");
 		if (home) {
 			sprintf(d_fs.data_path, "%s/Library/Application Support", home);
 		}
 #elif defined(D_WINDOWS)
 #elif defined(D_LINUX)
-		char *home = getenv("HOME");
-		char *xdg_data = getenv("XDG_DATA_HOME");
+		char* home = getenv("HOME");
+		char* xdg_data = getenv("XDG_DATA_HOME");
 		if (xdg_data) {
 			sprintf(d_fs.data_path, "%s", xdg_data);
 		} else if (home) {
@@ -128,7 +128,7 @@ void d_fs_init(d_fs_desc desc) {
 
 }
 
-static char *fmt(char *fmt, ...) {
+static char* fmt(char* fmt, ...) {
 
 	static char buf[D_PATH_MAX];
 	va_list args;
@@ -141,9 +141,9 @@ static char *fmt(char *fmt, ...) {
 
 }
 
-static char *read_text(char *path) {
+static char* read_text(char* path) {
 
-	FILE *file = fopen(path, "r");
+	FILE* file = fopen(path, "r");
 
 	if (!file) {
 		return NULL;
@@ -153,7 +153,7 @@ static char *read_text(char *path) {
 	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	char *buffer = malloc(size + 1);
+	char* buffer = malloc(size + 1);
 	size_t r_size = fread(buffer, 1, size, file);
 
 	buffer[size] = '\0';
@@ -169,9 +169,9 @@ static char *read_text(char *path) {
 
 }
 
-static uint8_t *read_bytes(char *path, size_t *osize) {
+static uint8_t* read_bytes(char* path, size_t* osize) {
 
-	FILE *file = fopen(path, "rb");
+	FILE* file = fopen(path, "rb");
 
 	if (!file) {
 		return NULL;
@@ -181,7 +181,7 @@ static uint8_t *read_bytes(char *path, size_t *osize) {
 	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	uint8_t *buffer = malloc(size);
+	uint8_t* buffer = malloc(size);
 	size_t r_size = fread(buffer, 1, size, file);
 
 	if (r_size != size) {
@@ -199,9 +199,9 @@ static uint8_t *read_bytes(char *path, size_t *osize) {
 
 }
 
-static bool write_text(char *path, char *text) {
+static bool write_text(char* path, char* text) {
 
-	FILE *file = fopen(path, "w");
+	FILE* file = fopen(path, "w");
 
 	if (!file) {
 		fprintf(stderr, "failed to write: '%s'\n", path);
@@ -222,9 +222,9 @@ static bool write_text(char *path, char *text) {
 
 }
 
-static bool write_bytes(char *path, uint8_t *data, size_t size) {
+static bool write_bytes(char* path, uint8_t* data, size_t size) {
 
-	FILE *file = fopen(path, "wb");
+	FILE* file = fopen(path, "wb");
 
 	if (!file) {
 		fprintf(stderr, "failed to write: '%s'\n", path);
@@ -244,29 +244,29 @@ static bool write_bytes(char *path, uint8_t *data, size_t size) {
 
 }
 
-static bool is_file(char *path) {
+static bool is_file(char* path) {
 	struct stat sb;
 	return stat(path, &sb) == 0 && S_ISREG(sb.st_mode);
 }
 
-static bool is_dir(char *path) {
+static bool is_dir(char* path) {
 	struct stat sb;
 	return stat(path, &sb) == 0 && S_ISDIR(sb.st_mode);
 }
 
-static char **glob(char *path, char *ext) {
+static char** glob(char* path, char* ext) {
 
-	DIR *dir = opendir(path);
+	DIR* dir = opendir(path);
 
 	if (!dir) {
 		return NULL;
 	}
 
-	struct dirent *entry;
+	struct dirent* entry;
 	int num = 0;
 
 	while ((entry = readdir(dir))) {
-		char *aext = d_extname(entry->d_name);
+		char* aext = d_extname(entry->d_name);
 		if (strcmp(ext, aext) == 0) {
 			num++;
 		}
@@ -274,11 +274,11 @@ static char **glob(char *path, char *ext) {
 	}
 
 	rewinddir(dir);
-	char **list = malloc(sizeof(char*) * (num + 1));
+	char** list = malloc(sizeof(char*) * (num + 1));
 	num = 0;
 
 	while ((entry = readdir(dir))) {
-		char *aext = d_extname(entry->d_name);
+		char* aext = d_extname(entry->d_name);
 		if (strcmp(ext, aext) == 0) {
 			list[num] = malloc(strlen(entry->d_name) + 1);
 			strcpy(list[num], entry->d_name);
@@ -294,75 +294,75 @@ static char **glob(char *path, char *ext) {
 
 }
 
-void d_free_dir(char **list) {
+void d_free_dir(char** list) {
 	for (int i = 0; list[i] != NULL; i++) {
 		free(list[i]);
 	}
 	free(list);
 }
 
-char *d_read_text(char *path) {
+char* d_read_text(char* path) {
 	return read_text(fmt("%s%s", d_fs.res_path, path));
 }
 
-uint8_t *d_read_bytes(char *path, size_t *size) {
+uint8_t* d_read_bytes(char* path, size_t* size) {
 	return read_bytes(fmt("%s%s", d_fs.res_path, path), size);
 }
 
-char **d_glob(char *path, char *ext) {
+char** d_glob(char* path, char* ext) {
 	return glob(fmt("%s%s", d_fs.res_path, path), ext);
 }
 
-bool d_is_file(char *path) {
+bool d_is_file(char* path) {
 	return is_file(fmt("%s%s", d_fs.res_path, path));
 }
 
-bool d_is_dir(char *path) {
+bool d_is_dir(char* path) {
 	return is_dir(fmt("%s%s", d_fs.res_path, path));
 }
 
-char *d_data_read_text(char *path) {
+char* d_data_read_text(char* path) {
 	return read_text(fmt("%s%s", d_fs.data_path, path));
 }
 
-uint8_t *d_data_read_bytes(char *path, size_t *size) {
+uint8_t* d_data_read_bytes(char* path, size_t* size) {
 	return read_bytes(fmt("%s%s", d_fs.data_path, path), size);
 }
 
-bool d_data_is_file(char *path) {
+bool d_data_is_file(char* path) {
 	return is_file(fmt("%s%s", d_fs.data_path, path));
 }
 
-bool d_data_is_dir(char *path) {
+bool d_data_is_dir(char* path) {
 	return is_dir(fmt("%s%s", d_fs.data_path, path));
 }
 
 // TODO: recursive mkdir?
-void d_data_write_text(char *path, char *content) {
+void d_data_write_text(char* path, char* content) {
 	write_text(fmt("%s%s", d_fs.data_path, path), content);
 }
 
-void d_data_write_bytes(char *path, uint8_t *content, size_t size) {
+void d_data_write_bytes(char* path, uint8_t* content, size_t size) {
 	write_bytes(fmt("%s%s", d_fs.data_path, path), content, size);
 }
 
-char *d_extname(char *path) {
-	char *dot = strrchr(path, '.');
+char* d_extname(char* path) {
+	char* dot = strrchr(path, '.');
 	if (!dot) {
 		return NULL;
 	}
-	char *buf = malloc(strlen(dot + 1) + 1);
+	char* buf = malloc(strlen(dot + 1) + 1);
 	strcpy(buf, dot + 1);
 	return buf;
 }
 
-char *d_basename(char *path) {
-	char *dot = strrchr(path, '.');
-	char *slash = strrchr(path, '/');
+char* d_basename(char* path) {
+	char* dot = strrchr(path, '.');
+	char* slash = strrchr(path, '/');
 	dot = dot ? dot : path + strlen(path);
 	slash = slash ? slash + 1 : path;
 	int len = dot - slash;
-	char *buf = malloc(len + 1);
+	char* buf = malloc(len + 1);
 	strncpy(buf, slash, len);
 	buf[len] = '\0';
 	return buf;
@@ -370,18 +370,18 @@ char *d_basename(char *path) {
 
 #ifdef D_FS_ASYNC
 
-d_fs_task d_read_text_async(char *path) {
+d_fs_task d_read_text_async(char* path) {
 	d_fs_task id = d_fs.last_task_id++;
 	// TODO
 	return id;
 }
 
-void *d_fs_aynsc_get(d_fs_task id) {
+void* d_fs_aynsc_get(d_fs_task id) {
 	// TODO
 	return NULL;
 }
 
-static void *d_fs_thread(void *args) {
+static void* d_fs_thread(void* args) {
 	// TODO
 	return NULL;
 }

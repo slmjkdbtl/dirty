@@ -43,19 +43,19 @@ typedef enum {
 typedef struct {
 	int width;
 	int height;
-	color *pixels;
+	color* pixels;
 } d_img;
 
 typedef struct {
 	int width;
 	int height;
-	int *buf;
+	int* buf;
 } d_ibuf;
 
 typedef struct {
 	int width;
 	int height;
-	bool *buf;
+	bool* buf;
 } d_bbuf;
 
 typedef struct {
@@ -64,7 +64,7 @@ typedef struct {
 	int rows;
 	int cols;
 	int map[128];
-	uint8_t *pixels;
+	uint8_t* pixels;
 } d_font;
 
 typedef struct {
@@ -77,9 +77,9 @@ typedef struct {
 typedef uint32_t d_index;
 
 typedef struct {
-	d_vertex *verts;
+	d_vertex* verts;
 	int num_verts;
-	d_index *indices;
+	d_index* indices;
 	int num_indices;
 } d_mesh;
 
@@ -95,25 +95,25 @@ typedef struct {
 } d_model_anim_frame;
 
 typedef struct {
-	char *name;
-	d_model_anim_frame *frames;
+	char* name;
+	d_model_anim_frame* frames;
 	int num_frames;
 } d_model_anim;
 
 typedef struct d_model_node {
 	mat4 t;
-	struct d_model_node *children;
+	struct d_model_node* children;
 	int num_children;
-	d_mesh *meshes;
+	d_mesh* meshes;
 	int num_meshes;
-	d_model_anim *anims;
+	d_model_anim* anims;
 	int num_anims;
 } d_model_node;
 
 typedef struct {
-	d_model_node *nodes;
+	d_model_node* nodes;
 	int num_nodes;
-	d_img *images;
+	d_img* images;
 	int num_images;
 	box bbox;
 	vec3 center;
@@ -132,49 +132,49 @@ int d_gfx_width();
 int d_gfx_height();
 
 d_img d_img_new(int w, int h);
-d_img d_img_parse(uint8_t *bytes, size_t size);
+d_img d_img_parse(uint8_t* bytes, size_t size);
 #ifdef D_FS_H
-d_img d_img_load(char *path);
+d_img d_img_load(char* path);
 #endif
-void d_img_set(d_img *img, int x, int y, color c);
-color d_img_get(d_img *img, int x, int y);
-void d_img_fill(d_img *img, color c);
-void d_img_save(d_img *img, char *path);
-d_img d_img_clone(d_img *img);
-void d_img_free(d_img *img);
+void d_img_set(d_img* img, int x, int y, color c);
+color d_img_get(d_img* img, int x, int y);
+void d_img_fill(d_img* img, color c);
+void d_img_save(d_img* img, char* path);
+d_img d_img_clone(d_img* img);
+void d_img_free(d_img* img);
 
 d_ibuf d_ibuf_new(int w, int h);
 void d_ibuf_free(d_ibuf*);
-void d_ibuf_set(d_ibuf *ibuf, int x, int y, int v);
-int d_ibuf_get(d_ibuf *ibuf, int x, int y);
-void d_ibuf_clear(d_ibuf *ibuf, int v);
+void d_ibuf_set(d_ibuf* ibuf, int x, int y, int v);
+int d_ibuf_get(d_ibuf* ibuf, int x, int y);
+void d_ibuf_clear(d_ibuf* ibuf, int v);
 
 d_bbuf d_bbuf_new(int w, int h);
 void d_bbuf_free(d_bbuf*);
-void d_bbuf_set(d_bbuf *bbuf, int x, int y, bool v);
-bool d_bbuf_get(d_bbuf *bbuf, int x, int y);
+void d_bbuf_set(d_bbuf* bbuf, int x, int y, bool v);
+bool d_bbuf_get(d_bbuf* bbuf, int x, int y);
 
 d_mesh d_mesh_new(
-	d_vertex *verts,
+	d_vertex* verts,
 	int num_verts,
-	d_index *indices,
+	d_index* indices,
 	int num_indices
 );
-void d_mesh_free(d_mesh *mesh);
-void d_mesh_gen_normals(d_mesh *mesh);
+void d_mesh_free(d_mesh* mesh);
+void d_mesh_gen_normals(d_mesh* mesh);
 
-d_font d_font_parse(uint8_t *bytes);
+d_font d_font_parse(uint8_t* bytes);
 #ifdef D_FS_H
-d_font d_font_load(char *path);
+d_font d_font_load(char* path);
 #endif
-void d_font_free(d_font *font);
+void d_font_free(d_font* font);
 
-d_model d_model_parse(uint8_t *bytes, int size);
+d_model d_model_parse(uint8_t* bytes, int size);
 #ifdef D_FS_H
-d_model d_model_load(char *path);
+d_model d_model_load(char* path);
 #endif
-void d_model_gen_bbox(d_model *model);
-void d_model_free(d_model *model);
+void d_model_gen_bbox(d_model* model);
+void d_model_free(d_model* model);
 
 void d_gfx_clear();
 void d_gfx_set_blend(d_blend b);
@@ -182,21 +182,21 @@ void d_gfx_set_wrap(d_wrap w);
 void d_gfx_draw_pixel(int x, int y, int z, color c);
 void d_gfx_blit_pixel(int x, int y, color c);
 color d_gfx_get(int x, int y);
-void d_blit_img(d_img *img, vec2 pos);
-void d_blit_text(char *text, vec2 pos, color c);
+void d_blit_img(d_img* img, vec2 pos);
+void d_blit_text(char* text, vec2 pos, color c);
 void d_blit_bg();
 void d_blit_rect(vec2 p1, vec2 p2, color c);
 void d_blit_circle(vec2 center, float r, color c);
 void d_blit_line(vec2 p1, vec2 p2, color c);
-void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img *tex);
-void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img *tex);
-void d_draw_img(d_img *img, vec2 pos);
+void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img* tex);
+void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img* tex);
+void d_draw_img(d_img* img, vec2 pos);
 void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
 void d_draw_rect(vec2 p1, vec2 p2, color c);
 void d_draw_line(vec2 p1, vec2 p2, color c);
 void d_draw_line3(vec3 p1, vec3 p2, color c);
-void d_draw_mesh(d_mesh *mesh, d_img *tex);
-void d_draw_model(d_model *model);
+void d_draw_mesh(d_mesh* mesh, d_img* tex);
+void d_draw_model(d_model* model);
 void d_draw_bbox(box bbox, color c);
 void d_gfx_t_push();
 void d_gfx_t_pop();
@@ -210,8 +210,8 @@ void d_gfx_t_rot_y(float a);
 void d_gfx_t_rot_z(float a);
 vec2 d_gfx_t_apply_vec2(vec2 p);
 vec3 d_gfx_t_apply_vec3(vec3 p);
-void d_gfx_drawon(d_img *img);
-d_img *d_gfx_canvas();
+void d_gfx_drawon(d_img* img);
+d_img* d_gfx_canvas();
 void d_gfx_set_shader(d_gfx_shader func);
 void d_gfx_set_backface_cull(bool b);
 void d_gfx_set_depth_test(bool b);
@@ -759,7 +759,7 @@ static uint8_t unscii_bytes[] = {
 
 typedef struct {
 	d_img def_canvas;
-	d_img *cur_canvas;
+	d_img* cur_canvas;
 	d_ibuf depth_buf;
 	d_bbuf bbuf;
 	bool depth_test;
@@ -768,7 +768,7 @@ typedef struct {
 	bool bbuf_write;
 	bool bbuf_test;
 	d_font def_font;
-	d_font *cur_font;
+	d_font* cur_font;
 	color clear_color;
 	d_blend blend;
 	d_wrap wrap;
@@ -819,7 +819,7 @@ vec2 d_gfx_mouse_dpos() {
 }
 
 void d_gfx_present() {
-	d_img *c = d_gfx.cur_canvas;
+	d_img* c = d_gfx.cur_canvas;
 	d_app_present(c->width, c->height, c->pixels);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
 }
@@ -842,20 +842,20 @@ d_ibuf d_ibuf_new(int w, int h) {
 	};
 }
 
-void d_ibuf_free(d_ibuf *ibuf) {
+void d_ibuf_free(d_ibuf* ibuf) {
 	free(ibuf->buf);
 	memset(ibuf, 0, sizeof(d_ibuf));
 }
 
-void d_ibuf_set(d_ibuf *ibuf, int x, int y, int v) {
+void d_ibuf_set(d_ibuf* ibuf, int x, int y, int v) {
 	ibuf->buf[y * ibuf->width + x] = v;
 }
 
-int d_ibuf_get(d_ibuf *ibuf, int x, int y) {
+int d_ibuf_get(d_ibuf* ibuf, int x, int y) {
 	return ibuf->buf[y * ibuf->width + x];
 }
 
-void d_ibuf_clear(d_ibuf *ibuf, int v) {
+void d_ibuf_clear(d_ibuf* ibuf, int v) {
 	for (int i = 0; i < ibuf->width * ibuf->height; i++) {
 		ibuf->buf[i] = v;
 	}
@@ -869,20 +869,20 @@ d_bbuf d_bbuf_new(int w, int h) {
 	};
 }
 
-void d_bbuf_free(d_bbuf *bbuf) {
+void d_bbuf_free(d_bbuf* bbuf) {
 	free(bbuf->buf);
 	memset(bbuf, 0, sizeof(d_bbuf));
 }
 
-void d_bbuf_set(d_bbuf *bbuf, int x, int y, bool b) {
+void d_bbuf_set(d_bbuf* bbuf, int x, int y, bool b) {
 	bbuf->buf[y * bbuf->width + x] = b;
 }
 
-bool d_bbuf_get(d_bbuf *bbuf, int x, int y) {
+bool d_bbuf_get(d_bbuf* bbuf, int x, int y) {
 	return bbuf->buf[y * bbuf->width + x];
 }
 
-void d_bbuf_clear(d_bbuf *bbuf, bool b) {
+void d_bbuf_clear(d_bbuf* bbuf, bool b) {
 	for (int i = 0; i < bbuf->width * bbuf->height; i++) {
 		bbuf->buf[i] = b;
 	}
@@ -907,7 +907,7 @@ d_img d_img_empty() {
 static uint8_t png_magic[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
 static uint8_t jpeg_magic[] = { 0xff, 0xd8, 0xff };
 
-d_img d_img_parse(uint8_t *bytes, size_t size) {
+d_img d_img_parse(uint8_t* bytes, size_t size) {
 	if (
 		memcmp(bytes, png_magic, sizeof(png_magic)) == 0
 		|| memcmp(bytes, jpeg_magic, sizeof(jpeg_magic)) == 0
@@ -915,7 +915,7 @@ d_img d_img_parse(uint8_t *bytes, size_t size) {
 #ifdef STB_IMAGE_IMPLEMENTATION
 		int w;
 		int h;
-		uint8_t *pixels = stbi_load_from_memory(bytes, size, &w, &h, NULL, 4);
+		uint8_t* pixels = stbi_load_from_memory(bytes, size, &w, &h, NULL, 4);
 		return (d_img) {
 			.width = w,
 			.height = h,
@@ -932,9 +932,9 @@ d_img d_img_parse(uint8_t *bytes, size_t size) {
 }
 
 #ifdef D_FS_H
-d_img d_img_load(char *path) {
+d_img d_img_load(char* path) {
 	size_t size;
-	uint8_t *bytes = d_read_bytes(path, &size);
+	uint8_t* bytes = d_read_bytes(path, &size);
 	if (!bytes) {
 		fprintf(stderr, "failed to load img from '%s'\n", path);
 		return d_img_empty();
@@ -945,21 +945,21 @@ d_img d_img_load(char *path) {
 }
 #endif // #ifdef D_FS_H
 
-void d_img_set(d_img *img, int x, int y, color c) {
+void d_img_set(d_img* img, int x, int y, color c) {
 	img->pixels[y * img->width + x] = c;
 }
 
-color d_img_get(d_img *img, int x, int y) {
+color d_img_get(d_img* img, int x, int y) {
 	return img->pixels[y * img->width + x];
 }
 
-void d_img_fill(d_img *img, color c) {
+void d_img_fill(d_img* img, color c) {
 	for (int i = 0; i < img->width * img->height; i++) {
 		img->pixels[i] = c;
 	}
 }
 
-void d_img_save(d_img *img, char *path) {
+void d_img_save(d_img* img, char* path) {
 
 #ifdef STB_IMAGE_WRITE_IMPLEMENTATION
 	stbi_write_png(
@@ -976,7 +976,7 @@ void d_img_save(d_img *img, char *path) {
 
 }
 
-d_img d_img_clone(d_img *img) {
+d_img d_img_clone(d_img* img) {
 	int w = img->width;
 	int h = img->height;
 	d_img img2 = d_img_new(w, h);
@@ -984,7 +984,7 @@ d_img d_img_clone(d_img *img) {
 	return img2;
 }
 
-void d_img_free(d_img *img) {
+void d_img_free(d_img* img) {
 	free(img->pixels);
 	memset(img, 0, sizeof(d_img));
 }
@@ -1002,14 +1002,14 @@ typedef struct {
 	uint8_t cols;
 	uint8_t rows;
 	char chars[128];
-	uint8_t *pixels;
+	uint8_t* pixels;
 } d_fnt_bin;
 
-d_font d_font_parse(uint8_t *bytes) {
+d_font d_font_parse(uint8_t* bytes) {
 
-	d_fnt_bin *data = (d_fnt_bin*)bytes;
+	d_fnt_bin* data = (d_fnt_bin*)bytes;
 	int size = sizeof(uint8_t) * data->gw * data->gh * data->cols * data->rows;
-	uint8_t *pixels = malloc(size);
+	uint8_t* pixels = malloc(size);
 	memcpy(pixels, (uint8_t*)(bytes + D_FNT_HEADER_SIZE), size);
 
 	d_font f;
@@ -1042,9 +1042,9 @@ d_font d_font_empty() {
 }
 
 #ifdef D_FS_H
-d_font d_font_load(char *path) {
+d_font d_font_load(char* path) {
 	size_t size;
-	uint8_t *bytes = d_read_bytes(path, &size);
+	uint8_t* bytes = d_read_bytes(path, &size);
 	if (!bytes) {
 		fprintf(stderr, "failed to load font from '%s'\n", path);
 		return (d_font) {0};
@@ -1055,7 +1055,7 @@ d_font d_font_load(char *path) {
 }
 #endif // #ifdef D_FS_H
 
-void d_font_free(d_font *f) {
+void d_font_free(d_font* f) {
 	free(f->pixels);
 	memset(f, 0, sizeof(d_font));
 }
@@ -1090,7 +1090,7 @@ bool d_gfx_bbuf_get(int x, int y) {
 }
 
 void d_gfx_draw_pixel(int x, int y, int z, color c) {
-	d_img *img = d_gfx.cur_canvas;
+	d_img* img = d_gfx.cur_canvas;
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
@@ -1145,7 +1145,7 @@ void d_gfx_draw_pixel(int x, int y, int z, color c) {
 }
 
 void d_gfx_blit_pixel(int x, int y, color c) {
-	d_img *img = d_gfx.cur_canvas;
+	d_img* img = d_gfx.cur_canvas;
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
@@ -1155,7 +1155,7 @@ void d_gfx_blit_pixel(int x, int y, color c) {
 }
 
 color d_gfx_get(int x, int y) {
-	d_img *img = d_gfx.cur_canvas;
+	d_img* img = d_gfx.cur_canvas;
 	switch (d_gfx.wrap) {
 		case D_WRAP_BORDER:
 			if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
@@ -1176,7 +1176,7 @@ color d_gfx_get(int x, int y) {
 	}
 }
 
-void d_blit_img(d_img *img, vec2 pos) {
+void d_blit_img(d_img* img, vec2 pos) {
 	for (int x = 0; x < img->width; x++) {
 		for (int y = 0; y < img->height; y++) {
 			d_gfx_blit_pixel(
@@ -1224,10 +1224,10 @@ void d_blit_circle(vec2 center, float r, color c) {
 	}
 }
 
-void d_blit_text(char *text, vec2 pos, color c) {
+void d_blit_text(char* text, vec2 pos, color c) {
 
 	int num_chars = strlen(text);
-	d_font *font = &d_gfx.def_font;
+	d_font* font = &d_gfx.def_font;
 	int rw = font->gw * font->cols;
 	int ox = 0;
 
@@ -1290,7 +1290,7 @@ void d_blit_line(vec2 p1, vec2 p2, color c) {
 
 }
 
-void d_vertex_swap(d_vertex *v1, d_vertex *v2) {
+void d_vertex_swap(d_vertex* v1, d_vertex* v2) {
 	d_vertex v3 = *v2;
 	*v2 = *v1;
 	*v1 = v3;
@@ -1300,7 +1300,7 @@ void d_draw_prim_tri(
 	d_vertex v1,
 	d_vertex v2,
 	d_vertex v3,
-	d_img *tex
+	d_img* tex
 ) {
 
 	vec3 p1 = d_gfx_t_apply_vec3(v1.pos);
@@ -1429,13 +1429,13 @@ void d_draw_prim_quad(
 	d_vertex v2,
 	d_vertex v3,
 	d_vertex v4,
-	d_img *tex
+	d_img* tex
 ) {
 	d_draw_prim_tri(v1, v2, v3, tex);
 	d_draw_prim_tri(v1, v3, v4, tex);
 }
 
-void d_draw_img(d_img *img, vec2 pos) {
+void d_draw_img(d_img* img, vec2 pos) {
 	d_draw_prim_quad(
 		(d_vertex) {
 			.pos = vec3f(pos.x, pos.y, 0),
@@ -1612,7 +1612,7 @@ vec3 d_gfx_t_apply_vec3(vec3 p) {
 	return mat4_mult_vec3(d_gfx.t, p);
 }
 
-void d_draw_mesh(d_mesh *mesh, d_img *tex) {
+void d_draw_mesh(d_mesh* mesh, d_img* tex) {
 	for (int i = 0; i < mesh->num_indices; i += 3) {
 		d_draw_prim_tri(
 			mesh->verts[mesh->indices[i + 0]],
@@ -1623,7 +1623,7 @@ void d_draw_mesh(d_mesh *mesh, d_img *tex) {
 	}
 }
 
-void d_draw_mesh_line(d_mesh *mesh, color c) {
+void d_draw_mesh_line(d_mesh* mesh, color c) {
 	for (int i = 0; i < mesh->num_indices; i += 3) {
 		d_vertex v1 = mesh->verts[mesh->indices[i + 0]];
 		d_vertex v2 = mesh->verts[mesh->indices[i + 1]];
@@ -1652,11 +1652,11 @@ static d_transform d_transform_apply(d_transform t1, d_transform t2) {
 	};
 }
 
-static void d_draw_model_node(d_model *model, d_model_node *node) {
+static void d_draw_model_node(d_model* model, d_model_node* node) {
 	d_gfx_t_push();
 	// TODO
 	if (node->num_anims) {
-		d_model_anim *anim = &node->anims[0];
+		d_model_anim* anim = &node->anims[0];
 		d_gfx_t_use(anim->frames[(int)(d_app_time() * 60) % anim->num_frames].transform);
 	} else {
 		d_gfx_t_use(node->t);
@@ -1673,7 +1673,7 @@ static void d_draw_model_node(d_model *model, d_model_node *node) {
 	d_gfx_t_pop();
 }
 
-void d_draw_model(d_model *model) {
+void d_draw_model(d_model* model) {
 	d_gfx_t_push();
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_draw_model_node(model, &model->nodes[i]);
@@ -1681,7 +1681,7 @@ void d_draw_model(d_model *model) {
 	d_gfx_t_pop();
 }
 
-static void d_draw_model_node_line(d_model_node *node, color c) {
+static void d_draw_model_node_line(d_model_node* node, color c) {
 	d_gfx_t_push();
 	d_gfx_t_use(node->t);
 	for (int i = 0; i < node->num_meshes; i++) {
@@ -1693,7 +1693,7 @@ static void d_draw_model_node_line(d_model_node *node, color c) {
 	d_gfx_t_pop();
 }
 
-void d_draw_model_line(d_model *model, color c) {
+void d_draw_model_line(d_model* model, color c) {
 	d_gfx_t_push();
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_draw_model_node_line(&model->nodes[i], c);
@@ -1709,7 +1709,7 @@ void d_gfx_set_wrap(d_wrap w) {
 	d_gfx.wrap = w;
 }
 
-void d_gfx_drawon(d_img *img) {
+void d_gfx_drawon(d_img* img) {
 	if (img) {
 		d_gfx.cur_canvas = img;
 	} else {
@@ -1717,20 +1717,20 @@ void d_gfx_drawon(d_img *img) {
 	}
 }
 
-d_img *d_gfx_canvas() {
+d_img* d_gfx_canvas() {
 	return d_gfx.cur_canvas;
 }
 
-void d_mesh_gen_normals(d_mesh *mesh) {
+void d_mesh_gen_normals(d_mesh* mesh) {
 
 	for (int i = 0; i < mesh->num_verts; i++) {
 		mesh->verts[i].normal = vec3f(0, 0, 0);
 	}
 
 	for (int i = 0; i < mesh->num_indices; i += 3) {
-		d_vertex *v1 = &mesh->verts[mesh->indices[i + 0]];
-		d_vertex *v2 = &mesh->verts[mesh->indices[i + 1]];
-		d_vertex *v3 = &mesh->verts[mesh->indices[i + 2]];
+		d_vertex* v1 = &mesh->verts[mesh->indices[i + 0]];
+		d_vertex* v2 = &mesh->verts[mesh->indices[i + 1]];
+		d_vertex* v3 = &mesh->verts[mesh->indices[i + 2]];
 		vec3 n = vec3_cross(
 			vec3_sub(v3->pos, v1->pos),
 			vec3_sub(v2->pos, v1->pos)
@@ -1747,17 +1747,17 @@ void d_mesh_gen_normals(d_mesh *mesh) {
 }
 
 d_mesh d_mesh_new(
-	d_vertex *verts,
+	d_vertex* verts,
 	int num_verts,
-	d_index *indices,
+	d_index* indices,
 	int num_indices
 ) {
 
 	int verts_size = sizeof(d_vertex) * num_verts;
 	int indices_size = sizeof(d_index) * num_indices;
 
-	d_vertex *verts2 = malloc(verts_size);
-	d_index *indices2 = malloc(indices_size);
+	d_vertex* verts2 = malloc(verts_size);
+	d_index* indices2 = malloc(indices_size);
 
 	memcpy(verts2, verts, verts_size);
 	memcpy(indices2, indices, indices_size);
@@ -1771,19 +1771,19 @@ d_mesh d_mesh_new(
 
 }
 
-void d_mesh_free(d_mesh *mesh) {
+void d_mesh_free(d_mesh* mesh) {
 	free(mesh->verts);
 	free(mesh->indices);
 	memset(mesh, 0, sizeof(d_mesh));
 }
 
-static void d_free_model_anim(d_model_anim *anim) {
+static void d_free_model_anim(d_model_anim* anim) {
 	free(anim->frames);
 	free(anim->name);
 	memset(anim, 0, sizeof(d_model_anim));
 }
 
-static void d_free_model_node(d_model_node *node) {
+static void d_free_model_node(d_model_node* node) {
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_mesh_free(&node->meshes[i]);
 	}
@@ -1810,7 +1810,7 @@ static d_model d_model_empty() {
 	};
 }
 
-void d_free_model(d_model *model) {
+void d_free_model(d_model* model) {
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_free_model_node(&model->nodes[i]);
 	}
@@ -1846,15 +1846,15 @@ void d_draw_bbox(box bbox, color c) {
 }
 
 static void d_model_node_gen_bbox(
-	d_model_node *node,
-	box *bbox,
+	d_model_node* node,
+	box* bbox,
 	mat4 t
 ) {
 	t = mat4_mult(t, node->t);
 	for (int i = 0; i < node->num_meshes; i++) {
-		d_mesh *mesh = &node->meshes[i];
+		d_mesh* mesh = &node->meshes[i];
 		for (int j = 0; j < mesh->num_verts; j++) {
-			d_vertex *v = &mesh->verts[j];
+			d_vertex* v = &mesh->verts[j];
 			vec3 pos = mat4_mult_vec3(t, v->pos);
 			bbox->p1.x = fminf(pos.x, bbox->p1.x);
 			bbox->p1.y = fminf(pos.y, bbox->p1.y);
@@ -1869,7 +1869,7 @@ static void d_model_node_gen_bbox(
 	}
 }
 
-void d_model_gen_bbox(d_model *model) {
+void d_model_gen_bbox(d_model* model) {
 	box bbox = boxf(vec3f(0, 0, 0), vec3f(0, 0, 0));
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_model_node_gen_bbox(&model->nodes[i], &bbox, mat4u());
@@ -1878,7 +1878,7 @@ void d_model_gen_bbox(d_model *model) {
 	model->center = vec3_scale(vec3_add(bbox.p1, bbox.p2), 0.5);
 }
 
-static void d_assert(bool b, char *fmt, ...) {
+static void d_assert(bool b, char* fmt, ...) {
 	if (!b) {
 		va_list args;
 		va_start(args, fmt);
@@ -1891,10 +1891,10 @@ static void d_assert(bool b, char *fmt, ...) {
 #ifdef CGLTF_IMPLEMENTATION
 
 static void d_model_parse_node(
-	d_model *model,
-	d_model_node *node,
-	cgltf_node *cnode,
-	cgltf_data *doc
+	d_model* model,
+	d_model_node* node,
+	cgltf_node* cnode,
+	cgltf_data* doc
 ) {
 
 	memset(node, 0, sizeof(d_model_node));
@@ -1941,9 +1941,9 @@ static void d_model_parse_node(
 
 	for (int i = 0; i < num_meshes; i++) {
 
-		cgltf_primitive *prim = &cnode->mesh->primitives[i];
+		cgltf_primitive* prim = &cnode->mesh->primitives[i];
 		int num_verts = prim->attributes[0].data->count;
-		d_vertex *verts = calloc(num_verts, sizeof(d_vertex));
+		d_vertex* verts = calloc(num_verts, sizeof(d_vertex));
 
 		for (int j = 0; j < num_verts; j++) {
 			verts[j].color = colorx(0xffffffff);
@@ -1951,8 +1951,8 @@ static void d_model_parse_node(
 
 		for (int j = 0; j < prim->attributes_count; j++) {
 
-			cgltf_attribute *attr = &prim->attributes[j];
-			cgltf_accessor *acc = attr->data;
+			cgltf_attribute* attr = &prim->attributes[j];
+			cgltf_accessor* acc = attr->data;
 
 			d_assert(acc->count == num_verts, "bad gltf\n");
 
@@ -2022,7 +2022,7 @@ static void d_model_parse_node(
 
 		// TODO: some file have no indices
 		int num_indices = prim->indices->count;
-		d_index *indices = calloc(num_indices, sizeof(d_index));
+		d_index* indices = calloc(num_indices, sizeof(d_index));
 
 		for (int j = 0; j < prim->indices->count; j++) {
 			cgltf_accessor_read_uint(prim->indices, j, &indices[j], 1);
@@ -2044,13 +2044,13 @@ static void d_model_parse_node(
 
 	for (int i = 0; i < doc->animations_count; i++) {
 
-		cgltf_animation *canim = &doc->animations[i];
+		cgltf_animation* canim = &doc->animations[i];
 
 		// TODO: squash same anims
 		// TODO: UB around here?
 		for (int j = 0; j < canim->channels_count; j++) {
 
-			cgltf_animation_channel *chan = &canim->channels[j];
+			cgltf_animation_channel* chan = &canim->channels[j];
 
 			if (chan->target_node == cnode) {
 
@@ -2064,9 +2064,9 @@ static void d_model_parse_node(
 				anim.name = malloc(strlen(canim->name) + 1);
 				strcpy(anim.name, canim->name);
 
-				cgltf_animation_sampler *samp = chan->sampler;
-				cgltf_accessor *frames_acc = samp->output;
-				cgltf_accessor *time_acc = samp->input;
+				cgltf_animation_sampler* samp = chan->sampler;
+				cgltf_accessor* frames_acc = samp->output;
+				cgltf_accessor* time_acc = samp->input;
 
 				d_assert(
 					frames_acc->count == time_acc->count,
@@ -2154,11 +2154,11 @@ static void d_model_parse_node(
 
 }
 
-static d_model d_model_parse_glb(uint8_t *bytes, int size) {
+static d_model d_model_parse_glb(uint8_t* bytes, int size) {
 
 	cgltf_options options;
 	memset(&options, 0, sizeof(cgltf_options));
-	cgltf_data *doc = NULL;
+	cgltf_data* doc = NULL;
 	cgltf_result res = cgltf_parse(&options, bytes, size, &doc);
 	cgltf_load_buffers(&options, doc, NULL);
 
@@ -2174,9 +2174,9 @@ static d_model d_model_parse_glb(uint8_t *bytes, int size) {
 	model.images = malloc(sizeof(d_img) * num_textures);
 
 	for (int i = 0; i < num_textures; i++) {
-		cgltf_image *img = doc->textures[i].image;
-		cgltf_buffer_view *view = img->buffer_view;
-		uint8_t *data = view->buffer->data;
+		cgltf_image* img = doc->textures[i].image;
+		cgltf_buffer_view* view = img->buffer_view;
+		uint8_t* data = view->buffer->data;
 		model.images[i] = d_img_parse(data + view->offset, view->size);
 	}
 
@@ -2200,7 +2200,7 @@ static d_model d_model_parse_glb(uint8_t *bytes, int size) {
 
 static uint8_t glb_magic[] = { 0x67, 0x6c, 0x54, 0x46 };
 
-d_model d_model_parse(uint8_t *bytes, int size) {
+d_model d_model_parse(uint8_t* bytes, int size) {
 	if (memcmp(bytes, glb_magic, sizeof(glb_magic)) == 0) {
 #ifdef CGLTF_IMPLEMENTATION
 		return d_model_parse_glb(bytes, size);
@@ -2215,9 +2215,9 @@ d_model d_model_parse(uint8_t *bytes, int size) {
 }
 
 #ifdef D_FS_H
-d_model d_model_load(char *path) {
+d_model d_model_load(char* path) {
 	size_t size;
-	uint8_t *bytes = d_read_bytes(path, &size);
+	uint8_t* bytes = d_read_bytes(path, &size);
 	if (!bytes) {
 		fprintf(stderr, "failed to load model from '%s'\n", path);
 		return d_model_empty();

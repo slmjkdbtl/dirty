@@ -106,7 +106,7 @@ typedef struct {
 } ray2;
 
 d_rng d_rng_new(uint64_t seed);
-float d_rng_gen(d_rng *rng);
+float d_rng_gen(d_rng* rng);
 float randf(float, float);
 
 vec2 vec2f(float, float);
@@ -225,7 +225,7 @@ d_rng d_rng_new(uint64_t seed) {
 	};
 }
 
-float d_rng_gen(d_rng *rng) {
+float d_rng_gen(d_rng* rng) {
 	rng->seed = (D_RNG_A * rng->seed + D_RNG_C) % D_RNG_M;
 	return (float)(rng->seed) / (float)D_RNG_M;
 }
@@ -343,7 +343,7 @@ bool vec2_eq(vec2 p1, vec2 p2) {
 	return p1.x == p2.x && p1.y == p2.y;
 }
 
-void vec2_swap(vec2 *p1, vec2 *p2) {
+void vec2_swap(vec2* p1, vec2* p2) {
 	vec2 p3 = *p2;
 	*p2 = *p1;
 	*p1 = p3;
@@ -465,7 +465,7 @@ bool vec3_eq(vec3 p1, vec3 p2) {
 	return p1.x == p2.x && p1.y == p2.y && p1.z == p2.z;
 }
 
-void vec3_swap(vec3 *p1, vec3 *p2) {
+void vec3_swap(vec3* p1, vec3* p2) {
 	vec3 p3 = *p2;
 	*p2 = *p1;
 	*p1 = p3;
@@ -950,13 +950,13 @@ int mapi(int v, int l1, int h1, int l2, int h2) {
 	return l2 + (v - l1) * (h2 - l2) / (h1 - l1);
 }
 
-void swapi(int *a, int *b) {
+void swapi(int* a, int* b) {
 	int c = *a;
 	*a = *b;
 	*b = c;
 }
 
-void swapf(float *a, float *b) {
+void swapf(float* a, float* b) {
 	float c = *a;
 	*a = *b;
 	*b = c;

@@ -1241,7 +1241,12 @@ dt_str dt_vm_get_str(dt_vm* vm, int idx) {
 
 char* dt_vm_get_cstr(dt_vm* vm, int idx) {
 	dt_str str = dt_vm_get_str(vm, idx);
-	return strndup(str.chars, str.len);
+	return str.chars;
+}
+
+char* dt_vm_get_cstr_dup(dt_vm* vm, int idx) {
+	dt_str str = dt_vm_get_str(vm, idx);
+	return strdup(str.chars);
 }
 
 dt_map* dt_vm_get_map(dt_vm* vm, int idx) {

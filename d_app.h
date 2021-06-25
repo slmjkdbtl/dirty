@@ -123,20 +123,20 @@ typedef struct {
 	void (*init)();
 	void (*frame)();
 	void (*quit)();
-	char *title;
+	char* title;
 	int width;
 	int height;
 	bool fullscreen;
 	bool vsync;
 	bool hidpi;
-	char *canvas_root;
+	char* canvas_root;
 } d_app_desc;
 
 typedef uint8_t d_touch;
 
 void d_app_run(d_app_desc desc);
 void d_app_quit();
-void d_app_present(int w, int h, color *buf);
+void d_app_present(int w, int h, color* buf);
 
 bool d_app_fullscreen();
 void d_app_set_fullscreen(bool b);
@@ -147,7 +147,7 @@ void d_app_set_mouse_locked(bool b);
 bool d_app_mouse_hidden();
 void d_app_set_mouse_hidden(bool b);
 
-void d_app_set_title(char *title);
+void d_app_set_title(char* title);
 
 bool d_app_keyboard_shown();
 void d_app_set_keyboard_shown(bool b);
@@ -341,14 +341,14 @@ typedef struct {
 	d_scale_mode scale_mode;
 
 #if defined(D_COCOA)
-	NSWindow *window;
-	DView *view;
+	NSWindow* window;
+	DView* view;
 #elif defined(D_UIKIT)
-	UIWindow *window;
-	DView *view;
+	UIWindow* window;
+	DView* view;
 #elif defined(D_X11)
-	Display *display;
-	Visual *visual;
+	Display* display;
+	Visual* visual;
 	unsigned int depth;
 	GC gc;
 	Window window;
@@ -369,7 +369,7 @@ typedef struct {
 
 static d_app_ctx d_app;
 
-static void process_btn(d_btn_state *b) {
+static void process_btn(d_btn_state* b) {
 	if (*b == D_BTN_PRESSED || *b == D_BTN_RPRESSED) {
 		*b = D_BTN_DOWN;
 	} else if (*b == D_BTN_RELEASED) {
@@ -441,7 +441,7 @@ static float quad_verts[] = {
 	1, 1, 1, 0,
 };
 
-static char const *vs_src =
+static char const* vs_src =
 #ifndef D_GLES
 "#version 120\n"
 #endif
@@ -454,7 +454,7 @@ static char const *vs_src =
 "}"
 ;
 
-static const char *fs_src =
+static const char* fs_src =
 #ifndef D_GLES
 "#version 120\n"
 #else
@@ -534,7 +534,7 @@ static void d_gl_init() {
 
 }
 
-static void d_gl_present(int w, int h, color *buf) {
+static void d_gl_present(int w, int h, color* buf) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
 	glUseProgram(d_app.gl_prog);
@@ -588,7 +588,7 @@ static float quad_verts[] = {
 	1, 1, 1, 0,
 };
 
-static char *shader_src =
+static char* shader_src =
 "using namespace metal;"
 "struct VertexIn {"
 	"float2 pos;"
@@ -599,7 +599,7 @@ static char *shader_src =
 	"float2 uv;"
 "};"
 "vertex VertexOut vert("
-	"const device VertexIn *verts [[ buffer(0) ]],"
+	"const device VertexIn* verts [[ buffer(0) ]],"
 	"unsigned int id [[ vertex_id ]]"
 ") {"
 	"VertexIn in = verts[id];"
@@ -622,7 +622,7 @@ static void d_mtl_init() {
 	id<MTLDevice> dev = MTLCreateSystemDefaultDevice();
 	id<MTLCommandQueue> queue = [dev newCommandQueue];
 
-	NSError *err = NULL;
+	NSError* err = NULL;
 
 	id<MTLLibrary> lib = [dev
 		newLibraryWithSource:[NSString stringWithUTF8String:shader_src]
@@ -634,7 +634,7 @@ static void d_mtl_init() {
 		fprintf(stderr, "%s\n", [err.localizedDescription UTF8String]);
 	}
 
-	MTLRenderPipelineDescriptor *pip_desc = [[MTLRenderPipelineDescriptor alloc] init];
+	MTLRenderPipelineDescriptor* pip_desc = [[MTLRenderPipelineDescriptor alloc] init];
 	pip_desc.vertexFunction = [lib newFunctionWithName:@"vert"];
 	pip_desc.fragmentFunction = [lib newFunctionWithName:@"frag"];
 	pip_desc.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA8Unorm;
@@ -655,12 +655,12 @@ static void d_mtl_init() {
 
 }
 
-static void d_mtl_present(int w, int h, color *buf) {
+static void d_mtl_present(int w, int h, color* buf) {
 
 	id<MTLCommandBuffer> cmd_buf = [d_app.mtl_queue commandBuffer];
-	MTLRenderPassDescriptor *desc = [d_app.view currentRenderPassDescriptor];
+	MTLRenderPassDescriptor* desc = [d_app.view currentRenderPassDescriptor];
 
-	MTLTextureDescriptor *tex_desc = [MTLTextureDescriptor
+	MTLTextureDescriptor* tex_desc = [MTLTextureDescriptor
 		texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
 		width:w
 		height:h
@@ -804,7 +804,7 @@ static d_key d_cocoa_key(unsigned short k) {
 	return D_KEY_NONE;
 }
 
-void d_cocoa_present(int w, int h, color *buf) {
+void d_cocoa_present(int w, int h, color* buf) {
 
 	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
@@ -841,7 +841,7 @@ void d_cocoa_present(int w, int h, color *buf) {
 @implementation DAppDelegate
 - (void)applicationDidFinishLaunching:(NSNotification*)noti {
 
-	NSWindow *window = [[NSWindow alloc]
+	NSWindow* window = [[NSWindow alloc]
 		initWithContentRect:NSMakeRect(0, 0, d_app.width, d_app.height)
 		styleMask:
 			0
@@ -862,7 +862,7 @@ void d_cocoa_present(int w, int h, color *buf) {
 	[window setAcceptsMouseMovedEvents:YES];
 	[window center];
 	[window setDelegate:[[DWindowDelegate alloc] init]];
-	DView *view = [[DView alloc] init];
+	DView* view = [[DView alloc] init];
 	d_app.view = view;
 	[window setContentView:view];
 	[window makeFirstResponder:view];
@@ -870,7 +870,7 @@ void d_cocoa_present(int w, int h, color *buf) {
 
 #if defined(D_GL)
 
-	NSOpenGLContext *ctx = [view openGLContext];
+	NSOpenGLContext* ctx = [view openGLContext];
 
 	if (d_app.desc.hidpi) {
 		[view setWantsBestResolutionOpenGLSurface:YES];
@@ -981,7 +981,7 @@ void d_cocoa_present(int w, int h, color *buf) {
 }
 @end
 
-static void d_cocoa_run(d_app_desc *desc) {
+static void d_cocoa_run(d_app_desc* desc) {
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:[[DAppDelegate alloc] init]];
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
@@ -995,12 +995,12 @@ static void d_cocoa_run(d_app_desc *desc) {
 // UIKit
 #if defined(D_UIKIT)
 
-static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *event) {
+static void d_uikit_touch(d_btn_state state, NSSet<UITouch*>* tset, UIEvent* event) {
 
-	NSArray<UITouch*> *touches = [tset allObjects];
+	NSArray<UITouch*>* touches = [tset allObjects];
 
 	if ([touches count] == 1) {
-		UITouch *t = touches[0];
+		UITouch* t = touches[0];
 		CGPoint pos = [t locationInView:[t view]];
 		d_app.mouse_states[D_MOUSE_LEFT] = state;
 		d_app.mouse_pos = vec2f(
@@ -1009,7 +1009,7 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *eve
 		);
 	}
 
-	for (UITouch *touch in touches) {
+	for (UITouch* touch in touches) {
 		uintptr_t id = (uintptr_t)touch;
 		CGPoint cpos = [touch locationInView:[touch view]];
 		vec2 pos = vec2f(cpos.x, cpos.y);
@@ -1026,7 +1026,7 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *eve
 				break;
 			case D_BTN_DOWN:
 				for (int i = 0; i < d_app.num_touches; i++) {
-					d_touch_state *t = &d_app.touches[i];
+					d_touch_state* t = &d_app.touches[i];
 					if (t->id == id) {
 						t->dpos = vec2_sub(pos, t->pos);
 						t->pos = pos;
@@ -1035,7 +1035,7 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *eve
 				break;
 			case D_BTN_RELEASED:
 				for (int i = 0; i < d_app.num_touches; i++) {
-					d_touch_state *t = &d_app.touches[i];
+					d_touch_state* t = &d_app.touches[i];
 					if (t->id == id) {
 						t->state = D_BTN_RELEASED;
 					}
@@ -1048,7 +1048,7 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*> *tset, UIEvent *eve
 
 }
 
-void d_uikit_present(int w, int h, color *buf) {
+void d_uikit_present(int w, int h, color* buf) {
 
 	CGContextRef ctx = UIGraphicsGetCurrentContext();
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
@@ -1110,13 +1110,13 @@ void d_uikit_present(int w, int h, color *buf) {
 - (BOOL)application:(UIApplication*)app didFinishLaunchingWithOptions:(NSDictionary*)opt {
 
 	CGRect screen_rect = [[UIScreen mainScreen] bounds];
-	UIWindow *window = [[UIWindow alloc] initWithFrame:screen_rect];
+	UIWindow* window = [[UIWindow alloc] initWithFrame:screen_rect];
 	d_app.window = window;
 	d_app.width = screen_rect.size.width;
 	d_app.height = screen_rect.size.height;
 
-	UIViewController *view_ctrl = [[UIViewController alloc] init];
-	DView *view = [[DView alloc] init];
+	UIViewController* view_ctrl = [[UIViewController alloc] init];
+	DView* view = [[DView alloc] init];
 	d_app.view = view;
 	view_ctrl.view = view;
 	window.rootViewController = view_ctrl;
@@ -1146,7 +1146,7 @@ void d_uikit_present(int w, int h, color *buf) {
 }
 @end
 
-static void d_uikit_run(d_app_desc *desc) {
+static void d_uikit_run(d_app_desc* desc) {
 	UIApplicationMain(0, nil, nil, NSStringFromClass([DAppDelegate class]));
 }
 
@@ -1174,7 +1174,7 @@ static void d_term_cleanup() {
 	exit(EXIT_SUCCESS);
 }
 
-static d_key d_term_key(char *c, int size) {
+static d_key d_term_key(char* c, int size) {
 	switch (size) {
 		case 3:
 			switch (c[1]) {
@@ -1258,7 +1258,7 @@ static d_key d_term_key(char *c, int size) {
 	return D_KEY_NONE;
 }
 
-static void d_term_run(d_app_desc *desc) {
+static void d_term_run(d_app_desc* desc) {
 
 	// raw mode
 	struct termios attrs;
@@ -1300,7 +1300,7 @@ static void d_term_run(d_app_desc *desc) {
 
 }
 
-static void d_term_present(int w, int h, color *buf) {
+static void d_term_present(int w, int h, color* buf) {
 
 	// clear
 	printf("\x1b[3J");
@@ -1360,9 +1360,9 @@ static d_key d_x11_key(unsigned short k) {
 }
 
 // TODO: better way to scale?
-static void d_x11_present(int w, int h, color *buf) {
+static void d_x11_present(int w, int h, color* buf) {
 
-	color *buf2 = malloc(d_app.width * d_app.height * sizeof(color));
+	color* buf2 = malloc(d_app.width * d_app.height * sizeof(color));
 
 	for (int x = 0; x < d_app.width; x++) {
 		for (int y = 0; y < d_app.height; y++) {
@@ -1374,7 +1374,7 @@ static void d_x11_present(int w, int h, color *buf) {
 		}
 	}
 
-	XImage *ximg = XCreateImage(
+	XImage* ximg = XCreateImage(
 		d_app.display,
 		d_app.visual,
 		d_app.depth,
@@ -1402,12 +1402,12 @@ static void d_x11_present(int w, int h, color *buf) {
 
 }
 
-static void d_x11_run(d_app_desc *desc) {
+static void d_x11_run(d_app_desc* desc) {
 
-	Display *dis = XOpenDisplay(NULL);
+	Display* dis = XOpenDisplay(NULL);
 	d_app.display = dis;
 	int screen = XDefaultScreen(dis);
-	Visual *visual = XDefaultVisual(dis, screen);
+	Visual* visual = XDefaultVisual(dis, screen);
 	d_app.visual = visual;
 	unsigned int depth = XDefaultDepth(dis, screen);
 	d_app.depth = depth;
@@ -1466,7 +1466,7 @@ static void d_x11_run(d_app_desc *desc) {
 		None
 	};
 
-	XVisualInfo *glxvis = glXChooseVisual(dis, screen, glx_attrs);
+	XVisualInfo* glxvis = glXChooseVisual(dis, screen, glx_attrs);
 	GLXContext glx = glXCreateContext(dis, glxvis, NULL, GL_TRUE);
 	glXMakeCurrent(dis, window, glx);
 
@@ -1538,11 +1538,11 @@ static void d_x11_run(d_app_desc *desc) {
 // Web
 #if defined(D_CANVAS)
 
-static bool streq(char *s1, char *s2) {
+static bool streq(char* s1, char* s2) {
 	return strcmp(s1, s2) == 0;
 }
 
-static d_key d_web_key(char *k, int loc) {
+static d_key d_web_key(char* k, int loc) {
 
 	if      (streq(k, "a")) return D_KEY_A;
 	else if (streq(k, "b")) return D_KEY_B;
@@ -1642,7 +1642,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_set_mouse_pos(float x, float y) {
 	d_app.mouse_pos = vec2f(x, y);
 }
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(char *key, int loc, bool rep) {
+EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(char* key, int loc, bool rep) {
 	d_key k = d_web_key(key, loc);
 	if (!k) {
 		return;
@@ -1654,7 +1654,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(char *key, int loc, bool rep) {
 	}
 }
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_key_release(char *key, int loc) {
+EMSCRIPTEN_KEEPALIVE void d_cjs_key_release(char* key, int loc) {
 	d_key k = d_web_key(key, loc);
 	if (!k) {
 		return;
@@ -1690,11 +1690,11 @@ EM_JS(bool, d_js_fullscreen, (), {
 	return dirty.fullscreen;
 })
 
-EM_JS(bool, d_js_set_title, (char *title), {
+EM_JS(bool, d_js_set_title, (char* title), {
 	document.title = UTF8ToString(title);
 })
 
-EM_JS(void, d_js_canvas_init, (char *root, int w, int h), {
+EM_JS(void, d_js_canvas_init, (char* root, int w, int h), {
 
 	window.dirty = {};
 
@@ -1765,7 +1765,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame() {
 	d_app_frame();
 }
 
-EM_JS(void, d_canvas_present, (int w, int h, color *buf), {
+EM_JS(void, d_canvas_present, (int w, int h, color* buf), {
 
 	const canvas = dirty.canvas;
 	const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
@@ -1792,7 +1792,7 @@ EM_JS(void, d_js_run_loop, (), {
 
 })
 
-static void d_canvas_run(d_app_desc *desc) {
+static void d_canvas_run(d_app_desc* desc) {
 	d_js_canvas_init(desc->canvas_root, d_app.width, d_app.height);
 	d_app_init();
 	d_js_run_loop();
@@ -1881,7 +1881,7 @@ bool d_app_mouse_hidden() {
 	return false;
 }
 
-void d_app_set_title(char *title) {
+void d_app_set_title(char* title) {
 #if defined(D_COCOA)
 	@autoreleasepool {
 		[d_app.window setTitle:[NSString stringWithUTF8String:title]];
@@ -2039,7 +2039,7 @@ bool d_app_active() {
 	return true;
 }
 
-void d_app_present(int w, int h, color *buf) {
+void d_app_present(int w, int h, color* buf) {
 #if defined(D_GL)
 	d_gl_present(w, h, buf);
 #elif defined(D_METAL)
