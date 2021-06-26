@@ -2175,7 +2175,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_vm_push(
 								vm,
 								dt_val_strn(
-									iter.data.str.chars + (int)idx,
+									iter.data.str.chars + idx,
 									1
 								)
 							);
@@ -2183,22 +2183,18 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						}
 						break;
 					case DT_VAL_MAP:
-						// TODO
 						if (idx < iter.data.map->cap) {
-							int i = idx;
-							for (; i < iter.data.map->cap; i++) {
-								if (iter.data.map->entries[i]) {
-									idx = i;
-									break;
-								}
+							while (idx < iter.data.map->cap && !iter.data.map->entries[idx]) {
+								idx++;
 							}
-							if (i < iter.data.map->cap) {
-								dt_str key = iter.data.map->entries[(int)idx]->key;
+							if (idx < iter.data.map->cap) {
+								dt_str key = iter.data.map->entries[idx]->key;
 								dt_vm_pop(vm);
 								dt_vm_push(
 									vm,
 									dt_val_strn(key.chars, key.len)
 								);
+								(vm->stack_top - 2)->data.num = idx;
 								vm->ip -= dis;
 							}
 						}
