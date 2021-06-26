@@ -18,9 +18,10 @@
 // TODO: string interpolation
 // TODO: single ctx handle
 // TODO: string add
-// TODO: break loop
 // TODO: tail call opti
 // TODO: str " escape
+// TODO: loop / cond return val
+// TODO: switch
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -163,6 +164,7 @@ bool     dt_str_eq        (dt_str* a, dt_str* b);
 dt_val   dt_str_replace   (dt_val src, dt_val old, dt_val new);
 
 dt_arr*  dt_arr_new       ();
+dt_arr*  dt_arr_new_len   (int len);
 void     dt_arr_free      (dt_arr* arr);
 dt_val   dt_arr_get       (dt_arr* arr, int idx);
 void     dt_arr_set       (dt_arr* arr, int idx, dt_val val);
@@ -717,13 +719,16 @@ dt_val dt_str_replace(dt_val src, dt_val old, dt_val new) {
 	return dt_val_strn(chars, len);
 }
 
-// TODO: with cap
-dt_arr* dt_arr_new() {
+dt_arr* dt_arr_new_len(int len) {
 	dt_arr* arr = malloc(sizeof(dt_arr));
 	arr->len = 0;
-	arr->cap = DT_ARR_INIT_SIZE;
-	arr->values = malloc(DT_ARR_INIT_SIZE * sizeof(dt_val));
+	arr->cap = len > DT_ARR_INIT_SIZE ? len : DT_ARR_INIT_SIZE;
+	arr->values = malloc(arr->cap * sizeof(dt_val));
 	return arr;
+}
+
+dt_arr* dt_arr_new() {
+	return dt_arr_new_len(0);
 }
 
 void dt_arr_free(dt_arr* arr) {
@@ -773,7 +778,14 @@ void dt_arr_insert(dt_arr* arr, int idx, dt_val val) {
 		arr->values = realloc(arr->values, arr->cap * sizeof(dt_val));
 	}
 
-	// TODO: move & insert
+	arr->len++;
+
+	// TODO
+	for (int i = arr->len - 1; i > idx; i++) {
+		arr->values[i] = arr->values[i - 1];
+	}
+
+	arr->values[idx] = val;
 
 }
 
@@ -1486,7 +1498,11 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_vm_push(vm, dt_val_num(a.data.num + b.data.num));
 				} else if (a.type == DT_VAL_STR && b.type == DT_VAL_STR) {
 					dt_vm_push(vm, dt_str_concat(&a.data.str, &b.data.str));
-				// TODO: str + *
+				} else if (a.type == DT_VAL_STR || b.type == DT_VAL_STR) {
+					// TODO
+// 					dt_str a_str = dt_val_to_str(&a);
+// 					dt_str b_str = dt_val_to_str(&b);
+// 					dt_vm_push(vm, dt_str_concat(&a_str, &b_str));
 				} else {
 					dt_vm_err(
 						vm,
@@ -2035,10 +2051,25 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_MKARR: {
 				int len = *vm->ip++;
-				dt_arr* arr = dt_arr_new();
+				dt_arr* arr = dt_arr_new_len(len);
 				for (int i = 0; i < len; i++) {
-					dt_arr_set(arr, len - i - 1, dt_vm_pop(vm));
+					dt_val v = *(vm->stack_top - len + i);
+					if (v.type == DT_VAL_RANGE) {
+						dt_range r = v.data.range;
+						if (r.end >= r.start) {
+							for (int j = r.start; j < r.end; j++) {
+								dt_arr_push(arr, dt_val_num(j));
+							}
+						} else {
+							for (int j = r.start; j > r.end; j--) {
+								dt_arr_push(arr, dt_val_num(j));
+							}
+						}
+					} else {
+						dt_arr_push(arr, v);
+					}
 				}
+				vm->stack_top -= len;
 				dt_vm_push(vm, dt_val_arr(arr));
 				break;
 			}
@@ -2160,7 +2191,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_ITER: {
 				int dis = *vm->ip++ << 8 | *vm->ip++;
 				dt_val iter = dt_vm_get(vm, -2);
-				int idx = ++(vm->stack_top - 2)->data.num;
+				dt_val *n = vm->stack_top - 2;
+				int idx = ++n->data.num;
 				switch (iter.type) {
 					case DT_VAL_ARR:
 						if (idx < iter.data.arr->len) {
@@ -2194,7 +2226,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 									vm,
 									dt_val_strn(key.chars, key.len)
 								);
-								(vm->stack_top - 2)->data.num = idx;
+								n->data.num = idx;
 								vm->ip -= dis;
 							}
 						}
@@ -2278,6 +2310,10 @@ static char dt_scanner_nxt(dt_scanner* s) {
 	return s->cur[-1];
 }
 
+static char dt_scanner_skip(dt_scanner* s, int n) {
+	s->cur += n;
+}
+
 static char dt_scanner_peek(dt_scanner* s) {
 	return *s->cur;
 }
@@ -2312,17 +2348,13 @@ static void dt_scanner_skip_ws(dt_scanner* s) {
 				if (dt_scanner_peek_nxt(s) == '-') {
 					// TODO
 					if (dt_scanner_peek_nxt_nxt(s) == '-') {
-						dt_scanner_nxt(s);
-						dt_scanner_nxt(s);
-						dt_scanner_nxt(s);
+						dt_scanner_skip(s, 3);
 						for (;;) {
 							if (dt_scanner_peek(s) == '\n') {
 								s->line++;
 							}
 							if (strncmp(s->cur, "---", 3) == 0) {
-								dt_scanner_nxt(s);
-								dt_scanner_nxt(s);
-								dt_scanner_nxt(s);
+								dt_scanner_skip(s, 3);
 								break;
 							}
 							if (dt_scanner_ended(s)) {
@@ -2644,6 +2676,12 @@ static void dt_c_consume(dt_compiler* c, dt_token_ty ty) {
 	dt_c_nxt(c);
 }
 
+// TODO
+static void dt_c_this(dt_compiler* c) {
+	dt_c_consume(c, DT_TOKEN_AND);
+	dt_c_emit(c, DT_OP_NIL);
+}
+
 static void dt_c_num(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_NUM);
 	dt_val num = dt_val_num(strtof(c->parser.prev.start, NULL));
@@ -2864,9 +2902,8 @@ static int dt_c_block(dt_compiler* c, dt_scope_ty ty) {
 
 }
 
-static void dt_c_cond(dt_compiler* c) {
+static void dt_c_cond_inner(dt_compiler* c) {
 
-	dt_c_consume(c, DT_TOKEN_PERCENT);
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
@@ -2880,8 +2917,8 @@ static void dt_c_cond(dt_compiler* c) {
 		if_dis += 3;
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
 
-		if (c->parser.cur.type == DT_TOKEN_PERCENT) {
-			dt_c_cond(c);
+		if (c->parser.cur.type == DT_TOKEN_LPAREN) {
+			dt_c_cond_inner(c);
 		} else {
 			dt_c_block(c, DT_SCOPE_COND);
 		}
@@ -2898,6 +2935,11 @@ static void dt_c_cond(dt_compiler* c) {
 	c->env->chunk.code[if_start - 2] = if_dis >> 8;
 	c->env->chunk.code[if_start - 1] = if_dis & 0xff;
 
+}
+
+static void dt_c_cond(dt_compiler* c) {
+	dt_c_consume(c, DT_TOKEN_PERCENT);
+	dt_c_cond_inner(c);
 }
 
 // TODO: don't skip pop
@@ -3275,9 +3317,9 @@ static dt_parse_rule dt_rules[] = {
 	[DT_TOKEN_IDENT]         = { dt_c_ident, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_STR]           = { dt_c_str,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_NUM]           = { dt_c_num,   NULL,        DT_PREC_NONE },
-	[DT_TOKEN_AND]           = { NULL,       NULL,        DT_PREC_NONE },
+	[DT_TOKEN_AND]           = { dt_c_this,  NULL,        DT_PREC_NONE },
 	[DT_TOKEN_T]             = { dt_c_lit,   NULL,        DT_PREC_NONE },
-	[DT_TOKEN_F]         = { dt_c_lit,   NULL,        DT_PREC_NONE },
+	[DT_TOKEN_F]             = { dt_c_lit,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_QUESTION]      = { dt_c_lit,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_OR]            = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_ERR]           = { NULL,       NULL,        DT_PREC_NONE },

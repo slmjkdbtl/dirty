@@ -1,9 +1,9 @@
 $ a = 1
 % (a == 1) {
 	print("ohyes!")
-} | % (a == 11) {
+} | (a == 11) {
 	print("hmm...")
-} | % (a == 111) {
+} | (a == 111) {
 	print(fread("Makefile"))
 	print("wow...")
 } | {
