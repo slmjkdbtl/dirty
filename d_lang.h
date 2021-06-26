@@ -2149,6 +2149,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							"'%s' is not iterable\n",
 							dt_type_name(iter.type)
 						);
+						dt_vm_pop(vm);
 						vm->ip += dis;
 						break;
 				}
@@ -2158,50 +2159,42 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			// TODO: clean
 			case DT_OP_ITER: {
 				int dis = *vm->ip++ << 8 | *vm->ip++;
-				dt_vm_pop(vm);
-
-				dt_val n = dt_vm_pop(vm);
-				dt_val iter = dt_vm_get(vm, 0);
-				n.data.num++;
+				dt_val iter = dt_vm_get(vm, -2);
+				int idx = ++(vm->stack_top - 2)->data.num;
 				switch (iter.type) {
 					case DT_VAL_ARR:
-						if (n.data.num < iter.data.arr->len) {
-							dt_vm_push(vm, n);
-							dt_vm_push(vm, dt_arr_get(iter.data.arr, n.data.num));
-							vm->ip -= dis;
-						} else {
+						if (idx < iter.data.arr->len) {
 							dt_vm_pop(vm);
+							dt_vm_push(vm, dt_arr_get(iter.data.arr, idx));
+							vm->ip -= dis;
 						}
 						break;
 					case DT_VAL_STR:
-						if (n.data.num < iter.data.str.len) {
-							dt_vm_push(vm, n);
+						if (idx < iter.data.str.len) {
+							dt_vm_pop(vm);
 							dt_vm_push(
 								vm,
 								dt_val_strn(
-									iter.data.str.chars + (int)n.data.num,
+									iter.data.str.chars + (int)idx,
 									1
 								)
 							);
 							vm->ip -= dis;
-						} else {
-							dt_vm_pop(vm);
 						}
 						break;
 					case DT_VAL_MAP:
-						if (n.data.num >= iter.data.map->cap) {
-							dt_vm_pop(vm);
-						} else {
-							int i = n.data.num;
+						// TODO
+						if (idx < iter.data.map->cap) {
+							int i = idx;
 							for (; i < iter.data.map->cap; i++) {
 								if (iter.data.map->entries[i]) {
-									n.data.num = i;
+									idx = i;
 									break;
 								}
 							}
 							if (i < iter.data.map->cap) {
-								dt_str key = iter.data.map->entries[(int)n.data.num]->key;
-								dt_vm_push(vm, n);
+								dt_str key = iter.data.map->entries[(int)idx]->key;
+								dt_vm_pop(vm);
 								dt_vm_push(
 									vm,
 									dt_val_strn(key.chars, key.len)
@@ -2215,20 +2208,18 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						int end = iter.data.range.end;
 						bool done = false;
 						if (end < start) {
-							done = n.data.num >= start - end;
+							done = idx >= start - end;
 						} else {
-							done = n.data.num >= end - start;
+							done = idx >= end - start;
 						}
 						if (!done) {
-							dt_vm_push(vm, n);
+							dt_vm_pop(vm);
 							if (end < start) {
-								dt_vm_push(vm, dt_val_num(start - n.data.num));
+								dt_vm_push(vm, dt_val_num(start - idx));
 							} else {
-								dt_vm_push(vm, dt_val_num(start + n.data.num));
+								dt_vm_push(vm, dt_val_num(start + idx));
 							}
 							vm->ip -= dis;
-						} else {
-							dt_vm_pop(vm);
 						}
 						break;
 					}
@@ -2942,10 +2933,6 @@ static void dt_c_loop(dt_compiler* c) {
 		dt_c_emit_jmp(c, DT_OP_ITER, dis);
 		dt_c_patch_jmp(c, pos);
 
-		c->env->num_locals--;
-		c->env->num_locals--;
-		c->env->num_locals--;
-
 		for (int i = 0; i < c->env->num_jumpers; i++) {
 			dt_jumper j = c->env->jumpers[i];
 			if (j.depth == depth) {
@@ -2953,6 +2940,13 @@ static void dt_c_loop(dt_compiler* c) {
 				c->env->jumpers[i--] = c->env->jumpers[--c->env->num_jumpers];
 			}
 		}
+
+		c->env->num_locals--;
+		c->env->num_locals--;
+		c->env->num_locals--;
+		dt_c_emit(c, DT_OP_POP);
+		dt_c_emit(c, DT_OP_POP);
+		dt_c_emit(c, DT_OP_POP);
 
 	} else {
 
