@@ -19,9 +19,10 @@
 // TODO: single ctx handle
 // TODO: string add
 // TODO: tail call opti
-// TODO: str " escape
+// TODO: str escape
 // TODO: loop / cond return val
 // TODO: switch
+// TODO: allow simpler cond syntax
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -2310,7 +2311,7 @@ static char dt_scanner_nxt(dt_scanner* s) {
 	return s->cur[-1];
 }
 
-static char dt_scanner_skip(dt_scanner* s, int n) {
+static void dt_scanner_skip(dt_scanner* s, int n) {
 	s->cur += n;
 }
 
@@ -2387,11 +2388,24 @@ static bool dt_is_alpha(char c) {
 
 static dt_token dt_scanner_scan_str(dt_scanner* s) {
 
-	while (dt_scanner_peek(s) != '"' && !dt_scanner_ended(s)) {
-		if (dt_scanner_peek(s) == '\n') {
+	char last = dt_scanner_peek(s);
+
+	for (;;) {
+		if (dt_scanner_ended(s)) {
+			break;
+		}
+		char cur = dt_scanner_peek(s);
+		if (cur == '"') {
+			if (last == '\\') {
+				// TODO
+			} else {
+				break;
+			}
+		}
+		if (cur == '\n') {
 			s->line++;
 		}
-		dt_scanner_nxt(s);
+		last = dt_scanner_nxt(s);
 	}
 
 	if (dt_scanner_ended(s)) {
@@ -2854,8 +2868,8 @@ static void dt_c_decl(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_DOLLAR);
 	dt_c_consume(c, DT_TOKEN_IDENT);
 	dt_token namet = c->parser.prev;
-	dt_c_consume(c, DT_TOKEN_EQ);
 	dt_c_add_local(c, namet);
+	dt_c_consume(c, DT_TOKEN_EQ);
 	dt_c_expr(c);
 }
 
@@ -2902,6 +2916,7 @@ static int dt_c_block(dt_compiler* c, dt_scope_ty ty) {
 
 }
 
+// for parsing following cond without % only |
 static void dt_c_cond_inner(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_LPAREN);
@@ -2937,25 +2952,36 @@ static void dt_c_cond_inner(dt_compiler* c) {
 
 }
 
+// conditionals
+// % (<bool>) <block> | (<bool>)? <block>
 static void dt_c_cond(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_PERCENT);
 	dt_c_cond_inner(c);
+	dt_c_emit(c, DT_OP_NIL);
 }
 
-// TODO: don't skip pop
 static void dt_c_loop(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_AT);
 
 	if (dt_c_match(c, DT_TOKEN_LPAREN)) {
 
+		// list loop
+		// @ (<item> \ <iter>) <block>
+
+		// stack during this loop:
+		// [
+		//   ...
+		//   iter (internal)
+		//   idx (internal)
+		//   item (user)
+		//   ...
+		// ]
+
 		dt_c_consume(c, DT_TOKEN_IDENT);
 		dt_token namet = c->parser.prev;
-		// iter
 		dt_c_skip_local(c);
-		// i
 		dt_c_skip_local(c);
-		// item
 		dt_c_add_local(c, namet);
 		dt_c_consume(c, DT_TOKEN_BACKSLASH);
 		dt_c_expr(c);
@@ -2988,6 +3014,9 @@ static void dt_c_loop(dt_compiler* c) {
 
 	} else {
 
+		// infinite loop
+		// @ <block>
+
 		int start = c->env->chunk.cnt;
 		int depth = dt_c_block(c, DT_SCOPE_LOOP);
 		int dis = c->env->chunk.cnt - start + 3;
@@ -3007,6 +3036,8 @@ static void dt_c_loop(dt_compiler* c) {
 		}
 
 	}
+
+	dt_c_emit(c, DT_OP_NIL);
 
 }
 
@@ -3065,8 +3096,6 @@ static void dt_c_stmt(dt_compiler* c) {
 	switch (t) {
 		case DT_TOKEN_DOLLAR:     dt_c_decl(c); break;
 		case DT_TOKEN_LBRACE:     dt_c_block(c, DT_SCOPE_NORMAL); break;
-		case DT_TOKEN_PERCENT:    dt_c_cond(c); break;
-		case DT_TOKEN_AT:         dt_c_loop(c); break;
 		case DT_TOKEN_TILDE_GT:   dt_c_end_func(c); break;
 		case DT_TOKEN_AT_GT:      dt_c_end_loop(c); break;
 		case DT_TOKEN_AT_CARET:   dt_c_nxt_loop(c); break;
@@ -3232,6 +3261,12 @@ void dt_compiler_free(dt_compiler* c) {
 static void dt_c_func(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_TILDE);
+
+// 	if (dt_c_match(c, DT_TOKEN_IDENT)) {
+// 		dt_token namet = c->parser.prev;
+// 		dt_c_add_local(c, namet);
+// 	}
+
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 
 	dt_funcenv env = dt_funcenv_new();
@@ -3324,6 +3359,8 @@ static dt_parse_rule dt_rules[] = {
 	[DT_TOKEN_OR]            = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_ERR]           = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_END]           = { NULL,       NULL,        DT_PREC_NONE },
+	[DT_TOKEN_AT]            = { dt_c_loop,  NULL,        DT_PREC_NONE },
+	[DT_TOKEN_PERCENT]       = { dt_c_cond,  NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE]         = { dt_c_func,  NULL,        DT_PREC_NONE },
 };
 
