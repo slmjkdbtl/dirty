@@ -1,24 +1,24 @@
-$ uid = ~ (name) {
+$ uid = ~ () {
 	$ id = 0
-	~> ~ () {
+	~> ~ (): Num {
 		id += 1
 		~> id
 	}
 } ()
 
-$ vec2 = ~ (x, y) {
+$ vec2 = ~ (x: Num, y: Num): Vec2 {
 	~> {
 		id: uid(),
-		x: ~ () {
+		x: ~ (): Num {
 			~> x
 		},
-		y: ~ () {
+		y: ~ (): Num {
 			~> y
 		},
 		print: ~ () {
 			print(x, y)
 		},
-		add: ~ (p) {
+		add: ~ (p: Vec2): Vec2 {
 			~> vec2(x + p.x(), y + p.y())
 		},
 	}

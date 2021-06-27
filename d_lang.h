@@ -304,6 +304,7 @@ typedef enum {
 	DT_TOKEN_PERCENT, // %
 	DT_TOKEN_TILDE, // ~
 	DT_TOKEN_COLON, // :
+	DT_TOKEN_COLON_COLON, // ::
 	DT_TOKEN_QUESTION, // ?
 	DT_TOKEN_AND, // &
 	DT_TOKEN_OR, // |
@@ -369,6 +370,7 @@ typedef struct {
 	int line;
 } dt_scanner;
 
+// TODO: store type
 typedef struct {
 	dt_token name;
 	bool captured;
@@ -381,9 +383,9 @@ typedef struct {
 } dt_upval;
 
 typedef enum {
-	DT_SCOPE_NORMAL,
-	DT_SCOPE_LOOP,
-	DT_SCOPE_COND,
+	DT_BLOCK_NORMAL,
+	DT_BLOCK_LOOP,
+	DT_BLOCK_COND,
 } dt_scope_ty;
 
 typedef struct {
@@ -406,10 +408,38 @@ typedef struct dt_funcenv {
 } dt_funcenv;
 
 typedef struct {
+	char name[16];
+	int type;
+} dt_type_mem;
+
+typedef struct {
+	char name[16];
+	dt_type_mem members[16];
+	int num_members;
+} dt_typedef;
+
+typedef struct {
+	int ret;
+	int args[16];
+	int num_args;
+} dt_funcdef_inner;
+
+typedef struct {
+	char name[16];
+	dt_funcdef_inner styles[4];
+	int num_styles;
+} dt_funcdef;
+
+typedef struct {
 	dt_scanner scanner;
 	dt_parser parser;
 	dt_funcenv base_env;
-	dt_funcenv *env;
+	dt_funcenv* env;
+	// TODO: dynamic
+	dt_typedef types[UINT8_MAX];
+	int num_types;
+	dt_funcdef funcs[UINT8_MAX];
+	int num_funcs;
 } dt_compiler;
 
 typedef void (*dt_parse_fn)(dt_compiler* compiler);
@@ -455,6 +485,7 @@ char* dt_token_name(dt_token_ty ty) {
 		case DT_TOKEN_PERCENT: return "PERCENT";
 		case DT_TOKEN_TILDE: return "TILDE";
 		case DT_TOKEN_COLON: return "COLON";
+		case DT_TOKEN_COLON_COLON: return "COLON_COLON";
 		case DT_TOKEN_QUESTION: return "QUESTION";
 		case DT_TOKEN_AND: return "AND";
 		case DT_TOKEN_OR: return "OR";
@@ -2192,7 +2223,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_ITER: {
 				int dis = *vm->ip++ << 8 | *vm->ip++;
 				dt_val iter = dt_vm_get(vm, -2);
-				dt_val *n = vm->stack_top - 2;
+				dt_val* n = vm->stack_top - 2;
 				int idx = ++n->data.num;
 				switch (iter.type) {
 					case DT_VAL_ARR:
@@ -2494,9 +2525,12 @@ static dt_token dt_scanner_scan(dt_scanner* s) {
 		case '#': return dt_scanner_make_token(s, DT_TOKEN_HASH);
 		case '$': return dt_scanner_make_token(s, DT_TOKEN_DOLLAR);
 		case '\\': return dt_scanner_make_token(s, DT_TOKEN_BACKSLASH);
-		case ':': return dt_scanner_make_token(s, DT_TOKEN_COLON);
 		case '?': return dt_scanner_make_token(s, DT_TOKEN_QUESTION);
 		case '^': return dt_scanner_make_token(s, DT_TOKEN_CARET);
+		case ':':
+			return dt_scanner_make_token(s,
+				dt_scanner_match(s, ':') ? DT_TOKEN_COLON_COLON : DT_TOKEN_COLON
+			);
 		case '&':
 			return dt_scanner_make_token(s,
 				dt_scanner_match(s, '&') ? DT_TOKEN_AND_AND : DT_TOKEN_AND
@@ -2674,20 +2708,25 @@ static void dt_c_nxt(dt_compiler* c) {
 	}
 }
 
+static dt_token_ty dt_c_peek(dt_compiler* c) {
+	return c->parser.cur.type;
+}
+
 static bool dt_c_match(dt_compiler* c, dt_token_ty ty) {
-	if (c->parser.cur.type == ty) {
+	if (dt_c_peek(c) == ty) {
 		dt_c_nxt(c);
 		return true;
 	}
 	return false;
 }
 
-static void dt_c_consume(dt_compiler* c, dt_token_ty ty) {
-	if (c->parser.cur.type != ty) {
+static dt_token dt_c_consume(dt_compiler* c, dt_token_ty ty) {
+	if (dt_c_peek(c) != ty) {
 		dt_c_err(c, "expected token '%s'\n", dt_token_name(ty));
-		return;
+		return c->parser.cur;
 	}
 	dt_c_nxt(c);
+	return c->parser.prev;
 }
 
 // TODO
@@ -2728,7 +2767,7 @@ static void dt_c_arr(dt_compiler* c) {
 
 	int len = 0;
 
-	while (c->parser.cur.type != DT_TOKEN_RBRACKET) {
+	while (dt_c_peek(c) != DT_TOKEN_RBRACKET) {
 		dt_c_expr(c);
 		len++;
 		dt_c_match(c, DT_TOKEN_COMMA);
@@ -2745,10 +2784,9 @@ static void dt_c_map(dt_compiler* c) {
 
 	int len = 0;
 
-	while (c->parser.cur.type != DT_TOKEN_RBRACE) {
-		dt_c_consume(c, DT_TOKEN_IDENT);
-		dt_val name = dt_val_strn(c->parser.prev.start, c->parser.prev.len);
-		dt_c_push_const(c, name);
+	while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
+		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
+		dt_c_push_const(c, dt_val_strn(name.start, name.len));
 		dt_c_consume(c, DT_TOKEN_COLON);
 		dt_c_expr(c);
 		len++;
@@ -2864,11 +2902,50 @@ static void dt_c_skip_local(dt_compiler* c) {
 	l->captured = false;
 }
 
+// TODO: return sig
+static void dt_c_typesig(dt_compiler* c) {
+	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
+	if (dt_c_match(c, DT_TOKEN_LT)) {
+		while (dt_c_peek(c) != DT_TOKEN_GT) {
+			dt_token arg = dt_c_consume(c, DT_TOKEN_IDENT);
+			dt_c_match(c, DT_TOKEN_COMMA);
+		}
+		dt_c_consume(c, DT_TOKEN_GT);
+	}
+}
+
+// TODO
+static void dt_c_typedef(dt_compiler* c) {
+
+	dt_c_consume(c, DT_TOKEN_PLUS);
+	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
+
+	dt_c_consume(c, DT_TOKEN_LBRACE);
+
+	dt_typedef ty = {0};
+
+	strncpy(ty.name, name.start, name.len);
+
+	while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
+		dt_type_mem* mem = &ty.members[ty.num_members++];
+		dt_token memname = dt_c_consume(c, DT_TOKEN_IDENT);
+		dt_c_consume(c, DT_TOKEN_COLON);
+		dt_token memtype = dt_c_consume(c, DT_TOKEN_IDENT);
+		dt_c_match(c, DT_TOKEN_COMMA);
+		strncpy(mem->name, memname.start, memname.len);
+	}
+
+	dt_c_consume(c, DT_TOKEN_RBRACE);
+
+}
+
 static void dt_c_decl(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_DOLLAR);
-	dt_c_consume(c, DT_TOKEN_IDENT);
-	dt_token namet = c->parser.prev;
-	dt_c_add_local(c, namet);
+	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
+	dt_c_add_local(c, name);
+	if (dt_c_match(c, DT_TOKEN_COLON)) {
+		dt_c_typesig(c);
+	}
 	dt_c_consume(c, DT_TOKEN_EQ);
 	dt_c_expr(c);
 }
@@ -2905,7 +2982,7 @@ static int dt_c_block(dt_compiler* c, dt_scope_ty ty) {
 	dt_c_consume(c, DT_TOKEN_LBRACE);
 	dt_c_scope_begin(c, ty);
 
-	while (c->parser.cur.type != DT_TOKEN_RBRACE) {
+	while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
 		dt_c_stmt(c);
 	}
 
@@ -2923,7 +3000,7 @@ static void dt_c_cond_inner(dt_compiler* c) {
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
 	int if_start = dt_c_emit_jmp_empty(c, DT_OP_JMP_COND);
-	dt_c_block(c, DT_SCOPE_COND);
+	dt_c_block(c, DT_BLOCK_COND);
 	int if_dis = c->env->chunk.cnt - if_start;
 
 	if (dt_c_match(c, DT_TOKEN_OR)) {
@@ -2932,10 +3009,10 @@ static void dt_c_cond_inner(dt_compiler* c) {
 		if_dis += 3;
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
 
-		if (c->parser.cur.type == DT_TOKEN_LPAREN) {
+		if (dt_c_peek(c) == DT_TOKEN_LPAREN) {
 			dt_c_cond_inner(c);
 		} else {
-			dt_c_block(c, DT_SCOPE_COND);
+			dt_c_block(c, DT_BLOCK_COND);
 		}
 
 		dt_c_patch_jmp(c, pos);
@@ -2978,16 +3055,15 @@ static void dt_c_loop(dt_compiler* c) {
 		//   ...
 		// ]
 
-		dt_c_consume(c, DT_TOKEN_IDENT);
-		dt_token namet = c->parser.prev;
+		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 		dt_c_skip_local(c);
 		dt_c_skip_local(c);
-		dt_c_add_local(c, namet);
+		dt_c_add_local(c, name);
 		dt_c_consume(c, DT_TOKEN_BACKSLASH);
 		dt_c_expr(c);
 		dt_c_consume(c, DT_TOKEN_RPAREN);
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_ITER_PREP);
-		int depth = dt_c_block(c, DT_SCOPE_LOOP);
+		int depth = dt_c_block(c, DT_BLOCK_LOOP);
 		int dis = c->env->chunk.cnt - pos + 3;
 
 		if (dis >= UINT16_MAX) {
@@ -3018,7 +3094,7 @@ static void dt_c_loop(dt_compiler* c) {
 		// @ <block>
 
 		int start = c->env->chunk.cnt;
-		int depth = dt_c_block(c, DT_SCOPE_LOOP);
+		int depth = dt_c_block(c, DT_BLOCK_LOOP);
 		int dis = c->env->chunk.cnt - start + 3;
 
 		if (dis >= UINT16_MAX) {
@@ -3080,22 +3156,21 @@ static void dt_c_add_jumper(dt_compiler* c, dt_scope_ty ty, dt_op op) {
 
 static void dt_c_end_loop(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AT_GT);
-	dt_c_add_jumper(c, DT_SCOPE_LOOP, DT_OP_JMP);
+	dt_c_add_jumper(c, DT_BLOCK_LOOP, DT_OP_JMP);
 }
 
 // TODO
 static void dt_c_nxt_loop(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AT_CARET);
-	dt_c_add_jumper(c, DT_SCOPE_LOOP, DT_OP_JMP);
+	dt_c_add_jumper(c, DT_BLOCK_LOOP, DT_OP_JMP);
 }
 
 static void dt_c_stmt(dt_compiler* c) {
 
-	dt_token_ty t = c->parser.cur.type;
-
-	switch (t) {
+	switch (dt_c_peek(c)) {
+		case DT_TOKEN_PLUS:       dt_c_typedef(c); break;
 		case DT_TOKEN_DOLLAR:     dt_c_decl(c); break;
-		case DT_TOKEN_LBRACE:     dt_c_block(c, DT_SCOPE_NORMAL); break;
+		case DT_TOKEN_LBRACE:     dt_c_block(c, DT_BLOCK_NORMAL); break;
 		case DT_TOKEN_TILDE_GT:   dt_c_end_func(c); break;
 		case DT_TOKEN_AT_GT:      dt_c_end_loop(c); break;
 		case DT_TOKEN_AT_CARET:   dt_c_nxt_loop(c); break;
@@ -3114,9 +3189,8 @@ static void dt_c_index(dt_compiler* c) {
 }
 
 static void dt_c_index2(dt_compiler* c) {
-	dt_c_consume(c, DT_TOKEN_IDENT);
-	dt_val name = dt_val_strn(c->parser.prev.start, c->parser.prev.len);
-	dt_c_push_const(c, name);
+	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
+	dt_c_push_const(c, dt_val_strn(name.start, name.len));
 	dt_c_emit(c, DT_OP_INDEX);
 }
 
@@ -3124,7 +3198,7 @@ static void dt_c_call(dt_compiler* c) {
 
 	int nargs = 0;
 
-	while (c->parser.cur.type != DT_TOKEN_RPAREN) {
+	while (dt_c_peek(c) != DT_TOKEN_RPAREN) {
 		dt_c_expr(c);
 		nargs++;
 		dt_c_match(c, DT_TOKEN_COMMA);
@@ -3142,55 +3216,75 @@ static void dt_c_args(dt_compiler* c) {
 
 static void dt_c_ident(dt_compiler* c) {
 
-	dt_c_consume(c, DT_TOKEN_IDENT);
-	dt_op set_op;
-	dt_op get_op;
-	int idx;
+	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 
-	if ((idx = dt_c_find_local(c, &c->parser.prev)) != -1) {
-		get_op = DT_OP_GETL;
-		set_op = DT_OP_SETL;
-	} else if ((idx = dt_c_find_upval(c, &c->parser.prev)) != -1) {
-		get_op = DT_OP_GETU;
-		set_op = DT_OP_SETU;
-	} else {
-		get_op = DT_OP_GETG;
-		set_op = DT_OP_SETG;
-		dt_val name = dt_val_strn(c->parser.prev.start, c->parser.prev.len);
-		idx = dt_chunk_add_const(&c->env->chunk, name);
-	}
+	if (dt_c_match(c, DT_TOKEN_LBRACE)) {
 
-	// TODO: member assign
-	// assign
-	if (dt_c_match(c, DT_TOKEN_EQ)) {
+		// TODO
+		// typed init
 
-		dt_c_expr(c);
-		dt_c_emit2(c, set_op, idx);
+		while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
+			dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
+			dt_c_consume(c, DT_TOKEN_COLON);
+			dt_c_expr(c);
+			dt_c_match(c, DT_TOKEN_COMMA);
+		}
+
+		dt_c_consume(c, DT_TOKEN_RBRACE);
 
 	} else {
 
-		// get
-		dt_c_emit2(c, get_op, idx);
+		// variable
 
-		// TODO: check index assign
+		dt_op set_op;
+		dt_op get_op;
+		int idx;
 
-		// op assign
-		if (dt_c_match(c, DT_TOKEN_PLUS_EQ)) {
+		if ((idx = dt_c_find_local(c, &name)) != -1) {
+			get_op = DT_OP_GETL;
+			set_op = DT_OP_SETL;
+		} else if ((idx = dt_c_find_upval(c, &name)) != -1) {
+			get_op = DT_OP_GETU;
+			set_op = DT_OP_SETU;
+		} else {
+			get_op = DT_OP_GETG;
+			set_op = DT_OP_SETG;
+			idx = dt_chunk_add_const(&c->env->chunk, dt_val_strn(name.start, name.len));
+		}
+
+		// TODO: member assign
+		// assign
+		if (dt_c_match(c, DT_TOKEN_EQ)) {
+
 			dt_c_expr(c);
-			dt_c_emit(c, DT_OP_ADD);
 			dt_c_emit2(c, set_op, idx);
-		} else if (dt_c_match(c, DT_TOKEN_MINUS_EQ)) {
-			dt_c_expr(c);
-			dt_c_emit(c, DT_OP_SUB);
-			dt_c_emit2(c, set_op, idx);
-		} else if (dt_c_match(c, DT_TOKEN_STAR_EQ)) {
-			dt_c_expr(c);
-			dt_c_emit(c, DT_OP_MUL);
-			dt_c_emit2(c, set_op, idx);
-		} else if (dt_c_match(c, DT_TOKEN_SLASH_EQ)) {
-			dt_c_expr(c);
-			dt_c_emit(c, DT_OP_DIV);
-			dt_c_emit2(c, set_op, idx);
+
+		} else {
+
+			// get
+			dt_c_emit2(c, get_op, idx);
+
+			// TODO: check index assign
+
+			// op assign
+			if (dt_c_match(c, DT_TOKEN_PLUS_EQ)) {
+				dt_c_expr(c);
+				dt_c_emit(c, DT_OP_ADD);
+				dt_c_emit2(c, set_op, idx);
+			} else if (dt_c_match(c, DT_TOKEN_MINUS_EQ)) {
+				dt_c_expr(c);
+				dt_c_emit(c, DT_OP_SUB);
+				dt_c_emit2(c, set_op, idx);
+			} else if (dt_c_match(c, DT_TOKEN_STAR_EQ)) {
+				dt_c_expr(c);
+				dt_c_emit(c, DT_OP_MUL);
+				dt_c_emit2(c, set_op, idx);
+			} else if (dt_c_match(c, DT_TOKEN_SLASH_EQ)) {
+				dt_c_expr(c);
+				dt_c_emit(c, DT_OP_DIV);
+				dt_c_emit2(c, set_op, idx);
+			}
+
 		}
 
 	}
@@ -3242,18 +3336,26 @@ static void dt_funcenv_free(dt_funcenv* env) {
 	memset(env, 0, sizeof(dt_funcenv));
 }
 
-dt_compiler dt_compiler_new(char* code) {
+static dt_compiler dt_compiler_new(char* code) {
+
 	dt_compiler c = (dt_compiler) {
 		.scanner = dt_scanner_new(code),
 		.parser = {0},
 		.base_env = dt_funcenv_new(),
 		.env = NULL,
+		.types = {0},
+		.num_types = 0,
+		.funcs = {0},
+		.num_funcs = 0,
 	};
+
 	c.env = &c.base_env;
+
 	return c;
+
 }
 
-void dt_compiler_free(dt_compiler* c) {
+static void dt_compiler_free(dt_compiler* c) {
 	dt_funcenv_free(&c->base_env);
 	memset(c, 0, sizeof(dt_compiler));
 }
@@ -3262,10 +3364,16 @@ static void dt_c_func(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_TILDE);
 
-// 	if (dt_c_match(c, DT_TOKEN_IDENT)) {
-// 		dt_token namet = c->parser.prev;
+	if (dt_c_peek(c) == DT_TOKEN_IDENT) {
+		dt_token name1 = dt_c_consume(c, DT_TOKEN_IDENT);
+		if (dt_c_peek(c) == DT_TOKEN_IDENT) {
+			dt_token name2 = dt_c_consume(c, DT_TOKEN_IDENT);
+		} else {
+			// ...
+		}
+		// TODO
 // 		dt_c_add_local(c, namet);
-// 	}
+	}
 
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 
@@ -3277,22 +3385,31 @@ static void dt_c_func(dt_compiler* c) {
 
 	int nargs = 0;
 
-	while (c->parser.cur.type != DT_TOKEN_RPAREN) {
-		dt_c_consume(c, DT_TOKEN_IDENT);
-		dt_token namet = c->parser.prev;
-		dt_c_add_local(c, namet);
+	while (dt_c_peek(c) != DT_TOKEN_RPAREN) {
+
+		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
+		dt_c_add_local(c, name);
 		nargs++;
+
+		// arg type
+		if (dt_c_match(c, DT_TOKEN_COLON)) {
+			dt_c_typesig(c);
+			// TODO
+		}
+
 		dt_c_match(c, DT_TOKEN_COMMA);
+
 	}
 
 	dt_c_consume(c, DT_TOKEN_RPAREN);
-	dt_c_consume(c, DT_TOKEN_LBRACE);
 
-	while (c->parser.cur.type != DT_TOKEN_RBRACE) {
-		dt_c_stmt(c);
+	// return type
+	if (dt_c_match(c, DT_TOKEN_COLON)) {
+		dt_c_typesig(c);
+		// TODO
 	}
 
-	dt_c_consume(c, DT_TOKEN_RBRACE);
+	dt_c_block(c, DT_BLOCK_NORMAL);
 
 	dt_c_emit(c, DT_OP_NIL);
 	dt_c_emit(c, DT_OP_STOP);
@@ -3365,13 +3482,13 @@ static dt_parse_rule dt_rules[] = {
 };
 
 static void dt_c_prec(dt_compiler* c, dt_prec prec) {
-	dt_parse_rule* prev_rule = &dt_rules[c->parser.cur.type];
+	dt_parse_rule* prev_rule = &dt_rules[dt_c_peek(c)];
 	if (prev_rule->prefix == NULL) {
 		dt_c_err(c, "expected expression\n");
 		return;
 	}
 	prev_rule->prefix(c);
-	while (prec <= dt_rules[c->parser.cur.type].prec) {
+	while (prec <= dt_rules[dt_c_peek(c)].prec) {
 		dt_c_nxt(c);
 		dt_rules[c->parser.prev.type].infix(c);
 	}

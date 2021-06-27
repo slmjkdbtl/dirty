@@ -3,19 +3,19 @@
 	y: Num,
 }
 
-~ Vec2 print (&, x: Num, y: Num): ? {
+~ Vec2 print (x: Num, y: Num): Nil {
 	print(&.x, &.y)
 }
 
-~ Vec2 add (&, p: Vec2): Vec2 {
-	~> vec2(&.x + p.x, &.y + p.y);
+~ Vec2 add (p: Vec2): Vec2 {
+	~> vec2(&.x + p.x, &.y + p.y)
 }
 
 ~ Vec2 from_angle (a: Num): Vec2 {
 	~> vec2(a.cos(), a.sin())
 }
 
-~ Vec2 as_arr (&): Arr<Num> {
+~ Vec2 as_arr (): Arr {
 	~> [ &.x, &.y ]
 }
 
@@ -27,13 +27,13 @@
 }
 
 ~ vec2 (s: Num): Vec2 {
-	~> vec2(s, s);
+	~> vec2(s, s)
 }
 
 ~ vec2 (): Vec2 {
-	~> vec2(0, 0);
+	~> vec2(0, 0)
 }
 
 $ pos_map: Map<Vec2> = {}
 
-pos_map["12"] = Vec2::from_angle(123)
+-- pos_map["12"] = Vec2::from_angle(123)
