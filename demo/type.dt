@@ -1,4 +1,4 @@
-+ Vec2 {
+! Vec2 {
 	x: Num,
 	y: Num,
 }

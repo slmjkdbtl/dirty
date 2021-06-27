@@ -6,6 +6,7 @@
 #define D_IMPL
 #define D_CPU
 // #define DT_VM_LOG
+#define DT_GC_LOG
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_app.h>
@@ -190,8 +191,8 @@ dt_val dt_f_app_key_released(dt_vm* vm, int nargs) {
 	return dt_val_bool(d_app_key_released(str_to_d_key(dt_vm_get_cstr(vm, 0))));
 }
 
-void load_app(dt_map* env) {
-	dt_map* app = dt_map_new();
+void load_app(dt_vm* vm) {
+	dt_map* app = dt_map_new(vm);
 	dt_map_set_cfunc(app, "run", dt_f_app_run);
 	dt_map_set_cfunc(app, "quit", dt_f_app_quit);
 	dt_map_set_cfunc(app, "width", dt_f_app_width);
@@ -201,22 +202,21 @@ void load_app(dt_map* env) {
 	dt_map_set_cfunc(app, "key_pressed", dt_f_app_key_pressed);
 	dt_map_set_cfunc(app, "key_down", dt_f_app_key_down);
 	dt_map_set_cfunc(app, "key_released", dt_f_app_key_released);
-	dt_map_set_map(env, "app", app);
+	dt_map_set_map(vm->globals, "app", app);
 }
 
-void load_gfx(dt_map* env) {
-	dt_map* gfx = dt_map_new();
-	dt_map_set_map(env, "gfx", gfx);
+void load_gfx(dt_vm* vm) {
+	dt_map* gfx = dt_map_new(vm);
+	dt_map_set_map(vm->globals, "gfx", gfx);
 }
 
 int main(int argc, char** argv) {
-	dt_map* env = dt_map_new();
-	dt_load_std(env);
-	load_app(env);
-	load_gfx(env);
+	dt_vm vm = dt_vm_new();
+	dt_load_std(&vm);
+	load_app(&vm);
+	load_gfx(&vm);
 	if (argc >= 2) {
-		dt_dofile_ex(argv[1], env);
+		dt_dofile(&vm, argv[1]);
 	}
-	dt_map_free(env);
 	return 0;
 }
