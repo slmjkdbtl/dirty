@@ -192,7 +192,7 @@ dt_val dt_f_app_key_released(dt_vm* vm, int nargs) {
 }
 
 void load_app(dt_vm* vm) {
-	dt_map* app = dt_map_new(vm);
+	dt_map* app = dt_map_new(NULL);
 	dt_map_set_cfunc(app, "run", dt_f_app_run);
 	dt_map_set_cfunc(app, "quit", dt_f_app_quit);
 	dt_map_set_cfunc(app, "width", dt_f_app_width);
@@ -206,7 +206,7 @@ void load_app(dt_vm* vm) {
 }
 
 void load_gfx(dt_vm* vm) {
-	dt_map* gfx = dt_map_new(vm);
+	dt_map* gfx = dt_map_new(NULL);
 	dt_map_set_map(vm->globals, "gfx", gfx);
 }
 

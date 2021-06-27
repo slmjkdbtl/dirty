@@ -211,6 +211,7 @@ dt_val   dt_vm_call_2     (dt_vm* vm, dt_func* func, dt_val a1, dt_val a2);
 dt_val   dt_vm_call_3     (dt_vm* vm, dt_func* func, dt_val a1, dt_val a2, dt_val a3);
 dt_val   dt_vm_call_4     (dt_vm* vm, dt_func* func, dt_val a1, dt_val a2, dt_val a3, dt_val a4);
 void     dt_vm_err        (dt_vm* vm, char* fmt, ...);
+void     dt_vm_gc_run     (dt_vm* vm);
 
 dt_val dt_nil = (dt_val) {
 	.type = DT_VAL_NIL,
@@ -891,6 +892,18 @@ void dt_arr_print(dt_arr* arr) {
 	printf(" ]\n");
 }
 
+static void dt_val_mark(dt_val* val);
+
+static void dt_arr_mark(dt_arr* arr) {
+#ifdef DT_GC_LOG
+	printf("MARK ARR %p\n", arr);
+#endif
+	arr->header.marked = true;
+	for (int i = 0; i < arr->len; i++) {
+		dt_val_mark(&arr->values[i]);
+	}
+}
+
 dt_map* dt_map_new_len(dt_vm* vm, int len) {
 	dt_map* map = malloc(sizeof(dt_map));
 	map->cnt = 0;
@@ -949,6 +962,18 @@ void dt_map_free(dt_map* map) {
 	free(map->entries);
 	free(map);
 
+}
+
+static void dt_map_mark(dt_map* map) {
+#ifdef DT_GC_LOG
+	printf("MARK MAP %p\n", map);
+#endif
+	map->header.marked = true;
+	for (int i = 0; i < map->cap; i++) {
+		if (map->entries[i]) {
+			dt_val_mark(&map->entries[i]);
+		}
+	}
 }
 
 bool dt_is_nil(dt_val* val) {
@@ -1532,23 +1557,44 @@ dt_val dt_vm_call_4(
 	return dt_vm_call_n(vm, func, 4, a1, a2, a3, a4);
 }
 
+static void dt_val_mark(dt_val* val) {
+	switch (val->type) {
+		case DT_VAL_ARR:
+			dt_arr_mark(val->data.arr);
+			break;
+		case DT_VAL_MAP:
+			dt_map_mark(val->data.map);
+			break;
+	}
+}
+
+static void dt_vm_gc_mark(dt_vm* vm) {
+	for (dt_val* val = vm->stack; val < vm->stack_top; val++) {
+		dt_val_mark(val);
+	}
+	// TODO: mark globals
+}
+
 // TODO
-static void dt_vm_run_gc(dt_vm* vm) {
-	// TODO: mark
+void dt_vm_gc_run(dt_vm* vm) {
+	dt_vm_gc_mark(vm);
 	dt_heaper* heaper = vm->heaper;
 	while (heaper) {
 		if (!heaper->marked) {
+			switch (heaper->type) {
+				case DT_VAL_ARR:
 #ifdef DT_GC_LOG
-			printf("----- %s\n", dt_type_name(heaper->type));
+					printf("COLLECT ARR %p\n", heaper);
 #endif
-// 			switch (heaper->type) {
-// 				case DT_VAL_ARR:
-// 					dt_arr_free((dt_arr*)heaper);
-// 					break;
-// 				case DT_VAL_MAP:
-// 					dt_map_free((dt_map*)heaper);
-// 					break;
-// 			}
+					dt_arr_free((dt_arr*)heaper);
+					break;
+				case DT_VAL_MAP:
+#ifdef DT_GC_LOG
+					printf("COLLECT MAP %p\n", heaper);
+#endif
+					dt_map_free((dt_map*)heaper);
+					break;
+			}
 		}
 		heaper = heaper->nxt;
 	}
@@ -2164,6 +2210,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_MKARR: {
+				// TODO
+				dt_vm_gc_run(vm);
 				int len = *vm->ip++;
 				dt_arr* arr = dt_arr_new_len(vm, len);
 				for (int i = 0; i < len; i++) {
@@ -2189,6 +2237,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_MKMAP: {
+				// TODO
+				dt_vm_gc_run(vm);
 				int len = *vm->ip++;
 				dt_map* map = dt_map_new_len(vm, len);
 				for (int i = 0; i < len; i++) {
@@ -2205,7 +2255,6 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					}
 				}
 				dt_vm_push(vm, dt_val_map(map));
-				dt_vm_run_gc(vm);
 				break;
 			}
 
