@@ -1340,6 +1340,7 @@ dt_vm dt_vm_new() {
 }
 
 void dt_vm_free(dt_vm* vm) {
+	dt_vm_gc_run(vm);
 	dt_map_free(vm->globals);
 	memset(vm, 0, sizeof(dt_vm));
 }
@@ -1474,6 +1475,7 @@ static void dt_vm_stack_println(dt_vm* vm) {
 	printf("\n");
 }
 
+// TODO: combine dt_vm_run and dt_vm_call
 static void dt_vm_run(dt_vm* vm, dt_func* func);
 
 static dt_val dt_vm_call(dt_vm* vm, dt_func* func, int nargs) {
@@ -1568,35 +1570,42 @@ static void dt_val_mark(dt_val* val) {
 	}
 }
 
-static void dt_vm_gc_mark(dt_vm* vm) {
+// TODO
+void dt_vm_gc_run(dt_vm* vm) {
 	for (dt_val* val = vm->stack; val < vm->stack_top; val++) {
 		dt_val_mark(val);
 	}
 	// TODO: mark globals
-}
-
-// TODO
-void dt_vm_gc_run(dt_vm* vm) {
-	dt_vm_gc_mark(vm);
 	dt_heaper* heaper = vm->heaper;
+	dt_heaper* prev = NULL;
 	while (heaper) {
 		if (!heaper->marked) {
-			switch (heaper->type) {
+			dt_heaper* unreached = heaper;
+			heaper = heaper->nxt;
+			if (prev != NULL) {
+				prev->nxt = heaper;
+			} else {
+				vm->heaper = heaper;
+			}
+			switch (unreached->type) {
 				case DT_VAL_ARR:
 #ifdef DT_GC_LOG
-					printf("COLLECT ARR %p\n", heaper);
+					printf("FREE ARR %p\n", unreached);
 #endif
-					dt_arr_free((dt_arr*)heaper);
+					dt_arr_free((dt_arr*)unreached);
 					break;
 				case DT_VAL_MAP:
 #ifdef DT_GC_LOG
-					printf("COLLECT MAP %p\n", heaper);
+					printf("FREE MAP %p\n", unreached);
 #endif
-					dt_map_free((dt_map*)heaper);
+					dt_map_free((dt_map*)unreached);
 					break;
 			}
+		} else {
+			heaper->marked = false;
+			prev = heaper;
+			heaper = heaper->nxt;
 		}
-		heaper = heaper->nxt;
 	}
 }
 
@@ -2210,8 +2219,6 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_MKARR: {
-				// TODO
-				dt_vm_gc_run(vm);
 				int len = *vm->ip++;
 				dt_arr* arr = dt_arr_new_len(vm, len);
 				for (int i = 0; i < len; i++) {
@@ -2233,12 +2240,12 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				}
 				vm->stack_top -= len;
 				dt_vm_push(vm, dt_val_arr(arr));
+				// TODO
+				dt_vm_gc_run(vm);
 				break;
 			}
 
 			case DT_OP_MKMAP: {
-				// TODO
-				dt_vm_gc_run(vm);
 				int len = *vm->ip++;
 				dt_map* map = dt_map_new_len(vm, len);
 				for (int i = 0; i < len; i++) {
@@ -2255,6 +2262,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					}
 				}
 				dt_vm_push(vm, dt_val_map(map));
+				// TODO
+				dt_vm_gc_run(vm);
 				break;
 			}
 
