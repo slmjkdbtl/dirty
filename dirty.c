@@ -88,7 +88,6 @@ bool streq(char* s1, char* s2) {
 }
 
 d_key str_to_d_key(char* k) {
-
 	if      (streq(k, "a")) return D_KEY_A;
 	else if (streq(k, "b")) return D_KEY_B;
 	else if (streq(k, "c")) return D_KEY_C;

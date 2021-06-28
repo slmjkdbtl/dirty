@@ -29,6 +29,9 @@
 
 #define DT_STACK_MAX 1024
 #define DT_HEAP_GROW 1.5
+#define DT_ARR_INIT_SIZE 4
+#define DT_MAP_INIT_SIZE 8
+#define DT_MAP_MAX_LOAD 0.75
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -82,8 +85,15 @@ typedef struct dt_val {
 	} data;
 } dt_val;
 
+typedef enum {
+	DT_HEAPER_STR,
+	DT_HEAPER_MAP,
+	DT_HEAPER_ARR,
+	DT_HEAPER_FUNC,
+} dt_heaper_ty;
+
 typedef struct dt_heaper {
-	dt_val_ty         type;
+	dt_heaper_ty      type;
 	bool              marked;
 	struct dt_heaper* nxt;
 } dt_heaper;
@@ -266,10 +276,6 @@ dt_val dt_false = (dt_val) {
 #include <math.h>
 #include <stdarg.h>
 #include <time.h>
-
-#define DT_ARR_INIT_SIZE 4
-#define DT_MAP_INIT_SIZE 8
-#define DT_MAP_MAX_LOAD 0.75
 
 typedef enum {
 	DT_OP_STOP,
@@ -631,7 +637,7 @@ void dt_val_print(dt_val* val) {
 		case DT_VAL_ARR: dt_arr_print(val->data.arr); break;
 		case DT_VAL_MAP: dt_map_print(val->data.map); break;
 		case DT_VAL_LOGIC: printf("<logic>"); break;
-		case DT_VAL_RANGE: printf("<range>"); break;
+		case DT_VAL_RANGE: printf("%d..%d", val->data.range.start, val->data.range.end); break;
 		case DT_VAL_FUNC: printf("<func>"); break;
 		case DT_VAL_CFUNC: printf("<cfunc>"); break;
 		case DT_VAL_CDATA: printf("cdata"); break;
@@ -740,7 +746,7 @@ static uint32_t dt_hash(char* key, int len) {
 	return hash;
 }
 
-static void dt_vm_heaper_add(dt_vm* vm, dt_heaper* h, dt_val_ty ty);
+static void dt_vm_heaper_add(dt_vm* vm, dt_heaper* h, dt_heaper_ty ty);
 
 dt_str* dt_str_new_len(dt_vm* vm, char* src, int len) {
 	dt_str* str = dt_malloc(vm, sizeof(dt_str));
@@ -751,7 +757,7 @@ dt_str* dt_str_new_len(dt_vm* vm, char* src, int len) {
 	}
 	str->chars[len] = '\0';
 	if (vm) {
-		dt_vm_heaper_add(vm, (dt_heaper*)str, DT_VAL_STR);
+		dt_vm_heaper_add(vm, (dt_heaper*)str, DT_HEAPER_STR);
 	}
 	return str;
 }
@@ -832,7 +838,7 @@ dt_arr* dt_arr_new_len(dt_vm* vm, int len) {
 	arr->cap = len > DT_ARR_INIT_SIZE ? len : DT_ARR_INIT_SIZE;
 	arr->values = dt_malloc(vm, arr->cap * sizeof(dt_val));
 	if (vm) {
-		dt_vm_heaper_add(vm, (dt_heaper*)arr, DT_VAL_ARR);
+		dt_vm_heaper_add(vm, (dt_heaper*)arr, DT_HEAPER_ARR);
 	}
 	return arr;
 }
@@ -957,7 +963,7 @@ dt_map* dt_map_new_len(dt_vm* vm, int len) {
 	map->entries = dt_malloc(vm, entries_size);
 	memset(map->entries, 0, entries_size);
 	if (vm) {
-		dt_vm_heaper_add(vm, (dt_heaper*)map, DT_VAL_MAP);
+		dt_vm_heaper_add(vm, (dt_heaper*)map, DT_HEAPER_MAP);
 	}
 	return map;
 }
@@ -1159,7 +1165,7 @@ dt_val dt_map_get2(dt_map* map, char* key) {
 }
 
 void dt_func_print(dt_func* func) {
-	printf("<func#%p>", func);
+	printf("<func#%p>", (void*)func);
 }
 
 void dt_func_println(dt_func* func) {
@@ -1169,6 +1175,9 @@ void dt_func_println(dt_func* func) {
 
 static void dt_func_mark(dt_func* func) {
 	func->heaper.marked = true;
+	for (int i = 0; i < func->num_upvals; i++) {
+// 		func->upvals[i]->heaper.marked = true;
+	}
 }
 
 static void dt_func_free(dt_vm *vm, dt_func* func) {
@@ -1625,7 +1634,7 @@ static void dt_val_mark(dt_val* val) {
 	}
 }
 
-static void dt_vm_heaper_add(dt_vm* vm, dt_heaper* h, dt_val_ty ty) {
+static void dt_vm_heaper_add(dt_vm* vm, dt_heaper* h, dt_heaper_ty ty) {
 	h->type = ty;
 	h->marked = false;
 	h->nxt = vm->heaper;
@@ -1655,7 +1664,7 @@ void dt_vm_gc_run(dt_vm* vm) {
 				vm->heaper = heaper;
 			}
 			switch (unreached->type) {
-				case DT_VAL_STR: {
+				case DT_HEAPER_STR: {
 #ifdef DT_GC_LOG
 					dt_str* str = (dt_str*)unreached;
 					printf("FREE STR %s\n", str->chars);
@@ -1663,7 +1672,7 @@ void dt_vm_gc_run(dt_vm* vm) {
 					dt_str_free(vm, (dt_str*)unreached);
 					break;
 				}
-				case DT_VAL_ARR: {
+				case DT_HEAPER_ARR: {
 #ifdef DT_GC_LOG
 					dt_arr* arr = (dt_arr*)unreached;
 					printf("FREE ARR ");
@@ -1672,7 +1681,7 @@ void dt_vm_gc_run(dt_vm* vm) {
 					dt_arr_free(vm, (dt_arr*)unreached);
 					break;
 				}
-				case DT_VAL_MAP: {
+				case DT_HEAPER_MAP: {
 #ifdef DT_GC_LOG
 					dt_map* map = (dt_map*)unreached;
 					printf("FREE MAP ");
@@ -1681,7 +1690,7 @@ void dt_vm_gc_run(dt_vm* vm) {
 					dt_map_free(vm, (dt_map*)unreached);
 					break;
 				}
-				case DT_VAL_FUNC: {
+				case DT_HEAPER_FUNC: {
 #ifdef DT_GC_LOG
 					dt_func* func = (dt_func*)unreached;
 					printf("FREE FUNC ");
@@ -2264,7 +2273,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				func->logic = val.data.logic;
 				func->num_upvals = num_upvals;
 				func->upvals = dt_malloc(vm, sizeof(dt_val*) * num_upvals);
-				dt_vm_heaper_add(vm, (dt_heaper*)func, DT_VAL_FUNC);
+				dt_vm_heaper_add(vm, (dt_heaper*)func, DT_HEAPER_FUNC);
 				for (int i = 0; i < num_upvals; i++) {
 					bool local = *vm->ip++;
 					uint8_t idx = *vm->ip++;
@@ -3319,7 +3328,6 @@ static void dt_c_loop(dt_compiler* c) {
 		}
 
 		dt_c_emit_jmp(c, DT_OP_ITER, dis);
-		dt_c_patch_jmp(c, pos);
 
 		for (int i = 0; i < c->env->num_jumpers; i++) {
 			dt_jumper j = c->env->jumpers[i];
@@ -3335,6 +3343,7 @@ static void dt_c_loop(dt_compiler* c) {
 		dt_c_emit(c, DT_OP_POP);
 		dt_c_emit(c, DT_OP_POP);
 		dt_c_emit(c, DT_OP_POP);
+		dt_c_patch_jmp(c, pos);
 
 	} else {
 
