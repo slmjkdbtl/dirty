@@ -218,5 +218,6 @@ int main(int argc, char** argv) {
 	if (argc >= 2) {
 		dt_dofile(&vm, argv[1]);
 	}
+	dt_vm_free(&vm);
 	return 0;
 }

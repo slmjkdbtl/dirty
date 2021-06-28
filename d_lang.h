@@ -17,12 +17,13 @@
 // TODO: small string / char
 // TODO: string interpolation
 // TODO: single ctx handle
-// TODO: string add
+// TODO: str add
 // TODO: tail call opti
 // TODO: str escape
 // TODO: loop / cond return val
 // TODO: switch
 // TODO: allow simpler cond syntax
+// TODO: str intern
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -105,8 +106,9 @@ typedef struct {
 
 typedef struct dt_str {
 	dt_heaper heaper;
-	int       len;
-	char*     chars;
+	uint16_t  len;
+	uint32_t  hash;
+	char      chars[];
 } dt_str;
 
 typedef struct dt_arr {
@@ -156,6 +158,7 @@ typedef struct dt_vm {
 	dt_val*    stack_top;
 	int        stack_offset;
 	dt_map*    globals;
+	dt_map*    strs;
 	dt_val**   open_upvals[UINT8_MAX];
 	int        num_upvals;
 	dt_heaper* heaper;
@@ -186,8 +189,6 @@ bool     dt_is_func       (dt_val* val);
 
 dt_str*  dt_str_new       (dt_vm* vm, char* src);
 dt_str*  dt_str_new_len   (dt_vm* vm, char* src, int len);
-dt_str   dt_str_load      (char* src);
-dt_str   dt_str_load_len  (char* src, int len);
 void     dt_str_free      (dt_vm* vm, dt_str* str);
 dt_str*  dt_str_clone     (dt_vm* vm, dt_str* str);
 dt_str*  dt_str_concat    (dt_vm* vm, dt_str* a, dt_str* b);
@@ -748,14 +749,19 @@ static uint32_t dt_hash(char* key, int len) {
 
 static void dt_vm_heaper_add(dt_vm* vm, dt_heaper* h, dt_heaper_ty ty);
 
+// TODO
+dt_str* dt_vm_find_strn(dt_vm* vm, char* str, int len) {
+	return NULL;
+}
+
 dt_str* dt_str_new_len(dt_vm* vm, char* src, int len) {
-	dt_str* str = dt_malloc(vm, sizeof(dt_str));
+	dt_str* str = dt_malloc(vm, sizeof(dt_str) + len + 1);
 	str->len = len;
-	str->chars = dt_malloc(vm, len + 1);
 	if (src && len > 0) {
 		memcpy(str->chars, src, len);
 	}
 	str->chars[len] = '\0';
+	str->hash = dt_hash(str->chars, len);
 	if (vm) {
 		dt_vm_heaper_add(vm, (dt_heaper*)str, DT_HEAPER_STR);
 	}
@@ -764,17 +770,6 @@ dt_str* dt_str_new_len(dt_vm* vm, char* src, int len) {
 
 dt_str* dt_str_new(dt_vm* vm, char* src) {
 	return dt_str_new_len(vm, src, strlen(src));
-}
-
-dt_str dt_str_load_len(char* src, int len) {
-	return (dt_str) {
-		.chars = src,
-		.len = len,
-	};
-}
-
-dt_str dt_str_load(char* src) {
-	return dt_str_load_len(src, strlen(src));
 }
 
 dt_str* dt_str_clone(dt_vm* vm, dt_str* str) {
@@ -791,8 +786,7 @@ void dt_str_println(dt_str* str) {
 }
 
 void dt_str_free(dt_vm* vm, dt_str* str) {
-	dt_free(vm, str->chars, sizeof(char) * (str->len + 1));
-	dt_free(vm, str, sizeof(dt_str));
+	dt_free(vm, str, sizeof(dt_str) + str->len + 1);
 }
 
 static void dt_str_mark(dt_str* str) {
@@ -1065,8 +1059,7 @@ bool dt_is_func(dt_val* val) {
 
 static int dt_map_find(dt_map* map, dt_str* key) {
 
-	uint32_t hash = dt_hash(key->chars, key->len);
-	uint32_t oidx = hash % map->cap;
+	uint32_t oidx = key->hash % map->cap;
 	uint32_t idx = oidx;
 
 	for (;;) {
@@ -1160,8 +1153,8 @@ dt_val dt_map_get(dt_map* map, dt_str* key) {
 }
 
 dt_val dt_map_get2(dt_map* map, char* key) {
-	dt_str str = dt_str_load(key);
-	return dt_map_get(map, &str);
+	// TODO
+	return dt_map_get(map, dt_str_new(NULL, key));
 }
 
 void dt_func_print(dt_func* func) {
@@ -1385,6 +1378,7 @@ dt_vm dt_vm_new() {
 		.stack_top = NULL,
 		.stack_offset = 0,
 		.globals = dt_map_new(NULL),
+		.strs = dt_map_new(NULL),
 		.open_upvals = {0},
 		.num_upvals = 0,
 		.heaper = NULL,
@@ -1398,6 +1392,7 @@ dt_vm dt_vm_new() {
 void dt_vm_free(dt_vm* vm) {
 	dt_vm_gc_run(vm);
 	dt_map_free(NULL, vm->globals);
+	dt_map_free(NULL, vm->strs);
 	memset(vm, 0, sizeof(dt_vm));
 }
 
