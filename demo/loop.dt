@@ -48,6 +48,8 @@ $ person = {
 	dead: T,
 }
 
+print(person)
+
 @ (i \ person) {
 	print(i, person[i])
 }
