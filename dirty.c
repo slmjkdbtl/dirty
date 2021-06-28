@@ -6,7 +6,7 @@
 #define D_IMPL
 #define D_CPU
 // #define DT_VM_LOG
-#define DT_GC_LOG
+// #define DT_GC_LOG
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_app.h>
@@ -193,21 +193,21 @@ dt_val dt_f_app_key_released(dt_vm* vm, int nargs) {
 
 void load_app(dt_vm* vm) {
 	dt_map* app = dt_map_new(NULL);
-	dt_map_set_cfunc(app, "run", dt_f_app_run);
-	dt_map_set_cfunc(app, "quit", dt_f_app_quit);
-	dt_map_set_cfunc(app, "width", dt_f_app_width);
-	dt_map_set_cfunc(app, "height", dt_f_app_height);
-	dt_map_set_cfunc(app, "time", dt_f_app_time);
-	dt_map_set_cfunc(app, "dt", dt_f_app_dt);
-	dt_map_set_cfunc(app, "key_pressed", dt_f_app_key_pressed);
-	dt_map_set_cfunc(app, "key_down", dt_f_app_key_down);
-	dt_map_set_cfunc(app, "key_released", dt_f_app_key_released);
-	dt_map_set_map(vm->globals, "app", app);
+	dt_map_set_cfunc(vm, app, "run", dt_f_app_run);
+	dt_map_set_cfunc(vm, app, "quit", dt_f_app_quit);
+	dt_map_set_cfunc(vm, app, "width", dt_f_app_width);
+	dt_map_set_cfunc(vm, app, "height", dt_f_app_height);
+	dt_map_set_cfunc(vm, app, "time", dt_f_app_time);
+	dt_map_set_cfunc(vm, app, "dt", dt_f_app_dt);
+	dt_map_set_cfunc(vm, app, "key_pressed", dt_f_app_key_pressed);
+	dt_map_set_cfunc(vm, app, "key_down", dt_f_app_key_down);
+	dt_map_set_cfunc(vm, app, "key_released", dt_f_app_key_released);
+	dt_map_set_map(vm, vm->globals, "app", app);
 }
 
 void load_gfx(dt_vm* vm) {
 	dt_map* gfx = dt_map_new(NULL);
-	dt_map_set_map(vm->globals, "gfx", gfx);
+	dt_map_set_map(vm, vm->globals, "gfx", gfx);
 }
 
 int main(int argc, char** argv) {

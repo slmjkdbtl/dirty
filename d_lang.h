@@ -14,7 +14,7 @@
 // TODO: standalone bytecode
 // TODO: mem audit
 // TODO: type
-// TODO: small string
+// TODO: small string / char
 // TODO: string interpolation
 // TODO: single ctx handle
 // TODO: string add
@@ -47,13 +47,9 @@ typedef enum {
 	DT_VAL_CPTR,
 } dt_val_ty;
 
-typedef struct {
-	int len;
-	char* chars;
-} dt_str;
-
 struct dt_map;
 struct dt_arr;
+struct dt_str;
 struct dt_vm;
 struct dt_val;
 struct dt_logic;
@@ -74,7 +70,7 @@ typedef struct dt_val {
 	union {
 		dt_bool          boolean;
 		dt_num           num;
-		dt_str           str;
+		struct dt_str*   str;
 		struct dt_arr*   arr;
 		struct dt_map*   map;
 		// TODO: remove this
@@ -89,23 +85,28 @@ typedef struct dt_heaper {
 	dt_val_ty         type;
 	bool              marked;
 	struct dt_heaper* nxt;
-	struct dt_vm*     vm;
 } dt_heaper;
 
+typedef struct dt_str {
+	dt_heaper heaper;
+	int       len;
+	char*     chars;
+} dt_str;
+
 typedef struct dt_arr {
-	dt_heaper header;
+	dt_heaper heaper;
 	int       len;
 	int       cap;
 	dt_val*   values;
 } dt_arr;
 
 typedef struct {
-	dt_str key;
-	dt_val val;
+	dt_str* key;
+	dt_val  val;
 } dt_entry;
 
 typedef struct dt_map {
-	dt_heaper  header;
+	dt_heaper  heaper;
 	int        cnt;
 	int        cap;
 	dt_entry** entries;
@@ -148,8 +149,7 @@ dt_val   dt_dofile        (dt_vm* vm, char* path);
 
 dt_val   dt_val_num       (dt_num n);
 dt_val   dt_val_bool      (dt_bool b);
-dt_val   dt_val_str       (char* src);
-dt_val   dt_val_str_len      (char* src, int len);
+dt_val   dt_val_str       (dt_str* str);
 dt_val   dt_val_cfunc     (dt_cfunc* func);
 dt_val   dt_val_map       (dt_map* map);
 dt_val   dt_val_arr       (dt_arr* arr);
@@ -164,15 +164,15 @@ bool     dt_is_map        (dt_val* val);
 bool     dt_is_arr        (dt_val* val);
 bool     dt_is_func       (dt_val* val);
 
-dt_str   dt_str_new       (char* src);
-dt_str   dt_str_new_len   (char* src, int len);
+dt_str*  dt_str_new       (dt_vm* vm, char* src);
+dt_str*  dt_str_new_len   (dt_vm* vm, char* src, int len);
 dt_str   dt_str_load      (char* src);
 dt_str   dt_str_load_len  (char* src, int len);
 void     dt_str_free      (dt_str* str);
-dt_str   dt_str_clone     (dt_str* str);
-dt_val   dt_str_concat    (dt_str* a, dt_str* b);
+dt_str*  dt_str_clone     (dt_vm* vm, dt_str* str);
+dt_str*  dt_str_concat    (dt_vm* vm, dt_str* a, dt_str* b);
 bool     dt_str_eq        (dt_str* a, dt_str* b);
-dt_val   dt_str_replace   (dt_val src, dt_val old, dt_val new);
+dt_str*  dt_str_replace   (dt_str* src, dt_str* old, dt_str* new);
 
 dt_arr*  dt_arr_new       (dt_vm* vm);
 dt_arr*  dt_arr_new_len   (dt_vm* vm, int len);
@@ -187,19 +187,19 @@ void     dt_arr_print     (dt_arr* arr);
 dt_map*  dt_map_new       (dt_vm* vm);
 dt_map*  dt_map_new_len   (dt_vm* vm, int len);
 void     dt_map_free      (dt_map* map);
-void     dt_map_set       (dt_map* map, dt_str* key, dt_val val);
-void     dt_map_set_cfunc (dt_map* map, char* key, dt_cfunc* func);
-void     dt_map_set_map   (dt_map* map, char* key, dt_map* map2);
+void     dt_map_set       (dt_vm* vm, dt_map* map, dt_str* key, dt_val val);
+void     dt_map_set_cfunc (dt_vm* vm, dt_map* map, char* key, dt_cfunc* func);
+void     dt_map_set_map   (dt_vm* vm, dt_map* map, char* key, dt_map* map2);
 bool     dt_map_exists    (dt_map* map, dt_str* key);
 dt_val   dt_map_get       (dt_map* map, dt_str* key);
-dt_arr*  dt_map_keys      (dt_map* map);
-dt_arr*  dt_map_vals      (dt_map* map);
+dt_arr*  dt_map_keys      (dt_vm* vm, dt_map* map);
+dt_arr*  dt_map_vals      (dt_vm* vm, dt_map* map);
 
 dt_vm    dt_vm_new        ();
 dt_val   dt_vm_get        (dt_vm* vm, int idx);
 dt_num   dt_vm_get_num    (dt_vm* vm, int idx);
 dt_bool  dt_vm_get_bool   (dt_vm* vm, int idx);
-dt_str   dt_vm_get_str    (dt_vm* vm, int idx);
+dt_str*  dt_vm_get_str    (dt_vm* vm, int idx);
 char*    dt_vm_get_cstr   (dt_vm* vm, int idx);
 dt_map*  dt_vm_get_map    (dt_vm* vm, int idx);
 dt_arr*  dt_vm_get_arr    (dt_vm* vm, int idx);
@@ -485,6 +485,12 @@ static void dt_fail(char* fmt, ...) {
 	exit(EXIT_FAILURE);
 }
 
+static void* dt_alloc(dt_vm* vm, void* ptr, size_t old_size, size_t new_size) {
+	if (new_size == 0) {
+		// ...
+	}
+}
+
 char* dt_token_name(dt_token_ty ty) {
 	switch (ty) {
 		case DT_TOKEN_LPAREN: return "LPAREN";
@@ -579,7 +585,7 @@ void dt_val_print(dt_val* val) {
 			printf("%g", val->data.num);
 			break;
 		case DT_VAL_STR:
-			printf("%s", val->data.str.chars);
+			printf("%s", val->data.str->chars);
 			break;
 		case DT_VAL_ARR:
 			printf("[ ");
@@ -625,36 +631,16 @@ dt_val dt_val_bool(dt_bool b) {
 	};
 }
 
-dt_val dt_val_str_len(char* src, int len) {
-	if (!src) {
+dt_val dt_val_str(dt_str* str) {
+	if (!str) {
 		return dt_nil;
 	}
 	return (dt_val) {
 		.type = DT_VAL_STR,
 		.data = {
-			.str = dt_str_new_len(src, len),
+			.str = str,
 		},
 	};
-}
-
-dt_val dt_val_str(char* src) {
-	return dt_val_str_len(src, strlen(src));
-}
-
-dt_val dt_val_str_load_len(char* src, int len) {
-	if (!src) {
-		return dt_nil;
-	}
-	return (dt_val) {
-		.type = DT_VAL_STR,
-		.data = {
-			.str = dt_str_load_len(src, len),
-		},
-	};
-}
-
-dt_val dt_val_str_load(char* src) {
-	return dt_val_str_load_len(src, strlen(src));
 }
 
 dt_val dt_val_cfunc(dt_cfunc* func) {
@@ -723,18 +709,24 @@ static uint32_t dt_hash(char* key, int len) {
 	return hash;
 }
 
-dt_str dt_str_new_len(char* src, int len) {
-	char* chars = malloc(len + 1);
-	memcpy(chars, src, len);
-	chars[len] = '\0';
-	return (dt_str) {
-		.chars = chars,
-		.len = len,
-	};
+static void dt_vm_heaper_add(dt_vm* vm, dt_heaper* h, dt_val_ty ty);
+
+dt_str* dt_str_new_len(dt_vm* vm, char* src, int len) {
+	dt_str* str = malloc(sizeof(dt_str));
+	str->len = len;
+	str->chars = malloc(len + 1);
+	if (src && len > 0) {
+		memcpy(str->chars, src, len);
+	}
+	str->chars[len] = '\0';
+	if (vm) {
+		dt_vm_heaper_add(vm, (dt_heaper*)str, DT_VAL_STR);
+	}
+	return str;
 }
 
-dt_str dt_str_new(char* src) {
-	return dt_str_new_len(src, strlen(src));
+dt_str* dt_str_new(dt_vm* vm, char* src) {
+	return dt_str_new_len(vm, src, strlen(src));
 }
 
 dt_str dt_str_load_len(char* src, int len) {
@@ -748,22 +740,29 @@ dt_str dt_str_load(char* src) {
 	return dt_str_load_len(src, strlen(src));
 }
 
-dt_str dt_str_clone(dt_str* str) {
-	return dt_str_new_len(str->chars, str->len);
+dt_str* dt_str_clone(dt_vm* vm, dt_str* str) {
+	return dt_str_new_len(vm, str->chars, str->len);
 }
 
 void dt_str_free(dt_str* str) {
 	free(str->chars);
-	memset(str, 0, sizeof(dt_str));
+	free(str);
 }
 
-dt_val dt_str_concat(dt_str* a, dt_str* b) {
+static void dt_str_mark(dt_str* str) {
+#ifdef DT_GC_LOG
+	printf("MARK STR %p\n", str);
+#endif
+	str->heaper.marked = true;
+}
+
+dt_str* dt_str_concat(dt_vm* vm, dt_str* a, dt_str* b) {
 	int len = a->len + b->len;
-	char* chars = malloc(len + 1);
-	memcpy(chars, a->chars, a->len);
-	memcpy(chars + a->len, b->chars, b->len);
-	chars[len] = '\0';
-	return dt_val_str_len(chars, len);
+	dt_str* new = dt_str_new_len(vm, NULL, len);
+	memcpy(new->chars, a->chars, a->len);
+	memcpy(new->chars + a->len, b->chars, b->len);
+	new->chars[len] = '\0';
+	return new;
 }
 
 bool dt_str_eq(dt_str* a, dt_str* b) {
@@ -771,24 +770,24 @@ bool dt_str_eq(dt_str* a, dt_str* b) {
 }
 
 // TODO: replace all
-dt_val dt_str_replace(dt_val src, dt_val old, dt_val new) {
-	char* start = strstr(src.data.str.chars, old.data.str.chars);
-	int offset = start - src.data.str.chars;
-	if (!start) {
-		return dt_nil;
-	}
-	int len = src.data.str.len - old.data.str.len + new.data.str.len;
-	char* chars = malloc(len + 1);
-	memcpy(chars, src.data.str.chars, offset);
-	memcpy(chars + offset, new.data.str.chars, new.data.str.len);
-	memcpy(
-		chars + offset + new.data.str.len,
-		src.data.str.chars + offset + old.data.str.len,
-		src.data.str.len - offset - old.data.str.len
-	);
-	chars[len] = '\0';
-	return dt_val_str_len(chars, len);
-}
+// dt_str dt_str_replace(dt_str* src, dt_str* old, dt_str* new) {
+// 	char* start = strstr(src->chars, old->chars);
+// 	int offset = start - src->chars;
+// 	if (!start) {
+// 		return dt_nil;
+// 	}
+// 	int len = src->len - old->len + new->len;
+// 	char* chars = malloc(len + 1);
+// 	memcpy(chars, src->chars, offset);
+// 	memcpy(chars + offset, new->chars, new->len);
+// 	memcpy(
+// 		chars + offset + new->len,
+// 		src->chars + offset + old->len,
+// 		src->len - offset - old->len
+// 	);
+// 	chars[len] = '\0';
+// 	return dt_val_str_len(chars, len);
+// }
 
 dt_arr* dt_arr_new_len(dt_vm* vm, int len) {
 	dt_arr* arr = malloc(sizeof(dt_arr));
@@ -796,13 +795,7 @@ dt_arr* dt_arr_new_len(dt_vm* vm, int len) {
 	arr->cap = len > DT_ARR_INIT_SIZE ? len : DT_ARR_INIT_SIZE;
 	arr->values = malloc(arr->cap * sizeof(dt_val));
 	if (vm) {
-		arr->header = (dt_heaper) {
-			.type = DT_VAL_ARR,
-			.marked = false,
-			.nxt = vm->heaper,
-			.vm = vm,
-		};
-		vm->heaper = (dt_heaper*)arr;
+		dt_vm_heaper_add(vm, (dt_heaper*)arr, DT_VAL_ARR);
 	}
 	return arr;
 }
@@ -898,7 +891,7 @@ static void dt_arr_mark(dt_arr* arr) {
 #ifdef DT_GC_LOG
 	printf("MARK ARR %p\n", arr);
 #endif
-	arr->header.marked = true;
+	arr->heaper.marked = true;
 	for (int i = 0; i < arr->len; i++) {
 		dt_val_mark(&arr->values[i]);
 	}
@@ -910,13 +903,7 @@ dt_map* dt_map_new_len(dt_vm* vm, int len) {
 	map->cap = len > DT_MAP_INIT_SIZE ? len : DT_MAP_INIT_SIZE;
 	map->entries = calloc(map->cap, sizeof(dt_entry*));
 	if (vm) {
-		map->header = (dt_heaper) {
-			.type = DT_VAL_MAP,
-			.marked = false,
-			.nxt = vm->heaper,
-			.vm = vm,
-		};
-		vm->heaper = (dt_heaper*)map;
+		dt_vm_heaper_add(vm, (dt_heaper*)map, DT_VAL_MAP);
 	}
 	return map;
 }
@@ -925,8 +912,8 @@ dt_map* dt_map_new(dt_vm* vm) {
 	return dt_map_new_len(vm, DT_MAP_INIT_SIZE);
 }
 
-dt_arr* dt_map_keys(dt_map* map) {
-	dt_arr* arr = dt_arr_new(map->header.vm);
+dt_arr* dt_map_keys(dt_vm* vm, dt_map* map) {
+	dt_arr* arr = dt_arr_new(vm);
 	for (int i = 0; i < map->cap; i++) {
 		if (map->entries[i]) {
 			dt_arr_push(arr, (dt_val) {
@@ -940,8 +927,8 @@ dt_arr* dt_map_keys(dt_map* map) {
 	return arr;
 }
 
-dt_arr* dt_map_vals(dt_map* map) {
-	dt_arr* arr = dt_arr_new(map->header.vm);
+dt_arr* dt_map_vals(dt_vm* vm, dt_map* map) {
+	dt_arr* arr = dt_arr_new(vm);
 	for (int i = 0; i < map->cap; i++) {
 		if (map->entries[i]) {
 			dt_arr_push(arr, map->entries[i]->val);
@@ -954,7 +941,7 @@ void dt_map_free(dt_map* map) {
 
 	for (int i = 0; i < map->cap; i++) {
 		if (map->entries[i]) {
-			dt_str_free(&map->entries[i]->key);
+			dt_str_free(map->entries[i]->key);
 			free(map->entries[i]);
 		}
 	}
@@ -968,10 +955,12 @@ static void dt_map_mark(dt_map* map) {
 #ifdef DT_GC_LOG
 	printf("MARK MAP %p\n", map);
 #endif
-	map->header.marked = true;
+	map->heaper.marked = true;
 	for (int i = 0; i < map->cap; i++) {
-		if (map->entries[i]) {
-			dt_val_mark(&map->entries[i]);
+		dt_entry* e = map->entries[i];
+		if (e) {
+			dt_str_mark(e->key);
+			dt_val_mark(&e->val);
 		}
 	}
 }
@@ -1014,7 +1003,7 @@ static int dt_map_find(dt_map* map, dt_str* key) {
 
 		dt_entry* e = map->entries[idx];
 
-		if (e == NULL || dt_str_eq(&e->key, key)) {
+		if (e == NULL || dt_str_eq(e->key, key)) {
 			return idx;
 		}
 
@@ -1029,7 +1018,7 @@ static int dt_map_find(dt_map* map, dt_str* key) {
 
 }
 
-void dt_map_set(dt_map* map, dt_str* key, dt_val val) {
+void dt_map_set(dt_vm* vm, dt_map* map, dt_str* key, dt_val val) {
 
 	// resize
 	if (map->cnt + 1 > map->cap * DT_MAP_MAX_LOAD) {
@@ -1044,7 +1033,7 @@ void dt_map_set(dt_map* map, dt_str* key, dt_val val) {
 		for (int i = 0; i < old_cap; i++) {
 			dt_entry* e = old_entries[i];
 			if (e && !dt_is_nil(&e->val)) {
-				dt_map_set(map, &e->key, e->val);
+				dt_map_set(vm, map, e->key, e->val);
 			}
 		}
 
@@ -1062,7 +1051,7 @@ void dt_map_set(dt_map* map, dt_str* key, dt_val val) {
 		map->entries[idx]->val = val;
 	} else {
 		dt_entry* e = malloc(sizeof(dt_entry));
-		e->key = dt_str_clone(key);
+		e->key = dt_str_clone(vm, key);
 		e->val = val;
 		map->entries[idx] = e;
 		map->cnt++;
@@ -1070,16 +1059,14 @@ void dt_map_set(dt_map* map, dt_str* key, dt_val val) {
 
 }
 
-void dt_map_set_cfunc(dt_map* map, char* name, dt_cfunc* func) {
-	dt_str key = dt_str_new(name);
-	dt_map_set(map, &key, dt_val_cfunc(func));
-	dt_str_free(&key);
+void dt_map_set_cfunc(dt_vm* vm, dt_map* map, char* name, dt_cfunc* func) {
+	dt_str* key = dt_str_new(vm, name);
+	dt_map_set(vm, map, key, dt_val_cfunc(func));
 }
 
-void dt_map_set_map(dt_map* map, char* name, dt_map* map2) {
-	dt_str key = dt_str_new(name);
-	dt_map_set(map, &key, dt_val_map(map2));
-	dt_str_free(&key);
+void dt_map_set_map(dt_vm* vm, dt_map* map, char* name, dt_map* map2) {
+	dt_str* key = dt_str_new(vm, name);
+	dt_map_set(vm, map, key, dt_val_map(map2));
 }
 
 bool dt_map_exists(dt_map* map, dt_str* key) {
@@ -1112,7 +1099,7 @@ static void dt_func_free(dt_func* func) {
 static void dt_val_free(dt_val val) {
 	switch (val.type) {
 		case DT_VAL_STR:
-			dt_str_free(&val.data.str);
+			dt_str_free(val.data.str);
 			break;
 		case DT_VAL_MAP:
 			dt_map_free(val.data.map);
@@ -1390,19 +1377,19 @@ dt_bool dt_vm_get_bool(dt_vm* vm, int idx) {
 	return dt_vm_get(vm, idx).data.boolean;
 }
 
-dt_str dt_vm_get_str(dt_vm* vm, int idx) {
+dt_str* dt_vm_get_str(dt_vm* vm, int idx) {
 	dt_vm_check_ty(vm, idx, DT_VAL_STR);
 	return dt_vm_get(vm, idx).data.str;
 }
 
 char* dt_vm_get_cstr(dt_vm* vm, int idx) {
-	dt_str str = dt_vm_get_str(vm, idx);
-	return str.chars;
+	dt_str* str = dt_vm_get_str(vm, idx);
+	return str->chars;
 }
 
 char* dt_vm_get_cstr_dup(dt_vm* vm, int idx) {
-	dt_str str = dt_vm_get_str(vm, idx);
-	return strdup(str.chars);
+	dt_str* str = dt_vm_get_str(vm, idx);
+	return strdup(str->chars);
 }
 
 dt_map* dt_vm_get_map(dt_vm* vm, int idx) {
@@ -1561,17 +1548,34 @@ dt_val dt_vm_call_4(
 
 static void dt_val_mark(dt_val* val) {
 	switch (val->type) {
+		case DT_VAL_STR:
+			dt_str_mark(val->data.str);
+			break;
 		case DT_VAL_ARR:
 			dt_arr_mark(val->data.arr);
 			break;
 		case DT_VAL_MAP:
 			dt_map_mark(val->data.map);
 			break;
+		default:
+			break;
 	}
+}
+
+static void dt_vm_heaper_add(dt_vm* vm, dt_heaper* h, dt_val_ty ty) {
+	h->type = ty;
+	h->marked = false;
+	h->nxt = vm->heaper;
+	vm->heaper = h;
 }
 
 // TODO
 void dt_vm_gc_run(dt_vm* vm) {
+#ifdef DT_GC_LOG
+	printf("--- GC START\n");
+	int total_cnt = 0;
+	int freed_cnt = 0;
+#endif
 	for (dt_val* val = vm->stack; val < vm->stack_top; val++) {
 		dt_val_mark(val);
 	}
@@ -1579,6 +1583,9 @@ void dt_vm_gc_run(dt_vm* vm) {
 	dt_heaper* heaper = vm->heaper;
 	dt_heaper* prev = NULL;
 	while (heaper) {
+#ifdef DT_GC_LOG
+		total_cnt++;
+#endif
 		if (!heaper->marked) {
 			dt_heaper* unreached = heaper;
 			heaper = heaper->nxt;
@@ -1587,18 +1594,31 @@ void dt_vm_gc_run(dt_vm* vm) {
 			} else {
 				vm->heaper = heaper;
 			}
+#ifdef DT_GC_LOG
+			freed_cnt++;
+#endif
 			switch (unreached->type) {
+				case DT_VAL_STR:
+#ifdef DT_GC_LOG
+					printf("FREE STR %p\n", unreached);
+					dt_str* str = (dt_str*)unreached;
+					printf("%s\n", str->chars);
+#endif
+// 					dt_str_free((dt_str*)unreached);
+					break;
 				case DT_VAL_ARR:
 #ifdef DT_GC_LOG
 					printf("FREE ARR %p\n", unreached);
 #endif
-					dt_arr_free((dt_arr*)unreached);
+// 					dt_arr_free((dt_arr*)unreached);
 					break;
 				case DT_VAL_MAP:
 #ifdef DT_GC_LOG
 					printf("FREE MAP %p\n", unreached);
 #endif
-					dt_map_free((dt_map*)unreached);
+// 					dt_map_free((dt_map*)unreached);
+					break;
+				default:
 					break;
 			}
 		} else {
@@ -1607,6 +1627,11 @@ void dt_vm_gc_run(dt_vm* vm) {
 			heaper = heaper->nxt;
 		}
 	}
+#ifdef DT_GC_LOG
+	printf("FREE CNT %d\n", freed_cnt);
+	printf("HEAP CNT %d\n", total_cnt - freed_cnt);
+	printf("--- GC END\n");
+#endif
 }
 
 static void dt_vm_run(dt_vm* vm, dt_func* func) {
@@ -1666,7 +1691,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				if (a.type == DT_VAL_NUM && b.type == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_val_num(a.data.num + b.data.num));
 				} else if (a.type == DT_VAL_STR && b.type == DT_VAL_STR) {
-					dt_vm_push(vm, dt_str_concat(&a.data.str, &b.data.str));
+					dt_vm_push(vm, dt_val_str(dt_str_concat(vm, a.data.str, b.data.str)));
 				} else if (a.type == DT_VAL_STR || b.type == DT_VAL_STR) {
 					// TODO
 // 					dt_str a_str = dt_val_to_str(&a);
@@ -1822,7 +1847,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_LEN: {
 				dt_val a = dt_vm_pop(vm);
 				if (a.type == DT_VAL_STR) {
-					dt_vm_push(vm, dt_val_num(a.data.str.len));
+					dt_vm_push(vm, dt_val_num(a.data.str->len));
 				} else if (a.type == DT_VAL_ARR) {
 					dt_vm_push(vm, dt_val_num(a.data.arr->len));
 				} else if (a.type == DT_VAL_MAP) {
@@ -1852,7 +1877,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				} else if (a.type == DT_VAL_NIL && b.type == DT_VAL_NIL) {
 					dt_vm_push(vm, dt_true);
 				} else if (a.type == DT_VAL_STR && b.type == DT_VAL_STR) {
-					dt_vm_push(vm, dt_val_bool(dt_str_eq(&a.data.str, &b.data.str)));
+					dt_vm_push(vm, dt_val_bool(dt_str_eq(a.data.str, b.data.str)));
 				} else {
 					dt_vm_err(
 						vm,
@@ -1989,7 +2014,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				}
 				dt_val name = chunk->consts->values[*vm->ip++];
 				if (name.type == DT_VAL_STR) {
-					dt_val val = dt_map_get(vm->globals, &name.data.str);
+					dt_val val = dt_map_get(vm->globals, name.data.str);
 					dt_vm_push(vm, val);
 				} else {
 					dt_vm_err(
@@ -2008,10 +2033,10 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				}
 				dt_val name = chunk->consts->values[*vm->ip++];
 				if (name.type == DT_VAL_STR) {
-					if (dt_map_exists(vm->globals, &name.data.str)) {
-						dt_map_set(vm->globals, &name.data.str, dt_vm_get(vm, 0));
+					if (dt_map_exists(vm->globals, name.data.str)) {
+						dt_map_set(vm, vm->globals, name.data.str, dt_vm_get(vm, 0));
 					} else {
-						dt_vm_err(vm, "'%s' is not declared\n", name.data.str.chars);
+						dt_vm_err(vm, "'%s' is not declared\n", name.data.str->chars);
 					}
 				} else {
 					dt_vm_err(
@@ -2088,7 +2113,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						break;
 					case DT_VAL_MAP:
 						if (key.type == DT_VAL_STR) {
-							dt_vm_push(vm, dt_map_get(val.data.map, &key.data.str));
+							dt_vm_push(vm, dt_map_get(val.data.map, key.data.str));
 						} else {
 							dt_vm_err(
 								vm,
@@ -2101,11 +2126,15 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					case DT_VAL_STR:
 						if (key.type == DT_VAL_NUM) {
 							int idx = (int)key.data.num;
-							dt_str str = val.data.str;
-							if (idx >= str.len) {
+							dt_str* str = val.data.str;
+							if (idx >= str->len) {
 								dt_vm_push(vm, dt_nil);
 							} else {
-								dt_vm_push(vm, dt_val_str_len(str.chars + idx, 1));
+								dt_vm_push(vm, dt_val_str(dt_str_new_len(
+									vm,
+									str->chars + idx,
+									1
+								)));
 							}
 						} else if (key.type == DT_VAL_RANGE) {
 							dt_range range = key.data.range;
@@ -2114,17 +2143,14 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 								range.start = range.end;
 								range.end = tmp;
 							}
-							dt_str str = val.data.str;
-							if (range.start >= str.len || range.end > str.len) {
+							dt_str* str = val.data.str;
+							if (range.start >= str->len || range.end > str->len) {
 								dt_vm_push(vm, dt_nil);
 							} else {
-								dt_vm_push(
-									vm,
-									dt_val_str_len(
-										str.chars + range.start,
-										range.end - range.start
-									)
-								);
+								dt_vm_push(vm, dt_val_str(dt_str_new_len(vm,
+									str->chars + range.start,
+									range.end - range.start
+								)));
 							}
 						} else {
 							dt_vm_err(
@@ -2252,7 +2278,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_val val = dt_vm_pop(vm);
 					dt_val key = dt_vm_pop(vm);
 					if (key.type == DT_VAL_STR) {
-						dt_map_set(map, &key.data.str, val);
+						dt_map_set(vm, map, key.data.str, val);
 					} else {
 						dt_vm_err(
 							vm,
@@ -2311,13 +2337,17 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						dt_vm_push(vm, dt_arr_get(iter.data.arr, 0));
 						break;
 					case DT_VAL_STR:
-						if (iter.data.str.len == 0) {
+						if (iter.data.str->len == 0) {
 							dt_vm_pop(vm);
 							vm->ip += dis;
 							break;
 						}
 						dt_vm_push(vm, dt_val_num(0));
-						dt_vm_push(vm, dt_val_str_len(iter.data.str.chars, 1));
+						dt_vm_push(vm, dt_val_str(dt_str_new_len(
+							vm,
+							iter.data.str->chars,
+							1
+						)));
 						break;
 					case DT_VAL_MAP:
 						if (iter.data.map->cnt == 0) {
@@ -2332,11 +2362,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							}
 						}
 						dt_vm_push(vm, dt_val_num(i));
-						dt_str key = iter.data.map->entries[i]->key;
-						dt_vm_push(
-							vm,
-							dt_val_str_len(key.chars, key.len)
-						);
+						dt_str* key = iter.data.map->entries[i]->key;
+						dt_vm_push(vm, dt_val_str(key));
 						break;
 					case DT_VAL_RANGE:
 						if (iter.data.range.start == iter.data.range.end) {
@@ -2375,15 +2402,13 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						}
 						break;
 					case DT_VAL_STR:
-						if (idx < iter.data.str.len) {
+						if (idx < iter.data.str->len) {
 							dt_vm_pop(vm);
-							dt_vm_push(
+							dt_vm_push(vm, dt_val_str(dt_str_new_len(
 								vm,
-								dt_val_str_len(
-									iter.data.str.chars + idx,
-									1
-								)
-							);
+								iter.data.str->chars + idx,
+								1
+							)));
 							vm->ip -= dis;
 						}
 						break;
@@ -2393,12 +2418,9 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 								idx++;
 							}
 							if (idx < iter.data.map->cap) {
-								dt_str key = iter.data.map->entries[idx]->key;
+								dt_str* key = iter.data.map->entries[idx]->key;
 								dt_vm_pop(vm);
-								dt_vm_push(
-									vm,
-									dt_val_str_len(key.chars, key.len)
-								);
+								dt_vm_push(vm, dt_val_str(key));
 								n->data.num = idx;
 								vm->ip -= dis;
 							}
@@ -2883,8 +2905,12 @@ static void dt_c_num(dt_compiler* c) {
 }
 
 static void dt_c_str(dt_compiler* c) {
-	dt_c_consume(c, DT_TOKEN_STR);
-	dt_val str = dt_val_str_len(c->parser.prev.start + 1, c->parser.prev.len - 2);
+	dt_token str_t = dt_c_consume(c, DT_TOKEN_STR);
+	dt_val str = dt_val_str(dt_str_new_len(
+		NULL,
+		str_t.start + 1,
+		str_t.len - 2
+	));
 	dt_c_push_const(c, str);
 }
 
@@ -2927,7 +2953,7 @@ static void dt_c_map(dt_compiler* c) {
 
 	while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
 		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
-		dt_c_push_const(c, dt_val_str_len(name.start, name.len));
+		dt_c_push_const(c, dt_val_str(dt_str_new_len(NULL, name.start, name.len)));
 		dt_c_consume(c, DT_TOKEN_COLON);
 		dt_c_expr(c);
 		len++;
@@ -3331,7 +3357,7 @@ static void dt_c_index(dt_compiler* c) {
 
 static void dt_c_index2(dt_compiler* c) {
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
-	dt_c_push_const(c, dt_val_str_len(name.start, name.len));
+	dt_c_push_const(c, dt_val_str(dt_str_new_len(NULL, name.start, name.len)));
 	dt_c_emit(c, DT_OP_INDEX);
 }
 
@@ -3390,8 +3416,8 @@ static void dt_c_ident(dt_compiler* c) {
 		} else {
 			get_op = DT_OP_GETG;
 			set_op = DT_OP_SETG;
-			// TODO: no naked add_const
-			idx = dt_chunk_add_const(&c->env->chunk, dt_val_str_len(name.start, name.len));
+			dt_str* str = dt_str_new_len(NULL, name.start, name.len);
+			idx = dt_chunk_add_const(&c->env->chunk, dt_val_str(str));
 		}
 
 		// TODO: member assign
@@ -3710,7 +3736,7 @@ static dt_val dt_f_type(dt_vm* vm, int nargs) {
 	}
 	dt_val val = dt_vm_get(vm, 0);
 	char* tname = dt_type_name(val.type);
-	return dt_val_str(tname);
+	return dt_val_str(dt_str_new(vm, tname));
 }
 
 static dt_val dt_f_exit(dt_vm* vm, int nargs) {
@@ -3737,7 +3763,7 @@ static dt_val dt_f_getenv(dt_vm* vm, int nargs) {
 	char* val = getenv(var);
 	free(var);
 	if (val) {
-		return dt_val_str(val);
+		return dt_val_str(dt_str_new(vm, val));
 	} else {
 		return dt_nil;
 	}
@@ -3777,21 +3803,23 @@ static dt_val dt_f_fread(dt_vm* vm, int nargs) {
 	size_t size;
 	char* content = dt_read_file(path, &size);
 	free(path);
-	return dt_val_str_load_len(content, size);
+	dt_str* str = dt_str_new_len(vm, content, size);
+	free(content);
+	return dt_val_str(str);
 }
 
 void dt_load_std(dt_vm* vm) {
 	// TODO: namespacing
-	dt_map_set_cfunc(vm->globals, "type", dt_f_type);
-	dt_map_set_cfunc(vm->globals, "eval", dt_f_eval);
-	dt_map_set_cfunc(vm->globals, "dofile", dt_f_dofile);
-	dt_map_set_cfunc(vm->globals, "error", dt_f_error);
-	dt_map_set_cfunc(vm->globals, "print", dt_f_print);
-	dt_map_set_cfunc(vm->globals, "exit", dt_f_exit);
-	dt_map_set_cfunc(vm->globals, "exec", dt_f_exec);
-	dt_map_set_cfunc(vm->globals, "time", dt_f_time);
-	dt_map_set_cfunc(vm->globals, "getenv", dt_f_getenv);
-	dt_map_set_cfunc(vm->globals, "fread", dt_f_fread);
+	dt_map_set_cfunc(vm, vm->globals, "type", dt_f_type);
+	dt_map_set_cfunc(vm, vm->globals, "eval", dt_f_eval);
+	dt_map_set_cfunc(vm, vm->globals, "dofile", dt_f_dofile);
+	dt_map_set_cfunc(vm, vm->globals, "error", dt_f_error);
+	dt_map_set_cfunc(vm, vm->globals, "print", dt_f_print);
+	dt_map_set_cfunc(vm, vm->globals, "exit", dt_f_exit);
+	dt_map_set_cfunc(vm, vm->globals, "exec", dt_f_exec);
+	dt_map_set_cfunc(vm, vm->globals, "time", dt_f_time);
+	dt_map_set_cfunc(vm, vm->globals, "getenv", dt_f_getenv);
+	dt_map_set_cfunc(vm, vm->globals, "fread", dt_f_fread);
 }
 
 dt_val dt_eval(dt_vm* vm, char* code) {
