@@ -38,6 +38,8 @@ CFLAGS += -Wpedantic
 CFLAGS += -std=c99
 CFLAGS += -I.
 CFLAGS += -Iext
+CFLAGS += -Wno-unused-function
+CFLAGS += -Wno-unused-variable
 
 ifdef DEBUG
 CFLAGS += -g
