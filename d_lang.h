@@ -3267,16 +3267,17 @@ static int dt_c_block(dt_compiler* c, dt_scope_ty ty) {
 
 // TODO: emit nil for expr
 // for parsing following cond without % only |
-static void dt_c_cond_inner(dt_compiler* c, bool expr) {
+static void dt_c_cond_inner(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
 	int if_start = dt_c_emit_jmp_empty(c, DT_OP_JMP_COND);
-	if (expr) {
-		dt_c_expr(c);
-	} else {
+	if (dt_c_peek(c) == DT_TOKEN_LBRACE) {
 		dt_c_block(c, DT_BLOCK_COND);
+		dt_c_emit(c, DT_OP_NIL);
+	} else {
+		dt_c_expr(c);
 	}
 	int if_dis = c->env->chunk.cnt - if_start;
 
@@ -3287,12 +3288,13 @@ static void dt_c_cond_inner(dt_compiler* c, bool expr) {
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
 
 		if (dt_c_peek(c) == DT_TOKEN_LPAREN) {
-			dt_c_cond_inner(c, expr);
+			dt_c_cond_inner(c);
 		} else {
-			if (expr) {
-				dt_c_expr(c);
-			} else {
+			if (dt_c_peek(c) == DT_TOKEN_LBRACE) {
 				dt_c_block(c, DT_BLOCK_COND);
+				dt_c_emit(c, DT_OP_NIL);
+			} else {
+				dt_c_expr(c);
 			}
 		}
 
@@ -3314,14 +3316,7 @@ static void dt_c_cond_inner(dt_compiler* c, bool expr) {
 // % (<bool>) <block> | (<bool>)? <block>
 static void dt_c_cond(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_PERCENT);
-	dt_c_cond_inner(c, false);
-}
-
-// conditionals
-// % (<bool>) <expr> | (<bool>)? <expr>
-static void dt_c_cond2(dt_compiler* c) {
-	dt_c_consume(c, DT_TOKEN_PERCENT);
-	dt_c_cond_inner(c, true);
+	dt_c_cond_inner(c);
 }
 
 static void dt_c_loop(dt_compiler* c) {
@@ -3770,7 +3765,7 @@ static dt_parse_rule dt_rules[] = {
 	[DT_TOKEN_ERR]           = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_END]           = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AT]            = { dt_c_loop,  NULL,        DT_PREC_NONE },
-	[DT_TOKEN_PERCENT]       = { dt_c_cond2, NULL,        DT_PREC_NONE },
+	[DT_TOKEN_PERCENT]       = { dt_c_cond, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE]         = { dt_c_func,  NULL,        DT_PREC_NONE },
 };
 
