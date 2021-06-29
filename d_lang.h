@@ -35,6 +35,7 @@
 #define DT_MAP_MAX_LOAD 0.75
 #define DT_GC_GROW 2
 #define DT_GC_THRESHOLD 1024 * 1024
+#define DT_HEAP_HEADER dt_heaper *next; uint8_t type; bool marked
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -72,6 +73,7 @@ typedef enum {
 	DT_HEAPER_MAP,
 	DT_HEAPER_ARR,
 	DT_HEAPER_FUNC,
+	DT_HEAPER_UPVAL,
 	DT_HEAPER_CDATA,
 } dt_heaper_ty;
 
@@ -124,9 +126,7 @@ typedef struct dt_str {
 } dt_str;
 
 // typedef struct dt_str2 {
-// 	dt_heaper* nxt;
-// 	uint8_t    type;
-// 	bool       marked;
+// 	DT_HEAP_HEADER;
 // 	uint16_t   len;
 // 	uint32_t   hash;
 // 	char       chars[];
@@ -140,9 +140,7 @@ typedef struct dt_arr {
 } dt_arr;
 
 // typedef struct dt_arr2 {
-// 	dt_heaper* nxt;
-// 	uint8_t    type;
-// 	bool       marked;
+// 	DT_HEAP_HEADER;
 // 	uint16_t   len;
 // 	uint16_t   cap;
 // 	dt_val*    values;
@@ -159,6 +157,13 @@ typedef struct dt_map {
 	uint32_t  cap;
 	dt_entry* entries;
 } dt_map;
+
+// typedef struct dt_map2 {
+// 	DT_HEAP_HEADER;
+// 	uint16_t   cnt;
+// 	uint16_t   cap;
+// 	dt_entry*  entries;
+// } dt_map2;
 
 typedef struct {
 	int      cnt;
@@ -248,8 +253,8 @@ bool     dt_map_exists     (dt_map* map, dt_str* key);
 dt_val   dt_map_get        (dt_map* map, dt_str* key);
 dt_arr*  dt_map_keys       (dt_vm* vm, dt_map* map);
 dt_arr*  dt_map_vals       (dt_vm* vm, dt_map* map);
-void     dt_map_print     (dt_map* map);
-void     dt_map_println   (dt_map* map);
+void     dt_map_print      (dt_map* map);
+void     dt_map_println    (dt_map* map);
 
 dt_vm    dt_vm_new        ();
 dt_val   dt_vm_get        (dt_vm* vm, int idx);
@@ -1495,6 +1500,7 @@ static void dt_vm_pop_close(dt_vm* vm) {
 	for (int i = 0; i < vm->num_upvals; i++) {
 		if (top == *vm->open_upvals[i]) {
 			if (!upval) {
+				// TODO: manage upvals
 				upval = dt_malloc(vm, sizeof(dt_val));
 				memcpy(upval, top, sizeof(dt_val));
 			}
@@ -1696,8 +1702,24 @@ static void dt_vm_gc_sweep(dt_vm* vm) {
 					dt_func_free(vm, (dt_func*)unreached);
 					break;
 				}
-				default:
+				case DT_HEAPER_UPVAL: {
+#ifdef DT_GC_LOG
+// 					dt_func* func = (dt_func*)unreached;
+					printf("FREE UPVAL ");
+// 					dt_upval_println(func);
+#endif
+// 					dt_func_free(vm, (dt_func*)unreached);
 					break;
+				}
+				case DT_HEAPER_CDATA: {
+#ifdef DT_GC_LOG
+// 					dt_func* func = (dt_func*)unreached;
+					printf("FREE CDATA ");
+// 					dt_upval_println(func);
+#endif
+// 					dt_func_free(vm, (dt_func*)unreached);
+					break;
+				}
 			}
 		} else {
 			heaper->marked = false;
@@ -1715,7 +1737,7 @@ static void dt_vm_gc_sweep(dt_vm* vm) {
 #endif
 }
 
-static void dt_vm_gc_checked_run(dt_vm* vm) {
+static void dt_vm_gc_check(dt_vm* vm) {
 #ifdef DT_GC_STRESS
 	dt_vm_gc_run(vm);
 #else
@@ -2345,7 +2367,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				}
 				vm->stack_top -= len;
 				dt_vm_push(vm, dt_val_arr(arr));
-				dt_vm_gc_checked_run(vm);
+				dt_vm_gc_check(vm);
 				break;
 			}
 
@@ -2366,7 +2388,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					}
 				}
 				dt_vm_push(vm, dt_val_map(map));
-				dt_vm_gc_checked_run(vm);
+				dt_vm_gc_check(vm);
 				break;
 			}
 
@@ -2398,7 +2420,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				}
 				dt_vm_push(vm, dt_val_func(func));
 				dt_vm_manage_mem(vm, (dt_heaper*)func, DT_HEAPER_FUNC);
-				dt_vm_gc_checked_run(vm);
+				dt_vm_gc_check(vm);
 				break;
 			}
 
