@@ -3279,12 +3279,11 @@ static void dt_c_cond_inner(dt_compiler* c) {
 	} else {
 		dt_c_expr(c);
 	}
-	int if_dis = c->env->chunk.cnt - if_start;
+	int if_dis = c->env->chunk.cnt - if_start + 3;
 
 	if (dt_c_match(c, DT_TOKEN_OR)) {
 
 		// for JMP(2)
-		if_dis += 3;
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
 
 		if (dt_c_peek(c) == DT_TOKEN_LPAREN) {
@@ -3305,6 +3304,10 @@ static void dt_c_cond_inner(dt_compiler* c) {
 	if (if_dis >= UINT16_MAX) {
 		dt_c_err(c, "jump too large\n");
 	}
+
+	int nil_pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
+	dt_c_emit(c, DT_OP_NIL);
+	dt_c_patch_jmp(c, nil_pos);
 
 	// TODO: patchable?
 	c->env->chunk.code[if_start - 2] = if_dis >> 8;
@@ -3452,7 +3455,6 @@ static void dt_c_stmt(dt_compiler* c) {
 	switch (dt_c_peek(c)) {
 		case DT_TOKEN_BANG:       dt_c_typedef(c); break;
 		case DT_TOKEN_DOLLAR:     dt_c_decl(c); break;
-		case DT_TOKEN_PERCENT:    dt_c_cond(c); break;
 		case DT_TOKEN_LBRACE:     dt_c_block(c, DT_BLOCK_NORMAL); break;
 		case DT_TOKEN_TILDE_GT:   dt_c_end_func(c); break;
 		case DT_TOKEN_AT_GT:      dt_c_end_loop(c); break;
