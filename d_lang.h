@@ -3266,13 +3266,17 @@ static int dt_c_block(dt_compiler* c, dt_scope_ty ty) {
 }
 
 // for parsing following cond without % only |
-static void dt_c_cond_inner(dt_compiler* c) {
+static void dt_c_cond_inner(dt_compiler* c, bool expr) {
 
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
 	int if_start = dt_c_emit_jmp_empty(c, DT_OP_JMP_COND);
-	dt_c_block(c, DT_BLOCK_COND);
+	if (expr) {
+		dt_c_expr(c);
+	} else {
+		dt_c_block(c, DT_BLOCK_COND);
+	}
 	int if_dis = c->env->chunk.cnt - if_start;
 
 	if (dt_c_match(c, DT_TOKEN_OR)) {
@@ -3282,45 +3286,13 @@ static void dt_c_cond_inner(dt_compiler* c) {
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
 
 		if (dt_c_peek(c) == DT_TOKEN_LPAREN) {
-			dt_c_cond_inner(c);
+			dt_c_cond_inner(c, expr);
 		} else {
-			dt_c_block(c, DT_BLOCK_COND);
-		}
-
-		dt_c_patch_jmp(c, pos);
-
-	}
-
-	if (if_dis >= UINT16_MAX) {
-		dt_c_err(c, "jump too large\n");
-	}
-
-	// TODO: patchable?
-	c->env->chunk.code[if_start - 2] = if_dis >> 8;
-	c->env->chunk.code[if_start - 1] = if_dis & 0xff;
-
-}
-
-// for parsing following cond without % only |
-static void dt_c_cond2_inner(dt_compiler* c) {
-
-	dt_c_consume(c, DT_TOKEN_LPAREN);
-	dt_c_expr(c);
-	dt_c_consume(c, DT_TOKEN_RPAREN);
-	int if_start = dt_c_emit_jmp_empty(c, DT_OP_JMP_COND);
-	dt_c_expr(c);
-	int if_dis = c->env->chunk.cnt - if_start;
-
-	if (dt_c_match(c, DT_TOKEN_OR)) {
-
-		// for JMP(2)
-		if_dis += 3;
-		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
-
-		if (dt_c_peek(c) == DT_TOKEN_LPAREN) {
-			dt_c_cond2_inner(c);
-		} else {
-			dt_c_expr(c);
+			if (expr) {
+				dt_c_expr(c);
+			} else {
+				dt_c_block(c, DT_BLOCK_COND);
+			}
 		}
 
 		dt_c_patch_jmp(c, pos);
@@ -3341,14 +3313,14 @@ static void dt_c_cond2_inner(dt_compiler* c) {
 // % (<bool>) <block> | (<bool>)? <block>
 static void dt_c_cond(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_PERCENT);
-	dt_c_cond_inner(c);
+	dt_c_cond_inner(c, false);
 }
 
 // conditionals
 // % (<bool>) <expr> | (<bool>)? <expr>
 static void dt_c_cond2(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_PERCENT);
-	dt_c_cond2_inner(c);
+	dt_c_cond_inner(c, true);
 }
 
 static void dt_c_loop(dt_compiler* c) {
