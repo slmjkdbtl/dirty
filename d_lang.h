@@ -35,7 +35,6 @@
 #define DT_MAP_MAX_LOAD 0.75
 #define DT_GC_GROW 2
 #define DT_GC_THRESHOLD 1024 * 1024
-#define DT_HEAP_HEADER dt_heaper *next; uint8_t type; bool marked
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -125,26 +124,12 @@ typedef struct dt_str {
 	char      chars[];
 } dt_str;
 
-// typedef struct dt_str2 {
-// 	DT_HEAP_HEADER;
-// 	uint16_t   len;
-// 	uint32_t   hash;
-// 	char       chars[];
-// } dt_str2;
-
 typedef struct dt_arr {
 	dt_heaper heaper;
 	uint32_t  len;
 	uint32_t  cap;
 	dt_val*   values;
 } dt_arr;
-
-// typedef struct dt_arr2 {
-// 	DT_HEAP_HEADER;
-// 	uint16_t   len;
-// 	uint16_t   cap;
-// 	dt_val*    values;
-// } dt_arr2;
 
 typedef struct {
 	dt_str* key;
@@ -157,13 +142,6 @@ typedef struct dt_map {
 	uint32_t  cap;
 	dt_entry* entries;
 } dt_map;
-
-// typedef struct dt_map2 {
-// 	DT_HEAP_HEADER;
-// 	uint16_t   cnt;
-// 	uint16_t   cap;
-// 	dt_entry*  entries;
-// } dt_map2;
 
 typedef struct {
 	int      cnt;
@@ -3323,12 +3301,54 @@ static void dt_c_cond_inner(dt_compiler* c) {
 
 }
 
+// for parsing following cond without % only |
+static void dt_c_cond2_inner(dt_compiler* c) {
+
+	dt_c_consume(c, DT_TOKEN_LPAREN);
+	dt_c_expr(c);
+	dt_c_consume(c, DT_TOKEN_RPAREN);
+	int if_start = dt_c_emit_jmp_empty(c, DT_OP_JMP_COND);
+	dt_c_expr(c);
+	int if_dis = c->env->chunk.cnt - if_start;
+
+	if (dt_c_match(c, DT_TOKEN_OR)) {
+
+		// for JMP(2)
+		if_dis += 3;
+		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
+
+		if (dt_c_peek(c) == DT_TOKEN_LPAREN) {
+			dt_c_cond2_inner(c);
+		} else {
+			dt_c_expr(c);
+		}
+
+		dt_c_patch_jmp(c, pos);
+
+	}
+
+	if (if_dis >= UINT16_MAX) {
+		dt_c_err(c, "jump too large\n");
+	}
+
+	// TODO: patchable?
+	c->env->chunk.code[if_start - 2] = if_dis >> 8;
+	c->env->chunk.code[if_start - 1] = if_dis & 0xff;
+
+}
+
 // conditionals
 // % (<bool>) <block> | (<bool>)? <block>
 static void dt_c_cond(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_PERCENT);
 	dt_c_cond_inner(c);
-	dt_c_emit(c, DT_OP_NIL);
+}
+
+// conditionals
+// % (<bool>) <expr> | (<bool>)? <expr>
+static void dt_c_cond2(dt_compiler* c) {
+	dt_c_consume(c, DT_TOKEN_PERCENT);
+	dt_c_cond2_inner(c);
 }
 
 static void dt_c_loop(dt_compiler* c) {
@@ -3464,6 +3484,7 @@ static void dt_c_stmt(dt_compiler* c) {
 	switch (dt_c_peek(c)) {
 		case DT_TOKEN_BANG:       dt_c_typedef(c); break;
 		case DT_TOKEN_DOLLAR:     dt_c_decl(c); break;
+		case DT_TOKEN_PERCENT:    dt_c_cond(c); break;
 		case DT_TOKEN_LBRACE:     dt_c_block(c, DT_BLOCK_NORMAL); break;
 		case DT_TOKEN_TILDE_GT:   dt_c_end_func(c); break;
 		case DT_TOKEN_AT_GT:      dt_c_end_loop(c); break;
@@ -3772,7 +3793,7 @@ static dt_parse_rule dt_rules[] = {
 	[DT_TOKEN_ERR]           = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_END]           = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AT]            = { dt_c_loop,  NULL,        DT_PREC_NONE },
-	[DT_TOKEN_PERCENT]       = { dt_c_cond,  NULL,        DT_PREC_NONE },
+	[DT_TOKEN_PERCENT]       = { dt_c_cond2, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE]         = { dt_c_func,  NULL,        DT_PREC_NONE },
 };
 
