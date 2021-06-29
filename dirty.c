@@ -7,7 +7,7 @@
 #define D_CPU
 // #define DT_VM_LOG
 #define DT_GC_LOG
-// #define DT_GC_STRESS
+#define DT_GC_STRESS
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_app.h>
@@ -213,8 +213,8 @@ void load_gfx(dt_vm* vm) {
 int main(int argc, char** argv) {
 	dt_vm vm = dt_vm_new();
 	dt_load_std(&vm);
-	load_app(&vm);
-	load_gfx(&vm);
+// 	load_app(&vm);
+// 	load_gfx(&vm);
 	if (argc >= 2) {
 		dt_dofile(&vm, argv[1]);
 	}

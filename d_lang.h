@@ -24,6 +24,7 @@
 // TODO: switch
 // TODO: allow simpler cond syntax
 // TODO: str intern
+// TODO: unbounded range
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -33,7 +34,7 @@
 #define DT_MAP_INIT_SIZE 8
 #define DT_MAP_MAX_LOAD 0.75
 #define DT_GC_GROW 2
-#define DT_GC_THRESHOLD 65536
+#define DT_GC_THRESHOLD 1024 * 1024
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -546,15 +547,6 @@ static void dt_free(dt_vm* vm, void* ptr, size_t size) {
 static void* dt_malloc(dt_vm* vm, size_t size) {
 	if (vm) {
 		vm->mem += size;
-// 		printf(" + %d -> %d\n", size, vm->mem);
-// #ifdef DT_GC_STRESS
-// 		dt_vm_gc_run(vm);
-// #else
-// 		if (vm->mem >= vm->next_gc) {
-// 			dt_vm_gc_run(vm);
-// 			vm->next_gc *= DT_GC_GROW;
-// 		}
-// #endif
 	}
 	return malloc(size);
 }
@@ -562,14 +554,6 @@ static void* dt_malloc(dt_vm* vm, size_t size) {
 static void* dt_realloc(dt_vm* vm, void* ptr, size_t old_size, size_t new_size) {
 	if (vm) {
 		vm->mem = vm->mem - old_size + new_size;
-// #ifdef DT_GC_STRESS
-// 		dt_vm_gc_run(vm);
-// #else
-// 		if (vm->mem >= vm->next_gc) {
-// 			dt_vm_gc_run(vm);
-// 			vm->next_gc *= DT_GC_GROW;
-// 		}
-// #endif
 	}
 	return realloc(ptr, new_size);
 }
@@ -776,7 +760,7 @@ static uint32_t dt_hash(char* key, int len) {
 	return hash;
 }
 
-static void dt_vm_heaper_add(dt_vm* vm, dt_heaper* h, dt_heaper_ty ty);
+static void dt_vm_manage_mem(dt_vm* vm, dt_heaper* h, dt_heaper_ty ty);
 
 // TODO
 dt_str* dt_vm_find_strn(dt_vm* vm, char* str, int len) {
@@ -787,7 +771,7 @@ static dt_str* dt_str_alloc(dt_vm* vm, int len) {
 	dt_str* str = dt_malloc(vm, sizeof(dt_str) + len + 1);
 	str->len = len;
 	if (vm) {
-		dt_vm_heaper_add(vm, (dt_heaper*)str, DT_HEAPER_STR);
+		dt_vm_manage_mem(vm, (dt_heaper*)str, DT_HEAPER_STR);
 	}
 	return str;
 }
@@ -861,7 +845,7 @@ dt_arr* dt_arr_new_len(dt_vm* vm, int len) {
 	arr->cap = len > DT_ARR_INIT_SIZE ? len : DT_ARR_INIT_SIZE;
 	arr->values = dt_malloc(vm, arr->cap * sizeof(dt_val));
 	if (vm) {
-		dt_vm_heaper_add(vm, (dt_heaper*)arr, DT_HEAPER_ARR);
+		dt_vm_manage_mem(vm, (dt_heaper*)arr, DT_HEAPER_ARR);
 	}
 	return arr;
 }
@@ -986,7 +970,7 @@ dt_map* dt_map_new_len(dt_vm* vm, int len) {
 	map->entries = dt_malloc(vm, entries_size);
 	memset(map->entries, 0, entries_size);
 	if (vm) {
-		dt_vm_heaper_add(vm, (dt_heaper*)map, DT_HEAPER_MAP);
+		dt_vm_manage_mem(vm, (dt_heaper*)map, DT_HEAPER_MAP);
 	}
 	return map;
 }
@@ -994,6 +978,7 @@ dt_map* dt_map_new_len(dt_vm* vm, int len) {
 dt_map* dt_map_new(dt_vm* vm) {
 	return dt_map_new_len(vm, DT_MAP_INIT_SIZE);
 }
+
 
 dt_arr* dt_map_keys(dt_vm* vm, dt_map* map) {
 	dt_arr* arr = dt_arr_new(vm);
@@ -1016,16 +1001,8 @@ dt_arr* dt_map_vals(dt_vm* vm, dt_map* map) {
 }
 
 void dt_map_free(dt_vm* vm, dt_map* map) {
-
-	for (int i = 0; i < map->cap; i++) {
-		if (map->entries[i].key) {
-			dt_str_free(vm, map->entries[i].key);
-		}
-	}
-
 	dt_free(vm, map->entries, map->cap * sizeof(dt_entry));
 	dt_free(vm, map, sizeof(dt_map));
-
 }
 
 void dt_map_print(dt_map* map) {
@@ -1651,7 +1628,7 @@ static void dt_val_mark(dt_val* val) {
 	}
 }
 
-static void dt_vm_heaper_add(dt_vm* vm, dt_heaper* h, dt_heaper_ty ty) {
+static void dt_vm_manage_mem(dt_vm* vm, dt_heaper* h, dt_heaper_ty ty) {
 	h->type = ty;
 	h->marked = false;
 	h->nxt = vm->heaper;
@@ -1686,7 +1663,8 @@ static void dt_vm_gc_sweep(dt_vm* vm) {
 				case DT_HEAPER_STR: {
 #ifdef DT_GC_LOG
 					dt_str* str = (dt_str*)unreached;
-					printf("FREE STR %s\n", str->chars);
+					printf("FREE STR ");
+					dt_str_println(str);
 #endif
 					dt_str_free(vm, (dt_str*)unreached);
 					break;
@@ -1737,11 +1715,15 @@ static void dt_vm_gc_sweep(dt_vm* vm) {
 #endif
 }
 
-void dt_vm_gc_checked_run(dt_vm* vm) {
+static void dt_vm_gc_checked_run(dt_vm* vm) {
+#ifdef DT_GC_STRESS
+	dt_vm_gc_run(vm);
+#else
 	if (vm->mem >= vm->next_gc) {
 		dt_vm_gc_run(vm);
 		vm->next_gc *= DT_GC_GROW;
 	}
+#endif
 }
 
 // TODO: upval
@@ -1753,7 +1735,7 @@ void dt_vm_gc_run(dt_vm* vm) {
 
 void dt_vm_free(dt_vm* vm) {
 	dt_vm_gc_sweep(vm);
-// 	dt_map_free(NULL, vm->globals);
+	dt_map_free(NULL, vm->globals);
 	dt_map_free(NULL, vm->strs);
 	memset(vm, 0, sizeof(dt_vm));
 }
@@ -2403,7 +2385,6 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				func->logic = val.data.logic;
 				func->num_upvals = num_upvals;
 				func->upvals = dt_malloc(vm, sizeof(dt_val*) * num_upvals);
-				dt_vm_heaper_add(vm, (dt_heaper*)func, DT_HEAPER_FUNC);
 				for (int i = 0; i < num_upvals; i++) {
 					bool local = *vm->ip++;
 					uint8_t idx = *vm->ip++;
@@ -2416,6 +2397,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					}
 				}
 				dt_vm_push(vm, dt_val_func(func));
+				dt_vm_manage_mem(vm, (dt_heaper*)func, DT_HEAPER_FUNC);
 				dt_vm_gc_checked_run(vm);
 				break;
 			}
@@ -3928,16 +3910,16 @@ static dt_val dt_f_fread(dt_vm* vm, int nargs) {
 
 void dt_load_std(dt_vm* vm) {
 	// TODO: namespacing
-	dt_map_cset_cfunc(vm, vm->globals, "type", dt_f_type);
-	dt_map_cset_cfunc(vm, vm->globals, "eval", dt_f_eval);
-	dt_map_cset_cfunc(vm, vm->globals, "dofile", dt_f_dofile);
-	dt_map_cset_cfunc(vm, vm->globals, "error", dt_f_error);
-	dt_map_cset_cfunc(vm, vm->globals, "print", dt_f_print);
-	dt_map_cset_cfunc(vm, vm->globals, "exit", dt_f_exit);
-	dt_map_cset_cfunc(vm, vm->globals, "exec", dt_f_exec);
-	dt_map_cset_cfunc(vm, vm->globals, "time", dt_f_time);
-	dt_map_cset_cfunc(vm, vm->globals, "getenv", dt_f_getenv);
-	dt_map_cset_cfunc(vm, vm->globals, "fread", dt_f_fread);
+	dt_map_cset_cfunc(NULL, vm->globals, "type", dt_f_type);
+	dt_map_cset_cfunc(NULL, vm->globals, "eval", dt_f_eval);
+	dt_map_cset_cfunc(NULL, vm->globals, "dofile", dt_f_dofile);
+	dt_map_cset_cfunc(NULL, vm->globals, "error", dt_f_error);
+	dt_map_cset_cfunc(NULL, vm->globals, "print", dt_f_print);
+	dt_map_cset_cfunc(NULL, vm->globals, "exit", dt_f_exit);
+	dt_map_cset_cfunc(NULL, vm->globals, "exec", dt_f_exec);
+	dt_map_cset_cfunc(NULL, vm->globals, "time", dt_f_time);
+	dt_map_cset_cfunc(NULL, vm->globals, "getenv", dt_f_getenv);
+	dt_map_cset_cfunc(NULL, vm->globals, "fread", dt_f_fread);
 }
 
 dt_val dt_eval(dt_vm* vm, char* code) {
