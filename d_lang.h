@@ -448,25 +448,26 @@ typedef enum {
 	DT_BLOCK_NORMAL,
 	DT_BLOCK_LOOP,
 	DT_BLOCK_COND,
-} dt_scope_ty;
+} dt_block_ty;
 
 typedef struct {
 	int pos;
 	int depth;
-	dt_scope_ty ty;
-} dt_jumper;
+	bool cont;
+} dt_break;
 
+// TODO: reduce size
 typedef struct dt_funcenv {
 	struct dt_funcenv* parent;
 	dt_chunk chunk;
 	int cur_depth;
-	dt_scope_ty scopes[UINT8_MAX];
+	dt_block_ty scopes[UINT8_MAX];
 	dt_local locals[UINT8_MAX];
 	int num_locals;
 	dt_upval upvals[UINT8_MAX];
 	int num_upvals;
-	dt_jumper jumpers[UINT8_MAX];
-	int num_jumpers;
+	dt_break breaks[UINT8_MAX];
+	int num_breaks;
 } dt_funcenv;
 
 typedef struct {
@@ -3222,7 +3223,7 @@ static void dt_c_decl(dt_compiler* c) {
 	dt_c_expr(c);
 }
 
-static void dt_c_scope_begin(dt_compiler* c, dt_scope_ty ty) {
+static void dt_c_scope_begin(dt_compiler* c, dt_block_ty ty) {
 	c->env->scopes[c->env->cur_depth++] = ty;
 }
 
@@ -3249,7 +3250,7 @@ static void dt_c_scope_end(dt_compiler* c) {
 
 static void dt_c_stmt(dt_compiler* c);
 
-static int dt_c_block(dt_compiler* c, dt_scope_ty ty) {
+static int dt_c_block(dt_compiler* c, dt_block_ty ty) {
 
 	dt_c_consume(c, DT_TOKEN_LBRACE);
 	dt_c_scope_begin(c, ty);
@@ -3357,13 +3358,22 @@ static void dt_c_loop(dt_compiler* c) {
 			dt_c_err(c, "jump too large\n");
 		}
 
+		// TODO: reduce dup code
+		for (int i = 0; i < c->env->num_breaks; i++) {
+			dt_break b = c->env->breaks[i];
+			if (b.cont && b.depth == depth) {
+				dt_c_patch_jmp(c, b.pos);
+				c->env->breaks[i--] = c->env->breaks[--c->env->num_breaks];
+			}
+		}
+
 		dt_c_emit_jmp(c, DT_OP_ITER, dis);
 
-		for (int i = 0; i < c->env->num_jumpers; i++) {
-			dt_jumper j = c->env->jumpers[i];
-			if (j.depth == depth) {
-				dt_c_patch_jmp(c, j.pos);
-				c->env->jumpers[i--] = c->env->jumpers[--c->env->num_jumpers];
+		for (int i = 0; i < c->env->num_breaks; i++) {
+			dt_break b = c->env->breaks[i];
+			if (!b.cont && b.depth == depth) {
+				dt_c_patch_jmp(c, b.pos);
+				c->env->breaks[i--] = c->env->breaks[--c->env->num_breaks];
 			}
 		}
 
@@ -3388,13 +3398,21 @@ static void dt_c_loop(dt_compiler* c) {
 			dt_c_err(c, "jump too large\n");
 		}
 
+		for (int i = 0; i < c->env->num_breaks; i++) {
+			dt_break b = c->env->breaks[i];
+			if (b.cont && b.depth == depth) {
+				dt_c_patch_jmp(c, b.pos);
+				c->env->breaks[i--] = c->env->breaks[--c->env->num_breaks];
+			}
+		}
+
 		dt_c_emit_jmp(c, DT_OP_REWIND, dis);
 
-		for (int i = 0; i < c->env->num_jumpers; i++) {
-			dt_jumper j = c->env->jumpers[i];
-			if (j.depth == depth) {
-				dt_c_patch_jmp(c, j.pos);
-				c->env->jumpers[i--] = c->env->jumpers[--c->env->num_jumpers];
+		for (int i = 0; i < c->env->num_breaks; i++) {
+			dt_break b = c->env->breaks[i];
+			if (!b.cont && b.depth == depth) {
+				dt_c_patch_jmp(c, b.pos);
+				c->env->breaks[i--] = c->env->breaks[--c->env->num_breaks];
 			}
 		}
 
@@ -3410,10 +3428,10 @@ static void dt_c_end_func(dt_compiler* c) {
 	dt_c_emit(c, DT_OP_STOP);
 }
 
-static void dt_c_add_jumper(dt_compiler* c, dt_scope_ty ty, dt_op op) {
+static void dt_c_add_break(dt_compiler* c, bool cont) {
 	int depth = -1;
 	for (int i = c->env->cur_depth - 1; i >= 0; i--) {
-		if (c->env->scopes[i] == ty) {
+		if (c->env->scopes[i] == DT_BLOCK_LOOP) {
 			depth = i;
 			break;
 		}
@@ -3433,23 +3451,24 @@ static void dt_c_add_jumper(dt_compiler* c, dt_scope_ty ty, dt_op op) {
 			dt_c_emit(c, DT_OP_POP);
 		}
 	}
-	int pos = dt_c_emit_jmp_empty(c, op);
-	c->env->jumpers[c->env->num_jumpers++] = (dt_jumper) {
-		.ty = ty,
+	int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
+	c->env->breaks[c->env->num_breaks++] = (dt_break) {
 		.pos = pos,
 		.depth = depth,
+		.cont = cont,
 	};
 }
 
-static void dt_c_end_loop(dt_compiler* c) {
+static void dt_c_break(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AT_GT);
-	dt_c_add_jumper(c, DT_BLOCK_LOOP, DT_OP_JMP);
+	dt_c_add_break(c, false);
+	dt_c_emit(c, DT_OP_NIL);
 }
 
-// TODO
-static void dt_c_nxt_loop(dt_compiler* c) {
+static void dt_c_continue(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AT_CARET);
-	dt_c_add_jumper(c, DT_BLOCK_LOOP, DT_OP_JMP);
+	dt_c_add_break(c, true);
+	dt_c_emit(c, DT_OP_NIL);
 }
 
 static void dt_c_stmt(dt_compiler* c) {
@@ -3459,8 +3478,6 @@ static void dt_c_stmt(dt_compiler* c) {
 		case DT_TOKEN_DOLLAR:     dt_c_decl(c); break;
 		case DT_TOKEN_LBRACE:     dt_c_block(c, DT_BLOCK_NORMAL); break;
 		case DT_TOKEN_TILDE_GT:   dt_c_end_func(c); break;
-		case DT_TOKEN_AT_GT:      dt_c_end_loop(c); break;
-		case DT_TOKEN_AT_CARET:   dt_c_nxt_loop(c); break;
 		default: {
 			dt_c_expr(c);
 			dt_c_emit(c, DT_OP_POP);
@@ -3614,8 +3631,8 @@ static dt_funcenv dt_funcenv_new() {
 		.num_locals = 0,
 		.upvals = {0},
 		.num_upvals = 0,
-		.jumpers = {0},
-		.num_jumpers = 0,
+		.breaks = {0},
+		.num_breaks = 0,
 	};
 }
 
@@ -3769,8 +3786,10 @@ static dt_parse_rule dt_rules[] = {
 	[DT_TOKEN_ERR]           = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_END]           = { NULL,       NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AT]            = { dt_c_loop,  NULL,        DT_PREC_NONE },
-	[DT_TOKEN_PERCENT]       = { dt_c_cond, NULL,        DT_PREC_NONE },
-	[DT_TOKEN_TILDE]         = { dt_c_func,  NULL,        DT_PREC_NONE },
+	[DT_TOKEN_PERCENT]       = { dt_c_cond,     NULL,        DT_PREC_NONE },
+	[DT_TOKEN_AT_GT]         = { dt_c_break,    NULL,        DT_PREC_NONE },
+	[DT_TOKEN_AT_CARET]      = { dt_c_continue, NULL,        DT_PREC_NONE },
+	[DT_TOKEN_TILDE]         = { dt_c_func,     NULL,        DT_PREC_NONE },
 };
 
 static void dt_c_prec(dt_compiler* c, dt_prec prec) {
