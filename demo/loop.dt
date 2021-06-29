@@ -1,6 +1,6 @@
 $ a = 0
 
-print("done")
+print("abc" + 123)
 
 @ {
 

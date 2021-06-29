@@ -16,13 +16,14 @@
 // TODO: type
 // TODO: string interpolation
 // TODO: single ctx handle
-// TODO: str add
 // TODO: tail call opti
 // TODO: str escape
 // TODO: loop return val
 // TODO: switch
 // TODO: str intern
 // TODO: 3 <= a < 7
+// TODO: < ... > for map and make block expr?
+// TODO: iter with index
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -318,7 +319,9 @@ typedef enum {
 	DT_OP_GETU,
 	DT_OP_SETU,
 	DT_OP_GETI,
+	DT_OP_SETI,
 	DT_OP_CALL,
+	DT_OP_MKSTR,
 	DT_OP_MKFUNC,
 	DT_OP_MKARR,
 	DT_OP_MKMAP,
@@ -360,6 +363,7 @@ typedef enum {
 	DT_TOKEN_BANG, // !
 	DT_TOKEN_HASH, // #
 	DT_TOKEN_DOLLAR, // $
+	DT_TOKEN_DOLLAR_LBRACE, // ${
 	DT_TOKEN_BACKSLASH, //
 	DT_TOKEN_PERCENT, // %
 	DT_TOKEN_TILDE, // ~
@@ -390,6 +394,7 @@ typedef enum {
 	DT_TOKEN_AT_GT, // @>
 	DT_TOKEN_AT_CARET, // @^
 	DT_TOKEN_PERCENT_GT, // %>
+	DT_TOKEN_QUOTE, // "
 	// lit
 	DT_TOKEN_IDENT,
 	DT_TOKEN_STR,
@@ -566,6 +571,7 @@ char* dt_token_name(dt_token_ty ty) {
 		case DT_TOKEN_BANG: return "BANG";
 		case DT_TOKEN_HASH: return "HASH";
 		case DT_TOKEN_DOLLAR: return "DOLLAR";
+		case DT_TOKEN_DOLLAR_LBRACE: return "DOLLAR_LBRACE";
 		case DT_TOKEN_BACKSLASH: return "BACKSLASH";
 		case DT_TOKEN_PERCENT: return "PERCENT";
 		case DT_TOKEN_TILDE: return "TILDE";
@@ -575,6 +581,7 @@ char* dt_token_name(dt_token_ty ty) {
 		case DT_TOKEN_COLON_LPAREN: return "COLON_LPAREN";
 		case DT_TOKEN_COLON_RPAREN: return "COLON_RPAREN";
 		case DT_TOKEN_QUESTION: return "QUESTION";
+		case DT_TOKEN_QUOTE: return "QUOTE";
 		case DT_TOKEN_AND: return "AND";
 		case DT_TOKEN_OR: return "OR";
 		case DT_TOKEN_AT: return "AT";
@@ -1191,6 +1198,24 @@ bool dt_val_truthiness(dt_val* val) {
 	);
 }
 
+dt_str* dt_bool_to_str(dt_vm* vm, dt_bool b) {
+	return b ? dt_str_new(vm, "true") : dt_str_new(vm, "false");
+}
+
+// TODO: don't provide this
+dt_str* dt_val_to_str(dt_vm* vm, dt_val* val) {
+	switch (val->type) {
+		case DT_VAL_STR:
+			return val->data.str;
+		case DT_VAL_NUM:
+			return dt_num_to_str(vm, val->data.num);
+		case DT_VAL_BOOL:
+			return dt_bool_to_str(vm, val->data.num);
+		default:
+			return NULL;
+	}
+}
+
 static dt_chunk dt_chunk_new() {
 	return (dt_chunk) {
 		.cnt = 0,
@@ -1238,8 +1263,10 @@ static char* dt_op_name(dt_op op) {
 		case DT_OP_GETL:      return "GETL";
 		case DT_OP_SETU:      return "SETU";
 		case DT_OP_GETU:      return "GETU";
-		case DT_OP_GETI:      return "INDEX";
+		case DT_OP_GETI:      return "GETI";
+		case DT_OP_SETI:      return "SETI";
 		case DT_OP_CALL:      return "CALL";
+		case DT_OP_MKSTR:     return "MKSTR";
 		case DT_OP_MKFUNC:    return "MKFUNC";
 		case DT_OP_MKARR:     return "MKARR";
 		case DT_OP_MKMAP:     return "MKMAP";
@@ -1301,6 +1328,11 @@ static int dt_chunk_peek_at(dt_chunk* c, int idx) {
 		case DT_OP_CALL: {
 			uint8_t nargs = c->code[idx + 1];
 			printf("CALL %d", nargs);
+			return idx + 2;
+		}
+		case DT_OP_MKSTR: {
+			uint8_t len = c->code[idx + 1];
+			printf("MKSTR %d", len);
 			return idx + 2;
 		}
 		case DT_OP_MKFUNC: {
@@ -1813,13 +1845,20 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				dt_val a = dt_vm_pop(vm);
 				if (a.type == DT_VAL_NUM && b.type == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_val_num(a.data.num + b.data.num));
-				} else if (a.type == DT_VAL_STR && b.type == DT_VAL_STR) {
-					dt_vm_push(vm, dt_val_str(dt_str_concat(vm, a.data.str, b.data.str)));
 				} else if (a.type == DT_VAL_STR || b.type == DT_VAL_STR) {
-					// TODO
-// 					dt_str a_str = dt_val_to_str(&a);
-// 					dt_str b_str = dt_val_to_str(&b);
-// 					dt_vm_push(vm, dt_str_concat(&a_str, &b_str));
+					dt_str* a_str = dt_val_to_str(vm, &a);
+					dt_str* b_str = dt_val_to_str(vm, &b);
+					if (a_str == NULL || b_str == NULL) {
+						dt_vm_err(
+							vm,
+							"cannot add a '%s' with '%s'\n",
+							dt_type_name(a.type),
+							dt_type_name(b.type)
+						);
+						dt_vm_push(vm, dt_nil);
+					} else {
+						dt_vm_push(vm, dt_val_str(dt_str_concat(vm, a_str, b_str)));
+					}
 				} else {
 					dt_vm_err(
 						vm,
@@ -2308,6 +2347,50 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				break;
 			}
 
+			case DT_OP_SETI: {
+				dt_val val = dt_vm_pop(vm);
+				dt_val key = dt_vm_pop(vm);
+				dt_val parent = dt_vm_pop(vm);
+				switch (parent.type) {
+					case DT_VAL_ARR:
+						if (key.type == DT_VAL_NUM) {
+							int idx = key.data.num;
+							dt_arr_set(vm, parent.data.arr, idx, val);
+							dt_vm_push(vm, val);
+						} else {
+							dt_vm_err(
+								vm,
+								"invalid arr idx type '%s'\n",
+								dt_type_name(val.type)
+							);
+							dt_vm_push(vm, dt_nil);
+						}
+						break;
+					case DT_VAL_MAP:
+						if (key.type == DT_VAL_STR) {
+							dt_map_set(vm, parent.data.map, key.data.str, val);
+							dt_vm_push(vm, val);
+						} else {
+							dt_vm_err(
+								vm,
+								"invalid map idx type '%s'\n",
+								dt_type_name(val.type)
+							);
+							dt_vm_push(vm, dt_nil);
+						}
+						break;
+					default:
+						dt_vm_err(
+							vm,
+							"cannot set index a '%s'\n",
+							dt_type_name(val.type)
+						);
+						dt_vm_push(vm, dt_nil);
+						break;
+				}
+				break;
+			}
+
 			// TODO: improve
 			case DT_OP_CALL: {
 
@@ -2348,6 +2431,19 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_CLOSE: {
 				dt_vm_pop_close(vm);
+				break;
+			}
+
+			case DT_OP_MKSTR: {
+				int len = *vm->ip++;
+				dt_str* str = dt_str_new_len(vm, "", 0);
+				for (int i = 0; i < len; i++) {
+					dt_val v = *(vm->stack_top - len + i);
+					// TODO
+				}
+				vm->stack_top -= len;
+				dt_vm_push(vm, dt_val_str(str));
+				dt_vm_gc_check(vm);
 				break;
 			}
 
@@ -2715,6 +2811,7 @@ static bool dt_is_alpha(char c) {
 
 static dt_token dt_scanner_scan_str(dt_scanner* s) {
 
+// 	dt_scanner_make_token(s, DT_TOKEN_QUOTE);
 	char last = dt_scanner_peek(s);
 
 	for (;;) {
@@ -2819,10 +2916,15 @@ static dt_token dt_scanner_scan(dt_scanner* s) {
 		case ']': return dt_scanner_make_token(s, DT_TOKEN_RBRACKET);
 		case ',': return dt_scanner_make_token(s, DT_TOKEN_COMMA);
 		case '#': return dt_scanner_make_token(s, DT_TOKEN_HASH);
-		case '$': return dt_scanner_make_token(s, DT_TOKEN_DOLLAR);
 		case '\\': return dt_scanner_make_token(s, DT_TOKEN_BACKSLASH);
 		case '?': return dt_scanner_make_token(s, DT_TOKEN_QUESTION);
 		case '^': return dt_scanner_make_token(s, DT_TOKEN_CARET);
+		case '$':
+			if (dt_scanner_match(s, '{')) {
+				return dt_scanner_make_token(s, DT_TOKEN_DOLLAR_LBRACE);
+			} else {
+				return dt_scanner_make_token(s, DT_TOKEN_DOLLAR);
+			}
 		case ':':
 			if (dt_scanner_match(s, ':')) {
 				return dt_scanner_make_token(s, DT_TOKEN_COLON_COLON);
@@ -3045,6 +3147,10 @@ static void dt_c_num(dt_compiler* c) {
 	dt_c_push_const(c, num);
 }
 
+static void dt_c_expr(dt_compiler* c) {
+	dt_c_prec(c, DT_PREC_ASSIGN);
+}
+
 static void dt_c_str(dt_compiler* c) {
 	dt_token str_t = dt_c_consume(c, DT_TOKEN_STR);
 	dt_val str = dt_val_str(dt_str_new_len(
@@ -3055,6 +3161,31 @@ static void dt_c_str(dt_compiler* c) {
 	dt_c_push_const(c, str);
 }
 
+// QUOTE, STR, DOLLAR_RBRACE, <expr>, RBRACE, STR, DOLLAR_RBRACE, <expr>, RBRACE, QUOTE
+
+static void dt_c_str2(dt_compiler* c) {
+	int n = 0;
+	dt_c_consume(c, DT_TOKEN_QUOTE);
+	while (dt_c_peek(c) != DT_TOKEN_QUOTE) {
+		if (dt_c_match(c, DT_TOKEN_DOLLAR_LBRACE)) {
+			dt_c_expr(c);
+			dt_c_consume(c, DT_TOKEN_RBRACE);
+			n++;
+		} else {
+			dt_token str_t = dt_c_consume(c, DT_TOKEN_STR);
+			dt_val str = dt_val_str(dt_str_new_len(
+				NULL,
+				str_t.start,
+				str_t.len
+			));
+			dt_c_push_const(c, str);
+			n++;
+		}
+	}
+	dt_c_consume(c, DT_TOKEN_QUOTE);
+	dt_c_emit2(c, DT_OP_MKSTR, n);
+}
+
 static void dt_c_lit(dt_compiler* c) {
 	dt_c_nxt(c);
 	switch (c->parser.prev.type) {
@@ -3063,10 +3194,6 @@ static void dt_c_lit(dt_compiler* c) {
 		case DT_TOKEN_F: dt_c_emit(c, DT_OP_FALSE); break;
 		default: dt_c_err(c, "cannot process as literal\n");
 	}
-}
-
-static void dt_c_expr(dt_compiler* c) {
-	dt_c_prec(c, DT_PREC_ASSIGN);
 }
 
 static void dt_c_arr(dt_compiler* c) {
@@ -3360,6 +3487,16 @@ static void dt_c_cond(dt_compiler* c) {
 	dt_c_cond_inner(c);
 }
 
+static void dt_c_patch_breaks(dt_compiler* c, int depth, bool cont) {
+	for (int i = 0; i < c->env->num_breaks; i++) {
+		dt_break b = c->env->breaks[i];
+		if (b.cont == cont && b.depth == depth) {
+			dt_c_patch_jmp(c, b.pos);
+			c->env->breaks[i--] = c->env->breaks[--c->env->num_breaks];
+		}
+	}
+}
+
 // TODO: accept expr
 static void dt_c_loop(dt_compiler* c) {
 
@@ -3402,27 +3539,16 @@ static void dt_c_loop(dt_compiler* c) {
 			dt_c_err(c, "jump too large\n");
 		}
 
+		// TODO: support break in expr loop
 		// TODO: reduce dup code
 		if (depth != -1) {
-			for (int i = 0; i < c->env->num_breaks; i++) {
-				dt_break b = c->env->breaks[i];
-				if (b.cont && b.depth == depth) {
-					dt_c_patch_jmp(c, b.pos);
-					c->env->breaks[i--] = c->env->breaks[--c->env->num_breaks];
-				}
-			}
+			dt_c_patch_breaks(c, depth, true);
 		}
 
 		dt_c_emit_jmp(c, DT_OP_ITER, dis);
 
 		if (depth != -1) {
-			for (int i = 0; i < c->env->num_breaks; i++) {
-				dt_break b = c->env->breaks[i];
-				if (!b.cont && b.depth == depth) {
-					dt_c_patch_jmp(c, b.pos);
-					c->env->breaks[i--] = c->env->breaks[--c->env->num_breaks];
-				}
-			}
+			dt_c_patch_breaks(c, depth, false);
 		}
 
 		c->env->num_locals--;
@@ -3455,25 +3581,13 @@ static void dt_c_loop(dt_compiler* c) {
 		}
 
 		if (depth != -1) {
-			for (int i = 0; i < c->env->num_breaks; i++) {
-				dt_break b = c->env->breaks[i];
-				if (b.cont && b.depth == depth) {
-					dt_c_patch_jmp(c, b.pos);
-					c->env->breaks[i--] = c->env->breaks[--c->env->num_breaks];
-				}
-			}
+			dt_c_patch_breaks(c, depth, true);
 		}
 
 		dt_c_emit_jmp(c, DT_OP_REWIND, dis);
 
 		if (depth != -1) {
-			for (int i = 0; i < c->env->num_breaks; i++) {
-				dt_break b = c->env->breaks[i];
-				if (!b.cont && b.depth == depth) {
-					dt_c_patch_jmp(c, b.pos);
-					c->env->breaks[i--] = c->env->breaks[--c->env->num_breaks];
-				}
-			}
+			dt_c_patch_breaks(c, depth, false);
 		}
 
 	}
