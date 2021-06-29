@@ -5,9 +5,9 @@
 
 #define D_IMPL
 #define D_CPU
-// #define DT_VM_LOG
-// #define DT_GC_LOG
-// #define DT_GC_STRESS
+#define DT_VM_LOG
+#define DT_GC_LOG
+#define DT_GC_STRESS
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_app.h>

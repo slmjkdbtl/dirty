@@ -3272,18 +3272,20 @@ static void dt_c_cond_inner(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
+
 	int if_start = dt_c_emit_jmp_empty(c, DT_OP_JMP_COND);
+
 	if (dt_c_peek(c) == DT_TOKEN_LBRACE) {
 		dt_c_block(c, DT_BLOCK_COND);
 		dt_c_emit(c, DT_OP_NIL);
 	} else {
 		dt_c_expr(c);
 	}
+
 	int if_dis = c->env->chunk.cnt - if_start + 3;
 
 	if (dt_c_match(c, DT_TOKEN_OR)) {
 
-		// for JMP(2)
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
 
 		if (dt_c_peek(c) == DT_TOKEN_LPAREN) {
@@ -3919,7 +3921,6 @@ static dt_val dt_f_fread(dt_vm* vm, int nargs) {
 	char* path = dt_vm_get_cstr(vm, 0);
 	size_t size;
 	char* content = dt_read_file(path, &size);
-	free(path);
 	dt_str* str = dt_str_new_len(vm, content, size);
 	free(content);
 	return dt_val_str(str);
