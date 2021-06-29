@@ -216,6 +216,7 @@ void     dt_arr_set       (dt_vm* vm, dt_arr* arr, int idx, dt_val val);
 void     dt_arr_insert    (dt_vm* vm, dt_arr* arr, int idx, dt_val val);
 void     dt_arr_push      (dt_vm* vm, dt_arr* arr, dt_val val);
 dt_val   dt_arr_rm        (dt_arr* arr, int idx);
+dt_arr*  dt_arr_concat    (dt_vm* vm, dt_arr* a1, dt_arr* a2);
 void     dt_arr_print     (dt_arr* arr);
 void     dt_arr_println   (dt_arr* arr);
 
@@ -944,6 +945,17 @@ dt_val dt_arr_rm(dt_arr* arr, int idx) {
 	arr->len--;
 	arr->values[arr->len] = dt_nil;
 	return v;
+}
+
+dt_arr* dt_arr_concat(dt_vm* vm, dt_arr* a1, dt_arr* a2) {
+	dt_arr* new = dt_arr_new_len(vm, a1->len + a2->len);
+	for (int i = 0; i < a1->len; i++) {
+		dt_arr_push(vm, new, dt_arr_get(a1, i));
+	}
+	for (int i = 0; i < a2->len; i++) {
+		dt_arr_push(vm, new, dt_arr_get(a2, i));
+	}
+	return new;
 }
 
 void dt_arr_print(dt_arr* arr) {
@@ -1845,20 +1857,24 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				dt_val a = dt_vm_pop(vm);
 				if (a.type == DT_VAL_NUM && b.type == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_val_num(a.data.num + b.data.num));
-				} else if (a.type == DT_VAL_STR || b.type == DT_VAL_STR) {
-					dt_str* a_str = dt_val_to_str(vm, &a);
-					dt_str* b_str = dt_val_to_str(vm, &b);
-					if (a_str == NULL || b_str == NULL) {
-						dt_vm_err(
-							vm,
-							"cannot add a '%s' with '%s'\n",
-							dt_type_name(a.type),
-							dt_type_name(b.type)
-						);
-						dt_vm_push(vm, dt_nil);
-					} else {
-						dt_vm_push(vm, dt_val_str(dt_str_concat(vm, a_str, b_str)));
-					}
+				} else if (a.type == DT_VAL_STR && b.type == DT_VAL_STR) {
+					dt_vm_push(vm, dt_val_str(dt_str_concat(vm, a.data.str, b.data.str)));
+				} else if (a.type == DT_VAL_ARR && b.type == DT_VAL_ARR) {
+					dt_vm_push(vm, dt_val_arr(dt_arr_concat(vm, a.data.arr, b.data.arr)));
+// 				} else if (a.type == DT_VAL_STR || b.type == DT_VAL_STR) {
+// 					dt_str* a_str = dt_val_to_str(vm, &a);
+// 					dt_str* b_str = dt_val_to_str(vm, &b);
+// 					if (a_str == NULL || b_str == NULL) {
+// 						dt_vm_err(
+// 							vm,
+// 							"cannot add a '%s' with '%s'\n",
+// 							dt_type_name(a.type),
+// 							dt_type_name(b.type)
+// 						);
+// 						dt_vm_push(vm, dt_nil);
+// 					} else {
+// 						dt_vm_push(vm, dt_val_str(dt_str_concat(vm, a_str, b_str)));
+// 					}
 				} else {
 					dt_vm_err(
 						vm,
