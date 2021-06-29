@@ -8,10 +8,7 @@ $ six = get6()
 
 print(six)
 
-$ add = ~ (a, b) {
-	~> a + b
-}
-
+$ add = ~ (a, b) a + b
 $ sum = add(2, 3, 8)
 $ sum2 = add(1)
 print(sum)

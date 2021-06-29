@@ -3265,6 +3265,7 @@ static int dt_c_block(dt_compiler* c, dt_scope_ty ty) {
 
 }
 
+// TODO: emit nil for expr
 // for parsing following cond without % only |
 static void dt_c_cond_inner(dt_compiler* c, bool expr) {
 
@@ -3697,9 +3698,13 @@ static void dt_c_func(dt_compiler* c) {
 		// TODO
 	}
 
-	dt_c_block(c, DT_BLOCK_NORMAL);
+	if (dt_c_peek(c) == DT_TOKEN_LBRACE) {
+		dt_c_block(c, DT_BLOCK_NORMAL);
+		dt_c_emit(c, DT_OP_NIL);
+	} else {
+		dt_c_expr(c);
+	}
 
-	dt_c_emit(c, DT_OP_NIL);
 	dt_c_emit(c, DT_OP_STOP);
 
 	c->env = prev_env;
