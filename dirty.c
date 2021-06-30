@@ -7,7 +7,7 @@
 #define D_CPU
 // #define DT_VM_LOG
 #define DT_GC_LOG
-#define DT_GC_STRESS
+// #define DT_GC_STRESS
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_app.h>
@@ -192,7 +192,7 @@ dt_val dt_f_app_key_released(dt_vm* vm, int nargs) {
 }
 
 void load_app(dt_vm* vm) {
-	dt_map* app = dt_map_new(NULL);
+	dt_map* app = dt_map_new(vm);
 	dt_map_cset_cfunc(vm, app, "run", dt_f_app_run);
 	dt_map_cset_cfunc(vm, app, "quit", dt_f_app_quit);
 	dt_map_cset_cfunc(vm, app, "width", dt_f_app_width);
@@ -206,15 +206,15 @@ void load_app(dt_vm* vm) {
 }
 
 void load_gfx(dt_vm* vm) {
-	dt_map* gfx = dt_map_new(NULL);
+	dt_map* gfx = dt_map_new(vm);
 	dt_map_cset_map(vm, vm->globals, "gfx", gfx);
 }
 
 int main(int argc, char** argv) {
 	dt_vm vm = dt_vm_new();
 	dt_load_std(&vm);
-// 	load_app(&vm);
-// 	load_gfx(&vm);
+	load_app(&vm);
+	load_gfx(&vm);
 	if (argc >= 2) {
 		dt_dofile(&vm, argv[1]);
 	}

@@ -85,8 +85,8 @@ typedef struct {
 
 typedef struct {
 	DT_HEAPER_STRUCT;
-	size_t    size;
-	void*     data;
+	uint32_t size;
+	char     data[];
 } dt_cdata;
 
 typedef struct dt_val {
@@ -103,6 +103,7 @@ typedef struct dt_val {
 		struct dt_func*  func;
 		dt_cfunc*        cfunc;
 		dt_cdata*        cdata;
+		void*            cptr;
 	} data;
 } dt_val;
 
@@ -636,6 +637,7 @@ char* dt_type_name(dt_val_ty ty) {
 }
 
 void dt_func_print(dt_func* func);
+static void dt_cdata_print(dt_cdata* cdata);
 
 void dt_val_print(dt_val* val) {
 	switch (val->type) {
@@ -648,9 +650,9 @@ void dt_val_print(dt_val* val) {
 		case DT_VAL_LOGIC: printf("<logic>"); break;
 		case DT_VAL_RANGE: printf("%d..%d", val->data.range.start, val->data.range.end); break;
 		case DT_VAL_FUNC: dt_func_print(val->data.func); break;
-		case DT_VAL_CFUNC: printf("<cfunc>"); break;
-		case DT_VAL_CDATA: printf("cdata"); break;
-		case DT_VAL_CPTR: printf("cptr"); break;
+		case DT_VAL_CDATA: dt_cdata_print(val->data.cdata); break;
+		case DT_VAL_CFUNC: printf("<cfunc#%p>", (void*)val->data.cfunc); break;
+		case DT_VAL_CPTR: printf("<cptr#%p>", (void*)val->data.cptr); break;
 	}
 }
 
@@ -1159,6 +1161,10 @@ void dt_map_cset_map(dt_vm* vm, dt_map* map, char* key, dt_map* map2) {
 	dt_map_cset(vm, map, key, dt_val_map(map2));
 }
 
+void dt_map_cset_arr(dt_vm* vm, dt_map* map, char* key, dt_arr* arr) {
+	dt_map_cset(vm, map, key, dt_val_arr(arr));
+}
+
 bool dt_map_exists(dt_map* map, dt_str* key) {
 	int idx = dt_map_find(map, key);
 	return idx != -1 && map->entries[idx].key != NULL;
@@ -1207,6 +1213,25 @@ static void dt_func_mark(dt_func* func) {
 static void dt_func_free(dt_vm *vm, dt_func* func) {
 	dt_free(vm, func->upvals, sizeof(dt_val*) * func->num_upvals);
 	dt_free(vm, func, sizeof(dt_func));
+}
+
+static void dt_cdata_print(dt_cdata* cdata) {
+	printf("<cdata#%p>", (void*)cdata);
+}
+
+static void dt_cdata_println(dt_cdata* cdata) {
+	dt_cdata_print(cdata);
+	printf("\n");
+}
+
+dt_cdata* dt_cdata_new(dt_vm* vm, void* src, uint32_t size) {
+	dt_cdata* cdata = dt_malloc(vm, sizeof(dt_cdata) + size);
+	memcpy(cdata->data, src, size);
+	return cdata;
+}
+
+void dt_cdata_free(dt_vm* vm, dt_cdata* cdata) {
+	dt_free(vm, cdata, sizeof(dt_cdata) + cdata->size);
 }
 
 bool dt_val_truthiness(dt_val* val) {
@@ -1433,7 +1458,7 @@ dt_vm dt_vm_new() {
 		.stack = {0},
 		.stack_top = NULL,
 		.stack_offset = 0,
-		.globals = dt_map_new(NULL),
+		.globals = NULL,
 		.strs = dt_map_new(NULL),
 		.open_upvals = {0},
 		.num_upvals = 0,
@@ -1441,6 +1466,7 @@ dt_vm dt_vm_new() {
 		.mem = 0,
 		.next_gc = DT_GC_THRESHOLD,
 	};
+	vm.globals = dt_map_new(&vm);
 	vm.stack_top = vm.stack;
 	return vm;
 }
@@ -1691,6 +1717,8 @@ static void dt_vm_gc_mark(dt_vm* vm) {
 	for (dt_val* val = vm->stack; val < vm->stack_top; val++) {
 		dt_val_mark(val);
 	}
+	dt_func_mark(vm->func);
+	// TODO: don't traverse global everytime if it won't change
 	dt_map_mark(vm->globals);
 }
 
@@ -1724,8 +1752,7 @@ static void dt_vm_gc_sweep(dt_vm* vm) {
 				case DT_HEAPER_ARR: {
 #ifdef DT_GC_LOG
 					dt_arr* arr = (dt_arr*)unreached;
-					printf("FREE ARR ");
-					dt_arr_println(arr);
+					printf("FREE ARR #%d\n", arr->len);
 #endif
 					dt_arr_free(vm, (dt_arr*)unreached);
 					break;
@@ -1733,8 +1760,7 @@ static void dt_vm_gc_sweep(dt_vm* vm) {
 				case DT_HEAPER_MAP: {
 #ifdef DT_GC_LOG
 					dt_map* map = (dt_map*)unreached;
-					printf("FREE MAP ");
-					dt_map_println(map);
+					printf("FREE MAP #%d\n", map->cnt);
 #endif
 					dt_map_free(vm, (dt_map*)unreached);
 					break;
@@ -1759,11 +1785,11 @@ static void dt_vm_gc_sweep(dt_vm* vm) {
 				}
 				case DT_HEAPER_CDATA: {
 #ifdef DT_GC_LOG
-// 					dt_func* func = (dt_func*)unreached;
+					dt_cdata* cdata = (dt_cdata*)unreached;
 					printf("FREE CDATA ");
-// 					dt_upval_println(func);
+					dt_cdata_println(cdata);
 #endif
-// 					dt_func_free(vm, (dt_func*)unreached);
+					dt_cdata_free(vm, (dt_cdata*)unreached);
 					break;
 				}
 			}
@@ -1803,7 +1829,6 @@ void dt_vm_gc_run(dt_vm* vm) {
 
 void dt_vm_free(dt_vm* vm) {
 	dt_vm_gc_sweep(vm);
-	dt_map_free(NULL, vm->globals);
 	dt_map_free(NULL, vm->strs);
 	memset(vm, 0, sizeof(dt_vm));
 }
@@ -2213,23 +2238,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_SETG: {
-				if (!vm->globals) {
-					dt_vm_push(vm, dt_nil);
-				}
 				dt_val name = chunk->consts->values[*vm->ip++];
-				if (name.type == DT_VAL_STR) {
-					if (dt_map_exists(vm->globals, name.data.str)) {
-						dt_map_set(vm, vm->globals, name.data.str, dt_vm_get(vm, 0));
-					} else {
-						dt_vm_err(vm, "'%s' is not declared\n", name.data.str->chars);
-					}
-				} else {
-					dt_vm_err(
-						vm,
-						"expected var name to be 'str' found '%s'\n",
-						dt_type_name(name.type)
-					);
-				}
+				dt_vm_err(vm, "cannot set global '%s'\n", name.data.str->chars);
 				break;
 			}
 
@@ -2517,6 +2527,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				break;
 			}
 
+			// TODO: clean
 			case DT_OP_MKFUNC: {
 				dt_val val = dt_vm_pop(vm);
 				uint8_t num_upvals = *vm->ip++;
@@ -4159,16 +4170,16 @@ static dt_val dt_f_fread(dt_vm* vm, int nargs) {
 
 void dt_load_std(dt_vm* vm) {
 	// TODO: namespacing
-	dt_map_cset_cfunc(NULL, vm->globals, "type", dt_f_type);
-	dt_map_cset_cfunc(NULL, vm->globals, "eval", dt_f_eval);
-	dt_map_cset_cfunc(NULL, vm->globals, "dofile", dt_f_dofile);
-	dt_map_cset_cfunc(NULL, vm->globals, "error", dt_f_error);
-	dt_map_cset_cfunc(NULL, vm->globals, "print", dt_f_print);
-	dt_map_cset_cfunc(NULL, vm->globals, "exit", dt_f_exit);
-	dt_map_cset_cfunc(NULL, vm->globals, "exec", dt_f_exec);
-	dt_map_cset_cfunc(NULL, vm->globals, "time", dt_f_time);
-	dt_map_cset_cfunc(NULL, vm->globals, "getenv", dt_f_getenv);
-	dt_map_cset_cfunc(NULL, vm->globals, "fread", dt_f_fread);
+	dt_map_cset_cfunc(vm, vm->globals, "type", dt_f_type);
+	dt_map_cset_cfunc(vm, vm->globals, "eval", dt_f_eval);
+	dt_map_cset_cfunc(vm, vm->globals, "dofile", dt_f_dofile);
+	dt_map_cset_cfunc(vm, vm->globals, "error", dt_f_error);
+	dt_map_cset_cfunc(vm, vm->globals, "print", dt_f_print);
+	dt_map_cset_cfunc(vm, vm->globals, "exit", dt_f_exit);
+	dt_map_cset_cfunc(vm, vm->globals, "exec", dt_f_exec);
+	dt_map_cset_cfunc(vm, vm->globals, "time", dt_f_time);
+	dt_map_cset_cfunc(vm, vm->globals, "getenv", dt_f_getenv);
+	dt_map_cset_cfunc(vm, vm->globals, "fread", dt_f_fread);
 }
 
 dt_val dt_eval(dt_vm* vm, char* code) {
