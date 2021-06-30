@@ -28,7 +28,7 @@
 #ifndef D_LANG_H
 #define D_LANG_H
 
-#define DT_STACK_MAX 1024
+#define DT_STACK_MAX 2048
 #define DT_ARR_INIT_SIZE 4
 #define DT_MAP_INIT_SIZE 8
 #define DT_MAP_MAX_LOAD 0.75
@@ -66,20 +66,16 @@ typedef bool dt_bool;
 
 typedef struct dt_val (dt_cfunc)(struct dt_vm* vm, int nargs);
 
-typedef enum {
-	DT_HEAPER_STR,
-	DT_HEAPER_MAP,
-	DT_HEAPER_ARR,
-	DT_HEAPER_FUNC,
-	DT_HEAPER_UPVAL,
-	DT_HEAPER_CDATA,
-} dt_heaper_ty;
+#define DT_HEAPER_STR   1
+#define DT_HEAPER_ARR   2
+#define DT_HEAPER_MAP   3
+#define DT_HEAPER_FUNC  4
+#define DT_HEAPER_UPVAL 5
+#define DT_HEAPER_CDATA 6
+#define DT_HEAPER_STRUCT struct dt_heaper *nxt; uint8_t type; bool marked
 
-// TODO: inline these in parent structs can save size
 typedef struct dt_heaper {
-	struct dt_heaper* nxt;
-	dt_heaper_ty      type;
-	bool              marked;
+	DT_HEAPER_STRUCT;
 } dt_heaper;
 
 typedef struct {
@@ -88,7 +84,7 @@ typedef struct {
 } dt_range;
 
 typedef struct {
-	dt_heaper heaper;
+	DT_HEAPER_STRUCT;
 	size_t    size;
 	void*     data;
 } dt_cdata;
@@ -112,19 +108,20 @@ typedef struct dt_val {
 
 // TODO
 typedef struct {
-	dt_heaper heaper;
+	DT_HEAPER_STRUCT;
+	bool captured;
 	dt_val*   val;
 } dt_upval2;
 
 typedef struct dt_str {
-	dt_heaper heaper;
+	DT_HEAPER_STRUCT;
 	uint32_t  len;
 	uint32_t  hash;
 	char      chars[];
 } dt_str;
 
 typedef struct dt_arr {
-	dt_heaper heaper;
+	DT_HEAPER_STRUCT;
 	uint32_t  len;
 	uint32_t  cap;
 	dt_val*   values;
@@ -136,7 +133,7 @@ typedef struct {
 } dt_entry;
 
 typedef struct dt_map {
-	dt_heaper heaper;
+	DT_HEAPER_STRUCT;
 	uint32_t  cnt;
 	uint32_t  cap;
 	dt_entry* entries;
@@ -157,10 +154,10 @@ typedef struct dt_logic {
 
 // TODO: separate dt_closure and dt_func
 typedef struct dt_func {
-	dt_heaper heaper;
-	dt_logic* logic;
-	dt_val**  upvals;
+	DT_HEAPER_STRUCT;
 	uint8_t   num_upvals;
+	dt_logic* logic;
+	dt_upval2**  upvals;
 } dt_func;
 
 typedef struct dt_vm {
@@ -171,7 +168,7 @@ typedef struct dt_vm {
 	int        stack_offset;
 	dt_map*    globals;
 	dt_map*    strs;
-	dt_val**   open_upvals[UINT8_MAX];
+	dt_upval2* open_upvals[UINT8_MAX];
 	int        num_upvals;
 	dt_heaper* heaper;
 	size_t     mem;
@@ -638,6 +635,8 @@ char* dt_type_name(dt_val_ty ty) {
 	}
 }
 
+void dt_func_print(dt_func* func);
+
 void dt_val_print(dt_val* val) {
 	switch (val->type) {
 		case DT_VAL_NIL: printf("<nil>"); break;
@@ -648,7 +647,7 @@ void dt_val_print(dt_val* val) {
 		case DT_VAL_MAP: dt_map_print(val->data.map); break;
 		case DT_VAL_LOGIC: printf("<logic>"); break;
 		case DT_VAL_RANGE: printf("%d..%d", val->data.range.start, val->data.range.end); break;
-		case DT_VAL_FUNC: printf("<func>"); break;
+		case DT_VAL_FUNC: dt_func_print(val->data.func); break;
 		case DT_VAL_CFUNC: printf("<cfunc>"); break;
 		case DT_VAL_CDATA: printf("cdata"); break;
 		case DT_VAL_CPTR: printf("cptr"); break;
@@ -756,7 +755,7 @@ static uint32_t dt_hash(char* key, int len) {
 	return hash;
 }
 
-static void dt_vm_manage_mem(dt_vm* vm, dt_heaper* h, dt_heaper_ty ty);
+static void dt_vm_manage_mem(dt_vm* vm, dt_heaper* h, uint8_t ty);
 
 // TODO
 dt_str* dt_vm_find_strn(dt_vm* vm, char* str, int len) {
@@ -798,7 +797,7 @@ void dt_str_free(dt_vm* vm, dt_str* str) {
 }
 
 static void dt_str_mark(dt_str* str) {
-	str->heaper.marked = true;
+	str->marked = true;
 }
 
 dt_str* dt_str_concat(dt_vm* vm, dt_str* a, dt_str* b) {
@@ -975,7 +974,7 @@ void dt_arr_println(dt_arr* arr) {
 static void dt_val_mark(dt_val* val);
 
 static void dt_arr_mark(dt_arr* arr) {
-	arr->heaper.marked = true;
+	arr->marked = true;
 	for (int i = 0; i < arr->len; i++) {
 		dt_val_mark(&arr->values[i]);
 	}
@@ -1044,7 +1043,7 @@ void dt_map_println(dt_map* map) {
 }
 
 static void dt_map_mark(dt_map* map) {
-	map->heaper.marked = true;
+	map->marked = true;
 	for (int i = 0; i < map->cap; i++) {
 		dt_entry e = map->entries[i];
 		if (e.key) {
@@ -1191,10 +1190,17 @@ void dt_func_println(dt_func* func) {
 	printf("\n");
 }
 
+static void dt_upval_free(dt_vm* vm, dt_upval2* upval) {
+	if (upval->captured) {
+		dt_free(vm, upval->val, sizeof(dt_val));
+	}
+	dt_free(vm, upval, sizeof(dt_upval2));
+}
+
 static void dt_func_mark(dt_func* func) {
-	func->heaper.marked = true;
+	func->marked = true;
 	for (int i = 0; i < func->num_upvals; i++) {
-// 		func->upvals[i]->heaper.marked = true;
+		func->upvals[i]->marked = true;
 	}
 }
 
@@ -1537,13 +1543,14 @@ static void dt_vm_pop_close(dt_vm* vm) {
 	dt_val* upval = NULL;
 
 	for (int i = 0; i < vm->num_upvals; i++) {
-		if (top == *vm->open_upvals[i]) {
+		if (top == vm->open_upvals[i]->val) {
 			if (!upval) {
 				// TODO: manage upvals
 				upval = dt_malloc(vm, sizeof(dt_val));
 				memcpy(upval, top, sizeof(dt_val));
 			}
-			*vm->open_upvals[i] = upval;
+			vm->open_upvals[i]->val = upval;
+			vm->open_upvals[i]->captured = true;
 			vm->open_upvals[i--] = vm->open_upvals[--vm->num_upvals];
 		}
 	}
@@ -1673,7 +1680,7 @@ static void dt_val_mark(dt_val* val) {
 	}
 }
 
-static void dt_vm_manage_mem(dt_vm* vm, dt_heaper* h, dt_heaper_ty ty) {
+static void dt_vm_manage_mem(dt_vm* vm, dt_heaper* h, uint8_t ty) {
 	h->type = ty;
 	h->marked = false;
 	h->nxt = vm->heaper;
@@ -1743,11 +1750,11 @@ static void dt_vm_gc_sweep(dt_vm* vm) {
 				}
 				case DT_HEAPER_UPVAL: {
 #ifdef DT_GC_LOG
-// 					dt_func* func = (dt_func*)unreached;
+					dt_upval2* upval = (dt_upval2*)unreached;
 					printf("FREE UPVAL ");
-// 					dt_upval_println(func);
+					dt_val_println(upval->val);
 #endif
-// 					dt_func_free(vm, (dt_func*)unreached);
+					dt_upval_free(vm, (dt_upval2*)unreached);
 					break;
 				}
 				case DT_HEAPER_CDATA: {
@@ -2237,12 +2244,12 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_GETU: {
-				dt_vm_push(vm, *vm->func->upvals[*vm->ip++]);
+				dt_vm_push(vm, *vm->func->upvals[*vm->ip++]->val);
 				break;
 			}
 
 			case DT_OP_SETU: {
-				*vm->func->upvals[*vm->ip++] = dt_vm_get(vm, 0);
+				*vm->func->upvals[*vm->ip++]->val = dt_vm_get(vm, 0);
 				break;
 			}
 
@@ -2524,14 +2531,26 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				dt_func* func = dt_malloc(vm, sizeof(dt_func));
 				func->logic = val.data.logic;
 				func->num_upvals = num_upvals;
-				func->upvals = dt_malloc(vm, sizeof(dt_val*) * num_upvals);
+				func->upvals = dt_malloc(vm, sizeof(dt_upval2*) * num_upvals);
 				for (int i = 0; i < num_upvals; i++) {
 					bool local = *vm->ip++;
 					uint8_t idx = *vm->ip++;
 					if (local) {
-						dt_val* upval = &vm->stack[vm->stack_offset + idx];
-						func->upvals[i] = upval;
-						vm->open_upvals[vm->num_upvals++] = &func->upvals[i];
+						bool found = false;
+						for (int j = 0; j < vm->num_upvals; j++) {
+							if (vm->open_upvals[j]->val == vm->stack + vm->stack_offset + idx) {
+								found = true;
+								func->upvals[i] = vm->open_upvals[j];
+							}
+						}
+						if (!found) {
+							dt_upval2* upval = dt_malloc(vm, sizeof(dt_upval2));
+							upval->val = vm->stack + vm->stack_offset + idx;
+							upval->captured = false;
+							vm->open_upvals[vm->num_upvals++] = upval;
+							dt_vm_manage_mem(vm, (dt_heaper*)upval, DT_HEAPER_UPVAL);
+							func->upvals[i] = upval;
+						}
 					} else {
 						func->upvals[i] = vm->func->upvals[idx];
 					}
@@ -2827,7 +2846,6 @@ static bool dt_is_alpha(char c) {
 
 static dt_token dt_scanner_scan_str(dt_scanner* s) {
 
-// 	dt_scanner_make_token(s, DT_TOKEN_QUOTE);
 	char last = dt_scanner_peek(s);
 
 	for (;;) {
@@ -3176,8 +3194,6 @@ static void dt_c_str(dt_compiler* c) {
 	));
 	dt_c_push_const(c, str);
 }
-
-// QUOTE, STR, DOLLAR_RBRACE, <expr>, RBRACE, STR, DOLLAR_RBRACE, <expr>, RBRACE, QUOTE
 
 static void dt_c_str2(dt_compiler* c) {
 	int n = 0;
@@ -3618,6 +3634,12 @@ static void dt_c_return(dt_compiler* c) {
 	dt_c_emit(c, DT_OP_STOP);
 }
 
+static void dt_c_throw(dt_compiler* c) {
+	dt_c_consume(c, DT_TOKEN_COLON_LPAREN);
+	dt_c_expr(c);
+	dt_c_emit(c, DT_OP_STOP);
+}
+
 static void dt_c_add_break(dt_compiler* c, bool cont) {
 	int depth = -1;
 	for (int i = c->env->cur_depth - 1; i >= 0; i--) {
@@ -3977,6 +3999,7 @@ static dt_parse_rule dt_rules[] = {
 	[DT_TOKEN_AT_GT]         = { dt_c_break,    NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AT_CARET]      = { dt_c_continue, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE]         = { dt_c_func,     NULL,        DT_PREC_NONE },
+	[DT_TOKEN_COLON_LPAREN]  = { dt_c_throw,    NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE_GT]      = { dt_c_return,   NULL,        DT_PREC_NONE },
 };
 
