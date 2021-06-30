@@ -2541,6 +2541,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							if (vm->open_upvals[j]->val == vm->stack + vm->stack_offset + idx) {
 								found = true;
 								func->upvals[i] = vm->open_upvals[j];
+								break;
 							}
 						}
 						if (!found) {
