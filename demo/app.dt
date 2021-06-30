@@ -1,6 +1,7 @@
 app.run({
 	width: 240,
 	height: 240,
+	title: "ohhi",
 	frame: ~ () {
 		% (app.key_pressed("esc")) app.quit()
 	},
