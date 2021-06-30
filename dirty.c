@@ -40,47 +40,51 @@ dt_val dt_f_app_run(dt_vm* vm, int nargs) {
 		.height = 480,
 	};
 	if (nargs >= 1) {
-		dt_map* conf = dt_vm_get_map(vm, 0);
-		dt_val frame = dt_map_get2(conf, "frame");
-		if (dt_is_func(&frame)) {
-			app_frame = frame.data.func;
-		}
-		dt_val init = dt_map_get2(conf, "init");
-		if (dt_is_func(&init)) {
-			app_init = init.data.func;
-		}
-		dt_val width = dt_map_get2(conf, "width");
-		if (dt_is_num(&width)) {
-			desc.width = width.data.num;
-		}
-		dt_val height = dt_map_get2(conf, "height");
-		if (dt_is_num(&height)) {
-			desc.height = height.data.num;
-		}
+// 		dt_map* conf = dt_vm_get_map(vm, 0);
+// 		dt_val frame = dt_map_cget(vm, conf, "frame");
+// 		if (dt_is_func(frame)) {
+// 			app_frame = frame.data.func;
+// 		}
+// 		dt_val init = dt_map_cget(vm, conf, "init");
+// 		if (dt_is_func(init)) {
+// 			app_init = init.data.func;
+// 		}
+// 		dt_val width = dt_map_cget(vm, conf, "width");
+// 		if (dt_is_num(width)) {
+// 			desc.width = width.data.num;
+// 		}
+// 		dt_val height = dt_map_cget(vm, conf, "height");
+// 		if (dt_is_num(height)) {
+// 			desc.height = height.data.num;
+// 		}
+// 		dt_val title = dt_map_cget(vm, conf, "title");
+// 		if (dt_is_str(title)) {
+// 			desc.title = strdup(title.data.str->chars);
+// 		}
 	}
 	d_app_run(desc);
-	return dt_nil;
+	return DT_NIL;
 }
 
 dt_val dt_f_app_quit(dt_vm* vm, int nargs) {
 	d_app_quit();
-	return dt_nil;
+	return DT_NIL;
 }
 
 dt_val dt_f_app_width(dt_vm* vm, int nargs) {
-	return dt_val_num(d_app_width());
+	return dt_to_num(d_app_width());
 }
 
 dt_val dt_f_app_height(dt_vm* vm, int nargs) {
-	return dt_val_num(d_app_height());
+	return dt_to_num(d_app_height());
 }
 
 dt_val dt_f_app_time(dt_vm* vm, int nargs) {
-	return dt_val_num(d_app_time());
+	return dt_to_num(d_app_time());
 }
 
 dt_val dt_f_app_dt(dt_vm* vm, int nargs) {
-	return dt_val_num(d_app_dt());
+	return dt_to_num(d_app_dt());
 }
 
 bool streq(char* s1, char* s2) {
@@ -172,23 +176,23 @@ d_key str_to_d_key(char* k) {
 
 dt_val dt_f_app_key_pressed(dt_vm* vm, int nargs) {
 	if (nargs == 0) {
-		return dt_val_bool(false);
+		return dt_to_bool(false);
 	}
-	return dt_val_bool(d_app_key_pressed(str_to_d_key(dt_vm_get_cstr(vm, 0))));
+	return dt_to_bool(d_app_key_pressed(str_to_d_key(dt_vm_get_cstr(vm, 0))));
 }
 
 dt_val dt_f_app_key_down(dt_vm* vm, int nargs) {
 	if (nargs == 0) {
-		return dt_val_bool(false);
+		return dt_to_bool(false);
 	}
-	return dt_val_bool(d_app_key_down(str_to_d_key(dt_vm_get_cstr(vm, 0))));
+	return dt_to_bool(d_app_key_down(str_to_d_key(dt_vm_get_cstr(vm, 0))));
 }
 
 dt_val dt_f_app_key_released(dt_vm* vm, int nargs) {
 	if (nargs == 0) {
-		return dt_val_bool(false);
+		return dt_to_bool(false);
 	}
-	return dt_val_bool(d_app_key_released(str_to_d_key(dt_vm_get_cstr(vm, 0))));
+	return dt_to_bool(d_app_key_released(str_to_d_key(dt_vm_get_cstr(vm, 0))));
 }
 
 void load_app(dt_vm* vm) {
