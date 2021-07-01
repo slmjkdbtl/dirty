@@ -48,3 +48,5 @@ $ person = {
 print(person)
 person["name"] = "Mark"
 @ (i \ person) print(i, person[i])
+
+print(map_keys(person))

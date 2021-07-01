@@ -7,6 +7,7 @@
 
 #define D_IMPL
 #define D_CPU
+// TODO: move these flags to runtime
 // #define DT_VM_LOG
 // #define DT_GC_LOG
 // #define DT_GC_STRESS
