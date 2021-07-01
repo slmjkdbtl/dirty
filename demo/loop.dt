@@ -42,7 +42,7 @@ $ person = {
 	name: "Jack",
 	age: 7,
 	dead: T,
-	friend: [],
+	friends: [],
 }
 
 print(person)

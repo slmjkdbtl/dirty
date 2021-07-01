@@ -3,6 +3,8 @@
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
+#define DT_NO_NANBOX
+
 #define D_IMPL
 #define D_CPU
 // #define DT_VM_LOG
