@@ -25,6 +25,7 @@
 // TODO: iter with index
 // TODO: func <-> cfunc
 // TODO: separate debug print / actual print
+// TODO: ordered map ?
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -289,9 +290,9 @@ void      dt_println (dt_val v);
 // allocate empty str with len (need to manually fill and hash afterwards or the
 // content is undefined)
 dt_str*  dt_str_alloc    (dt_vm* vm, int len);
-// create str from char array with specified length
+// create str from c str (until '\0')
 dt_str*  dt_str_new      (dt_vm* vm, char* src);
-// create str from char array (until '\0')
+// create str from c str with length
 dt_str*  dt_str_new_len  (dt_vm* vm, char* src, int len);
 // free (you shouldn't call this manually if it's managed by gc)
 void     dt_str_free     (dt_vm* vm, dt_str* str);
@@ -320,21 +321,22 @@ void     dt_arr_print    (dt_arr* arr);
 void     dt_arr_println  (dt_arr* arr);
 
 // create empty hashmap
-dt_map*  dt_map_new        (dt_vm* vm);
+dt_map*  dt_map_new      (dt_vm* vm);
 // create hashmap with capacity
-dt_map*  dt_map_new_len    (dt_vm* vm, int len);
-void     dt_map_free       (dt_vm* vm, dt_map* map);
-void     dt_map_set        (dt_vm* vm, dt_map* map, dt_str* key, dt_val val);
-bool     dt_map_exists     (dt_map* map, dt_str* key);
-dt_val   dt_map_get        (dt_map* map, dt_str* key);
+dt_map*  dt_map_new_len  (dt_vm* vm, int len);
+void     dt_map_free     (dt_vm* vm, dt_map* map);
+dt_val   dt_map_get      (dt_map* map, dt_str* key);
+void     dt_map_set      (dt_vm* vm, dt_map* map, dt_str* key, dt_val val);
+// get / set from c str
+dt_val   dt_map_cget     (dt_vm* vm, dt_map* map, char* key);
+void     dt_map_cset     (dt_vm* vm, dt_map* map, char* key, dt_val val);
+bool     dt_map_exists   (dt_map* map, dt_str* key);
 // get an array of keys
-dt_arr*  dt_map_keys       (dt_vm* vm, dt_map* map);
+dt_arr*  dt_map_keys     (dt_vm* vm, dt_map* map);
 // get an array of values
-dt_arr*  dt_map_vals       (dt_vm* vm, dt_map* map);
-void     dt_map_print      (dt_map* map);
-void     dt_map_println    (dt_map* map);
-dt_val   dt_map_cget       (dt_vm* vm, dt_map* map, char* key);
-void     dt_map_cset       (dt_vm* vm, dt_map* map, char* key, dt_val val);
+dt_arr*  dt_map_vals     (dt_vm* vm, dt_map* map);
+void     dt_map_print    (dt_map* map);
+void     dt_map_println  (dt_map* map);
 
 #endif
 
@@ -528,7 +530,7 @@ typedef struct {
 } dt_break;
 
 // compile time function representation
-// TODO: reduce size
+// TODO: compact
 typedef struct dt_funcenv {
 	struct dt_funcenv* parent;
 	dt_chunk chunk;
@@ -2042,20 +2044,20 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_vm_push(vm, dt_to_str(dt_str_concat(vm, dt_as_str(a), dt_as_str(b))));
 				} else if (dt_type(a) == DT_VAL_ARR && dt_type(b) == DT_VAL_ARR) {
 					dt_vm_push(vm, dt_to_arr(dt_arr_concat(vm, dt_as_arr(a), dt_as_arr(b))));
-// 				} else if (dt_type(a) == DT_VAL_STR || dt_type(b) == DT_VAL_STR) {
-// 					dt_str* a_str = dt_val_to_str(vm, &a);
-// 					dt_str* b_str = dt_val_to_str(vm, &b);
-// 					if (a_str == NULL || b_str == NULL) {
-// 						dt_err(
-// 							vm,
-// 							"cannot add a '%s' with '%s'\n",
-// 							dt_typename(dt_type(a)),
-// 							dt_typename(dt_type(b))
-// 						);
-// 						dt_vm_push(vm, DT_NIL);
-// 					} else {
-// 						dt_vm_push(vm, dt_to_str(dt_str_concat(vm, a_str, b_str)));
-// 					}
+				} else if (dt_type(a) == DT_VAL_STR || dt_type(b) == DT_VAL_STR) {
+					dt_str* a_str = dt_val_to_str(vm, a);
+					dt_str* b_str = dt_val_to_str(vm, b);
+					if (a_str == NULL || b_str == NULL) {
+						dt_err(
+							vm,
+							"cannot add a '%s' with '%s'\n",
+							dt_typename(dt_type(a)),
+							dt_typename(dt_type(b))
+						);
+						dt_vm_push(vm, DT_NIL);
+					} else {
+						dt_vm_push(vm, dt_to_str(dt_str_concat(vm, a_str, b_str)));
+					}
 				} else {
 					dt_err(
 						vm,
@@ -3224,35 +3226,54 @@ static dt_token dt_scanner_scan(dt_scanner* s) {
 
 }
 
-static char* dt_read_file(char* path, size_t* osize) {
+static dt_funcenv dt_funcenv_new() {
+	return (dt_funcenv) {
+		.parent = NULL,
+		.chunk = dt_chunk_new(),
+		.scopes = {0},
+		.cur_depth = 0,
+		.locals = {0},
+		.num_locals = 0,
+		.upvals = {0},
+		.num_upvals = 0,
+		.breaks = {0},
+		.num_breaks = 0,
+	};
+}
 
-	FILE* file = fopen(path, "r");
+static void dt_funcenv_free(dt_funcenv* env) {
+	dt_chunk_free(&env->chunk);
+	memset(env, 0, sizeof(dt_funcenv));
+}
 
-	if (!file) {
-		return NULL;
-	}
+static dt_compiler dt_compiler_new(char* code) {
 
-	fseek(file, 0L, SEEK_END);
-	size_t size = ftell(file);
-	fseek(file, 0, SEEK_SET);
+	dt_compiler c = (dt_compiler) {
+		.scanner = dt_scanner_new(code),
+		.parser = {0},
+		.base_env = dt_funcenv_new(),
+		.env = NULL,
+		.types = {0},
+		.num_types = 0,
+		.funcs = {0},
+		.num_funcs = 0,
+	};
 
-	char* buf = malloc(size + 1);
-	size_t size_read = fread(buf, sizeof(char), size, file);
-	buf[size_read] = '\0';
+	c.env = &c.base_env;
 
-	if (osize) {
-		*osize = size_read;
-	}
+	return c;
 
-	fclose(file);
+}
 
-	return buf;
-
+static void dt_compiler_free(dt_compiler* c) {
+	dt_funcenv_free(&c->base_env);
+	memset(c, 0, sizeof(dt_compiler));
 }
 
 static void dt_c_prec(dt_compiler* c, dt_prec prec);
 static void dt_c_binary(dt_compiler* c);
 
+// compile time error
 static void dt_c_err(dt_compiler* c, char* fmt, ...) {
 	dt_token* cur = &c->parser.cur;
 	va_list args;
@@ -3263,6 +3284,7 @@ static void dt_c_err(dt_compiler* c, char* fmt, ...) {
 	exit(EXIT_FAILURE);
 }
 
+// emit opcode
 static void dt_c_emit(dt_compiler* c, dt_op op) {
 	dt_chunk_push(&c->env->chunk, op, c->parser.prev.line);
 }
@@ -3278,15 +3300,18 @@ static void dt_c_emit3(dt_compiler* c, dt_op op, uint8_t a1, uint8_t a2) {
 	dt_c_emit(c, a2);
 }
 
+// emit an opcode with distance operands
 static void dt_c_emit_jmp(dt_compiler* c, dt_op op, uint16_t dis) {
 	dt_c_emit3(c, op, dis >> 8, dis & 0xff);
 }
 
+// emit an opcode for patching later with dt_c_patch_jmp()
 static int dt_c_emit_jmp_empty(dt_compiler* c, dt_op op) {
 	dt_c_emit3(c, op, 0, 0);
 	return c->env->chunk.cnt;
 }
 
+// patch an earlier emitted opcode with distance operands
 static void dt_c_patch_jmp(dt_compiler* c, int pos) {
 
 	int dis = c->env->chunk.cnt - pos;
@@ -3300,24 +3325,29 @@ static void dt_c_patch_jmp(dt_compiler* c, int pos) {
 
 }
 
+// add a const value
 static void dt_c_push_const(dt_compiler* c, dt_val val) {
 	uint16_t idx = dt_chunk_add_const(&c->env->chunk, val);
 	dt_c_emit3(c, DT_OP_CONST, idx >> 8, idx & 0xff);
 }
 
-static void dt_c_nxt(dt_compiler* c) {
+// advance to next token
+static dt_token dt_c_nxt(dt_compiler* c) {
 	c->parser.prev = c->parser.cur;
 	dt_token t = dt_scanner_scan(&c->scanner);
 	c->parser.cur = t;
 	if (t.type == DT_TOKEN_ERR) {
 		dt_c_err(c, "unexpected token\n");
 	}
+	return c->parser.prev;
 }
 
+// check next token type
 static dt_token_ty dt_c_peek(dt_compiler* c) {
 	return c->parser.cur.type;
 }
 
+// check next token type and proceed
 static bool dt_c_match(dt_compiler* c, dt_token_ty ty) {
 	if (dt_c_peek(c) == ty) {
 		dt_c_nxt(c);
@@ -3326,6 +3356,7 @@ static bool dt_c_match(dt_compiler* c, dt_token_ty ty) {
 	return false;
 }
 
+// compile error if next token is not *
 static dt_token dt_c_consume(dt_compiler* c, dt_token_ty ty) {
 	if (dt_c_peek(c) != ty) {
 		dt_c_err(c, "expected token '%s'\n", dt_token_name(ty));
@@ -3353,7 +3384,7 @@ static void dt_c_expr(dt_compiler* c) {
 
 static void dt_c_str(dt_compiler* c) {
 	dt_token str_t = dt_c_consume(c, DT_TOKEN_STR);
-	// TODO
+	// TODO: gc manage?
 	dt_val str = dt_to_str(dt_str_new_len(
 		NULL,
 		str_t.start + 1,
@@ -3362,6 +3393,7 @@ static void dt_c_str(dt_compiler* c) {
 	dt_c_push_const(c, str);
 }
 
+// template string
 static void dt_c_str2(dt_compiler* c) {
 	int n = 0;
 	dt_c_consume(c, DT_TOKEN_QUOTE);
@@ -3386,8 +3418,7 @@ static void dt_c_str2(dt_compiler* c) {
 }
 
 static void dt_c_lit(dt_compiler* c) {
-	dt_c_nxt(c);
-	switch (c->parser.prev.type) {
+	switch (dt_c_nxt(c).type) {
 		case DT_TOKEN_QUESTION: dt_c_emit(c, DT_OP_NIL); break;
 		case DT_TOKEN_T: dt_c_emit(c, DT_OP_TRUE); break;
 		case DT_TOKEN_F: dt_c_emit(c, DT_OP_FALSE); break;
@@ -3588,6 +3619,7 @@ static void dt_c_scope_begin(dt_compiler* c, dt_block_ty ty) {
 	c->env->scopes[c->env->cur_depth++] = ty;
 }
 
+// end a scope and pop / close all locals off the stack
 static void dt_c_scope_end(dt_compiler* c) {
 
 	dt_funcenv* e = c->env;
@@ -3686,6 +3718,50 @@ static void dt_c_cond(dt_compiler* c) {
 	dt_c_cond_inner(c);
 }
 
+static void dt_c_add_break(dt_compiler* c, bool cont) {
+	int depth = -1;
+	for (int i = c->env->cur_depth - 1; i >= 0; i--) {
+		if (c->env->scopes[i] == DT_BLOCK_LOOP) {
+			depth = i;
+			break;
+		}
+	}
+	if (depth == -1) {
+		dt_c_err(c, "cannot jump here\n");
+		return;
+	}
+	for (int i = c->env->num_locals - 1; i >= 0; i--) {
+		dt_local l = c->env->locals[i];
+		if (l.depth <= depth) {
+			break;
+		}
+		if (l.captured) {
+			dt_c_emit(c, DT_OP_CLOSE);
+		} else {
+			dt_c_emit(c, DT_OP_POP);
+		}
+	}
+	int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
+	c->env->breaks[c->env->num_breaks++] = (dt_break) {
+		.pos = pos,
+		.depth = depth,
+		.cont = cont,
+	};
+}
+
+static void dt_c_break(dt_compiler* c) {
+	dt_c_consume(c, DT_TOKEN_AT_GT);
+	dt_c_add_break(c, false);
+	dt_c_emit(c, DT_OP_NIL);
+}
+
+static void dt_c_continue(dt_compiler* c) {
+	dt_c_consume(c, DT_TOKEN_AT_CARET);
+	dt_c_add_break(c, true);
+	dt_c_emit(c, DT_OP_NIL);
+}
+
+// patch previous loop breaks
 static void dt_c_patch_breaks(dt_compiler* c, int depth, bool cont) {
 	for (int i = 0; i < c->env->num_breaks; i++) {
 		dt_break b = c->env->breaks[i];
@@ -3801,53 +3877,11 @@ static void dt_c_return(dt_compiler* c) {
 	dt_c_emit(c, DT_OP_STOP);
 }
 
+// TODO
 static void dt_c_throw(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_COLON_LPAREN);
 	dt_c_expr(c);
 	dt_c_emit(c, DT_OP_STOP);
-}
-
-static void dt_c_add_break(dt_compiler* c, bool cont) {
-	int depth = -1;
-	for (int i = c->env->cur_depth - 1; i >= 0; i--) {
-		if (c->env->scopes[i] == DT_BLOCK_LOOP) {
-			depth = i;
-			break;
-		}
-	}
-	if (depth == -1) {
-		dt_c_err(c, "cannot jump here\n");
-		return;
-	}
-	for (int i = c->env->num_locals - 1; i >= 0; i--) {
-		dt_local l = c->env->locals[i];
-		if (l.depth <= depth) {
-			break;
-		}
-		if (l.captured) {
-			dt_c_emit(c, DT_OP_CLOSE);
-		} else {
-			dt_c_emit(c, DT_OP_POP);
-		}
-	}
-	int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
-	c->env->breaks[c->env->num_breaks++] = (dt_break) {
-		.pos = pos,
-		.depth = depth,
-		.cont = cont,
-	};
-}
-
-static void dt_c_break(dt_compiler* c) {
-	dt_c_consume(c, DT_TOKEN_AT_GT);
-	dt_c_add_break(c, false);
-	dt_c_emit(c, DT_OP_NIL);
-}
-
-static void dt_c_continue(dt_compiler* c) {
-	dt_c_consume(c, DT_TOKEN_AT_CARET);
-	dt_c_add_break(c, true);
-	dt_c_emit(c, DT_OP_NIL);
 }
 
 static void dt_c_stmt(dt_compiler* c) {
@@ -3997,50 +4031,6 @@ static void dt_c_unary(dt_compiler* c) {
 	}
 }
 
-static dt_funcenv dt_funcenv_new() {
-	return (dt_funcenv) {
-		.parent = NULL,
-		.chunk = dt_chunk_new(),
-		.scopes = {0},
-		.cur_depth = 0,
-		.locals = {0},
-		.num_locals = 0,
-		.upvals = {0},
-		.num_upvals = 0,
-		.breaks = {0},
-		.num_breaks = 0,
-	};
-}
-
-static void dt_funcenv_free(dt_funcenv* env) {
-	dt_chunk_free(&env->chunk);
-	memset(env, 0, sizeof(dt_funcenv));
-}
-
-static dt_compiler dt_compiler_new(char* code) {
-
-	dt_compiler c = (dt_compiler) {
-		.scanner = dt_scanner_new(code),
-		.parser = {0},
-		.base_env = dt_funcenv_new(),
-		.env = NULL,
-		.types = {0},
-		.num_types = 0,
-		.funcs = {0},
-		.num_funcs = 0,
-	};
-
-	c.env = &c.base_env;
-
-	return c;
-
-}
-
-static void dt_compiler_free(dt_compiler* c) {
-	dt_funcenv_free(&c->base_env);
-	memset(c, 0, sizeof(dt_compiler));
-}
-
 static void dt_c_func(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_TILDE);
@@ -4118,7 +4108,7 @@ static void dt_c_func(dt_compiler* c) {
 
 }
 
-static dt_parse_rule dt_rules[] = {
+static dt_parse_rule dt_expr_rules[] = {
 	// token                     // prefix      // infix     // precedence
 	[DT_TOKEN_LPAREN]        = { dt_c_group,    dt_c_call,   DT_PREC_CALL },
 	[DT_TOKEN_RPAREN]        = { NULL,          NULL,        DT_PREC_NONE },
@@ -4166,15 +4156,15 @@ static dt_parse_rule dt_rules[] = {
 };
 
 static void dt_c_prec(dt_compiler* c, dt_prec prec) {
-	dt_parse_rule* prev_rule = &dt_rules[dt_c_peek(c)];
+	dt_parse_rule* prev_rule = &dt_expr_rules[dt_c_peek(c)];
 	if (prev_rule->prefix == NULL) {
 		dt_c_err(c, "expected expression\n");
 		return;
 	}
 	prev_rule->prefix(c);
-	while (prec <= dt_rules[dt_c_peek(c)].prec) {
+	while (prec <= dt_expr_rules[dt_c_peek(c)].prec) {
 		dt_c_nxt(c);
-		dt_rules[c->parser.prev.type].infix(c);
+		dt_expr_rules[c->parser.prev.type].infix(c);
 	}
 }
 
@@ -4182,7 +4172,7 @@ static void dt_c_binary(dt_compiler* c) {
 
 	dt_token_ty ty = c->parser.prev.type;
 
-	dt_parse_rule* rule = &dt_rules[ty];
+	dt_parse_rule* rule = &dt_expr_rules[ty];
 	dt_c_prec(c, rule->prec + 1);
 
 	switch (ty) {
@@ -4225,6 +4215,32 @@ static void dt_c_binary(dt_compiler* c) {
 		default:
 			return;
 	}
+
+}
+
+static char* dt_read_file(char* path, size_t* osize) {
+
+	FILE* file = fopen(path, "r");
+
+	if (!file) {
+		return NULL;
+	}
+
+	fseek(file, 0L, SEEK_END);
+	size_t size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+
+	char* buf = malloc(size + 1);
+	size_t size_read = fread(buf, sizeof(char), size, file);
+	buf[size_read] = '\0';
+
+	if (osize) {
+		*osize = size_read;
+	}
+
+	fclose(file);
+
+	return buf;
 
 }
 
