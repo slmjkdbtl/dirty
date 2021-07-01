@@ -12,7 +12,6 @@
 // TODO: binding helpers
 // TODO: expose tokenizer
 // TODO: standalone bytecode
-// TODO: mem audit
 // TODO: type
 // TODO: string interpolation
 // TODO: single ctx handle
@@ -38,6 +37,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 typedef enum {
 	DT_VAL_NIL,
@@ -55,6 +55,7 @@ typedef enum {
 	DT_VAL_CPTR,
 } dt_val_ty;
 
+#define DT_SMASK_SIGN  0x8000000000000000
 #define DT_SMASK_EXPO  0x7ff0000000000000
 #define DT_SMASK_QUIET 0x0008000000000000
 #define DT_SMASK_SIG   0xffff000000000000
@@ -189,6 +190,7 @@ dt_val    dt_eval        (dt_vm* vm, char* src);
 dt_val    dt_dofile      (dt_vm* vm, char* path);
 
 dt_vm     dt_vm_new    ();
+void      dt_vm_free   (dt_vm* vm);
 dt_val    dt_arg       (dt_vm* vm, int idx);
 dt_num    dt_arg_num   (dt_vm* vm, int idx);
 dt_bool   dt_arg_bool  (dt_vm* vm, int idx);
@@ -205,6 +207,8 @@ dt_val    dt_call_3    (dt_vm* vm, dt_func* func, dt_val a1, dt_val a2, dt_val a
 dt_val    dt_call_4    (dt_vm* vm, dt_func* func, dt_val a1, dt_val a2, dt_val a3, dt_val a4);
 void      dt_err       (dt_vm* vm, char* fmt, ...);
 void      dt_gc_run    (dt_vm* vm);
+void      dt_keep      (dt_vm*, dt_val v);
+void      dt_unkeep    (dt_vm*, dt_val v);
 
 dt_val    dt_to_num      (dt_num n);
 dt_val    dt_to_bool     (dt_bool b);
@@ -240,6 +244,7 @@ void     dt_str_free     (dt_vm* vm, dt_str* str);
 dt_str*  dt_str_concat   (dt_vm* vm, dt_str* a, dt_str* b);
 bool     dt_str_eq       (dt_str* a, dt_str* b);
 dt_str*  dt_str_replace  (dt_str* src, dt_str* old, dt_str* new);
+char*    dt_str_dup      (dt_str* str);
 void     dt_str_print    (dt_str* str);
 void     dt_str_println  (dt_str* str);
 
@@ -617,13 +622,13 @@ static bool dt_token_eq(dt_token* t1, dt_token* t2) {
 	return memcmp(t1->start, t2->start, t1->len) == 0;
 }
 
-dt_val_ty dt_type(dt_val val) {
+dt_val_ty dt_type(dt_val v) {
 
-	if ((~val & DT_SMASK_EXPO) != 0) {
+	if ((~v & DT_SMASK_EXPO) != 0) {
 		return DT_VAL_NUM;
 	}
 
-	switch (val & DT_SMASK_SIG) {
+	switch (v & DT_SMASK_SIG) {
 		case DT_SIG_NAN:   return DT_VAL_NUM;
 		case DT_SIG_FALSE:
 		case DT_SIG_TRUE:  return DT_VAL_BOOL;
@@ -631,7 +636,7 @@ dt_val_ty dt_type(dt_val val) {
 		case DT_SIG_RANGE: return DT_VAL_RANGE;
 		case DT_SIG_LOGIC: return DT_VAL_LOGIC;
 		case DT_SIG_CFUNC: return DT_VAL_CFUNC;
-		case DT_SIG_HEAP:  return ((dt_heaper*)(val & DT_SMASK_PTR))->type;
+		case DT_SIG_HEAP:  return ((dt_heaper*)(v & DT_SMASK_PTR))->type;
 	}
 
 	return DT_VAL_NIL;
@@ -787,7 +792,7 @@ static uint32_t dt_hash(char* key, int len) {
 	return hash;
 }
 
-static void dt_vm_manage_mem(dt_vm* vm, dt_heaper* h, uint8_t ty);
+static void dt_manage(dt_vm* vm, dt_heaper* h, uint8_t ty);
 
 // TODO
 dt_str* dt_vm_find_strn(dt_vm* vm, char* str, int len) {
@@ -799,7 +804,7 @@ static dt_str* dt_str_alloc(dt_vm* vm, int len) {
 	str->len = len;
 	str->type = DT_VAL_STR;
 	if (vm) {
-		dt_vm_manage_mem(vm, (dt_heaper*)str, DT_VAL_STR);
+		dt_manage(vm, (dt_heaper*)str, DT_VAL_STR);
 	}
 	return str;
 }
@@ -871,6 +876,13 @@ bool dt_str_eq(dt_str* a, dt_str* b) {
 // 	return dt_val_str_len(chars, len);
 // }
 
+char* dt_str_dup(dt_str* str) {
+	char* chars = malloc(str->len + 1);
+	memcpy(chars, str->chars, str->len);
+	chars[str->len] = '\0';
+	return chars;
+}
+
 dt_str* dt_num_to_str(dt_vm* vm, dt_num num) {
 	int len = snprintf(NULL, 0, "%g", num);
 	dt_str* str = dt_str_alloc(vm, len);
@@ -886,7 +898,7 @@ dt_arr* dt_arr_new_len(dt_vm* vm, int len) {
 	arr->values = dt_malloc(vm, arr->cap * sizeof(dt_val));
 	arr->type = DT_VAL_ARR;
 	if (vm) {
-		dt_vm_manage_mem(vm, (dt_heaper*)arr, DT_VAL_ARR);
+		dt_manage(vm, (dt_heaper*)arr, DT_VAL_ARR);
 	}
 	return arr;
 }
@@ -1023,7 +1035,7 @@ dt_map* dt_map_new_len(dt_vm* vm, int len) {
 	memset(map->entries, 0, entries_size);
 	map->type = DT_VAL_MAP;
 	if (vm) {
-		dt_vm_manage_mem(vm, (dt_heaper*)map, DT_VAL_MAP);
+		dt_manage(vm, (dt_heaper*)map, DT_VAL_MAP);
 	}
 	return map;
 }
@@ -1086,6 +1098,10 @@ static void dt_map_mark(dt_map* map) {
 			dt_val_mark(e.val);
 		}
 	}
+}
+
+static bool dt_is_heap(dt_val v) {
+	return (v & DT_SMASK_SIG) == DT_SIG_HEAP;
 }
 
 bool dt_is_nil(dt_val val) {
@@ -1565,8 +1581,7 @@ char* dt_arg_cstr(dt_vm* vm, int idx) {
 }
 
 char* dt_arg_cstr_dup(dt_vm* vm, int idx) {
-	dt_str* str = dt_arg_str(vm, idx);
-	return strdup(str->chars);
+	return dt_str_dup(dt_arg_str(vm, idx));
 }
 
 dt_map* dt_arg_map(dt_vm* vm, int idx) {
@@ -1744,14 +1759,14 @@ static void dt_val_mark(dt_val val) {
 	}
 }
 
-static void dt_vm_manage_mem(dt_vm* vm, dt_heaper* h, uint8_t ty) {
+static void dt_manage(dt_vm* vm, dt_heaper* h, uint8_t ty) {
 	h->type = ty;
 	h->marked = false;
 	h->nxt = vm->heaper;
 	vm->heaper = h;
 }
 
-static void dt_vm_gc_mark(dt_vm* vm) {
+static void dt_gc_mark(dt_vm* vm) {
 	for (dt_val* val = vm->stack; val < vm->stack_top; val++) {
 		dt_val_mark(*val);
 	}
@@ -1760,8 +1775,7 @@ static void dt_vm_gc_mark(dt_vm* vm) {
 	dt_map_mark(vm->globals);
 }
 
-// TODO: should sweep to 0 when nothing is marked
-static void dt_vm_gc_sweep(dt_vm* vm) {
+static void dt_gc_sweep(dt_vm* vm) {
 #ifdef DT_GC_LOG
 	size_t start_mem = vm->mem;
 	printf("--- GC START\n");
@@ -1847,6 +1861,23 @@ static void dt_vm_gc_sweep(dt_vm* vm) {
 #endif
 }
 
+// mark a value to not get collected by gc unless explicitly unreg
+void dt_keep(dt_vm* vm, dt_val v) {
+	if (!dt_is_heap(v)) {
+		return;
+	}
+	// TODO
+}
+
+// mark a value to get collected by gc
+void dt_unkeep(dt_vm* vm, dt_val v) {
+	if (!dt_is_heap(v)) {
+		return;
+	}
+	// TODO
+}
+
+// run gc if needed
 static void dt_vm_gc_check(dt_vm* vm) {
 #ifdef DT_GC_STRESS
 	dt_gc_run(vm);
@@ -1858,14 +1889,14 @@ static void dt_vm_gc_check(dt_vm* vm) {
 #endif
 }
 
-// TODO: consts ?
+// manually start a mark & sweep process
 void dt_gc_run(dt_vm* vm) {
-	dt_vm_gc_mark(vm);
-	dt_vm_gc_sweep(vm);
+	dt_gc_mark(vm);
+	dt_gc_sweep(vm);
 }
 
 void dt_vm_free(dt_vm* vm) {
-	dt_vm_gc_sweep(vm);
+	dt_gc_sweep(vm);
 	dt_map_free(NULL, vm->strs);
 	memset(vm, 0, sizeof(dt_vm));
 }
@@ -2600,7 +2631,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							upval->val = vm->stack + vm->stack_offset + idx;
 							upval->captured = false;
 							vm->open_upvals[vm->num_upvals++] = upval;
-							dt_vm_manage_mem(vm, (dt_heaper*)upval, DT_VAL_UPVAL);
+							dt_manage(vm, (dt_heaper*)upval, DT_VAL_UPVAL);
 							func->upvals[i] = upval;
 						}
 					} else {
@@ -2608,7 +2639,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					}
 				}
 				dt_vm_push(vm, dt_to_func(func));
-				dt_vm_manage_mem(vm, (dt_heaper*)func, DT_VAL_FUNC);
+				dt_manage(vm, (dt_heaper*)func, DT_VAL_FUNC);
 				dt_vm_gc_check(vm);
 				break;
 			}

@@ -44,10 +44,12 @@ dt_val dt_f_app_run(dt_vm* vm, int nargs) {
 		dt_val frame = dt_map_cget(vm, conf, "frame");
 		if (dt_is_func(frame)) {
 			app_frame = dt_as_func(frame);
+			dt_keep(vm, frame);
 		}
 		dt_val init = dt_map_cget(vm, conf, "init");
 		if (dt_is_func(init)) {
 			app_init = dt_as_func(init);
+			dt_keep(vm, init);
 		}
 		dt_val width = dt_map_cget(vm, conf, "width");
 		if (dt_is_num(width)) {

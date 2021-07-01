@@ -369,6 +369,13 @@ static int atoin(char* str, int n) {
 	return num;
 }
 
+static char* d_http_mkstr(char* src, size_t len) {
+	char* chars = malloc(len + 1);
+	memcpy(chars, src, len);
+	chars[len] = '\0';
+	return chars;
+}
+
 // TODO: parse url
 // TODO: send_ex with headers
 // TODO: https
@@ -436,7 +443,7 @@ d_http_res d_http_client_send(d_http_client* client, char* req_msg) {
 				}
 
 				int key_len = (key_end - res_msg) - cursor;
-				char* key = strndup(res_msg + cursor, key_len);
+				char* key = d_http_mkstr(res_msg + cursor, key_len);
 				cursor = key_end - res_msg + 2;
 
 				char* val_end = strstr(res_msg + cursor, "\r\n");
@@ -446,7 +453,7 @@ d_http_res d_http_client_send(d_http_client* client, char* req_msg) {
 				}
 
 				int val_len = (val_end - res_msg) - cursor;
-				char* val = strndup(res_msg + cursor, val_len);
+				char* val = d_http_mkstr(res_msg + cursor, val_len);
 				cursor = val_end - res_msg + 2;
 
 				headers[num_headers] = (d_http_header) {
@@ -473,7 +480,7 @@ d_http_res d_http_client_send(d_http_client* client, char* req_msg) {
 
 	}
 
-	char* body = strndup(res_msg + cursor, body_len);
+	char* body = d_http_mkstr(res_msg + cursor, body_len);
 	free(res_msg);
 
 	return (d_http_res) {
