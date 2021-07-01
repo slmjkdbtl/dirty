@@ -130,7 +130,7 @@ dt_val DT_FALSE = (dt_val) {
 
 typedef uint64_t dt_val;
 
-// IEEE 754 "double" bit segments (for nan boxing)
+// IEEE 754 "double" bit segments
 #define DT_SMASK_SIGN  0x8000000000000000
 #define DT_SMASK_EXPO  0x7ff0000000000000
 #define DT_SMASK_QUIET 0x0008000000000000
@@ -2392,6 +2392,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_EQ: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
+#ifdef DT_NO_NANBOX
 				if (dt_type(a) != dt_type(b)) {
 					dt_vm_push(vm, DT_FALSE);
 				} else if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
@@ -2403,14 +2404,11 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				} else if (dt_type(a) == DT_VAL_STR && dt_type(b) == DT_VAL_STR) {
 					dt_vm_push(vm, dt_to_bool(dt_str_eq(dt_as_str(a), dt_as_str(b))));
 				} else {
-					dt_err(
-						vm,
-						"cannot compare a '%s' with '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
-					);
 					dt_vm_push(vm, DT_FALSE);
 				}
+#else
+				dt_vm_push(vm, dt_to_bool(a == b));
+#endif
 				break;
 			}
 
