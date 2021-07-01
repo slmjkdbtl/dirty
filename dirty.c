@@ -199,21 +199,21 @@ dt_val dt_f_app_key_released(dt_vm* vm, int nargs) {
 
 void load_app(dt_vm* vm) {
 	dt_map* app = dt_map_new(vm);
-	dt_map_cset_cfunc(vm, app, "run", dt_f_app_run);
-	dt_map_cset_cfunc(vm, app, "quit", dt_f_app_quit);
-	dt_map_cset_cfunc(vm, app, "width", dt_f_app_width);
-	dt_map_cset_cfunc(vm, app, "height", dt_f_app_height);
-	dt_map_cset_cfunc(vm, app, "time", dt_f_app_time);
-	dt_map_cset_cfunc(vm, app, "dt", dt_f_app_dt);
-	dt_map_cset_cfunc(vm, app, "key_pressed", dt_f_app_key_pressed);
-	dt_map_cset_cfunc(vm, app, "key_down", dt_f_app_key_down);
-	dt_map_cset_cfunc(vm, app, "key_released", dt_f_app_key_released);
-	dt_map_cset_map(vm, vm->globals, "app", app);
+	dt_map_cset(vm, app, "run", dt_to_cfunc(dt_f_app_run));
+	dt_map_cset(vm, app, "quit", dt_to_cfunc(dt_f_app_quit));
+	dt_map_cset(vm, app, "width", dt_to_cfunc(dt_f_app_width));
+	dt_map_cset(vm, app, "height", dt_to_cfunc(dt_f_app_height));
+	dt_map_cset(vm, app, "time", dt_to_cfunc(dt_f_app_time));
+	dt_map_cset(vm, app, "dt", dt_to_cfunc(dt_f_app_dt));
+	dt_map_cset(vm, app, "key_pressed", dt_to_cfunc(dt_f_app_key_pressed));
+	dt_map_cset(vm, app, "key_down", dt_to_cfunc(dt_f_app_key_down));
+	dt_map_cset(vm, app, "key_released", dt_to_cfunc(dt_f_app_key_released));
+	dt_map_cset(vm, vm->globals, "app", dt_to_map(app));
 }
 
 void load_gfx(dt_vm* vm) {
 	dt_map* gfx = dt_map_new(vm);
-	dt_map_cset_map(vm, vm->globals, "gfx", gfx);
+	dt_map_cset(vm, vm->globals, "gfx", dt_to_map(gfx));
 }
 
 int main(int argc, char** argv) {
