@@ -2724,6 +2724,45 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_vm_push(vm, DT_NIL);
 						}
 						break;
+					case DT_VAL_STR: {
+						if (dt_type(key) != DT_VAL_NUM) {
+							dt_err(
+								vm,
+								"invalid str idx type '%s'\n",
+								dt_typename(dt_type(val))
+							);
+							dt_vm_push(vm, DT_NIL);
+							break;
+						}
+						if (dt_type(val) != DT_VAL_STR) {
+							dt_err(
+								vm,
+								"cannot set str idx to '%s'\n",
+								dt_typename(dt_type(val))
+							);
+							dt_vm_push(vm, DT_NIL);
+							break;
+						}
+						dt_str* pstr = dt_as_str(parent);
+						dt_str* vstr = dt_as_str(val);
+						if (vstr->len != 1) {
+							dt_err(
+								vm,
+								"can only set str idx to a char '%s'\n",
+								dt_typename(dt_type(val))
+							);
+							dt_vm_push(vm, DT_NIL);
+							break;
+						}
+						int idx = dt_as_num(key);
+						if (idx >= pstr->len) {
+							dt_vm_push(vm, DT_NIL);
+						} else {
+							pstr->chars[idx] = vstr->chars[0];
+							dt_vm_push(vm, val);
+						}
+						break;
+					}
 					default:
 						dt_err(
 							vm,
@@ -3612,6 +3651,7 @@ static void dt_c_map(dt_compiler* c) {
 
 	while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
 		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
+		// TODO
 		dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.start, name.len)));
 		dt_c_consume(c, DT_TOKEN_COLON);
 		dt_c_expr(c);
@@ -4060,13 +4100,24 @@ static void dt_c_stmt(dt_compiler* c) {
 static void dt_c_index(dt_compiler* c) {
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RBRACKET);
-	dt_c_emit(c, DT_OP_GETI);
+	if (dt_c_match(c, DT_TOKEN_EQ)) {
+		dt_c_expr(c);
+		dt_c_emit(c, DT_OP_SETI);
+	} else {
+		dt_c_emit(c, DT_OP_GETI);
+	}
 }
 
 static void dt_c_index2(dt_compiler* c) {
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
+	// TODO
 	dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.start, name.len)));
-	dt_c_emit(c, DT_OP_GETI);
+	if (dt_c_match(c, DT_TOKEN_EQ)) {
+		dt_c_expr(c);
+		dt_c_emit(c, DT_OP_SETI);
+	} else {
+		dt_c_emit(c, DT_OP_GETI);
+	}
 }
 
 static void dt_c_call(dt_compiler* c) {
@@ -4128,7 +4179,6 @@ static void dt_c_ident(dt_compiler* c) {
 			idx = dt_chunk_add_const(&c->env->chunk, dt_to_str(str));
 		}
 
-		// TODO: member assign
 		// assign
 		if (dt_c_match(c, DT_TOKEN_EQ)) {
 
@@ -4139,8 +4189,6 @@ static void dt_c_ident(dt_compiler* c) {
 
 			// get
 			dt_c_emit2(c, get_op, idx);
-
-			// TODO: check index assign
 
 			// op assign
 			if (dt_c_match(c, DT_TOKEN_PLUS_EQ)) {
