@@ -18,7 +18,7 @@
 
 #define FMT_MAX 256
 
-static const char *d_fmt(const char *fmt, ...) {
+static char *d_fmt(char *fmt, ...) {
 
 	static char buf[FMT_MAX];
 	va_list args;

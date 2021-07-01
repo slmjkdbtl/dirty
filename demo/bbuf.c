@@ -19,7 +19,7 @@
 
 #define FMT_MAX 256
 
-static const char *d_fmt(const char *fmt, ...) {
+static char *d_fmt(char *fmt, ...) {
 
 	static char buf[FMT_MAX];
 	va_list args;
@@ -90,7 +90,7 @@ void frame() {
 			colori((sin(t) + 1) / 2 * 255, (cos(t) + 1) / 2 * 255, 255, 255)
 		);
 	} else {
-		d_blit_bg();
+// 		d_blit_bg();
 	}
 	d_gfx_set_bbuf_test(false);
 	d_gfx_bbuf_clear();

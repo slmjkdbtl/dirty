@@ -52,20 +52,21 @@ typedef struct {
 	int* buf;
 } d_ibuf;
 
-// TODO: use d_bitset
+typedef struct {
+	uint8_t* buf;
+	int size;
+} d_bitset;
+
 typedef struct {
 	int width;
 	int height;
-	bool* buf;
+	d_bitset bitset;
 } d_bbuf;
-
-typedef struct {
-	uint8_t* buf;
-} d_bitset;
 
 d_bitset d_bitset_new(size_t size);
 void d_bitset_set(d_bitset* m, int n, bool b);
 bool d_bitset_get(d_bitset* m, int n);
+void d_bitset_clear(d_bitset* m, bool b);
 void d_bitset_free(d_bitset* m);
 
 typedef struct {
@@ -875,27 +876,25 @@ d_bbuf d_bbuf_new(int w, int h) {
 	return (d_bbuf) {
 		.width = w,
 		.height = h,
-		.buf = calloc(w * h, sizeof(bool)),
+		.bitset = d_bitset_new(w * h),
 	};
 }
 
 void d_bbuf_free(d_bbuf* bbuf) {
-	free(bbuf->buf);
+	d_bitset_free(&bbuf->bitset);
 	memset(bbuf, 0, sizeof(d_bbuf));
 }
 
 void d_bbuf_set(d_bbuf* bbuf, int x, int y, bool b) {
-	bbuf->buf[y * bbuf->width + x] = b;
+	d_bitset_set(&bbuf->bitset, y * bbuf->width + x, b);
 }
 
 bool d_bbuf_get(d_bbuf* bbuf, int x, int y) {
-	return bbuf->buf[y * bbuf->width + x];
+	return d_bitset_get(&bbuf->bitset, y * bbuf->width + x);
 }
 
 void d_bbuf_clear(d_bbuf* bbuf, bool b) {
-	for (int i = 0; i < bbuf->width * bbuf->height; i++) {
-		bbuf->buf[i] = b;
-	}
+	d_bitset_clear(&bbuf->bitset, b);
 }
 
 static uint8_t d_bitset_map[] = {
@@ -919,6 +918,7 @@ d_bitset d_bitset_new(size_t size) {
 	memset(buf, 0, size);
 	return (d_bitset) {
 		.buf = buf,
+		.size = size,
 	};
 }
 
@@ -932,6 +932,13 @@ void d_bitset_set(d_bitset* m, int n, bool b) {
 
 bool d_bitset_get(d_bitset* m, int n) {
 	return m->buf[n / 8] & d_bitset_map[n % 8];
+}
+
+void d_bitset_clear(d_bitset* m, bool b) {
+	uint8_t n = b ? 0xff : 0x00;
+	for (int i = 0; i < m->size; i++) {
+		m->buf[i] = n;
+	}
 }
 
 void d_bitset_free(d_bitset* m) {
