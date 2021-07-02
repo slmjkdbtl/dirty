@@ -331,9 +331,10 @@ bool      dt_is_arr      (dt_val v);
 bool      dt_is_func     (dt_val v);
 
 // misc
-bool      dt_val_eq  (dt_val a, dt_val b);
-void      dt_print   (dt_val v);
-void      dt_println (dt_val v);
+bool      dt_val_eq     (dt_val a, dt_val b);
+bool      dt_truthiness (dt_val v);
+void      dt_print      (dt_val v);
+void      dt_println    (dt_val v);
 
 // TODO: think about dt_vm* passing / gc mechanisms around
 // passing dt_vm* for gc managed memory, passing NULL for manual
@@ -360,7 +361,9 @@ dt_str*  dt_str_rep      (dt_vm* vm, dt_str* str, int times);
 dt_str*  dt_str_toupper  (dt_vm* vm, dt_str* str);
 dt_str*  dt_str_tolower  (dt_vm* vm, dt_str* str);
 int      dt_str_find     (dt_str* str, dt_str* key);
+bool     dt_str_contains (dt_str* str, dt_str* key);
 dt_str*  dt_str_rev      (dt_vm* vm, dt_str* str);
+dt_str*  dt_str_trim     (dt_vm* vm, dt_str* str);
 void     dt_str_print    (dt_str* str);
 void     dt_str_println  (dt_str* str);
 
@@ -374,7 +377,14 @@ void     dt_arr_set      (dt_vm* vm, dt_arr* arr, int idx, dt_val val);
 void     dt_arr_insert   (dt_vm* vm, dt_arr* arr, int idx, dt_val val);
 void     dt_arr_push     (dt_vm* vm, dt_arr* arr, dt_val val);
 dt_val   dt_arr_rm       (dt_arr* arr, int idx);
-void     dt_arr_rm_item  (dt_arr* arr, dt_val v);
+void     dt_arr_rm_all   (dt_arr* arr, dt_val v);
+int      dt_arr_find     (dt_arr* arr, dt_val v);
+dt_arr*  dt_arr_map      (dt_vm* vm, dt_arr* arr, dt_func* f);
+void     dt_arr_each     (dt_vm* vm, dt_arr* arr, dt_func* f);
+dt_arr*  dt_arr_filter   (dt_vm* vm, dt_arr* arr, dt_func* f);
+bool     dt_arr_contains (dt_arr* arr, dt_val v);
+dt_arr*  dt_arr_rev      (dt_vm* vm, dt_arr* arr);
+dt_val   dt_arr_pop      (dt_arr* arr);
 dt_arr*  dt_arr_concat   (dt_vm* vm, dt_arr* a1, dt_arr* a2);
 void     dt_arr_print    (dt_arr* arr);
 void     dt_arr_println  (dt_arr* arr);
@@ -1256,9 +1266,17 @@ dt_str* dt_str_tolower(dt_vm* vm, dt_str* str) {
 	return dest;
 }
 
-int dt_str_find(dt_str* haystack, dt_str* needle) {
-	char* start = strstr(haystack->chars, needle->chars);
-	return start - haystack->chars;
+int dt_str_find(dt_str* str, dt_str* key) {
+	char* pos = strstr(str->chars, key->chars);
+	if (pos) {
+		return pos - str->chars;
+	} else {
+		return -1;
+	}
+}
+
+bool dt_str_contains(dt_str* str, dt_str* key) {
+	return dt_str_find(str, key) != -1;
 }
 
 dt_str* dt_str_rev(dt_vm* vm, dt_str* str) {
@@ -1266,6 +1284,13 @@ dt_str* dt_str_rev(dt_vm* vm, dt_str* str) {
 	for (int i = 0; i < str->len; i++) {
 		dest->chars[i] = str->chars[str->len - i - 1];
 	}
+	dt_str_hash(dest);
+	return dest;
+}
+
+dt_str* dt_str_trim(dt_vm* vm, dt_str* str) {
+	dt_str* dest = dt_str_alloc(vm, str->len);
+	// TODO
 	dt_str_hash(dest);
 	return dest;
 }
@@ -1403,14 +1428,62 @@ bool dt_val_eq(dt_val a, dt_val b) {
 #endif
 }
 
-void dt_arr_rm_item(dt_arr* arr, dt_val v) {
-	int i = 0;
-	for (; i < arr->len; i++) {
+int dt_arr_find(dt_arr* arr, dt_val v) {
+	for (int i = 0; i < arr->len; i++) {
 		if (dt_val_eq(v, arr->values[i])) {
-			break;
+			return i;
 		}
 	}
-	dt_arr_rm(arr, i);
+	return -1;
+}
+
+// TODO: all
+void dt_arr_rm_all(dt_arr* arr, dt_val v) {
+	int i = dt_arr_find(arr, v);
+	if (i != -1) {
+		dt_arr_rm(arr, i);
+	}
+}
+
+dt_arr* dt_arr_map(dt_vm* vm, dt_arr* arr, dt_func* f) {
+	dt_arr* new = dt_arr_new_len(vm, arr->len);
+	for (int i = 0; i < arr->len; i++) {
+		dt_arr_set(vm, new, i, dt_call(vm, f, 2, arr->values[i], dt_to_num(i)));
+	}
+	return new;
+}
+
+void dt_arr_each(dt_vm* vm, dt_arr* arr, dt_func* f) {
+	for (int i = 0; i < arr->len; i++) {
+		dt_call(vm, f, 2, arr->values[i], dt_to_num(i));
+	}
+}
+
+dt_arr* dt_arr_filter(dt_vm* vm, dt_arr* arr, dt_func* f) {
+	dt_arr* new = dt_arr_new_len(vm, arr->len);
+	for (int i = 0; i < arr->len; i++) {
+		dt_val res = dt_call(vm, f, 2, arr->values[i], dt_to_num(i));
+		if (dt_truthiness(res)) {
+			dt_arr_push(vm, new, arr->values[i]);
+		}
+	}
+	return new;
+}
+
+bool dt_arr_contains(dt_arr* arr, dt_val v) {
+	return dt_arr_find(arr, v) != -1;
+}
+
+dt_arr* dt_arr_rev(dt_vm* vm, dt_arr* arr) {
+	dt_arr* new = dt_arr_new_len(vm, arr->len);
+	for (int i = 0; i < arr->len; i++) {
+		dt_arr_set(vm, new, i, arr->values[arr->len - i - 1]);
+	}
+	return new;
+}
+
+dt_val dt_arr_pop(dt_arr* arr) {
+	return dt_arr_rm(arr, arr->len - 1);
 }
 
 dt_arr* dt_arr_concat(dt_vm* vm, dt_arr* a1, dt_arr* a2) {
@@ -1833,7 +1906,7 @@ static int dt_chunk_peek_at(dt_chunk* c, int idx) {
 		}
 		case DT_OP_MKFUNC: {
 			uint8_t num_upvals = c->code[idx + 1];
-			printf("FUNC %d", num_upvals);
+			printf("MKFUNC %d", num_upvals);
 			return idx + 2 + num_upvals * 2;
 		}
 		case DT_OP_MKARR: {
@@ -2307,7 +2380,7 @@ void dt_drop(dt_vm* vm, dt_val v) {
 	if (!dt_is_heap(v)) {
 		return;
 	}
-	dt_arr_rm_item(vm->holds, v);
+	dt_arr_rm_all(vm->holds, v);
 }
 
 // run gc if needed
@@ -4734,14 +4807,25 @@ static dt_val dt_f_str_tolower(dt_vm* vm, int nargs) {
 }
 
 static dt_val dt_f_str_find(dt_vm* vm, int nargs) {
-	dt_str* haystack = dt_arg_str(vm, 0);
-	dt_str* needle = dt_arg_str(vm, 1);
-	return dt_to_num(dt_str_find(haystack, needle));
+	dt_str* str = dt_arg_str(vm, 0);
+	dt_str* key = dt_arg_str(vm, 1);
+	return dt_to_num(dt_str_find(str, key));
+}
+
+static dt_val dt_f_str_contains(dt_vm* vm, int nargs) {
+	dt_str* str = dt_arg_str(vm, 0);
+	dt_str* key = dt_arg_str(vm, 1);
+	return dt_to_bool(dt_str_contains(str, key));
 }
 
 static dt_val dt_f_str_rev(dt_vm* vm, int nargs) {
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_str(dt_str_rev(vm, str));
+}
+
+static dt_val dt_f_str_trim(dt_vm* vm, int nargs) {
+	dt_str* str = dt_arg_str(vm, 0);
+	return dt_to_str(dt_str_trim(vm, str));
 }
 
 static dt_val dt_f_arr_push(dt_vm* vm, int nargs) {
@@ -4765,6 +4849,54 @@ static dt_val dt_f_arr_rm(dt_vm* vm, int nargs) {
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_num idx = dt_arg_num(vm, 1);
 	return dt_arr_rm(arr, idx);
+}
+
+static dt_val dt_f_arr_rm_all(dt_vm* vm, int nargs) {
+	dt_arr* arr = dt_arg_arr(vm, 0);
+	dt_val v = dt_arg(vm, 1);
+	dt_arr_rm_all(arr, v);
+	return DT_NIL;
+}
+
+static dt_val dt_f_arr_find(dt_vm* vm, int nargs) {
+	dt_arr* arr = dt_arg_arr(vm, 0);
+	dt_val v = dt_arg(vm, 1);
+	return dt_to_num(dt_arr_find(arr, v));
+}
+
+static dt_val dt_f_arr_map(dt_vm* vm, int nargs) {
+	dt_arr* arr = dt_arg_arr(vm, 0);
+	dt_func* f = dt_arg_func(vm, 1);
+	return dt_to_arr(dt_arr_map(vm, arr, f));
+}
+
+static dt_val dt_f_arr_each(dt_vm* vm, int nargs) {
+	dt_arr* arr = dt_arg_arr(vm, 0);
+	dt_func* f = dt_arg_func(vm, 1);
+	dt_arr_each(vm, arr, f);
+	return DT_NIL;
+}
+
+static dt_val dt_f_arr_filter(dt_vm* vm, int nargs) {
+	dt_arr* arr = dt_arg_arr(vm, 0);
+	dt_func* f = dt_arg_func(vm, 1);
+	return dt_to_arr(dt_arr_filter(vm, arr, f));
+}
+
+static dt_val dt_f_arr_contains(dt_vm* vm, int nargs) {
+	dt_arr* arr = dt_arg_arr(vm, 0);
+	dt_val v = dt_arg(vm, 1);
+	return dt_to_bool(dt_arr_contains(arr, v));
+}
+
+static dt_val dt_f_arr_rev(dt_vm* vm, int nargs) {
+	dt_arr* arr = dt_arg_arr(vm, 0);
+	return dt_to_arr(dt_arr_rev(vm, arr));
+}
+
+static dt_val dt_f_arr_pop(dt_vm* vm, int nargs) {
+	dt_arr* arr = dt_arg_arr(vm, 0);
+	return dt_arr_pop(arr);
 }
 
 static dt_val dt_f_map_keys(dt_vm* vm, int nargs) {
@@ -4919,11 +5051,21 @@ void dt_load_std(dt_vm* vm) {
 	dt_map_cset(vm, vm->globals, "str_toupper", dt_to_cfunc(dt_f_str_toupper));
 	dt_map_cset(vm, vm->globals, "str_tolower", dt_to_cfunc(dt_f_str_tolower));
 	dt_map_cset(vm, vm->globals, "str_find", dt_to_cfunc(dt_f_str_find));
+	dt_map_cset(vm, vm->globals, "str_contains", dt_to_cfunc(dt_f_str_contains));
 	dt_map_cset(vm, vm->globals, "str_rev", dt_to_cfunc(dt_f_str_rev));
+	dt_map_cset(vm, vm->globals, "str_trim", dt_to_cfunc(dt_f_str_trim));
 
 	dt_map_cset(vm, vm->globals, "arr_push", dt_to_cfunc(dt_f_arr_push));
 	dt_map_cset(vm, vm->globals, "arr_insert", dt_to_cfunc(dt_f_arr_insert));
 	dt_map_cset(vm, vm->globals, "arr_rm", dt_to_cfunc(dt_f_arr_rm));
+	dt_map_cset(vm, vm->globals, "arr_rm_all", dt_to_cfunc(dt_f_arr_rm_all));
+	dt_map_cset(vm, vm->globals, "arr_find", dt_to_cfunc(dt_f_arr_find));
+	dt_map_cset(vm, vm->globals, "arr_map", dt_to_cfunc(dt_f_arr_map));
+	dt_map_cset(vm, vm->globals, "arr_each", dt_to_cfunc(dt_f_arr_each));
+	dt_map_cset(vm, vm->globals, "arr_filter", dt_to_cfunc(dt_f_arr_filter));
+	dt_map_cset(vm, vm->globals, "arr_contains", dt_to_cfunc(dt_f_arr_contains));
+	dt_map_cset(vm, vm->globals, "arr_rev", dt_to_cfunc(dt_f_arr_rev));
+	dt_map_cset(vm, vm->globals, "arr_pop", dt_to_cfunc(dt_f_arr_pop));
 
 	dt_map_cset(vm, vm->globals, "map_keys", dt_to_cfunc(dt_f_map_keys));
 	dt_map_cset(vm, vm->globals, "map_vals", dt_to_cfunc(dt_f_map_vals));
