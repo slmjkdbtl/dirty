@@ -286,28 +286,27 @@ void      dt_load_std    (dt_vm* vm);
 void      dt_err       (dt_vm* vm, char* fmt, ...);
 
 // for getting args in cfunc
-dt_val    dt_arg         (dt_vm* vm, int idx);
-dt_num    dt_arg_num     (dt_vm* vm, int idx);
-dt_bool   dt_arg_bool    (dt_vm* vm, int idx);
-dt_str*   dt_arg_str     (dt_vm* vm, int idx);
-char*     dt_arg_cstr    (dt_vm* vm, int idx);
-dt_map*   dt_arg_map     (dt_vm* vm, int idx);
-dt_arr*   dt_arg_arr     (dt_vm* vm, int idx);
-dt_func*  dt_arg_func    (dt_vm* vm, int idx);
-bool      dt_check_arg   (dt_vm* vm, int idx, dt_val_ty ty);
-void      dt_check_nargs (dt_vm* vm, int expected, int actual);
+dt_val    dt_arg             (dt_vm* vm, int idx);
+bool      dt_arg_exists      (dt_vm* vm, int idx);
+dt_num    dt_arg_num         (dt_vm* vm, int idx);
+dt_num    dt_arg_num_or      (dt_vm* vm, int idx, dt_num n);
+dt_bool   dt_arg_bool        (dt_vm* vm, int idx);
+dt_bool   dt_arg_bool_or     (dt_vm* vm, int idx, dt_bool b);
+dt_str*   dt_arg_str         (dt_vm* vm, int idx);
+char*     dt_arg_cstr        (dt_vm* vm, int idx);
+char*     dt_arg_cstr_or     (dt_vm* vm, int idx, char* str);
+char*     dt_arg_cstr_dup_or (dt_vm* vm, int idx, char* str);
+dt_map*   dt_arg_map         (dt_vm* vm, int idx);
+dt_arr*   dt_arg_arr         (dt_vm* vm, int idx);
+dt_func*  dt_arg_func        (dt_vm* vm, int idx);
+bool      dt_check_arg       (dt_vm* vm, int idx, dt_val_ty ty);
+void      dt_check_nargs     (dt_vm* vm, int expected, int actual);
 
 // calling a dt_func
 dt_val    dt_call      (dt_vm* vm, dt_func* func, int nargs, ...);
 dt_val    dt_call_0    (dt_vm* vm, dt_func* func);
 dt_val    dt_call_1    (dt_vm* vm, dt_func* func, dt_val a1);
 dt_val    dt_call_2    (dt_vm* vm, dt_func* func, dt_val a1, dt_val a2);
-
-// perform a full mark & sweep procedure
-void      dt_gc_run    (dt_vm* vm);
-// keep / unkeep a value from gc
-void      dt_hold      (dt_vm*, dt_val v);
-void      dt_drop      (dt_vm*, dt_val v);
 
 // value conversions
 dt_val    dt_to_num      (dt_num n);
@@ -344,6 +343,12 @@ dt_val    dt_clone      (dt_vm* vm, dt_val v);
 bool      dt_truthy     (dt_val v);
 void      dt_print      (dt_val v);
 void      dt_println    (dt_val v);
+
+// perform a full mark & sweep procedure
+void      dt_gc_run    (dt_vm* vm);
+// keep / unkeep a value from gc
+void      dt_hold      (dt_vm*, dt_val v);
+void      dt_drop      (dt_vm*, dt_val v);
 
 // TODO: think about dt_vm* passing / gc mechanisms around
 // passing dt_vm* for gc managed memory, passing NULL for manual
@@ -2111,6 +2116,10 @@ dt_val dt_arg(dt_vm* vm, int idx) {
 	}
 }
 
+bool dt_arg_exists(dt_vm* vm, int idx) {
+	return vm->stack + vm->stack_offset + idx < vm->stack_top;
+}
+
 bool dt_check_arg(dt_vm* vm, int idx, dt_val_ty ty) {
 	dt_val v = dt_arg(vm, idx);
 	if (dt_type(v) != ty) {
@@ -2142,9 +2151,25 @@ dt_num dt_arg_num(dt_vm* vm, int idx) {
 	return dt_as_num(dt_arg(vm, idx));
 }
 
+dt_num dt_arg_num_or(dt_vm* vm, int idx, dt_num n) {
+	if (dt_arg_exists(vm, idx)) {
+		return dt_arg_num(vm, idx);
+	} else {
+		return n;
+	}
+}
+
 dt_bool dt_arg_bool(dt_vm* vm, int idx) {
 	dt_check_arg(vm, idx, DT_VAL_BOOL);
 	return dt_as_bool(dt_arg(vm, idx));
+}
+
+dt_bool dt_arg_bool_or(dt_vm* vm, int idx, dt_bool n) {
+	if (dt_arg_exists(vm, idx)) {
+		return dt_arg_bool(vm, idx);
+	} else {
+		return n;
+	}
 }
 
 dt_str* dt_arg_str(dt_vm* vm, int idx) {
@@ -2153,12 +2178,27 @@ dt_str* dt_arg_str(dt_vm* vm, int idx) {
 }
 
 char* dt_arg_cstr(dt_vm* vm, int idx) {
-	dt_str* str = dt_arg_str(vm, idx);
-	return str->chars;
+	return dt_arg_str(vm, idx)->chars;
 }
 
 char* dt_arg_cstr_dup(dt_vm* vm, int idx) {
 	return dt_str_cstr(dt_arg_str(vm, idx));
+}
+
+char* dt_arg_cstr_or(dt_vm* vm, int idx, char* str) {
+	if (dt_arg_exists(vm, idx)) {
+		return dt_arg_cstr(vm, idx);
+	} else {
+		return str;
+	}
+}
+
+char* dt_arg_cstr_dup_or(dt_vm* vm, int idx, char* str) {
+	if (dt_arg_exists(vm, idx)) {
+		return dt_arg_cstr_dup(vm, idx);
+	} else {
+		return str;
+	}
 }
 
 dt_map* dt_arg_map(dt_vm* vm, int idx) {
@@ -5072,8 +5112,12 @@ static dt_val dt_f_math_sqrt(dt_vm* vm, int nargs) {
 
 static dt_val dt_f_math_pow(dt_vm* vm, int nargs) {
 	dt_num n = dt_arg_num(vm, 0);
-	dt_num p = dt_arg_num(vm, 1);
-	return dt_to_num(pow(n, p));
+	if (nargs == 1) {
+		return dt_to_num(pow(n, 2));
+	} else {
+		dt_num p = dt_arg_num(vm, 1);
+		return dt_to_num(pow(n, p));
+	}
 }
 
 static dt_val dt_f_math_round(dt_vm* vm, int nargs) {
@@ -5089,6 +5133,11 @@ static dt_val dt_f_math_floor(dt_vm* vm, int nargs) {
 static dt_val dt_f_math_ceil(dt_vm* vm, int nargs) {
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(ceil(n));
+}
+
+static dt_val dt_f_math_fract(dt_vm* vm, int nargs) {
+	dt_num n = dt_arg_num(vm, 0);
+	return dt_to_num(n - floor(n));
 }
 
 static dt_val dt_f_math_max(dt_vm* vm, int nargs) {
@@ -5221,6 +5270,7 @@ static dt_cfunc_reg math_funcs[] = {
 	{ "round", dt_f_math_round, },
 	{ "floor", dt_f_math_floor, },
 	{ "ceil", dt_f_math_ceil, },
+	{ "fract", dt_f_math_fract, },
 	{ "max", dt_f_math_max, },
 	{ "min", dt_f_math_min, },
 	{ "clamp", dt_f_math_clamp, },
