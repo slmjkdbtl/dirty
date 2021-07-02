@@ -81,6 +81,7 @@ struct dt_str;
 struct dt_vm;
 struct dt_logic;
 struct dt_func;
+struct dt_cdata;
 
 // TODO: should this be a value type?
 // for easy loops and sub sections in lists
@@ -176,7 +177,7 @@ typedef struct dt_heaper {
 	DT_HEAPER_STRUCT
 } dt_heaper;
 
-typedef struct {
+typedef struct dt_cdata {
 	DT_HEAPER_STRUCT
 	uint32_t size;
 	char     data[];
@@ -380,8 +381,8 @@ dt_val   dt_arr_rm       (dt_arr* arr, int idx);
 void     dt_arr_rm_all   (dt_arr* arr, dt_val v);
 int      dt_arr_find     (dt_arr* arr, dt_val v);
 dt_arr*  dt_arr_map      (dt_vm* vm, dt_arr* arr, dt_func* f);
-void     dt_arr_each     (dt_vm* vm, dt_arr* arr, dt_func* f);
 dt_arr*  dt_arr_filter   (dt_vm* vm, dt_arr* arr, dt_func* f);
+void     dt_arr_each     (dt_vm* vm, dt_arr* arr, dt_func* f);
 bool     dt_arr_contains (dt_arr* arr, dt_val v);
 dt_arr*  dt_arr_rev      (dt_vm* vm, dt_arr* arr);
 dt_val   dt_arr_pop      (dt_arr* arr);
@@ -396,6 +397,7 @@ dt_map*  dt_map_new_len  (dt_vm* vm, int len);
 void     dt_map_free     (dt_vm* vm, dt_map* map);
 dt_val   dt_map_get      (dt_map* map, dt_str* key);
 void     dt_map_set      (dt_vm* vm, dt_map* map, dt_str* key, dt_val val);
+void     dt_map_each     (dt_vm* vm, dt_map* map, dt_func* f);
 // get / set from c str
 dt_val   dt_map_cget     (dt_vm* vm, dt_map* map, char* key);
 void     dt_map_cset     (dt_vm* vm, dt_map* map, char* key, dt_val val);
@@ -1459,6 +1461,7 @@ void dt_arr_each(dt_vm* vm, dt_arr* arr, dt_func* f) {
 	}
 }
 
+// TODO: not right on NO_NANBOX
 dt_arr* dt_arr_filter(dt_vm* vm, dt_arr* arr, dt_func* f) {
 	dt_arr* new = dt_arr_new_len(vm, arr->len);
 	for (int i = 0; i < arr->len; i++) {
@@ -1639,6 +1642,15 @@ dt_val dt_map_get(dt_map* map, dt_str* key) {
 
 }
 
+void dt_map_each(dt_vm* vm, dt_map* map, dt_func* f) {
+	for (int i = 0; i < map->cap; i++) {
+		dt_entry e = map->entries[i];
+		if (e.key && !dt_is_nil(e.val)) {
+			dt_call(vm, f, 2, e.key, e.val);
+		}
+	}
+}
+
 dt_val dt_map_cget(dt_vm* vm, dt_map* map, char* key) {
 	return dt_map_get(map, dt_str_new(vm, key));
 }
@@ -1739,7 +1751,7 @@ bool dt_truthiness(dt_val val) {
 #ifdef DT_NO_NANBOX
 	return !(
 		val.type == DT_VAL_NIL
-		&& (val.type == DT_VAL_BOOL && val.data.boolean == false)
+		|| (val.type == DT_VAL_BOOL && val.data.boolean == false)
 	);
 #else
 	return val != DT_NIL && val != DT_FALSE;
@@ -4909,6 +4921,13 @@ static dt_val dt_f_map_vals(dt_vm* vm, int nargs) {
 	return dt_to_arr(dt_map_vals(vm, map));
 }
 
+static dt_val dt_f_map_each(dt_vm* vm, int nargs) {
+	dt_map* map = dt_arg_map(vm, 0);
+	dt_func* f = dt_arg_func(vm, 1);
+	dt_map_each(vm, map, f);
+	return DT_NIL;
+}
+
 static dt_val dt_f_math_sin(dt_vm* vm, int nargs) {
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(sin(n));
@@ -5069,6 +5088,7 @@ void dt_load_std(dt_vm* vm) {
 
 	dt_map_cset(vm, vm->globals, "map_keys", dt_to_cfunc(dt_f_map_keys));
 	dt_map_cset(vm, vm->globals, "map_vals", dt_to_cfunc(dt_f_map_vals));
+	dt_map_cset(vm, vm->globals, "map_each", dt_to_cfunc(dt_f_map_each));
 
 	dt_map_cset(vm, vm->globals, "PI", dt_to_num(3.14));
 	dt_map_cset(vm, vm->globals, "math_sin", dt_to_cfunc(dt_f_math_sin));
