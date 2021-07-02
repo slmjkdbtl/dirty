@@ -3,10 +3,12 @@ $ lst = [1 5 3 6 4]
 -- lst[6] = 4
 -- print(lst)
 
-arr.insert(lst, 1, 8)
+lst:insert(1, 8)
 print(lst)
 
-print(arr.map(lst, ~ (i) i + 1))
-print(arr.filter(lst, ~ (i) i > 5))
-print(arr.sort(lst, ~ (a, b) a < b))
+lst
+	:map(~ (i) i + 1)
+	:sort(~ (a, b) a < b)
+	:each(print)
 
+print(os.date())

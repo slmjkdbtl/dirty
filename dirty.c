@@ -18,8 +18,8 @@
 #include <d_lang.h>
 
 dt_vm* g_vm;
-dt_func* app_frame;
-dt_func* app_init;
+dt_val app_frame;
+dt_val app_init;
 
 void init() {
 	if (app_init) {
@@ -46,12 +46,12 @@ dt_val dt_f_app_run(dt_vm* vm, int nargs) {
 		dt_map* conf = dt_as_map(dt_arg(vm, 0));
 		dt_val frame = dt_map_cget(vm, conf, "frame");
 		if (dt_is_func(frame)) {
-			app_frame = dt_as_func(frame);
+			app_frame = frame;
 			dt_hold(vm, frame);
 		}
 		dt_val init = dt_map_cget(vm, conf, "init");
 		if (dt_is_func(init)) {
-			app_init = dt_as_func(init);
+			app_init = init;
 			dt_hold(vm, init);
 		}
 		dt_val width = dt_map_cget(vm, conf, "width");
