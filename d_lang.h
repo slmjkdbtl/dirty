@@ -43,6 +43,7 @@
 #define DT_GC_THRESHOLD 1024 * 1024
 // gc threshold ^ grow rate
 #define DT_GC_GROW 2
+#define DT_PI 3.14
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -264,6 +265,12 @@ typedef struct dt_vm {
 	size_t     next_gc;
 } dt_vm;
 
+// for easy register cfuncs
+typedef struct {
+	char*     name;
+	dt_cfunc* func;
+} dt_cfunc_reg;
+
 // vm creation / destruction
 dt_vm     dt_vm_new    ();
 void      dt_vm_free   (dt_vm* vm);
@@ -396,22 +403,23 @@ void     dt_arr_println  (dt_arr* arr);
 // create empty hashmap
 dt_map*  dt_map_new      (dt_vm* vm);
 // create hashmap with capacity
-dt_map*  dt_map_new_len  (dt_vm* vm, int len);
-void     dt_map_free     (dt_vm* vm, dt_map* map);
-dt_val   dt_map_get      (dt_map* map, dt_str* key);
-void     dt_map_set      (dt_vm* vm, dt_map* map, dt_str* key, dt_val val);
-void     dt_map_each     (dt_vm* vm, dt_map* map, dt_func* f);
+dt_map*  dt_map_new_len    (dt_vm* vm, int len);
+void     dt_map_free       (dt_vm* vm, dt_map* map);
+dt_val   dt_map_get        (dt_map* map, dt_str* key);
+void     dt_map_set        (dt_vm* vm, dt_map* map, dt_str* key, dt_val val);
+void     dt_map_each       (dt_vm* vm, dt_map* map, dt_func* f);
 // get / set from c str
-dt_val   dt_map_cget     (dt_vm* vm, dt_map* map, char* key);
-void     dt_map_cset     (dt_vm* vm, dt_map* map, char* key, dt_val val);
-bool     dt_map_has   (dt_map* map, dt_str* key);
+dt_val   dt_map_cget       (dt_vm* vm, dt_map* map, char* key);
+void     dt_map_cset       (dt_vm* vm, dt_map* map, char* key, dt_val val);
+void     dt_map_reg_cfuncs (dt_vm* vm, dt_map* map, dt_cfunc_reg* reg);
+bool     dt_map_has        (dt_map* map, dt_str* key);
 // get an array of keys
-dt_arr*  dt_map_keys     (dt_vm* vm, dt_map* map);
+dt_arr*  dt_map_keys       (dt_vm* vm, dt_map* map);
 // get an array of values
-dt_arr*  dt_map_vals     (dt_vm* vm, dt_map* map);
-dt_map*  dt_map_clone    (dt_vm* vm, dt_map* src);
-void     dt_map_print    (dt_map* map);
-void     dt_map_println  (dt_map* map);
+dt_arr*  dt_map_vals       (dt_vm* vm, dt_map* map);
+dt_map*  dt_map_clone      (dt_vm* vm, dt_map* src);
+void     dt_map_print      (dt_map* map);
+void     dt_map_println    (dt_map* map);
 
 #endif
 
@@ -1701,6 +1709,12 @@ void dt_map_cset(dt_vm* vm, dt_map* map, char* key, dt_val val) {
 	dt_map_set(vm, map, dt_str_new(vm, key), val);
 }
 
+void dt_map_reg_cfuncs(dt_vm* vm, dt_map* map, dt_cfunc_reg* funcs) {
+	for (dt_cfunc_reg* reg = funcs; reg->name != NULL; reg++) {
+		dt_map_cset(vm, map, reg->name, dt_to_cfunc(reg->func));
+	}
+}
+
 dt_arr* dt_map_keys(dt_vm* vm, dt_map* map) {
 	dt_arr* arr = dt_arr_new(vm);
 	for (int i = 0; i < map->cap; i++) {
@@ -1853,10 +1867,10 @@ static dt_chunk dt_chunk_new() {
 //  ----------------------------------
 // | #consts    uint32                |
 //  ----------------------------------
-// | consts     uint64 * #consts      |
+// | consts     uint64[#consts]       |
 //  ----------------------------------
 
-static uint8_t* dt_chunk_save(dt_chunk* c, size_t* osize) {
+static uint8_t* dt_arrve(dt_chunk* c, size_t* osize) {
 	// TODO
 	return NULL;
 }
@@ -5029,6 +5043,17 @@ static dt_val dt_f_math_atan(dt_vm* vm, int nargs) {
 	return dt_to_num(atan(n));
 }
 
+static dt_val dt_f_math_atan2(dt_vm* vm, int nargs) {
+	dt_num n = dt_arg_num(vm, 0);
+	dt_num n2 = dt_arg_num(vm, 0);
+	return dt_to_num(atan2(n, n2));
+}
+
+static dt_val dt_f_math_isnan(dt_vm* vm, int nargs) {
+	dt_num n = dt_arg_num(vm, 0);
+	return dt_to_num(isnan(n));
+}
+
 static dt_val dt_f_math_abs(dt_vm* vm, int nargs) {
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(fabs(n));
@@ -5067,25 +5092,32 @@ static dt_val dt_f_math_ceil(dt_vm* vm, int nargs) {
 }
 
 static dt_val dt_f_math_max(dt_vm* vm, int nargs) {
-	dt_num n = dt_arg_num(vm, 0);
-	dt_num n2 = dt_arg_num(vm, 1);
-	return dt_to_num(fmax(n, n2));
+	dt_num a = dt_arg_num(vm, 0);
+	dt_num b = dt_arg_num(vm, 1);
+	return dt_to_num(fmax(a, b));
 }
 
 static dt_val dt_f_math_min(dt_vm* vm, int nargs) {
-	dt_num n = dt_arg_num(vm, 0);
-	dt_num n2 = dt_arg_num(vm, 1);
-	return dt_to_num(fmin(n, n2));
+	dt_num a = dt_arg_num(vm, 0);
+	dt_num b = dt_arg_num(vm, 1);
+	return dt_to_num(fmin(a, b));
+}
+
+static dt_val dt_f_math_clamp(dt_vm* vm, int nargs) {
+	dt_num v = dt_arg_num(vm, 0);
+	dt_num lo = dt_arg_num(vm, 1);
+	dt_num hi = dt_arg_num(vm, 2);
+	return dt_to_num(fmax(lo, fmin(hi, v)));
 }
 
 static dt_val dt_f_math_deg(dt_vm* vm, int nargs) {
 	dt_num n = dt_arg_num(vm, 0);
-	return dt_to_num(n * (180.0 / D_PI));
+	return dt_to_num(n * (180.0 / DT_PI));
 }
 
 static dt_val dt_f_math_rad(dt_vm* vm, int nargs) {
 	dt_num n = dt_arg_num(vm, 0);
-	return dt_to_num(n / (180.0 / D_PI));
+	return dt_to_num(n / (180.0 / DT_PI));
 }
 
 static dt_val dt_f_math_sign(dt_vm* vm, int nargs) {
@@ -5121,70 +5153,105 @@ static dt_val dt_f_math_srand(dt_vm* vm, int nargs) {
 	return DT_NIL;
 }
 
+static dt_cfunc_reg std_funcs[] = {
+	{ "type", dt_f_type, },
+	{ "eval", dt_f_eval, },
+	{ "dofile", dt_f_dofile, },
+	{ "error", dt_f_error, },
+	{ "print", dt_f_print, },
+	{ "exit", dt_f_exit, },
+	{ "exec", dt_f_exec, },
+	{ "time", dt_f_time, },
+	{ "getenv", dt_f_getenv, },
+	{ "fread", dt_f_fread, },
+	{ NULL, NULL, },
+};
+
+static dt_cfunc_reg str_funcs[] = {
+	{ "replace", dt_f_str_replace, },
+	{ "split", dt_f_str_split, },
+	{ "rep", dt_f_str_rep, },
+	{ "toupper", dt_f_str_toupper, },
+	{ "tolower", dt_f_str_tolower, },
+	{ "find", dt_f_str_find, },
+	{ "contains", dt_f_str_contains, },
+	{ "rev", dt_f_str_rev, },
+	{ "trim", dt_f_str_trim, },
+	{ NULL, NULL, },
+};
+
+static dt_cfunc_reg arr_funcs[] = {
+	{ "push", dt_f_arr_push, },
+	{ "insert", dt_f_arr_insert, },
+	{ "rm", dt_f_arr_rm, },
+	{ "rm_all", dt_f_arr_rm_all, },
+	{ "find", dt_f_arr_find, },
+	{ "map", dt_f_arr_map, },
+	{ "sort", dt_f_arr_sort, },
+	{ "filter", dt_f_arr_filter, },
+	{ "each", dt_f_arr_each, },
+	{ "contains", dt_f_arr_contains, },
+	{ "rev", dt_f_arr_rev, },
+	{ "pop", dt_f_arr_pop, },
+	{ "clone", dt_f_arr_clone, },
+	{ NULL, NULL, },
+};
+
+static dt_cfunc_reg map_funcs[] = {
+	{ "keys", dt_f_map_keys, },
+	{ "vals", dt_f_map_vals, },
+	{ "each", dt_f_map_each, },
+	{ "clone", dt_f_map_clone, },
+	{ NULL, NULL, },
+};
+
+static dt_cfunc_reg math_funcs[] = {
+	{ "sin", dt_f_math_sin, },
+	{ "cos", dt_f_math_cos, },
+	{ "tan", dt_f_math_tan, },
+	{ "asin", dt_f_math_asin, },
+	{ "acos", dt_f_math_acos, },
+	{ "atan", dt_f_math_atan, },
+	{ "atan2", dt_f_math_atan2, },
+	{ "isnan", dt_f_math_isnan, },
+	{ "abs", dt_f_math_abs, },
+	{ "mod", dt_f_math_mod, },
+	{ "sqrt", dt_f_math_sqrt, },
+	{ "pow", dt_f_math_pow, },
+	{ "round", dt_f_math_round, },
+	{ "floor", dt_f_math_floor, },
+	{ "ceil", dt_f_math_ceil, },
+	{ "max", dt_f_math_max, },
+	{ "min", dt_f_math_min, },
+	{ "clamp", dt_f_math_clamp, },
+	{ "deg", dt_f_math_deg, },
+	{ "rad", dt_f_math_rad, },
+	{ "sign", dt_f_math_sign, },
+	{ "rand", dt_f_math_rand, },
+	{ "srand", dt_f_math_srand, },
+	{ NULL, NULL, },
+};
+
 void dt_load_std(dt_vm* vm) {
 
-	// TODO: namespacing
-	dt_map_cset(vm, vm->globals, "type", dt_to_cfunc(dt_f_type));
-	dt_map_cset(vm, vm->globals, "eval", dt_to_cfunc(dt_f_eval));
-	dt_map_cset(vm, vm->globals, "dofile", dt_to_cfunc(dt_f_dofile));
-	dt_map_cset(vm, vm->globals, "error", dt_to_cfunc(dt_f_error));
-	dt_map_cset(vm, vm->globals, "print", dt_to_cfunc(dt_f_print));
-	dt_map_cset(vm, vm->globals, "exit", dt_to_cfunc(dt_f_exit));
-	dt_map_cset(vm, vm->globals, "exec", dt_to_cfunc(dt_f_exec));
-	dt_map_cset(vm, vm->globals, "time", dt_to_cfunc(dt_f_time));
-	dt_map_cset(vm, vm->globals, "getenv", dt_to_cfunc(dt_f_getenv));
-	dt_map_cset(vm, vm->globals, "fread", dt_to_cfunc(dt_f_fread));
+	dt_map_reg_cfuncs(vm, vm->globals, std_funcs);
 
-	dt_map_cset(vm, vm->globals, "str_replace", dt_to_cfunc(dt_f_str_replace));
-	dt_map_cset(vm, vm->globals, "str_split", dt_to_cfunc(dt_f_str_split));
-	dt_map_cset(vm, vm->globals, "str_rep", dt_to_cfunc(dt_f_str_rep));
-	dt_map_cset(vm, vm->globals, "str_toupper", dt_to_cfunc(dt_f_str_toupper));
-	dt_map_cset(vm, vm->globals, "str_tolower", dt_to_cfunc(dt_f_str_tolower));
-	dt_map_cset(vm, vm->globals, "str_find", dt_to_cfunc(dt_f_str_find));
-	dt_map_cset(vm, vm->globals, "str_contains", dt_to_cfunc(dt_f_str_contains));
-	dt_map_cset(vm, vm->globals, "str_rev", dt_to_cfunc(dt_f_str_rev));
-	dt_map_cset(vm, vm->globals, "str_trim", dt_to_cfunc(dt_f_str_trim));
+	// TODO: use non-colliding names
+	dt_map* math = dt_map_new(vm);
+	dt_map_reg_cfuncs(vm, math, math_funcs);
+	dt_map_cset(vm, vm->globals, "math", dt_to_map(math));
 
-	dt_map_cset(vm, vm->globals, "arr_push", dt_to_cfunc(dt_f_arr_push));
-	dt_map_cset(vm, vm->globals, "arr_insert", dt_to_cfunc(dt_f_arr_insert));
-	dt_map_cset(vm, vm->globals, "arr_rm", dt_to_cfunc(dt_f_arr_rm));
-	dt_map_cset(vm, vm->globals, "arr_rm_all", dt_to_cfunc(dt_f_arr_rm_all));
-	dt_map_cset(vm, vm->globals, "arr_find", dt_to_cfunc(dt_f_arr_find));
-	dt_map_cset(vm, vm->globals, "arr_map", dt_to_cfunc(dt_f_arr_map));
-	dt_map_cset(vm, vm->globals, "arr_sort", dt_to_cfunc(dt_f_arr_sort));
-	dt_map_cset(vm, vm->globals, "arr_filter", dt_to_cfunc(dt_f_arr_filter));
-	dt_map_cset(vm, vm->globals, "arr_each", dt_to_cfunc(dt_f_arr_each));
-	dt_map_cset(vm, vm->globals, "arr_contains", dt_to_cfunc(dt_f_arr_contains));
-	dt_map_cset(vm, vm->globals, "arr_rev", dt_to_cfunc(dt_f_arr_rev));
-	dt_map_cset(vm, vm->globals, "arr_pop", dt_to_cfunc(dt_f_arr_pop));
-	dt_map_cset(vm, vm->globals, "arr_clone", dt_to_cfunc(dt_f_arr_clone));
+	dt_map* str = dt_map_new(vm);
+	dt_map_reg_cfuncs(vm, str, str_funcs);
+	dt_map_cset(vm, vm->globals, "str", dt_to_map(str));
 
-	dt_map_cset(vm, vm->globals, "map_keys", dt_to_cfunc(dt_f_map_keys));
-	dt_map_cset(vm, vm->globals, "map_vals", dt_to_cfunc(dt_f_map_vals));
-	dt_map_cset(vm, vm->globals, "map_each", dt_to_cfunc(dt_f_map_each));
-	dt_map_cset(vm, vm->globals, "map_clone", dt_to_cfunc(dt_f_map_clone));
+	dt_map* arr = dt_map_new(vm);
+	dt_map_reg_cfuncs(vm, arr, arr_funcs);
+	dt_map_cset(vm, vm->globals, "arr", dt_to_map(arr));
 
-	dt_map_cset(vm, vm->globals, "PI", dt_to_num(3.14));
-	dt_map_cset(vm, vm->globals, "math_sin", dt_to_cfunc(dt_f_math_sin));
-	dt_map_cset(vm, vm->globals, "math_cos", dt_to_cfunc(dt_f_math_cos));
-	dt_map_cset(vm, vm->globals, "math_tan", dt_to_cfunc(dt_f_math_tan));
-	dt_map_cset(vm, vm->globals, "math_asin", dt_to_cfunc(dt_f_math_asin));
-	dt_map_cset(vm, vm->globals, "math_acos", dt_to_cfunc(dt_f_math_acos));
-	dt_map_cset(vm, vm->globals, "math_atan", dt_to_cfunc(dt_f_math_atan));
-	dt_map_cset(vm, vm->globals, "math_abs", dt_to_cfunc(dt_f_math_abs));
-	dt_map_cset(vm, vm->globals, "math_mod", dt_to_cfunc(dt_f_math_mod));
-	dt_map_cset(vm, vm->globals, "math_sqrt", dt_to_cfunc(dt_f_math_sqrt));
-	dt_map_cset(vm, vm->globals, "math_pow", dt_to_cfunc(dt_f_math_pow));
-	dt_map_cset(vm, vm->globals, "math_round", dt_to_cfunc(dt_f_math_round));
-	dt_map_cset(vm, vm->globals, "math_floor", dt_to_cfunc(dt_f_math_floor));
-	dt_map_cset(vm, vm->globals, "math_ceil", dt_to_cfunc(dt_f_math_ceil));
-	dt_map_cset(vm, vm->globals, "math_max", dt_to_cfunc(dt_f_math_max));
-	dt_map_cset(vm, vm->globals, "math_min", dt_to_cfunc(dt_f_math_min));
-	dt_map_cset(vm, vm->globals, "math_deg", dt_to_cfunc(dt_f_math_deg));
-	dt_map_cset(vm, vm->globals, "math_rad", dt_to_cfunc(dt_f_math_rad));
-	dt_map_cset(vm, vm->globals, "math_sign", dt_to_cfunc(dt_f_math_sign));
-	dt_map_cset(vm, vm->globals, "math_rand", dt_to_cfunc(dt_f_math_rand));
-	dt_map_cset(vm, vm->globals, "math_srand", dt_to_cfunc(dt_f_math_srand));
+	dt_map* map = dt_map_new(vm);
+	dt_map_reg_cfuncs(vm, map, map_funcs);
+	dt_map_cset(vm, vm->globals, "map", dt_to_map(map));
 
 }
 

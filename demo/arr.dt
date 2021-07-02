@@ -1,12 +1,12 @@
-$ arr = [1 5 3 6 4]
+$ lst = [1 5 3 6 4]
 
--- arr[6] = 4
--- print(arr)
+-- lst[6] = 4
+-- print(lst)
 
-arr_insert(arr, 1, 8)
-print(arr)
+arr.insert(lst, 1, 8)
+print(lst)
 
-print(arr_map(arr, ~ (i) i + 1))
-print(arr_filter(arr, ~ (i) i > 5))
-print(arr_sort(arr, ~ (a, b) a < b))
+print(arr.map(lst, ~ (i) i + 1))
+print(arr.filter(lst, ~ (i) i > 5))
+print(arr.sort(lst, ~ (a, b) a < b))
 

@@ -200,17 +200,22 @@ dt_val dt_f_app_key_released(dt_vm* vm, int nargs) {
 	return dt_to_bool(d_app_key_released(str_to_d_key(dt_arg_cstr(vm, 0))));
 }
 
+dt_cfunc_reg app_funcs[] = {
+	{ "run", dt_f_app_run, },
+	{ "quit", dt_f_app_quit, },
+	{ "width", dt_f_app_width, },
+	{ "height", dt_f_app_height, },
+	{ "time", dt_f_app_time, },
+	{ "dt", dt_f_app_dt, },
+	{ "key_pressed", dt_f_app_key_pressed, },
+	{ "key_down", dt_f_app_key_down, },
+	{ "key_released", dt_f_app_key_released, },
+	{ NULL, NULL, },
+};
+
 void load_app(dt_vm* vm) {
 	dt_map* app = dt_map_new(vm);
-	dt_map_cset(vm, app, "run", dt_to_cfunc(dt_f_app_run));
-	dt_map_cset(vm, app, "quit", dt_to_cfunc(dt_f_app_quit));
-	dt_map_cset(vm, app, "width", dt_to_cfunc(dt_f_app_width));
-	dt_map_cset(vm, app, "height", dt_to_cfunc(dt_f_app_height));
-	dt_map_cset(vm, app, "time", dt_to_cfunc(dt_f_app_time));
-	dt_map_cset(vm, app, "dt", dt_to_cfunc(dt_f_app_dt));
-	dt_map_cset(vm, app, "key_pressed", dt_to_cfunc(dt_f_app_key_pressed));
-	dt_map_cset(vm, app, "key_down", dt_to_cfunc(dt_f_app_key_down));
-	dt_map_cset(vm, app, "key_released", dt_to_cfunc(dt_f_app_key_released));
+	dt_map_reg_cfuncs(vm, app, app_funcs);
 	dt_map_cset(vm, vm->globals, "app", dt_to_map(app));
 }
 
