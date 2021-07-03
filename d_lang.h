@@ -254,7 +254,7 @@ typedef struct dt_vm {
 	uint8_t*   ip;
 	dt_val     stack[DT_STACK_MAX];
 	dt_val*    stack_top;
-	int        stack_offset;
+	dt_val*    stack_bot;
 	dt_map*    globals;
 	dt_arr*    holds;
 	dt_map*    strs;
@@ -2133,7 +2133,7 @@ dt_vm dt_vm_new() {
 		.ip = NULL,
 		.stack = {0},
 		.stack_top = NULL,
-		.stack_offset = 0,
+		.stack_bot = NULL,
 		.globals = NULL,
 		.holds = NULL,
 		.strs = dt_map_new(NULL),
@@ -2143,6 +2143,8 @@ dt_vm dt_vm_new() {
 		.mem = 0,
 		.next_gc = DT_GC_THRESHOLD,
 	};
+	vm.stack_bot = vm.stack;
+	vm.stack_top = vm.stack + 1;
 	vm.globals = dt_map_new(&vm);
 	vm.holds = dt_arr_new(&vm);
 	vm.stack_top = vm.stack;
@@ -2172,7 +2174,7 @@ static dt_val dt_vm_get(dt_vm* vm, int n) {
 }
 
 dt_val dt_arg(dt_vm* vm, int idx) {
-	dt_val* v = vm->stack + vm->stack_offset + idx;
+	dt_val* v = vm->stack_bot + idx;
 	if (v < vm->stack_top) {
 		return *v;
 	} else {
@@ -2181,7 +2183,7 @@ dt_val dt_arg(dt_vm* vm, int idx) {
 }
 
 bool dt_arg_exists(dt_vm* vm, int idx) {
-	return vm->stack + vm->stack_offset + idx < vm->stack_top;
+	return vm->stack_bot + idx < vm->stack_top;
 }
 
 bool dt_check_arg(dt_vm* vm, int idx, dt_val_ty ty) {
@@ -2350,10 +2352,10 @@ static dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 
 	if (ty == DT_VAL_CFUNC) {
 
-		int prev_offset = vm->stack_offset;
-		vm->stack_offset = vm->stack_top - vm->stack - nargs;
+		dt_val* prev_bot = vm->stack_bot;
+		vm->stack_bot = vm->stack_top - nargs;
 		ret = (dt_as_cfunc(val))(vm, nargs);
-		vm->stack_offset = prev_offset;
+		vm->stack_bot = prev_bot;
 
 		// pop args
 		for (int i = 0; i < nargs; i++) {
@@ -2380,11 +2382,11 @@ static dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 
 		dt_func* prev_func = vm->func;
 		uint8_t* prev_ip = vm->ip;
-		int prev_offset = vm->stack_offset;
-		vm->stack_offset = vm->stack_top - vm->stack - nargs;
+		dt_val* prev_bot = vm->stack_bot;
+		vm->stack_bot = vm->stack_top - nargs;
 		dt_vm_run(vm, func);
-		int locals_cnt = vm->stack_top - vm->stack - vm->stack_offset - 1 - nargs;
-		vm->stack_offset = prev_offset;
+		int locals_cnt = vm->stack_top - vm->stack_bot - 1 - nargs;
+		vm->stack_bot = prev_bot;
 		vm->func = prev_func;
 		vm->ip = prev_ip;
 		ret = dt_vm_pop(vm);
@@ -2824,12 +2826,12 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_GETL: {
-				dt_vm_push(vm, vm->stack[*vm->ip++ + vm->stack_offset]);
+				dt_vm_push(vm, vm->stack_bot[*vm->ip++]);
 				break;
 			}
 
 			case DT_OP_SETL: {
-				vm->stack[*vm->ip++ + vm->stack_offset] = dt_vm_get(vm, 0);
+				vm->stack_bot[*vm->ip++] = dt_vm_get(vm, 0);
 				break;
 			}
 
@@ -3191,7 +3193,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					if (local) {
 						bool found = false;
 						for (int j = 0; j < vm->num_upvals; j++) {
-							if (vm->open_upvals[j]->val == vm->stack + vm->stack_offset + idx) {
+							if (vm->open_upvals[j]->val == vm->stack_bot + idx) {
 								found = true;
 								func->upvals[i] = vm->open_upvals[j];
 								break;
@@ -3199,7 +3201,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						}
 						if (!found) {
 							dt_upval2* upval = dt_malloc(vm, sizeof(dt_upval2));
-							upval->val = vm->stack + vm->stack_offset + idx;
+							upval->val = vm->stack_bot + idx;
 							upval->captured = false;
 							vm->open_upvals[vm->num_upvals++] = upval;
 							dt_manage(vm, (dt_heaper*)upval, DT_VAL_UPVAL);
@@ -5002,69 +5004,18 @@ static dt_val dt_f_date(dt_vm* vm, int nargs) {
 	return dt_to_map(date);
 }
 
-// TODO
 static dt_val dt_f_eval(dt_vm* vm, int nargs) {
-
 	if (nargs == 0) {
 		return DT_NIL;
 	}
-
-	char* code = dt_arg_cstr(vm, 0);
-// 	return dt_eval(vm, code);
-	dt_compiler c = dt_compiler_new(code);
-	dt_c_nxt(&c);
-
-	while (c.parser.cur.type != DT_TOKEN_END) {
-		dt_c_stmt(&c);
-	}
-
-	dt_c_emit(&c, DT_OP_NIL);
-	dt_c_emit(&c, DT_OP_STOP);
-
-	dt_func func = (dt_func) {
-		.type = DT_VAL_FUNC,
-		.logic = &(dt_logic) {
-			.chunk = c.env->chunk,
-			.nargs = 0,
-		},
-		.upvals = NULL,
-		.num_upvals = 0,
-	};
-
-	return dt_call(vm, dt_to_func(&func), 0);
-
+	return dt_eval(vm, dt_arg_cstr(vm, 0));
 }
 
 static dt_val dt_f_dofile(dt_vm* vm, int nargs) {
 	if (nargs == 0) {
 		return DT_NIL;
 	}
-	char* path = dt_arg_cstr(vm, 0);
-// 	return dt_dofile(vm, code);
-	char* code = dt_read_file(path, NULL);
-	dt_compiler c = dt_compiler_new(code);
-	dt_c_nxt(&c);
-
-	while (c.parser.cur.type != DT_TOKEN_END) {
-		dt_c_stmt(&c);
-	}
-
-	dt_c_emit(&c, DT_OP_NIL);
-	dt_c_emit(&c, DT_OP_STOP);
-
-	dt_func func = (dt_func) {
-		.type = DT_VAL_FUNC,
-		.logic = &(dt_logic) {
-			.chunk = c.env->chunk,
-			.nargs = 0,
-		},
-		.upvals = NULL,
-		.num_upvals = 0,
-	};
-
-	dt_val v = dt_call(vm, dt_to_func(&func), 0);
-	free(code);
-	return v;
+	return dt_dofile(vm, dt_arg_cstr(vm, 0));
 }
 
 static dt_val dt_f_fread(dt_vm* vm, int nargs) {
@@ -5516,16 +5467,16 @@ dt_val dt_eval(dt_vm* vm, char* code) {
 	dt_c_emit(&c, DT_OP_STOP);
 
 	dt_func func = (dt_func) {
+		.type = DT_VAL_FUNC,
 		.logic = &(dt_logic) {
 			.chunk = c.env->chunk,
 			.nargs = 0,
 		},
 		.upvals = NULL,
+		.num_upvals = 0,
 	};
 
-	dt_vm_run(vm, &func);
-
-	return dt_vm_get(vm, 0);
+	return dt_call(vm, dt_to_func(&func), 0);
 
 }
 

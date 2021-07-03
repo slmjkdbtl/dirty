@@ -233,6 +233,5 @@ int main(int argc, char** argv) {
 		dt_dofile(&vm, argv[1]);
 	}
 	dt_vm_free(&vm);
-	printf("%d\n", 1<<3);
 	return 0;
 }
