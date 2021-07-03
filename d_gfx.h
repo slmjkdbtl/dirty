@@ -897,17 +897,6 @@ void d_bbuf_clear(d_bbuf* bbuf, bool b) {
 	d_bitset_clear(&bbuf->bitset, b);
 }
 
-static uint8_t d_bitset_map[] = {
-	0x80,
-	0x40,
-	0x20,
-	0x10,
-	0x08,
-	0x04,
-	0x02,
-	0x01,
-};
-
 d_bitset d_bitset_new(size_t size) {
 	if (size % 8 == 0) {
 		size /= 8;
@@ -924,14 +913,14 @@ d_bitset d_bitset_new(size_t size) {
 
 void d_bitset_set(d_bitset* m, int n, bool b) {
 	if (b) {
-		m->buf[n / 8] |= d_bitset_map[n % 8];
+		m->buf[n / 8] |= 1 << (7 - n % 8);
 	} else {
-		m->buf[n / 8] ^= d_bitset_map[n % 8];
+		m->buf[n / 8] ^= 1 << (7 - n % 8);
 	}
 }
 
 bool d_bitset_get(d_bitset* m, int n) {
-	return m->buf[n / 8] & d_bitset_map[n % 8];
+	return m->buf[n / 8] & 1 << (7 - n % 8);
 }
 
 void d_bitset_clear(d_bitset* m, bool b) {

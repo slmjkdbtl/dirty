@@ -22,13 +22,13 @@ dt_val app_frame;
 dt_val app_init;
 
 void init() {
-	if (app_init) {
+	if (dt_is_func(app_init)) {
 		dt_call_0(g_vm, app_init);
 	}
 }
 
 void frame() {
-	if (app_frame) {
+	if (dt_is_func(app_frame)) {
 		dt_call_0(g_vm, app_frame);
 	}
 }
@@ -97,7 +97,7 @@ bool streq(char* s1, char* s2) {
 }
 
 d_key str_to_d_key(char* k) {
-	if      (streq(k, "a")) return D_KEY_A;
+	if		(streq(k, "a")) return D_KEY_A;
 	else if (streq(k, "b")) return D_KEY_B;
 	else if (streq(k, "c")) return D_KEY_C;
 	else if (streq(k, "d")) return D_KEY_D;
@@ -233,5 +233,6 @@ int main(int argc, char** argv) {
 		dt_dofile(&vm, argv[1]);
 	}
 	dt_vm_free(&vm);
+	printf("%d\n", 1<<3);
 	return 0;
 }

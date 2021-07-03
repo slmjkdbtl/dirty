@@ -1,8 +1,5 @@
 $ lst = [1 5 3 6 4]
 
--- lst[6] = 4
--- print(lst)
-
 lst:insert(1, 8)
 print(lst)
 
@@ -11,4 +8,7 @@ lst
 	:sort(~ (a, b) a < b)
 	:each(print)
 
+print(eval("~> 1 + 3"))
+
 print(os.date())
+print(lst:join(", "))

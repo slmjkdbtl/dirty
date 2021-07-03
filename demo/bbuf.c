@@ -45,7 +45,6 @@ void init() {
 
 	d_fs_init((d_fs_desc) {0});
 
-	duck = d_model_load("res/duck.glb");
 	btfly = d_model_load("res/btfly.glb");
 
 }
@@ -70,14 +69,6 @@ void frame() {
 	d_gfx_t_scale3(vec3f(6, -6, 6));
 	d_draw_model(&btfly);
 	d_gfx_t_pop();
-
-	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(140, 240, 0));
-	d_gfx_t_rot_y(d_app_time());
-	d_gfx_t_scale3(vec3f(1, -1, 1));
-	d_draw_model(&duck);
-	d_gfx_t_pop();
-	d_gfx_set_bbuf_write(false);
 
 	vec2 mpos = d_gfx_mouse_pos();
 	float t = d_app_time() * 10;
