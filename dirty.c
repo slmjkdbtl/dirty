@@ -16,6 +16,7 @@
 #include <d_app.h>
 #include <d_gfx.h>
 #include <d_lang.h>
+#include <d_regex.h>
 
 dt_vm* g_vm;
 dt_val app_frame;
@@ -97,7 +98,7 @@ bool streq(char* s1, char* s2) {
 }
 
 d_key str_to_d_key(char* k) {
-	if		(streq(k, "a")) return D_KEY_A;
+	if      (streq(k, "a")) return D_KEY_A;
 	else if (streq(k, "b")) return D_KEY_B;
 	else if (streq(k, "c")) return D_KEY_C;
 	else if (streq(k, "d")) return D_KEY_D;

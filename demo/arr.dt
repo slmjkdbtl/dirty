@@ -10,4 +10,4 @@ lst
 
 print(os.date())
 print(lst:join(", "))
-
+print("http://space55.xyz/123":match("<protocol>://<host>/<path>"))

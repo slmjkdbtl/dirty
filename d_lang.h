@@ -28,6 +28,8 @@
 // TODO: disallow shadowing global var
 // TODO: diconstruction
 // TODO: combine GT/LT and EQ
+// TODO: '?' for cond? what for nil?
+// TODO: better gc position
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -378,6 +380,7 @@ dt_str*  dt_str_tolower  (dt_vm* vm, dt_str* str);
 int      dt_str_find     (dt_str* str, dt_str* key);
 bool     dt_str_contains (dt_str* str, dt_str* key);
 dt_str*  dt_str_rev      (dt_vm* vm, dt_str* str);
+dt_map*  dt_str_match    (dt_vm* vm, dt_str* str, dt_str* pat);
 dt_str*  dt_str_trim     (dt_vm* vm, dt_str* str);
 int      dt_str_cmp      (dt_str* a, dt_str* b);
 void     dt_str_print    (dt_str* str);
@@ -401,7 +404,7 @@ dt_arr*  dt_arr_filter   (dt_vm* vm, dt_arr* arr, dt_val f);
 void     dt_arr_each     (dt_vm* vm, dt_arr* arr, dt_val f);
 bool     dt_arr_contains (dt_arr* arr, dt_val v);
 dt_str*  dt_arr_join     (dt_vm* vm, dt_arr* arr, dt_str* s);
-void     dt_arr_dedup    (dt_arr* arr);
+dt_arr*  dt_arr_dedup    (dt_vm* vm, dt_arr* arr);
 dt_arr*  dt_arr_rev      (dt_vm* vm, dt_arr* arr);
 dt_val   dt_arr_pop      (dt_arr* arr);
 dt_arr*  dt_arr_concat   (dt_vm* vm, dt_arr* a1, dt_arr* a2);
@@ -1173,6 +1176,7 @@ bool dt_eq(dt_val a, dt_val b) {
 #endif
 }
 
+// TODO: func? cdata?
 dt_val dt_clone(dt_vm* vm, dt_val v) {
 	switch (dt_type(v)) {
 		case DT_VAL_ARR:
@@ -1353,11 +1357,57 @@ dt_str* dt_str_rev(dt_vm* vm, dt_str* str) {
 	return dest;
 }
 
+dt_map* dt_str_match(dt_vm* vm, dt_str* str, dt_str* pat) {
+
+	char* r = pat->chars;
+	char* t = str->chars;
+	dt_map* res = dt_map_new(vm);
+
+	for (;;) {
+		if (*r == '\0') {
+			break;
+		}
+		if (*r == '<') {
+			char* name_start = r + 1;
+			while (*r != '>') r++;
+			int name_len = r - name_start;
+			char* txt_start = t;
+			char stop = *++r;
+			while (*t != stop) {
+				if (*t++ == '\0') {
+					return NULL;
+				}
+			}
+			int txt_len = t - txt_start;
+			dt_map_set(
+				vm,
+				res,
+				dt_str_new_len(vm, name_start, name_len),
+				dt_to_str(dt_str_new_len(vm, txt_start, txt_len))
+			);
+		} else {
+			if (*r != *t) {
+				return NULL;
+			}
+			r++;
+			t++;
+		}
+	}
+
+	return res;
+
+}
+
 dt_str* dt_str_trim(dt_vm* vm, dt_str* str) {
-	dt_str* dest = dt_str_alloc(vm, str->len);
-	// TODO
-	dt_str_hash(dest);
-	return dest;
+	char* head = str->chars;
+	char* tail = str->chars + str->len - 1;
+	while (*head == ' ' || *head == '\t' || *head == '\n') head++;
+	while (*tail == ' ' || *tail == '\t' || *tail == '\n') tail--;
+	return dt_str_new_len(vm, head, tail - head + 1);
+}
+
+int dt_str_len(dt_str* str) {
+	return str->len;
 }
 
 int dt_str_cmp(dt_str* a, dt_str* b) {
@@ -1378,8 +1428,6 @@ dt_str* dt_num_to_str(dt_vm* vm, dt_num num) {
 	str->hash = dt_hash(str->chars, len);
 	return str;
 }
-
-// TODO: rep, reverse, lower, upper, find
 
 dt_arr* dt_arr_new_len(dt_vm* vm, int len) {
 	dt_arr* arr = dt_malloc(vm, sizeof(dt_arr));
@@ -1486,11 +1534,11 @@ int dt_arr_find(dt_arr* arr, dt_val v) {
 	return -1;
 }
 
-// TODO: all
 void dt_arr_rm_all(dt_arr* arr, dt_val v) {
-	int i = dt_arr_find(arr, v);
-	if (i != -1) {
-		dt_arr_rm(arr, i);
+	for (int i = arr->len - 1; i >= 0; i++) {
+		if (dt_eq(v, arr->values[i])) {
+			dt_arr_rm(arr, i);
+		}
 	}
 }
 
@@ -1558,8 +1606,10 @@ dt_str* dt_arr_join(dt_vm* vm, dt_arr* arr, dt_str* sep) {
 	return s;
 }
 
-void dt_arr_dedup(dt_arr* arr) {
+dt_arr* dt_arr_dedup(dt_vm* vm, dt_arr* arr) {
+	dt_arr* new = dt_arr_new_len(vm, arr->len);
 	// TODO
+	return new;
 }
 
 dt_arr* dt_arr_rev(dt_vm* vm, dt_arr* arr) {
@@ -1718,7 +1768,6 @@ void dt_map_set(dt_vm* vm, dt_map* map, dt_str* key, dt_val val) {
 
 }
 
-// TODO: no nil
 bool dt_map_has(dt_map* map, dt_str* key) {
 	int idx = dt_map_find(map, key);
 	dt_entry e = map->entries[idx];
@@ -1790,7 +1839,6 @@ dt_arr* dt_map_vals(dt_vm* vm, dt_map* map) {
 	return arr;
 }
 
-// TODO: func? cdata?
 dt_map* dt_map_clone(dt_vm* vm, dt_map* src) {
 	dt_map* new = dt_map_new_len(vm, src->cap);
 	for (int i = 0; i < src->cap; i++) {
@@ -1895,7 +1943,6 @@ dt_str* dt_bool_to_str(dt_vm* vm, dt_bool b) {
 	return b ? dt_str_new(vm, "true") : dt_str_new(vm, "false");
 }
 
-// TODO: don't provide this
 dt_str* dt_val_to_str(dt_vm* vm, dt_val val) {
 	switch (dt_type(val)) {
 		case DT_VAL_STR:
@@ -1935,7 +1982,7 @@ static dt_chunk dt_chunk_new() {
 // | consts     uint64[#consts]       |
 //  ----------------------------------
 
-static uint8_t* dt_arrve(dt_chunk* c, size_t* osize) {
+static uint8_t* dt_chunk_save(dt_chunk* c, size_t* osize) {
 	// TODO
 	return NULL;
 }
@@ -2310,7 +2357,6 @@ static void dt_vm_pop_close(dt_vm* vm) {
 	for (int i = 0; i < vm->num_upvals; i++) {
 		if (top == vm->open_upvals[i]->val) {
 			if (!upval) {
-				// TODO: manage upvals
 				upval = dt_malloc(vm, sizeof(dt_val));
 				memcpy(upval, top, sizeof(dt_val));
 			}
@@ -2411,7 +2457,6 @@ static dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 
 }
 
-// TODO: take dt_val and accept cfunc
 dt_val dt_call(dt_vm* vm, dt_val func, int nargs, ...) {
 	va_list args;
 	va_start(args, nargs);
@@ -2513,21 +2558,23 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_ADD: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num(a) + dt_as_num(b)));
-				} else if (dt_type(a) == DT_VAL_STR && dt_type(b) == DT_VAL_STR) {
+				} else if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
 					dt_vm_push(vm, dt_to_str(dt_str_concat(vm, dt_as_str(a), dt_as_str(b))));
-				} else if (dt_type(a) == DT_VAL_ARR && dt_type(b) == DT_VAL_ARR) {
+				} else if (ta == DT_VAL_ARR && tb == DT_VAL_ARR) {
 					dt_vm_push(vm, dt_to_arr(dt_arr_concat(vm, dt_as_arr(a), dt_as_arr(b))));
-				} else if (dt_type(a) == DT_VAL_STR || dt_type(b) == DT_VAL_STR) {
+				} else if (ta == DT_VAL_STR || tb == DT_VAL_STR) {
 					dt_str* a_str = dt_val_to_str(vm, a);
 					dt_str* b_str = dt_val_to_str(vm, b);
 					if (a_str == NULL || b_str == NULL) {
 						dt_err(
 							vm,
 							"cannot add a '%s' with '%s'\n",
-							dt_typename(dt_type(a)),
-							dt_typename(dt_type(b))
+							dt_typename(ta),
+							dt_typename(tb)
 						);
 						dt_vm_push(vm, DT_NIL);
 					} else {
@@ -2537,8 +2584,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_err(
 						vm,
 						"cannot add a '%s' with '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -2548,14 +2595,16 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_SUB: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num(a) - dt_as_num(b)));
 				} else {
 					dt_err(
 						vm,
 						"cannot sub a '%s' by '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -2565,14 +2614,16 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_MUL: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num(a) * dt_as_num(b)));
 				} else {
 					dt_err(
 						vm,
 						"cannot mul a '%s' with '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -2582,14 +2633,16 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_DIV: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num(a) / dt_as_num(b)));
 				} else {
 					dt_err(
 						vm,
 						"cannot div a '%s' by '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -2638,7 +2691,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				} else {
 					dt_err(
 						vm,
-						"cannot neg a '%s'\n",
+						"cannot not a '%s'\n",
 						dt_typename(dt_type(a))
 					);
 					dt_vm_push(vm, DT_NIL);
@@ -2648,19 +2701,21 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_LEN: {
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) == DT_VAL_STR) {
+				dt_val_ty t = dt_type(a);
+				if (t == DT_VAL_STR) {
 					dt_vm_push(vm, dt_to_num(dt_as_str(a)->len));
-				} else if (dt_type(a) == DT_VAL_ARR) {
+				} else if (t == DT_VAL_ARR) {
 					dt_vm_push(vm, dt_to_num(dt_as_arr(a)->len));
-				} else if (dt_type(a) == DT_VAL_MAP) {
+				} else if (t == DT_VAL_MAP) {
 					dt_vm_push(vm, dt_to_num(dt_as_map(a)->cnt));
-				} else if (dt_type(a) == DT_VAL_RANGE) {
-					dt_vm_push(vm, dt_to_num(abs(dt_as_range(a).end - dt_as_range(a).start)));
+				} else if (t == DT_VAL_RANGE) {
+					dt_range r = dt_as_range(a);
+					dt_vm_push(vm, dt_to_num(abs(r.end - r.start)));
 				} else {
 					dt_err(
 						vm,
 						"cannot get len of a '%s'\n",
-						dt_typename(dt_type(a))
+						dt_typename(t)
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -2677,18 +2732,20 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_GT: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) != dt_type(b)) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
-				} else if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+				} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_bool(dt_as_num(a) > dt_as_num(b)));
-				} else if (dt_type(a) == DT_VAL_STR && dt_type(b) == DT_VAL_STR) {
+				} else if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
 					dt_vm_push(vm, dt_to_bool(dt_str_cmp(dt_as_str(a), dt_as_str(b)) > 0));
 				} else {
 					dt_err(
 						vm,
 						"cannot compare a '%s' with '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_FALSE);
 				}
@@ -2698,18 +2755,20 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_GT_EQ: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) != dt_type(b)) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
-				} else if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+				} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_bool(dt_as_num(a) >= dt_as_num(b)));
-				} else if (dt_type(a) == DT_VAL_STR && dt_type(b) == DT_VAL_STR) {
+				} else if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
 					dt_vm_push(vm, dt_to_bool(dt_str_cmp(dt_as_str(a), dt_as_str(b)) >= 0));
 				} else {
 					dt_err(
 						vm,
 						"cannot compare a '%s' with '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_FALSE);
 				}
@@ -2719,18 +2778,20 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_LT: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) != dt_type(b)) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
-				} else if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+				} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_bool(dt_as_num(a) < dt_as_num(b)));
-				} else if (dt_type(a) == DT_VAL_STR && dt_type(b) == DT_VAL_STR) {
+				} else if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
 					dt_vm_push(vm, dt_to_bool(dt_str_cmp(dt_as_str(a), dt_as_str(b)) < 0));
 				} else {
 					dt_err(
 						vm,
 						"cannot compare a '%s' with '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_FALSE);
 				}
@@ -2740,18 +2801,20 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_LT_EQ: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) != dt_type(b)) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
-				} else if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+				} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_bool(dt_as_num(a) <= dt_as_num(b)));
-				} else if (dt_type(a) == DT_VAL_STR && dt_type(b) == DT_VAL_STR) {
+				} else if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
 					dt_vm_push(vm, dt_to_bool(dt_str_cmp(dt_as_str(a), dt_as_str(b)) <= 0));
 				} else {
 					dt_err(
 						vm,
 						"cannot compare a '%s' with '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_FALSE);
 				}
@@ -2761,16 +2824,18 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_OR: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) != dt_type(b)) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
-				} else if (dt_type(a) == DT_VAL_BOOL && dt_type(b) == DT_VAL_BOOL) {
+				} else if (ta == DT_VAL_BOOL && tb == DT_VAL_BOOL) {
 					dt_vm_push(vm, dt_to_bool(dt_as_bool(a) || dt_as_bool(b)));
 				} else {
 					dt_err(
 						vm,
-						"cannot or a '%s' with '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						"cannot || a '%s' with '%s'\n",
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_FALSE);
 				}
@@ -2780,16 +2845,18 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_AND: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) != dt_type(b)) {
+				dt_val_ty ta = dt_type(a);
+				dt_val_ty tb = dt_type(b);
+				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
-				} else if (dt_type(a) == DT_VAL_BOOL && dt_type(b) == DT_VAL_BOOL) {
+				} else if (ta == DT_VAL_BOOL && tb == DT_VAL_BOOL) {
 					dt_vm_push(vm, dt_to_bool(dt_as_bool(a) && dt_as_bool(b)));
 				} else {
 					dt_err(
 						vm,
-						"cannot and a '%s' with '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						"cannot && a '%s' with '%s'\n",
+						dt_typename(ta),
+						dt_typename(tb)
 					);
 					dt_vm_push(vm, DT_FALSE);
 				}
@@ -3045,19 +3112,14 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				break;
 			}
 
-			// TODO: improve
 			case DT_OP_CALL: {
-
 				int nargs = *vm->ip++;
-
 				dt_val val = dt_vm_get(vm, -nargs);
 				dt_val ret = dt_vm_call(vm, val, nargs);
 				// pop func
 				dt_vm_pop(vm);
 				dt_vm_push(vm, ret);
-
 				break;
-
 			}
 
 			// TODO: clean
@@ -3236,7 +3298,6 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				break;
 			}
 
-			// TODO: clean
 			case DT_OP_ITER_PREP: {
 				dt_val iter = dt_vm_get(vm, 0);
 				int dis = *vm->ip++ << 8 | *vm->ip++;
@@ -3301,7 +3362,6 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				break;
 			}
 
-			// TODO: clean
 			case DT_OP_ITER: {
 				int dis = *vm->ip++ << 8 | *vm->ip++;
 				dt_val iter = dt_vm_get(vm, -2);
@@ -3672,7 +3732,7 @@ static dt_token dt_scanner_scan_str(dt_scanner* s) {
 		char cur = dt_scanner_peek(s);
 		if (cur == '"') {
 			if (last == '\\') {
-				// TODO
+				// TODO: escape
 			} else {
 				break;
 			}
@@ -4165,7 +4225,6 @@ static int dt_c_find_upval(dt_compiler* c, dt_token* name) {
 		return -1;
 	}
 
-	// TODO: clean
 	c->env = cur_env->parent;
 	int local = dt_c_find_local(c, name);
 	c->env = cur_env;
@@ -4313,7 +4372,6 @@ static int dt_c_block(dt_compiler* c, dt_block_ty ty) {
 
 }
 
-// TODO: emit nil for expr
 // for parsing following cond without % only |
 static void dt_c_cond_inner(dt_compiler* c) {
 
@@ -4939,11 +4997,6 @@ static dt_val dt_f_print(dt_vm* vm, int nargs) {
 
 }
 
-// TODO
-static dt_val dt_f_error(dt_vm* vm, int nargs) {
-	return DT_NIL;
-}
-
 static dt_val dt_f_type(dt_vm* vm, int nargs) {
 	if (nargs == 0) {
 		return DT_NIL;
@@ -5076,9 +5129,20 @@ static dt_val dt_f_str_rev(dt_vm* vm, int nargs) {
 	return dt_to_str(dt_str_rev(vm, str));
 }
 
+static dt_val dt_f_str_match(dt_vm* vm, int nargs) {
+	dt_str* str = dt_arg_str(vm, 0);
+	dt_str* pat = dt_arg_str(vm, 1);
+	return dt_to_map(dt_str_match(vm, str, pat));
+}
+
 static dt_val dt_f_str_trim(dt_vm* vm, int nargs) {
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_str(dt_str_trim(vm, str));
+}
+
+static dt_val dt_f_str_len(dt_vm* vm, int nargs) {
+	dt_str* str = dt_arg_str(vm, 0);
+	return dt_to_num(str->len);
 }
 
 static dt_val dt_f_arr_push(dt_vm* vm, int nargs) {
@@ -5089,7 +5153,6 @@ static dt_val dt_f_arr_push(dt_vm* vm, int nargs) {
 	return dt_to_arr(arr);
 }
 
-// TODO: accept multiple
 static dt_val dt_f_arr_insert(dt_vm* vm, int nargs) {
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_num idx = dt_arg_num(vm, 1);
@@ -5184,6 +5247,18 @@ static dt_val dt_f_map_each(dt_vm* vm, int nargs) {
 	dt_val f = dt_arg(vm, 1);
 	dt_map_each(vm, map, f);
 	return DT_NIL;
+}
+
+static dt_val dt_f_map_rm(dt_vm* vm, int nargs) {
+	dt_map* map = dt_arg_map(vm, 0);
+	dt_str* key = dt_arg_str(vm, 1);
+	return dt_map_rm(map, key);
+}
+
+static dt_val dt_f_map_has(dt_vm* vm, int nargs) {
+	dt_map* map = dt_arg_map(vm, 0);
+	dt_str* key = dt_arg_str(vm, 1);
+	return dt_to_bool(dt_map_has(map, key));
 }
 
 static dt_val dt_f_map_clone(dt_vm* vm, int nargs) {
@@ -5344,7 +5419,6 @@ static dt_cfunc_reg std_funcs[] = {
 	{ "type", dt_f_type, },
 	{ "eval", dt_f_eval, },
 	{ "dofile", dt_f_dofile, },
-	{ "error", dt_f_error, },
 	{ "print", dt_f_print, },
 	{ "fread", dt_f_fread, },
 	{ NULL, NULL, },
@@ -5368,7 +5442,9 @@ static dt_cfunc_reg str_funcs[] = {
 	{ "find", dt_f_str_find, },
 	{ "contains", dt_f_str_contains, },
 	{ "rev", dt_f_str_rev, },
+	{ "match", dt_f_str_match, },
 	{ "trim", dt_f_str_trim, },
+	{ "len", dt_f_str_len, },
 	{ NULL, NULL, },
 };
 
@@ -5394,6 +5470,8 @@ static dt_cfunc_reg map_funcs[] = {
 	{ "keys", dt_f_map_keys, },
 	{ "vals", dt_f_map_vals, },
 	{ "each", dt_f_map_each, },
+	{ "rm", dt_f_map_rm, },
+	{ "has", dt_f_map_has, },
 	{ "clone", dt_f_map_clone, },
 	{ NULL, NULL, },
 };
