@@ -50,3 +50,4 @@ person["name"] = "Mark"
 @ (i \ person) print(i, person[i])
 
 print(person:keys())
+print([1, 4, 2, 5][1..3])

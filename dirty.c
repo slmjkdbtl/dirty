@@ -16,7 +16,6 @@
 #include <d_app.h>
 #include <d_gfx.h>
 #include <d_lang.h>
-#include <d_regex.h>
 
 dt_vm* g_vm;
 dt_val app_frame;
