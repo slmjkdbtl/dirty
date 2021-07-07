@@ -950,13 +950,13 @@ d_img d_img_empty() {
 	};
 }
 
-static uint8_t png_magic[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
-static uint8_t jpeg_magic[] = { 0xff, 0xd8, 0xff };
+static uint8_t png_sig[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
+static uint8_t jpeg_sig[] = { 0xff, 0xd8, 0xff };
 
 d_img d_img_parse(uint8_t* bytes, size_t size) {
 	if (
-		memcmp(bytes, png_magic, sizeof(png_magic)) == 0
-		|| memcmp(bytes, jpeg_magic, sizeof(jpeg_magic)) == 0
+		memcmp(bytes, png_sig, sizeof(png_sig)) == 0
+		|| memcmp(bytes, jpeg_sig, sizeof(jpeg_sig)) == 0
 	) {
 #ifdef STB_IMAGE_IMPLEMENTATION
 		int w;
@@ -2244,10 +2244,10 @@ static d_model d_model_parse_glb(uint8_t* bytes, int size) {
 
 #endif // #ifdef CGLTF_IMPLEMENTATION
 
-static uint8_t glb_magic[] = { 0x67, 0x6c, 0x54, 0x46 };
+static uint8_t glb_sig[] = { 0x67, 0x6c, 0x54, 0x46 };
 
 d_model d_model_parse(uint8_t* bytes, int size) {
-	if (memcmp(bytes, glb_magic, sizeof(glb_magic)) == 0) {
+	if (memcmp(bytes, glb_sig, sizeof(glb_sig)) == 0) {
 #ifdef CGLTF_IMPLEMENTATION
 		return d_model_parse_glb(bytes, size);
 #else

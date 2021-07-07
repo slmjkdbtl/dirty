@@ -1,7 +1,7 @@
 $ lst = [1 5 3 6 4]
 
 lst:insert(1, 8)
-print("123abcefg":trunc(9, "..."))
+print(lst)
 
 lst
 	:map(~ (i) i + 1)
