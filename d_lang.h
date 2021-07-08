@@ -64,7 +64,7 @@ typedef enum {
 	DT_VAL_MAP,
 	DT_VAL_RANGE,
 	DT_VAL_FUNC,
-	DT_VAL_NATIVE,
+	DT_VAL_STRUCT,
 	DT_VAL_CFUNC,
 	DT_VAL_CDATA,
 	DT_VAL_CPTR,
@@ -161,7 +161,7 @@ typedef uint64_t dt_val;
 #define DT_TMASK_RANGE  0x0004000000000000
 #define DT_TMASK_PSTR   0x0005000000000000
 #define DT_TMASK_HEAP   0x0006000000000000
-#define DT_TMASK_NATIVE 0x0007000000000000
+#define DT_TMASK_STRUCT 0x0007000000000000
 #define DT_TMASK_CFUNC  0x8000000000000000
 #define DT_TMASK_CDATA  0x8001000000000000
 #define DT_TMASK_CPTR   0x8002000000000000
@@ -190,6 +190,60 @@ typedef dt_val (dt_cfunc)(struct dt_vm* vm, int nargs);
 
 #endif
 
+// TODO
+typedef struct {
+	char name[16];
+	int type;
+} dt_struct_mem;
+
+typedef struct {
+	char name[16];
+	dt_struct_mem members[16];
+	int num_members;
+	int idx;
+} dt_struct_def;
+
+// TODO
+typedef struct {
+	char name[16];
+	int ret;
+	int args[8];
+	int num_args;
+	int idx;
+} dt_func_def;
+
+typedef struct dt_type {
+	dt_val_ty type;
+	// struct / func idx in compiler
+	uint16_t idx;
+} dt_type;
+
+dt_type DT_TYPE_NIL = (dt_type) {
+	.type = DT_VAL_NIL,
+};
+
+dt_type DT_TYPE_BOOL = (dt_type) {
+	.type = DT_VAL_BOOL,
+};
+
+dt_type DT_TYPE_RANGE = (dt_type) {
+	.type = DT_VAL_RANGE,
+};
+
+dt_type DT_TYPE_STR = (dt_type) {
+	.type = DT_VAL_STR,
+};
+
+dt_type DT_TYPE_NUM = (dt_type) {
+	.type = DT_VAL_NUM,
+};
+
+// TODO
+typedef struct {
+	int nargs;
+	int ret;
+} dt_cfunc_def;
+
 typedef struct dt_heaper {
 	DT_HEAPER_STRUCT
 } dt_heaper;
@@ -201,8 +255,8 @@ typedef struct dt_cdata {
 } dt_cdata;
 
 // upvalue (runtime)
-// - captured: already lifted on the heap
-// - not captured: still on the stack, must lift when it leaves
+// - captured: already allocated to the heap
+// - not captured: points to a stack slot, must lift when it gets popped
 typedef struct {
 	DT_HEAPER_STRUCT
 	bool    captured;
@@ -343,7 +397,7 @@ dt_func*  dt_as_func     (dt_val v);
 dt_cfunc* dt_as_cfunc    (dt_val v);
 
 // type checking
-dt_val_ty dt_type        (dt_val v);
+dt_val_ty dt_typeof        (dt_val v);
 char*     dt_typename    (dt_val_ty ty);
 bool      dt_is_nil      (dt_val v);
 bool      dt_is_num      (dt_val v);
@@ -428,6 +482,7 @@ dt_val   dt_arr_pop      (dt_arr* arr);
 dt_val   dt_arr_pop      (dt_arr* arr);
 dt_arr*  dt_arr_sub      (dt_vm* vm, dt_arr* arr, int start, int end);
 dt_arr*  dt_arr_concat   (dt_vm* vm, dt_arr* a1, dt_arr* a2);
+dt_val   dt_arr_rand     (dt_arr* arr);
 dt_arr*  dt_arr_clone    (dt_vm* vm, dt_arr* src);
 void     dt_arr_print    (dt_arr* arr);
 void     dt_arr_println  (dt_arr* arr);
@@ -625,7 +680,7 @@ typedef struct {
 	dt_token name;
 	bool captured;
 	int depth;
-	int type;
+	dt_type type;
 } dt_c_local;
 
 // compile time upval representation
@@ -663,47 +718,18 @@ typedef struct dt_funcenv {
 	int                num_breaks;
 } dt_funcenv;
 
-// TODO
-typedef struct {
-	char name[16];
-	int type;
-} dt_type_mem;
-
-// TODO
-typedef struct {
-	char name[16];
-	dt_type_mem members[16];
-	int num_members;
-} dt_typedef;
-
-// TODO
-typedef struct {
-	int ret;
-	int args[16];
-	int num_args;
-} dt_funcdef_inner;
-
-// TODO
-typedef struct {
-	char name[16];
-	dt_funcdef_inner styles[4];
-	int num_styles;
-} dt_funcdef;
-
 typedef struct {
 	dt_scanner scanner;
 	dt_parser parser;
 	dt_funcenv base_env;
 	dt_funcenv* env;
 	// TODO: dynamic
-	dt_typedef types[UINT8_MAX];
+	dt_type types[64];
 	int num_types;
-	dt_funcdef funcs[UINT8_MAX];
-	int num_funcs;
 } dt_compiler;
 
-typedef int (*dt_parse_fn)(dt_compiler* compiler);
-typedef int (*dt_parse_fn2)(dt_compiler* compiler, int prev_ty);
+typedef dt_type (*dt_parse_fn)(dt_compiler* compiler);
+typedef dt_type (*dt_parse_fn2)(dt_compiler* compiler, dt_type prev_ty);
 
 typedef struct {
 	dt_parse_fn prefix;
@@ -814,7 +840,7 @@ static bool dt_token_eq(dt_token* t1, dt_token* t2) {
 	return memcmp(t1->start, t2->start, t1->len) == 0;
 }
 
-dt_val_ty dt_type(dt_val v) {
+dt_val_ty dt_typeof(dt_val v) {
 
 #ifdef DT_NO_NANBOX
 	return v.type;
@@ -850,7 +876,7 @@ char* dt_typename(dt_val_ty ty) {
 		case DT_VAL_ARR: return "arr";
 		case DT_VAL_MAP: return "map";
 		case DT_VAL_RANGE: return "range";
-		case DT_VAL_NATIVE: return "native";
+		case DT_VAL_STRUCT: return "struct";
 		case DT_VAL_FUNC: return "func";
 		case DT_VAL_CFUNC: return "cfunc";
 		case DT_VAL_CDATA: return "cdata";
@@ -1152,35 +1178,35 @@ static bool dt_is_heap(dt_val v) {
 }
 
 bool dt_is_nil(dt_val val) {
-	return dt_type(val) == DT_VAL_NIL;
+	return dt_typeof(val) == DT_VAL_NIL;
 }
 
 bool dt_is_num(dt_val val) {
-	return dt_type(val) == DT_VAL_NUM;
+	return dt_typeof(val) == DT_VAL_NUM;
 }
 
 bool dt_is_bool(dt_val val) {
-	return dt_type(val) == DT_VAL_BOOL;
+	return dt_typeof(val) == DT_VAL_BOOL;
 }
 
 bool dt_is_str(dt_val val) {
-	return dt_type(val) == DT_VAL_STR;
+	return dt_typeof(val) == DT_VAL_STR;
 }
 
 bool dt_is_map(dt_val val) {
-	return dt_type(val) == DT_VAL_MAP;
+	return dt_typeof(val) == DT_VAL_MAP;
 }
 
 bool dt_is_arr(dt_val val) {
-	return dt_type(val) == DT_VAL_ARR;
+	return dt_typeof(val) == DT_VAL_ARR;
 }
 
 bool dt_is_func(dt_val val) {
-	return dt_type(val) == DT_VAL_FUNC;
+	return dt_typeof(val) == DT_VAL_FUNC;
 }
 
 bool dt_is_cfunc(dt_val val) {
-	return dt_type(val) == DT_VAL_CFUNC;
+	return dt_typeof(val) == DT_VAL_CFUNC;
 }
 
 // TODO: move around
@@ -1197,7 +1223,7 @@ void dt_range_println(dt_range r) {
 }
 
 void dt_print(dt_val v) {
-	switch (dt_type(v)) {
+	switch (dt_typeof(v)) {
 		case DT_VAL_NIL: printf("<nil>"); break;
 		case DT_VAL_BOOL: printf(dt_as_bool(v) ? "true" : "false"); break;
 		case DT_VAL_NUM: printf("%.12g", dt_as_num(v)); break;
@@ -1222,22 +1248,22 @@ void dt_println(dt_val val) {
 
 bool dt_eq(dt_val a, dt_val b) {
 #ifdef DT_NO_NANBOX
-	if (dt_type(a) != dt_type(b)) {
+	if (dt_typeof(a) != dt_typeof(b)) {
 		return false;
-	} else if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+	} else if (dt_typeof(a) == DT_VAL_NUM && dt_typeof(b) == DT_VAL_NUM) {
 		return dt_as_num(a) == dt_as_num(b);
-	} else if (dt_type(a) == DT_VAL_BOOL && dt_type(b) == DT_VAL_BOOL) {
+	} else if (dt_typeof(a) == DT_VAL_BOOL && dt_typeof(b) == DT_VAL_BOOL) {
 		return dt_as_bool(a) == dt_as_bool(b);
-	} else if (dt_type(a) == DT_VAL_NIL && dt_type(b) == DT_VAL_NIL) {
+	} else if (dt_typeof(a) == DT_VAL_NIL && dt_typeof(b) == DT_VAL_NIL) {
 		return true;
-	} else if (dt_type(a) == DT_VAL_STR && dt_type(b) == DT_VAL_STR) {
+	} else if (dt_typeof(a) == DT_VAL_STR && dt_typeof(b) == DT_VAL_STR) {
 		return dt_str_eq(dt_as_str(a), dt_as_str(b));
 	} else {
 		return false;
 	}
 #else
 	// TODO: no this with str interning
-	if (dt_type(a) == DT_VAL_STR && dt_type(b) == DT_VAL_STR) {
+	if (dt_typeof(a) == DT_VAL_STR && dt_typeof(b) == DT_VAL_STR) {
 		return dt_str_eq(dt_as_str(a), dt_as_str(b));
 	} else {
 		return a == b;
@@ -1247,7 +1273,7 @@ bool dt_eq(dt_val a, dt_val b) {
 
 // TODO: func? cdata?
 dt_val dt_clone(dt_vm* vm, dt_val v) {
-	switch (dt_type(v)) {
+	switch (dt_typeof(v)) {
 		case DT_VAL_ARR:
 			return dt_to_arr(dt_arr_clone(vm, dt_as_arr(v)));
 		case DT_VAL_MAP:
@@ -1759,6 +1785,13 @@ dt_arr* dt_arr_concat(dt_vm* vm, dt_arr* a1, dt_arr* a2) {
 	return new;
 }
 
+dt_val dt_arr_rand(dt_arr* arr) {
+	if (arr->len == 0) {
+		return DT_NIL;
+	}
+	return dt_arr_get(arr, rand() % arr->len);
+}
+
 void dt_arr_print(dt_arr* arr) {
 	printf("[ ");
 	for (int i = 0; i < arr->len; i++) {
@@ -2077,7 +2110,7 @@ dt_str* dt_bool_to_str(dt_vm* vm, dt_bool b) {
 }
 
 dt_str* dt_val_to_str(dt_vm* vm, dt_val val) {
-	switch (dt_type(val)) {
+	switch (dt_typeof(val)) {
 		case DT_VAL_STR:
 			return dt_as_str(val);
 		case DT_VAL_NUM:
@@ -2368,13 +2401,13 @@ bool dt_arg_exists(dt_vm* vm, int idx) {
 
 bool dt_check_arg(dt_vm* vm, int idx, dt_val_ty ty) {
 	dt_val v = dt_arg(vm, idx);
-	if (dt_type(v) != ty) {
+	if (dt_typeof(v) != ty) {
 		dt_err(
 			vm,
 			"expected a '%s' at %d, found '%s'\n",
 			dt_typename(ty),
 			idx,
-			dt_typename(dt_type(v))
+			dt_typename(dt_typeof(v))
 		);
 		return false;
 	}
@@ -2526,7 +2559,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func);
 // call a dt_func
 static dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 
-	dt_val_ty ty = dt_type(val);
+	dt_val_ty ty = dt_typeof(val);
 	dt_val ret = DT_NIL;
 
 	if (ty == DT_VAL_CFUNC) {
@@ -2691,8 +2724,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_ADD: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num(a) + dt_as_num(b)));
 				} else if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
@@ -2728,8 +2761,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_SUB: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num(a) - dt_as_num(b)));
 				} else {
@@ -2747,8 +2780,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_MUL: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num(a) * dt_as_num(b)));
 				} else {
@@ -2766,8 +2799,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_DIV: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num(a) / dt_as_num(b)));
 				} else {
@@ -2785,7 +2818,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_SPREAD: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) == DT_VAL_NUM && dt_type(b) == DT_VAL_NUM) {
+				if (dt_typeof(a) == DT_VAL_NUM && dt_typeof(b) == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_range((dt_range) {
 						.start = dt_as_num(a),
 						.end = dt_as_num(b),
@@ -2794,8 +2827,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_err(
 						vm,
 						"cannot spread a '%s' and '%s'\n",
-						dt_typename(dt_type(a)),
-						dt_typename(dt_type(b))
+						dt_typename(dt_typeof(a)),
+						dt_typename(dt_typeof(b))
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -2804,13 +2837,13 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_NEG: {
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) == DT_VAL_NUM) {
+				if (dt_typeof(a) == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(-dt_as_num(a)));
 				} else {
 					dt_err(
 						vm,
 						"cannot negate a '%s'\n",
-						dt_typename(dt_type(a))
+						dt_typename(dt_typeof(a))
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -2819,13 +2852,13 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_NOT: {
 				dt_val a = dt_vm_pop(vm);
-				if (dt_type(a) == DT_VAL_BOOL) {
+				if (dt_typeof(a) == DT_VAL_BOOL) {
 					dt_vm_push(vm, dt_to_bool(!dt_as_bool(a)));
 				} else {
 					dt_err(
 						vm,
 						"cannot not a '%s'\n",
-						dt_typename(dt_type(a))
+						dt_typename(dt_typeof(a))
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -2834,7 +2867,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_LEN: {
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty t = dt_type(a);
+				dt_val_ty t = dt_typeof(a);
 				if (t == DT_VAL_STR) {
 					dt_vm_push(vm, dt_to_num(dt_as_str(a)->len));
 				} else if (t == DT_VAL_ARR) {
@@ -2865,8 +2898,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_GT: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
 				} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
@@ -2888,8 +2921,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_GT_EQ: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
 				} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
@@ -2911,8 +2944,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_LT: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
 				} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
@@ -2934,8 +2967,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_LT_EQ: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
 				} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
@@ -2957,8 +2990,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_OR: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
 				} else if (ta == DT_VAL_BOOL && tb == DT_VAL_BOOL) {
@@ -2978,8 +3011,8 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_AND: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_type(a);
-				dt_val_ty tb = dt_type(b);
+				dt_val_ty ta = dt_typeof(a);
+				dt_val_ty tb = dt_typeof(b);
 				if (ta != tb) {
 					dt_vm_push(vm, DT_FALSE);
 				} else if (ta == DT_VAL_BOOL && tb == DT_VAL_BOOL) {
@@ -3005,14 +3038,14 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_vm_push(vm, DT_NIL);
 				}
 				dt_val name = chunk->consts->values[*vm->ip++];
-				if (dt_type(name) == DT_VAL_STR) {
+				if (dt_typeof(name) == DT_VAL_STR) {
 					dt_val val = dt_map_get(vm->globals, dt_as_str(name));
 					dt_vm_push(vm, val);
 				} else {
 					dt_err(
 						vm,
 						"expected var name to be 'str' found '%s'\n",
-						dt_typename(dt_type(name))
+						dt_typename(dt_typeof(name))
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -3054,14 +3087,14 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_GETI: {
 				dt_val key = dt_vm_pop(vm);
 				dt_val val = dt_vm_pop(vm);
-				switch (dt_type(val)) {
+				switch (dt_typeof(val)) {
 					case DT_VAL_ARR:
-						if (dt_type(key) == DT_VAL_NUM) {
+						if (dt_typeof(key) == DT_VAL_NUM) {
 							dt_vm_push(vm, dt_arr_get(dt_as_arr(val), dt_as_num(key)));
-						} else if (dt_type(key) == DT_VAL_STR) {
+						} else if (dt_typeof(key) == DT_VAL_STR) {
 							// TODO
 							dt_vm_push(vm, DT_NIL);
-						} else if (dt_type(key) == DT_VAL_RANGE) {
+						} else if (dt_typeof(key) == DT_VAL_RANGE) {
 							dt_range range = dt_as_range(key);
 							if (range.end < range.start) {
 								int tmp = range.start;
@@ -3083,32 +3116,32 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_err(
 								vm,
 								"invalid arr idx type '%s'\n",
-								dt_typename(dt_type(val))
+								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
 						}
 						break;
 					case DT_VAL_MAP:
-						if (dt_type(key) == DT_VAL_STR) {
+						if (dt_typeof(key) == DT_VAL_STR) {
 							dt_vm_push(vm, dt_map_get(dt_as_map(val), dt_as_str(key)));
 						} else {
 							dt_err(
 								vm,
 								"invalid map idx type '%s'\n",
-								dt_typename(dt_type(val))
+								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
 						}
 						break;
 					case DT_VAL_STR:
-						if (dt_type(key) == DT_VAL_NUM) {
+						if (dt_typeof(key) == DT_VAL_NUM) {
 							int idx = (int)dt_as_num(key);
 							dt_str* str = dt_as_str(val);
 							dt_vm_push(vm, dt_to_str(dt_str_get(vm, str, idx)));
-						} else if (dt_type(key) == DT_VAL_STR) {
+						} else if (dt_typeof(key) == DT_VAL_STR) {
 							// TODO
 							dt_vm_push(vm, DT_NIL);
-						} else if (dt_type(key) == DT_VAL_RANGE) {
+						} else if (dt_typeof(key) == DT_VAL_RANGE) {
 							dt_range range = dt_as_range(key);
 							if (range.end < range.start) {
 								int tmp = range.start;
@@ -3130,13 +3163,13 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_err(
 								vm,
 								"invalid str idx type '%s'\n",
-								dt_typename(dt_type(val))
+								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
 						}
 						break;
 					case DT_VAL_NUM:
-						if (dt_type(key) == DT_VAL_STR) {
+						if (dt_typeof(key) == DT_VAL_STR) {
 							// TODO
 							dt_vm_push(vm, DT_NIL);
 						}
@@ -3151,9 +3184,9 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				dt_val val = dt_vm_pop(vm);
 				dt_val key = dt_vm_pop(vm);
 				dt_val parent = dt_vm_pop(vm);
-				switch (dt_type(parent)) {
+				switch (dt_typeof(parent)) {
 					case DT_VAL_ARR:
-						if (dt_type(key) == DT_VAL_NUM) {
+						if (dt_typeof(key) == DT_VAL_NUM) {
 							int idx = dt_as_num(key);
 							dt_arr_set(vm, dt_as_arr(parent), idx, val);
 							dt_vm_push(vm, val);
@@ -3161,39 +3194,39 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_err(
 								vm,
 								"invalid arr idx type '%s'\n",
-								dt_typename(dt_type(val))
+								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
 						}
 						break;
 					case DT_VAL_MAP:
-						if (dt_type(key) == DT_VAL_STR) {
+						if (dt_typeof(key) == DT_VAL_STR) {
 							dt_map_set(vm, dt_as_map(parent), dt_as_str(key), val);
 							dt_vm_push(vm, val);
 						} else {
 							dt_err(
 								vm,
 								"invalid map idx type '%s'\n",
-								dt_typename(dt_type(val))
+								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
 						}
 						break;
 					case DT_VAL_STR: {
-						if (dt_type(key) != DT_VAL_NUM) {
+						if (dt_typeof(key) != DT_VAL_NUM) {
 							dt_err(
 								vm,
 								"invalid str idx type '%s'\n",
-								dt_typename(dt_type(val))
+								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
 							break;
 						}
-						if (dt_type(val) != DT_VAL_STR) {
+						if (dt_typeof(val) != DT_VAL_STR) {
 							dt_err(
 								vm,
 								"cannot set str idx to '%s'\n",
-								dt_typename(dt_type(val))
+								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
 							break;
@@ -3204,7 +3237,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_err(
 								vm,
 								"can only set str idx to a char '%s'\n",
-								dt_typename(dt_type(val))
+								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
 							break;
@@ -3224,7 +3257,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						dt_err(
 							vm,
 							"cannot set index a '%s'\n",
-							dt_typename(dt_type(val))
+							dt_typename(dt_typeof(val))
 						);
 						dt_vm_push(vm, DT_NIL);
 						break;
@@ -3252,7 +3285,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				dt_val ret = DT_NIL;
 				dt_map* meta = NULL;
 
-				switch (dt_type(val)) {
+				switch (dt_typeof(val)) {
 					case DT_VAL_NUM: {
 						meta = dt_as_map(dt_map_cget(vm, vm->globals, "math"));
 						break;
@@ -3279,7 +3312,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_err(
 						vm,
 						"no func for '%s'\n",
-						dt_typename(dt_type(val))
+						dt_typename(dt_typeof(val))
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
@@ -3311,7 +3344,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				dt_arr* arr = dt_arr_new_len(vm, len);
 				for (int i = 0; i < len; i++) {
 					dt_val v = *(vm->stack_top - len + i);
-					if (dt_type(v) == DT_VAL_RANGE) {
+					if (dt_typeof(v) == DT_VAL_RANGE) {
 						dt_range r = dt_as_range(v);
 						if (r.end >= r.start) {
 							for (int j = r.start; j < r.end; j++) {
@@ -3338,13 +3371,13 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				for (int i = 0; i < len; i++) {
 					dt_val val = dt_vm_pop(vm);
 					dt_val key = dt_vm_pop(vm);
-					if (dt_type(key) == DT_VAL_STR) {
+					if (dt_typeof(key) == DT_VAL_STR) {
 						dt_map_set(vm, map, dt_as_str(key), val);
 					} else {
 						dt_err(
 							vm,
 							"expected key to be 'str', found '%s'\n",
-							dt_typename(dt_type(key))
+							dt_typename(dt_typeof(key))
 						);
 					}
 				}
@@ -3357,12 +3390,12 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_MKFUNC: {
 				dt_val val = dt_vm_pop(vm);
 				uint8_t num_upvals = *vm->ip++;
-				if (dt_type(val) != DT_VAL_LOGIC) {
+				if (dt_typeof(val) != DT_VAL_LOGIC) {
 					// unreachable
 					dt_err(
 						vm,
 						"cannot make a func out of '%s'\n",
-						dt_typename(dt_type(val))
+						dt_typename(dt_typeof(val))
 					);
 				}
 				dt_func* func = dt_malloc(vm, sizeof(dt_func));
@@ -3421,7 +3454,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_ITER_PREP: {
 				dt_val iter = dt_vm_get(vm, 0);
 				int dis = *vm->ip++ << 8 | *vm->ip++;
-				switch (dt_type(iter)) {
+				switch (dt_typeof(iter)) {
 					case DT_VAL_ARR:
 						if (dt_as_arr(iter)->len == 0) {
 							dt_vm_pop(vm);
@@ -3473,7 +3506,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						dt_err(
 							vm,
 							"'%s' is not iterable\n",
-							dt_typename(dt_type(iter))
+							dt_typename(dt_typeof(iter))
 						);
 						dt_vm_pop(vm);
 						vm->ip += dis;
@@ -3489,7 +3522,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 				int idx = dt_as_num(*n);
 				idx++;
 				*n = dt_to_num(idx);
-				switch (dt_type(iter)) {
+				switch (dt_typeof(iter)) {
 					case DT_VAL_ARR:
 						if (idx < dt_as_arr(iter)->len) {
 							*(vm->stack_top - 1) = dt_arr_get(dt_as_arr(iter), idx);
@@ -3542,7 +3575,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 						dt_err(
 							vm,
 							"'%s' is not iterable\n",
-							dt_typename(dt_type(iter))
+							dt_typename(dt_typeof(iter))
 						);
 						// unreachable
 						break;
@@ -3562,7 +3595,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 // mark a value for not gc this turn
 static void dt_val_mark(dt_val val) {
-	switch (dt_type(val)) {
+	switch (dt_typeof(val)) {
 		case DT_VAL_STR:
 			dt_str_mark(dt_as_str(val));
 			break;
@@ -4084,8 +4117,6 @@ static dt_compiler dt_compiler_new(char* code) {
 		.env = NULL,
 		.types = {0},
 		.num_types = 0,
-		.funcs = {0},
-		.num_funcs = 0,
 	};
 
 	c.env = &c.base_env;
@@ -4198,27 +4229,27 @@ static dt_token dt_c_consume(dt_compiler* c, dt_token_ty ty) {
 }
 
 // TODO
-static int dt_c_this(dt_compiler* c) {
+static dt_type dt_c_this(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AND);
 	dt_c_emit(c, DT_OP_NIL);
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 }
 
-static int dt_c_num(dt_compiler* c) {
+static dt_type dt_c_num(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_NUM);
 	dt_val num = dt_to_num(strtof(c->parser.prev.start, NULL));
 	dt_c_push_const(c, num);
-	return DT_VAL_NUM;
+	return DT_TYPE_NUM;
 }
 
-static int dt_c_prec(dt_compiler* c, dt_prec prec);
-static int dt_c_binary(dt_compiler* c, int ty);
+static dt_type dt_c_prec(dt_compiler* c, dt_prec prec);
+static dt_type dt_c_binary(dt_compiler* c, dt_type ty);
 
-static int dt_c_expr(dt_compiler* c) {
+static dt_type dt_c_expr(dt_compiler* c) {
 	return dt_c_prec(c, DT_PREC_ASSIGN);
 }
 
-static int dt_c_str(dt_compiler* c) {
+static dt_type dt_c_str(dt_compiler* c) {
 	dt_token str_t = dt_c_consume(c, DT_TOKEN_STR);
 	// TODO: gc manage?
 	dt_val str = dt_to_str(dt_str_new_len(
@@ -4227,11 +4258,11 @@ static int dt_c_str(dt_compiler* c) {
 		str_t.len - 2
 	));
 	dt_c_push_const(c, str);
-	return DT_VAL_STR;
+	return DT_TYPE_STR;
 }
 
 // template string
-static int dt_c_str2(dt_compiler* c) {
+static dt_type dt_c_str2(dt_compiler* c) {
 	int n = 0;
 	dt_c_consume(c, DT_TOKEN_QUOTE);
 	while (dt_c_peek(c) != DT_TOKEN_QUOTE) {
@@ -4252,26 +4283,41 @@ static int dt_c_str2(dt_compiler* c) {
 	}
 	dt_c_consume(c, DT_TOKEN_QUOTE);
 	dt_c_emit2(c, DT_OP_MKSTR, n);
-	return DT_VAL_STR;
+	return DT_TYPE_STR;
 }
 
-static int dt_c_lit(dt_compiler* c) {
+static dt_type dt_c_lit(dt_compiler* c) {
 	switch (dt_c_nxt(c).type) {
-		case DT_TOKEN_QUESTION: dt_c_emit(c, DT_OP_NIL); return DT_VAL_NIL;
-		case DT_TOKEN_T: dt_c_emit(c, DT_OP_TRUE); return DT_VAL_BOOL;
-		case DT_TOKEN_F: dt_c_emit(c, DT_OP_FALSE); return DT_VAL_BOOL;
-		default: dt_c_err(c, "cannot process as literal\n"); return DT_VAL_NIL;
+		case DT_TOKEN_QUESTION: dt_c_emit(c, DT_OP_NIL); return DT_TYPE_NIL;
+		case DT_TOKEN_T: dt_c_emit(c, DT_OP_TRUE); return DT_TYPE_BOOL;
+		case DT_TOKEN_F: dt_c_emit(c, DT_OP_FALSE); return DT_TYPE_BOOL;
+		default: dt_c_err(c, "cannot process as literal\n"); return DT_TYPE_NIL;
 	}
 }
 
-static int dt_c_arr(dt_compiler* c) {
+bool dt_type_eq(dt_type* t1, dt_type* t2) {
+	return t1->type == t2->type && t1->idx == t2->idx;
+}
+
+// TODO: store arr inner type
+static dt_type dt_c_arr(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_LBRACKET);
 
 	int len = 0;
+	dt_type inner = DT_TYPE_NIL;
 
 	while (dt_c_peek(c) != DT_TOKEN_RBRACKET) {
-		dt_c_expr(c);
+		dt_type t = dt_c_expr(c);
+// 		if (!dt_type_eq(&inner, &t) && len > 0) {
+// 			dt_c_err(
+// 				c,
+// 				"inconsistent arr type: %s vs %s\n",
+// 				dt_typename(inner.type),
+// 				dt_typename(t.type)
+// 			);
+// 		}
+		inner = t;
 		len++;
 		dt_c_match(c, DT_TOKEN_COMMA);
 	}
@@ -4279,22 +4325,35 @@ static int dt_c_arr(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_RBRACKET);
 	dt_c_emit2(c, DT_OP_MKARR, len);
 
-	return DT_VAL_ARR;
+	return (dt_type) {
+		.type = DT_VAL_ARR,
+	};
 
 }
 
-static int dt_c_map(dt_compiler* c) {
+// TODO: store map inner type
+static dt_type dt_c_map(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_LBRACE);
 
 	int len = 0;
+	dt_type inner = DT_TYPE_NIL;
 
 	while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
 		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 		// TODO
 		dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.start, name.len)));
 		dt_c_consume(c, DT_TOKEN_COLON);
-		dt_c_expr(c);
+		dt_type t = dt_c_expr(c);
+// 		if (!dt_type_eq(&inner, &t) && len > 0) {
+// 			dt_c_err(
+// 				c,
+// 				"inconsistent arr type: %s vs %s\n",
+// 				dt_typename(inner.type),
+// 				dt_typename(t.type)
+// 			);
+// 		}
+		inner = t;
 		len++;
 		dt_c_match(c, DT_TOKEN_COMMA);
 	}
@@ -4302,7 +4361,9 @@ static int dt_c_map(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_RBRACE);
 	dt_c_emit2(c, DT_OP_MKMAP, len);
 
-	return DT_VAL_MAP;
+	return (dt_type) {
+		.type = DT_VAL_MAP,
+	};
 
 }
 
@@ -4376,7 +4437,7 @@ static int dt_c_find_upval(dt_compiler* c, dt_token* name) {
 
 }
 
-static dt_c_local* dt_c_add_local(dt_compiler* c, dt_token name, int type) {
+static dt_c_local* dt_c_add_local(dt_compiler* c, dt_token name, dt_type type) {
 	if (c->env->num_locals >= UINT8_MAX) {
 		dt_c_err(c, "too many local variables in one scope\n");
 		return NULL;
@@ -4424,19 +4485,19 @@ static void dt_c_typesig(dt_compiler* c) {
 }
 
 // TODO
-static void dt_c_typedef(dt_compiler* c) {
+static void dt_c_struct(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_BANG);
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 
 	dt_c_consume(c, DT_TOKEN_LBRACE);
 
-	dt_typedef ty = {0};
+	dt_struct_def ty = {0};
 
 	strncpy(ty.name, name.start, name.len);
 
 	while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
-		dt_type_mem* mem = &ty.members[ty.num_members++];
+		dt_struct_mem* mem = &ty.members[ty.num_members++];
 		dt_token memname = dt_c_consume(c, DT_TOKEN_IDENT);
 		dt_c_consume(c, DT_TOKEN_COLON);
 		dt_token memtype = dt_c_consume(c, DT_TOKEN_IDENT);
@@ -4451,13 +4512,14 @@ static void dt_c_typedef(dt_compiler* c) {
 static void dt_c_decl(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_DOLLAR);
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
-	dt_c_local* l = dt_c_add_local(c, name, DT_VAL_NIL);
+	dt_c_local* l = dt_c_add_local(c, name, DT_TYPE_NIL);
 	if (dt_c_match(c, DT_TOKEN_COLON)) {
 		dt_c_typesig(c);
 	}
 	dt_c_consume(c, DT_TOKEN_EQ);
-	// TODO
+	// TODO: need type before hand for recursive functions
 	l->type = dt_c_expr(c);
+// 	printf("DECL %.*s: %s\n", name.len, name.start, dt_typename(l->type));
 }
 
 static void dt_c_scope_begin(dt_compiler* c, dt_block_ty ty) {
@@ -4505,13 +4567,13 @@ static int dt_c_block(dt_compiler* c, dt_block_ty ty) {
 }
 
 // for parsing following cond without % only |
-static int dt_c_cond_inner(dt_compiler* c) {
+static dt_type dt_c_cond_inner(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
 
-	int type = DT_VAL_NIL;
+	dt_type type = DT_TYPE_NIL;
 	int if_start = dt_c_emit_jmp_empty(c, DT_OP_JMP_COND);
 
 	if (dt_c_peek(c) == DT_TOKEN_LBRACE) {
@@ -4526,7 +4588,7 @@ static int dt_c_cond_inner(dt_compiler* c) {
 	if (dt_c_match(c, DT_TOKEN_OR)) {
 
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
-		int type2 = DT_VAL_NIL;
+		dt_type type2 = DT_TYPE_NIL;
 
 		if (dt_c_peek(c) == DT_TOKEN_LPAREN) {
 			type2 = dt_c_cond_inner(c);
@@ -4539,12 +4601,12 @@ static int dt_c_cond_inner(dt_compiler* c) {
 			}
 		}
 
-		if (type != type2) {
+		if (dt_type_eq(&type, &type2)) {
 			dt_c_err(
 				c,
 				"unmatched type in branches: %s vs %s\n",
-				dt_typename(type),
-				dt_typename(type2)
+				dt_typename(type.type),
+				dt_typename(type2.type)
 			);
 		}
 
@@ -4570,7 +4632,7 @@ static int dt_c_cond_inner(dt_compiler* c) {
 
 // conditionals
 // % (<bool>) <block> | (<bool>)? <block>
-static int dt_c_cond(dt_compiler* c) {
+static dt_type dt_c_cond(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_PERCENT);
 	return dt_c_cond_inner(c);
 }
@@ -4606,18 +4668,18 @@ static void dt_c_add_break(dt_compiler* c, bool cont) {
 	};
 }
 
-static int dt_c_break(dt_compiler* c) {
+static dt_type dt_c_break(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AT_GT);
 	dt_c_add_break(c, false);
 	dt_c_emit(c, DT_OP_NIL);
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 }
 
-static int dt_c_continue(dt_compiler* c) {
+static dt_type dt_c_continue(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_AT_CARET);
 	dt_c_add_break(c, true);
 	dt_c_emit(c, DT_OP_NIL);
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 }
 
 // patch previous loop breaks
@@ -4632,7 +4694,7 @@ static void dt_c_patch_breaks(dt_compiler* c, int depth, bool cont) {
 }
 
 // TODO: accept expr
-static int dt_c_loop(dt_compiler* c) {
+static dt_type dt_c_loop(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_AT);
 
@@ -4653,7 +4715,7 @@ static int dt_c_loop(dt_compiler* c) {
 		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 		dt_c_skip_local(c);
 		dt_c_skip_local(c);
-		dt_c_add_local(c, name, DT_VAL_NIL);
+		dt_c_add_local(c, name, DT_TYPE_NIL);
 		dt_c_consume(c, DT_TOKEN_BACKSLASH);
 		dt_c_expr(c);
 		dt_c_consume(c, DT_TOKEN_RPAREN);
@@ -4728,28 +4790,28 @@ static int dt_c_loop(dt_compiler* c) {
 
 	dt_c_emit(c, DT_OP_NIL);
 
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 
 }
 
-static int dt_c_return(dt_compiler* c) {
+static dt_type dt_c_return(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_TILDE_GT);
-	int type = dt_c_expr(c);
+	dt_type type = dt_c_expr(c);
 	dt_c_emit(c, DT_OP_STOP);
 	return type;
 }
 
 // TODO
-static int dt_c_throw(dt_compiler* c) {
+static dt_type dt_c_throw(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_COLON_LPAREN);
-	int type = dt_c_expr(c);
+	dt_type type = dt_c_expr(c);
 	dt_c_emit(c, DT_OP_STOP);
 	return type;
 }
 
 static void dt_c_stmt(dt_compiler* c) {
 	switch (dt_c_peek(c)) {
-		case DT_TOKEN_BANG:   dt_c_typedef(c); break;
+		case DT_TOKEN_BANG:   dt_c_struct(c); break;
 		case DT_TOKEN_DOLLAR: dt_c_decl(c); break;
 		case DT_TOKEN_LBRACE: dt_c_block(c, DT_BLOCK_NORMAL); break;
 		default: {
@@ -4759,7 +4821,7 @@ static void dt_c_stmt(dt_compiler* c) {
 	}
 }
 
-static int dt_c_index(dt_compiler* c, int ty) {
+static dt_type dt_c_index(dt_compiler* c, dt_type ty) {
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RBRACKET);
 	if (dt_c_match(c, DT_TOKEN_EQ)) {
@@ -4768,10 +4830,10 @@ static int dt_c_index(dt_compiler* c, int ty) {
 	} else {
 		dt_c_emit(c, DT_OP_GETI);
 	}
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 }
 
-static int dt_c_index2(dt_compiler* c, int ty) {
+static dt_type dt_c_index2(dt_compiler* c, dt_type ty) {
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 	// TODO
 	dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.start, name.len)));
@@ -4781,10 +4843,10 @@ static int dt_c_index2(dt_compiler* c, int ty) {
 	} else {
 		dt_c_emit(c, DT_OP_GETI);
 	}
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 }
 
-static int dt_c_index3(dt_compiler* c, int ty) {
+static dt_type dt_c_index3(dt_compiler* c, dt_type ty) {
 
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 	dt_c_consume(c, DT_TOKEN_LPAREN);
@@ -4801,11 +4863,11 @@ static int dt_c_index3(dt_compiler* c, int ty) {
 	dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.start, name.len)));
 	dt_c_emit2(c, DT_OP_CALL2, nargs);
 
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 
 }
 
-static int dt_c_call(dt_compiler* c, int ty) {
+static dt_type dt_c_call(dt_compiler* c, dt_type ty) {
 
 	int nargs = 0;
 
@@ -4818,18 +4880,18 @@ static int dt_c_call(dt_compiler* c, int ty) {
 	dt_c_consume(c, DT_TOKEN_RPAREN);
 	dt_c_emit2(c, DT_OP_CALL, nargs);
 
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 
 }
 
 // TODO
-static int dt_c_args(dt_compiler* c) {
+static dt_type dt_c_args(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_DOT_DOT_DOT);
 	dt_c_emit(c, DT_OP_ARGS);
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 }
 
-static int dt_c_ident(dt_compiler* c) {
+static dt_type dt_c_ident(dt_compiler* c) {
 
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 
@@ -4906,37 +4968,38 @@ static int dt_c_ident(dt_compiler* c) {
 
 	}
 
-	return DT_VAL_NIL;
+	return DT_TYPE_NIL;
 
 }
 
-static int dt_c_group(dt_compiler* c) {
+static dt_type dt_c_group(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_LPAREN);
-	int type = dt_c_expr(c);
+	dt_type type = dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
 	return type;
 }
 
-static int dt_c_unary(dt_compiler* c) {
+static dt_type dt_c_unary(dt_compiler* c) {
 	dt_c_nxt(c);
 	dt_token_ty ty = c->parser.prev.type;
 	dt_c_prec(c, DT_PREC_UNARY);
 	switch (ty) {
 		case DT_TOKEN_MINUS:
 			dt_c_emit(c, DT_OP_NEG);
-			return DT_VAL_NUM;
+			return DT_TYPE_NUM;
 		case DT_TOKEN_BANG:
 			dt_c_emit(c, DT_OP_NOT);
-			return DT_VAL_BOOL;
+			return DT_TYPE_BOOL;
 		case DT_TOKEN_HASH:
 			dt_c_emit(c, DT_OP_LEN);
-			return DT_VAL_NUM;
+			return DT_TYPE_NUM;
 		default:
-			return DT_VAL_NIL;
+			return DT_TYPE_NIL;
 	}
 }
 
-static int dt_c_func(dt_compiler* c) {
+// TODO: store inner type
+static dt_type dt_c_func(dt_compiler* c) {
 
 	dt_c_consume(c, DT_TOKEN_TILDE);
 
@@ -4964,7 +5027,7 @@ static int dt_c_func(dt_compiler* c) {
 	while (dt_c_peek(c) != DT_TOKEN_RPAREN) {
 
 		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
-		dt_c_add_local(c, name, DT_VAL_NIL);
+		dt_c_add_local(c, name, DT_TYPE_NIL);
 		nargs++;
 
 		// arg type
@@ -5011,7 +5074,11 @@ static int dt_c_func(dt_compiler* c) {
 		dt_c_emit(c, env.upvals[i].idx);
 	}
 
-	return DT_VAL_FUNC;
+	// TODO
+	return (dt_type) {
+		.type = DT_VAL_FUNC,
+		.idx = -1,
+	};
 
 }
 
@@ -5063,13 +5130,13 @@ static dt_parse_rule dt_expr_rules[] = {
 	[DT_TOKEN_TILDE_GT]      = { dt_c_return,   NULL,        DT_PREC_NONE },
 };
 
-static int dt_c_prec(dt_compiler* c, dt_prec prec) {
+static dt_type dt_c_prec(dt_compiler* c, dt_prec prec) {
 	dt_parse_rule* prev_rule = &dt_expr_rules[dt_c_peek(c)];
 	if (prev_rule->prefix == NULL) {
 		dt_c_err(c, "expected expression\n");
-		return DT_VAL_NIL;
+		return DT_TYPE_NIL;
 	}
-	int ty = prev_rule->prefix(c);
+	dt_type ty = prev_rule->prefix(c);
 	while (prec <= dt_expr_rules[dt_c_peek(c)].prec) {
 		dt_c_nxt(c);
 		ty = dt_expr_rules[c->parser.prev.type].infix(c, ty);
@@ -5077,19 +5144,19 @@ static int dt_c_prec(dt_compiler* c, dt_prec prec) {
 	return ty;
 }
 
-static int dt_c_binary(dt_compiler* c, int t1) {
+static dt_type dt_c_binary(dt_compiler* c, dt_type t1) {
 
 	dt_token_ty ty = c->parser.prev.type;
 	dt_parse_rule* rule = &dt_expr_rules[ty];
-	int t2 = dt_c_prec(c, rule->prec + 1);
+	dt_type t2 = dt_c_prec(c, rule->prec + 1);
 
 	switch (ty) {
 		case DT_TOKEN_PLUS:
 			dt_c_emit(c, DT_OP_ADD);
-			if (t1 == DT_VAL_NUM && t2 == DT_VAL_NUM) {
-				return DT_VAL_NUM;
-			} else if (t1 == DT_VAL_STR && t2 == DT_VAL_STR) {
-				return DT_VAL_STR;
+			if (t1.type == DT_VAL_NUM && t2.type == DT_VAL_NUM) {
+				return DT_TYPE_NUM;
+			} else if (t1.type == DT_VAL_STR && t2.type == DT_VAL_STR) {
+				return DT_TYPE_STR;
 			} else {
 // 				dt_c_err(
 // 					c,
@@ -5097,79 +5164,77 @@ static int dt_c_binary(dt_compiler* c, int t1) {
 // 					dt_typename(t1),
 // 					dt_typename(t2)
 // 				);
-				return DT_VAL_NIL;
+				return DT_TYPE_NIL;
 			}
 			break;
 		case DT_TOKEN_MINUS:
 			dt_c_emit(c, DT_OP_SUB);
-			if (t1 == DT_VAL_NUM && t2 == DT_VAL_NUM) {
-				return DT_VAL_NUM;
+			if (t1.type == DT_VAL_NUM && t2.type == DT_VAL_NUM) {
+				return DT_TYPE_NUM;
 			} else {
-				dt_c_err(
-					c,
-					"cannot sub a %s and a %s\n",
-					dt_typename(t1),
-					dt_typename(t2)
-				);
-				return DT_VAL_NIL;
+// 				dt_c_err(
+// 					c,
+// 					"cannot sub a %s and a %s\n",
+// 					dt_typename(t1),
+// 					dt_typename(t2)
+// 				);
+				return DT_TYPE_NIL;
 			}
 			break;
 		case DT_TOKEN_STAR:
 			dt_c_emit(c, DT_OP_MUL);
-			if (t1 == DT_VAL_NUM && t2 == DT_VAL_NUM) {
-				return DT_VAL_NUM;
+			if (t1.type == DT_VAL_NUM && t2.type == DT_VAL_NUM) {
+				return DT_TYPE_NUM;
 			} else {
-				dt_c_err(
-					c,
-					"cannot mul a %s and a %s\n",
-					dt_typename(t1),
-					dt_typename(t2)
-				);
-				return DT_VAL_NIL;
+// 				dt_c_err(
+// 					c,
+// 					"cannot mul a %s and a %s\n",
+// 					dt_typename(t1),
+// 					dt_typename(t2)
+// 				);
+				return DT_TYPE_NIL;
 			}
 			break;
 		case DT_TOKEN_SLASH:
 			dt_c_emit(c, DT_OP_DIV);
-			if (t1 == DT_VAL_NUM && t2 == DT_VAL_NUM) {
-				return DT_VAL_NUM;
+			if (t1.type == DT_VAL_NUM && t2.type == DT_VAL_NUM) {
+				return DT_TYPE_NUM;
 			} else {
-				dt_c_err(
-					c,
-					"cannot div a %s and a %s\n",
-					dt_typename(t1),
-					dt_typename(t2)
-				);
-				return DT_VAL_NIL;
+// 				dt_c_err(
+// 					c,
+// 					"cannot div a %s and a %s\n",
+// 					dt_typename(t1),
+// 					dt_typename(t2)
+// 				);
+				return DT_TYPE_NIL;
 			}
 			break;
 		case DT_TOKEN_DOT_DOT:
 			dt_c_emit(c, DT_OP_SPREAD);
-			return DT_VAL_RANGE;
+			return DT_TYPE_RANGE;
 		case DT_TOKEN_EQ_EQ:
 			dt_c_emit(c, DT_OP_EQ);
-			return DT_VAL_BOOL;
+			return DT_TYPE_BOOL;
 		case DT_TOKEN_GT:
 			dt_c_emit(c, DT_OP_GT);
-			return DT_VAL_BOOL;
-			break;
+			return DT_TYPE_BOOL;
 		case DT_TOKEN_GT_EQ:
 			dt_c_emit(c, DT_OP_GT_EQ);
-			return DT_VAL_BOOL;
-			break;
+			return DT_TYPE_BOOL;
 		case DT_TOKEN_LT:
 			dt_c_emit(c, DT_OP_LT);
-			return DT_VAL_BOOL;
+			return DT_TYPE_BOOL;
 		case DT_TOKEN_LT_EQ:
 			dt_c_emit(c, DT_OP_LT_EQ);
-			return DT_VAL_BOOL;
+			return DT_TYPE_BOOL;
 		case DT_TOKEN_OR_OR:
 			dt_c_emit(c, DT_OP_OR);
-			return DT_VAL_BOOL;
+			return DT_TYPE_BOOL;
 		case DT_TOKEN_AND_AND:
 			dt_c_emit(c, DT_OP_AND);
-			return DT_VAL_BOOL;
+			return DT_TYPE_BOOL;
 		default:
-			return DT_VAL_NIL;
+			return DT_TYPE_NIL;
 	}
 
 }
@@ -5218,7 +5283,7 @@ static dt_val dt_f_type(dt_vm* vm, int nargs) {
 		return DT_NIL;
 	}
 	dt_val val = dt_arg(vm, 0);
-	char* tname = dt_typename(dt_type(val));
+	char* tname = dt_typename(dt_typeof(val));
 	return dt_to_str(dt_str_new(vm, tname));
 }
 
@@ -5488,6 +5553,11 @@ static dt_val dt_f_arr_concat(dt_vm* vm, int nargs) {
 	return dt_to_arr(dt_arr_concat(vm, a1, a2));
 }
 
+static dt_val dt_f_arr_rand(dt_vm* vm, int nargs) {
+	dt_arr* arr = dt_arg_arr(vm, 0);
+	return dt_arr_rand(arr);
+}
+
 static dt_val dt_f_arr_clone(dt_vm* vm, int nargs) {
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	return dt_to_arr(dt_arr_clone(vm, arr));
@@ -5736,6 +5806,7 @@ static dt_cfunc_reg arr_funcs[] = {
 	{ "sub", dt_f_arr_sub, },
 	{ "reduce", dt_f_arr_reduce, },
 	{ "concat", dt_f_arr_concat, },
+	{ "rand", dt_f_arr_rand, },
 	{ "clone", dt_f_arr_clone, },
 	{ "len", dt_f_arr_len, },
 	{ NULL, NULL, },
