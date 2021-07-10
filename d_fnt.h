@@ -51,6 +51,7 @@ void d_fnt_decode_to_png(
 	uint8_t* bitmap_buf = bytes + 9 + 1 + 1 + 1 + chars_size;
 	uint8_t* pixels = calloc(chars_size * gw * gh * 4, 1);
 
+	// TODO: support multiple columns
 	for (int i = 0; i < bitmap_size; i++) {
 		for (int j = 0; j < 8; j++) {
 			if (bitmap_buf[i] & (1 << (7 - j))) {
@@ -61,11 +62,11 @@ void d_fnt_decode_to_png(
 
 	stbi_write_png(
 		path,
-		gw * chars_size,
-		gh,
+		gw,
+		gh * chars_size,
 		4,
 		pixels,
-		gw * chars_size * 4
+		gw * 4
 	);
 
 }
@@ -80,8 +81,8 @@ uint8_t* d_fnt_encode_from_png(
 
 	int w, h;
 	uint8_t* pixels = stbi_load(path, &w, &h, NULL, 4);
-	uint8_t cols = w / gw;
-	uint8_t rows = h / gh;
+	uint8_t num_cols = w / gw;
+	uint8_t num_rows = h / gh;
 	size_t chars_size = strlen(chars);
 	size_t bitmap_size = ceil(chars_size * gw * gh / 8.0f);
 
@@ -108,12 +109,18 @@ uint8_t* d_fnt_encode_from_png(
 	memcpy(chars_buf, chars, chars_size);
 	memset(bitmap_buf, 0, bitmap_size);
 
-	// TODO: store char by char
-	for (int y = 0; y < h; y++) {
-		for (int x = 0; x < w; x++) {
-			int i = y * w + x;
-			if (pixels[i * 4 + 3] > 0) {
-				bitmap_buf[i / 8] |= (1 << (7 - i % 8));
+	int cursor = 0;
+
+	for (int row = 0; row < num_rows; row++) {
+		for (int col = 0; col < num_cols; col++) {
+			for (int y = 0; y < gh; y++) {
+				for (int x = 0; x < gw; x++) {
+					int i = (row * gh + y) * w + col * gw + x;
+					if (pixels[i * 4 + 3] > 0) {
+						bitmap_buf[cursor / 8] |= (1 << (7 - cursor % 8));
+					}
+					cursor++;
+				}
 			}
 		}
 	}
