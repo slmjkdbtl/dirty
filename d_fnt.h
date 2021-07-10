@@ -1,5 +1,6 @@
 // wengwengweng
 
+// dirty bitmap font format
 //  -----------------------------------
 // | magic      u8[9] (d1Rtyf0Nt)      |
 //  -----------------------------------
@@ -87,11 +88,11 @@ uint8_t* d_fnt_encode_from_png(
 	size_t bitmap_size = ceil(chars_size * gw * gh / 8.0f);
 
 	size_t total_size =
-		9 // magic
-		+ 1 // w
-		+ 1 // h
-		+ 1 // #chars
-		+ chars_size // chars
+		9              // magic
+		+ 1            // w
+		+ 1            // h
+		+ 1            // #chars
+		+ chars_size   // chars
 		+ bitmap_size; // bitmap
 
 	if (osize) {

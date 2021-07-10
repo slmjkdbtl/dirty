@@ -10,9 +10,9 @@
 
 int main() {
 	size_t size;
-	uint8_t* bytes = d_fnt_encode_from_png("04b03_6x8.png", 6, 8, " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", &size);
-	FILE* file = fopen("04b03.df", "wb");
+	uint8_t* bytes = d_fnt_encode_from_png("unscii_8x8.png", 8, 8, " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", &size);
+	FILE* file = fopen("unscii.dbf", "wb");
 	fwrite(bytes, 1, size, file);
 	fclose(file);
-	d_fnt_decode_to_png(bytes, "04b03.png");
+	d_fnt_decode_to_png(bytes, "unscii.png");
 }

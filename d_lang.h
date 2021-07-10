@@ -2130,7 +2130,7 @@ static dt_chunk dt_chunk_new() {
 // TODO: how to store heap const like str?
 // chunk file layout
 //  ----------------------------------
-// | magic      char[10] (dIRtyChuNk) |
+// | magic      char[10] (d1RtyChuNk) |
 //  ----------------------------------
 // | #opcodes   uint32                |
 //  ----------------------------------
