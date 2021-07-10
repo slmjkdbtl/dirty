@@ -898,11 +898,7 @@ void d_bbuf_clear(d_bbuf* bbuf, bool b) {
 }
 
 d_bitset d_bitset_new(size_t size) {
-	if (size % 8 == 0) {
-		size /= 8;
-	} else {
-		size = size / 8 + 1;
-	}
+	size = (size_t)ceil(size / 8.0f);
 	uint8_t* buf = malloc(size);
 	memset(buf, 0, size);
 	return (d_bitset) {
@@ -911,16 +907,17 @@ d_bitset d_bitset_new(size_t size) {
 	};
 }
 
+// TODO: is << faster than an uint8_t[8] lookup?
 void d_bitset_set(d_bitset* m, int n, bool b) {
 	if (b) {
-		m->buf[n / 8] |= 1 << (7 - n % 8);
+		m->buf[n / 8] |= (1 << (7 - n % 8));
 	} else {
-		m->buf[n / 8] ^= 1 << (7 - n % 8);
+		m->buf[n / 8] ^= (1 << (7 - n % 8));
 	}
 }
 
 bool d_bitset_get(d_bitset* m, int n) {
-	return m->buf[n / 8] & 1 << (7 - n % 8);
+	return m->buf[n / 8] & (1 << (7 - n % 8));
 }
 
 void d_bitset_clear(d_bitset* m, bool b) {

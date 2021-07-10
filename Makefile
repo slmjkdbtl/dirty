@@ -34,7 +34,8 @@ DEMO_PATH := demo
 
 # flags
 CFLAGS += -Wall
-CFLAGS += -Wpedantic
+CFLAGS += -Werror
+CFLAGS += -pedantic
 CFLAGS += -std=c99
 CFLAGS += -I.
 CFLAGS += -Iext
@@ -42,7 +43,7 @@ CFLAGS += -Wno-unused-function
 CFLAGS += -Wno-unused-variable
 
 ifdef DEBUG
-CFLAGS += -g
+CFLAGS += -O0 -g
 else
 CFLAGS += -O2
 endif
@@ -194,4 +195,3 @@ install: $(BIN_PATH)/dirty
 .PHONY: clean
 clean:
 	rm -rf build
-

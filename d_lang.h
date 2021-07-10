@@ -26,11 +26,12 @@
 // TODO: ordered map ?
 // TODO: incremental gc
 // TODO: disallow shadowing global var
-// TODO: diconstruction
+// TODO: member diconstructing
 // TODO: combine GT/LT and EQ
 // TODO: '?' for cond? what for nil?
 // TODO: better gc position
 // TODO: assignment in cond
+// TODO: global on root scope?
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -190,28 +191,6 @@ typedef dt_val (dt_cfunc)(struct dt_vm* vm, int nargs);
 
 #endif
 
-// TODO
-typedef struct {
-	char name[16];
-	int type;
-} dt_struct_mem;
-
-typedef struct {
-	char name[16];
-	dt_struct_mem members[16];
-	int num_members;
-	int idx;
-} dt_struct_def;
-
-// TODO
-typedef struct {
-	char name[16];
-	int ret;
-	int args[8];
-	int num_args;
-	int idx;
-} dt_func_def;
-
 typedef struct dt_type {
 	dt_val_ty type;
 	// struct / func idx in compiler
@@ -240,9 +219,25 @@ dt_type DT_TYPE_NUM = (dt_type) {
 
 // TODO
 typedef struct {
-	int nargs;
-	int ret;
-} dt_cfunc_def;
+	char name[16];
+	int type;
+} dt_struct_mem;
+
+typedef struct {
+	char name[16];
+	dt_struct_mem members[16];
+	int num_members;
+	int idx;
+} dt_struct_def;
+
+// TODO
+typedef struct {
+	char name[16];
+	dt_type ret;
+	dt_type args[8];
+	int num_args;
+	int idx;
+} dt_func_def;
 
 typedef struct dt_heaper {
 	DT_HEAPER_STRUCT
@@ -3282,7 +3277,6 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 				dt_str* name = dt_as_str(dt_vm_pop(vm));
 				dt_val val = dt_vm_get(vm, -nargs);
-				dt_val ret = DT_NIL;
 				dt_map* meta = NULL;
 
 				switch (dt_typeof(val)) {
@@ -3300,6 +3294,11 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 					}
 					case DT_VAL_MAP: {
 						meta = dt_as_map(dt_map_cget(vm, vm->globals, "map"));
+						break;
+					}
+					case DT_VAL_FUNC:
+					case DT_VAL_CFUNC: {
+						meta = dt_as_map(dt_map_cget(vm, vm->globals, "func"));
 						break;
 					}
 					default:
@@ -3323,19 +3322,6 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_CLOSE: {
 				dt_vm_pop_close(vm);
-				break;
-			}
-
-			case DT_OP_MKSTR: {
-				int len = *vm->ip++;
-				dt_str* str = dt_str_new_len(vm, "", 0);
-				for (int i = 0; i < len; i++) {
-					dt_val v = *(vm->stack_top - len + i);
-					// TODO
-				}
-				vm->stack_top -= len;
-				dt_vm_push(vm, dt_to_str(str));
-				dt_vm_gc_check(vm);
 				break;
 			}
 
@@ -5602,6 +5588,15 @@ static dt_val dt_f_map_clone(dt_vm* vm, int nargs) {
 	return dt_to_map(dt_map_clone(vm, map));
 }
 
+static dt_val dt_f_func_call(dt_vm* vm, int nargs) {
+	dt_val func = dt_arg(vm, 0);
+	dt_arr* args = dt_arg_arr(vm, 1);
+	for (int i = 0; i < args->len; i++) {
+		dt_vm_push(vm, args->values[i]);
+	}
+	return dt_vm_call(vm, func, args->len);
+}
+
 static dt_val dt_f_math_sin(dt_vm* vm, int nargs) {
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(sin(n));
@@ -5749,7 +5744,7 @@ static dt_val dt_f_math_rand(dt_vm* vm, int nargs) {
 
 static dt_val dt_f_math_srand(dt_vm* vm, int nargs) {
 	dt_num n = dt_arg_num(vm, 0);
-	srand(time(NULL));
+	srand(n);
 	return DT_NIL;
 }
 
@@ -5822,6 +5817,11 @@ static dt_cfunc_reg map_funcs[] = {
 	{ NULL, NULL, },
 };
 
+static dt_cfunc_reg func_funcs[] = {
+	{ "call", dt_f_func_call, },
+	{ NULL, NULL, },
+};
+
 static dt_cfunc_reg math_funcs[] = {
 	{ "sin", dt_f_math_sin, },
 	{ "cos", dt_f_math_cos, },
@@ -5875,6 +5875,10 @@ void dt_load_std(dt_vm* vm) {
 	dt_map* map = dt_map_new(vm);
 	dt_map_reg_cfuncs(vm, map, map_funcs);
 	dt_map_cset(vm, vm->globals, "map", dt_to_map(map));
+
+	dt_map* func = dt_map_new(vm);
+	dt_map_reg_cfuncs(vm, func, func_funcs);
+	dt_map_cset(vm, vm->globals, "func", dt_to_map(func));
 
 }
 
