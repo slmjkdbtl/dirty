@@ -19,19 +19,6 @@
 
 #define FMT_MAX 256
 
-static char *d_fmt(char *fmt, ...) {
-
-	static char buf[FMT_MAX];
-	va_list args;
-
-	va_start(args, fmt);
-	vsnprintf(buf, FMT_MAX, fmt, args);
-	va_end(args);
-
-	return buf;
-
-}
-
 d_model duck;
 d_model btfly;
 
@@ -43,9 +30,7 @@ void init() {
 		.clear_color = colori(0, 0, 0, 255),
 	});
 
-	d_fs_init((d_fs_desc) {0});
-
-	btfly = d_model_load("res/btfly.glb");
+	btfly = d_model_load(d_res_path("res/btfly.glb"));
 
 }
 
@@ -87,8 +72,6 @@ void frame() {
 	d_gfx_bbuf_clear();
 
 	d_gfx_present();
-
-	d_app_set_title(d_fmt("%d", d_app_fps()));
 
 }
 

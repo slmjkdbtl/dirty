@@ -5,43 +5,20 @@
 #ifndef D_FS_H
 #define D_FS_H
 
-#ifndef D_PLAT_H
-#error 'd_fs.h' requires 'd_plat.h'
-#endif
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
-typedef struct {
-	char* path;
-	char* data_org;
-	char* data_name;
-} d_fs_desc;
-
-typedef uint64_t d_fs_task;
-
-void d_fs_init(d_fs_desc);
-char* d_read_text(char* path);
-uint8_t* d_read_bytes(char* path, size_t* size);
-#ifdef D_FS_ASYNC
-d_fs_task d_read_text_async(char* path);
-d_fs_task d_read_bytes_async(char* path, size_t* size);
-#endif
-char** d_glob(char* path, char* ext);
-void d_free_dir(char** list);
-bool d_is_file(char* path);
-bool d_is_dir(char* path);
-
-char* d_data_read_text(char* path);
-uint8_t* d_data_read_bytes(char* path, size_t* size);
-void d_data_write_text(char* path, char* content);
-void d_data_write_bytes(char* path, uint8_t* content, size_t size);
-bool d_data_is_file(char* path);
-bool d_data_is_dir(char* path);
-
-char* d_extname(char* path);
-char* d_basename(char* path);
+uint8_t*    d_read(char* path, size_t* osize);
+char**      d_read_dir(char* path, char* ext);
+void        d_free_dir(char** list);
+bool        d_is_file(char* path);
+bool        d_is_dir(char* path);
+char*       d_extname(char* path);
+char*       d_basename(char* path);
+const char* d_res_dir();
+char*       d_res_path(char* path);
+char*       d_data_dir();
 
 #endif
 
@@ -59,202 +36,64 @@ char* d_basename(char* path);
 #include <dirent.h>
 #include <sys/stat.h>
 
-#ifdef D_FS_ASYNC
-#include <pthread.h>
-static void* d_fs_thread(void* args);
+#if defined(__APPLE__)
+#import <Foundation/Foundation.h>
 #endif
 
-#if defined(D_MACOS) || defined(D_IOS)
-	#import <Foundation/Foundation.h>
-#endif
-
-#define D_PATH_MAX 256
-
-typedef struct {
-	char res_path[D_PATH_MAX];
-	char data_path[D_PATH_MAX];
-	d_fs_task last_task_id;
-} d_fs_ctx;
-
-static d_fs_ctx d_fs;
-
-void d_fs_init(d_fs_desc desc) {
-
-	if (desc.path) {
-		sprintf(d_fs.res_path, "%s/", desc.path);
-	} else {
-#if defined(D_MACOS) || defined(D_IOS)
-		@autoreleasepool {
-			const char* res_path = [[[NSBundle mainBundle] resourcePath] UTF8String];
-			sprintf(d_fs.res_path, "%s/", res_path);
-		}
-#elif defined(D_WINDOWS)
-#elif defined(D_LINUX)
-#endif
-	}
-
-	if (desc.data_org && desc.data_name) {
-#if defined(D_MACOS) || defined(D_IOS)
-		char* home = getenv("HOME");
-		if (home) {
-			sprintf(d_fs.data_path, "%s/Library/Application Support", home);
-		}
-#elif defined(D_WINDOWS)
-#elif defined(D_LINUX)
-		char* home = getenv("HOME");
-		char* xdg_data = getenv("XDG_DATA_HOME");
-		if (xdg_data) {
-			sprintf(d_fs.data_path, "%s", xdg_data);
-		} else if (home) {
-			sprintf(d_fs.data_path, "%s/.local/share", home);
-		}
-#endif
-// 		sprintf(d_fs.data_path, "%s/%s", d_fs.data_path, desc.data_org);
-// 		mkdir(d_fs.data_path, 0700);
-// 		sprintf(d_fs.data_path, "%s/%s/", d_fs.data_path, desc.data_name);
-// 		mkdir(d_fs.data_path, 0700);
-	}
-
-#ifdef D_FS_ASYNC
-
-	pthread_t id;
-
-	if (pthread_create(&id, NULL, d_fs_thread, NULL) < 0) {
-		fprintf(stderr, "failed to start fs thread\n");
-		return;
-	}
-
-#endif
-
-}
-
-static char* fmt(char* fmt, ...) {
-
-	static char buf[D_PATH_MAX];
-	va_list args;
-
-	va_start(args, fmt);
-	vsnprintf(buf, D_PATH_MAX, fmt, args);
-	va_end(args);
-
-	return buf;
-
-}
-
-static char* read_text(char* path) {
-
+char* d_read_text(char* path, size_t* osize) {
 	FILE* file = fopen(path, "r");
-
-	if (!file) {
-		return NULL;
-	}
-
+	if (!file) return NULL;
 	fseek(file, 0, SEEK_END);
 	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
-
 	char* buffer = malloc(size + 1);
-	size_t r_size = fread(buffer, 1, size, file);
-
+	fread(buffer, 1, size, file);
 	buffer[size] = '\0';
-
-	if (r_size != size) {
-		free(buffer);
-		return NULL;
-	}
-
 	fclose(file);
-
+	if (osize) *osize = size;
 	return buffer;
-
 }
 
-static uint8_t* read_bytes(char* path, size_t* osize) {
-
+uint8_t* d_read_bytes(char* path, size_t* osize) {
 	FILE* file = fopen(path, "rb");
-
-	if (!file) {
-		return NULL;
-	}
-
+	if (!file) return NULL;
 	fseek(file, 0, SEEK_END);
 	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
-
 	uint8_t* buffer = malloc(size);
-	size_t r_size = fread(buffer, 1, size, file);
-
-	if (r_size != size) {
-		free(buffer);
-		return NULL;
-	}
-
-	if (osize) {
-		*osize = size;
-	}
-
+	fread(buffer, 1, size, file);
 	fclose(file);
-
+	if (osize) *osize = size;
 	return buffer;
-
 }
 
-static bool write_text(char* path, char* text) {
-
+bool d_write_text(char* path, char* text, size_t size) {
 	FILE* file = fopen(path, "w");
-
-	if (!file) {
-		fprintf(stderr, "failed to write: '%s'\n", path);
-		return false;
-	}
-
-	size_t size = strlen(text);
-	size_t r_size = fwrite(text, 1, size, file);
-
-	if (r_size != size) {
-		fprintf(stderr, "failed to write: '%s'\n", path);
-		return false;
-	}
-
+	if (!file) return false;
+	fwrite(text, 1, size ? size : strlen(text), file);
 	fclose(file);
-
 	return true;
-
 }
 
-static bool write_bytes(char* path, uint8_t* data, size_t size) {
-
+bool write_bytes(char* path, uint8_t* data, size_t size) {
 	FILE* file = fopen(path, "wb");
-
-	if (!file) {
-		fprintf(stderr, "failed to write: '%s'\n", path);
-		return false;
-	}
-
-	size_t r_size = fwrite(data, 1, size, file);
-
-	if (r_size != size) {
-		fprintf(stderr, "failed to write: '%s'\n", path);
-		return false;
-	}
-
+	if (!file) return false;
+	fwrite(data, 1, size, file);
 	fclose(file);
-
 	return true;
-
 }
 
-static bool is_file(char* path) {
+bool d_is_file(char* path) {
 	struct stat sb;
 	return stat(path, &sb) == 0 && S_ISREG(sb.st_mode);
 }
 
-static bool is_dir(char* path) {
+bool d_is_dir(char* path) {
 	struct stat sb;
 	return stat(path, &sb) == 0 && S_ISDIR(sb.st_mode);
 }
 
-static char** glob(char* path, char* ext) {
+char** d_glob(char* path, char* ext) {
 
 	DIR* dir = opendir(path);
 
@@ -301,51 +140,6 @@ void d_free_dir(char** list) {
 	free(list);
 }
 
-char* d_read_text(char* path) {
-	return read_text(fmt("%s%s", d_fs.res_path, path));
-}
-
-uint8_t* d_read_bytes(char* path, size_t* size) {
-	return read_bytes(fmt("%s%s", d_fs.res_path, path), size);
-}
-
-char** d_glob(char* path, char* ext) {
-	return glob(fmt("%s%s", d_fs.res_path, path), ext);
-}
-
-bool d_is_file(char* path) {
-	return is_file(fmt("%s%s", d_fs.res_path, path));
-}
-
-bool d_is_dir(char* path) {
-	return is_dir(fmt("%s%s", d_fs.res_path, path));
-}
-
-char* d_data_read_text(char* path) {
-	return read_text(fmt("%s%s", d_fs.data_path, path));
-}
-
-uint8_t* d_data_read_bytes(char* path, size_t* size) {
-	return read_bytes(fmt("%s%s", d_fs.data_path, path), size);
-}
-
-bool d_data_is_file(char* path) {
-	return is_file(fmt("%s%s", d_fs.data_path, path));
-}
-
-bool d_data_is_dir(char* path) {
-	return is_dir(fmt("%s%s", d_fs.data_path, path));
-}
-
-// TODO: recursive mkdir?
-void d_data_write_text(char* path, char* content) {
-	write_text(fmt("%s%s", d_fs.data_path, path), content);
-}
-
-void d_data_write_bytes(char* path, uint8_t* content, size_t size) {
-	write_bytes(fmt("%s%s", d_fs.data_path, path), content, size);
-}
-
 char* d_extname(char* path) {
 	char* dot = strrchr(path, '.');
 	if (!dot) {
@@ -368,26 +162,60 @@ char* d_basename(char* path) {
 	return buf;
 }
 
-#ifdef D_FS_ASYNC
-
-d_fs_task d_read_text_async(char* path) {
-	d_fs_task id = d_fs.last_task_id++;
-	// TODO
-	return id;
+const char* d_res_dir() {
+#if defined(__APPLE__)
+	@autoreleasepool {
+		return [[[NSBundle mainBundle] resourcePath] UTF8String];
+	}
+#endif
+	return "";
 }
 
-void* d_fs_aynsc_get(d_fs_task id) {
-	// TODO
-	return NULL;
+char* d_fmt(char* fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	size_t size = vsnprintf(NULL, 0, fmt, args);
+	va_end(args);
+	char* buf = malloc(size + 1);
+	va_start(args, fmt);
+	vsnprintf(buf, size + 1, fmt, args);
+	va_end(args);
+	return buf;
 }
 
-static void* d_fs_thread(void* args) {
+char* d_res_path(char* path) {
+	const char* res_dir = d_res_dir();
+	if (res_dir[0] == '\0') {
+		return d_fmt("%s", path);
+	} else {
+		return d_fmt("%s/%s", res_dir, path);
+	}
+}
+
+char* d_data_dir() {
+#if defined(__APPLE__)
+	const char* home = getenv("HOME");
+	if (home) {
+		return d_fmt("%s/Library/Application Support", home);
+	} else {
+		return d_fmt("~/Library/Application Support");
+	}
+#elif defined(__linux__) || defined(__unix__)
+	char* home = getenv("HOME");
+	char* xdg_home = getenv("XDG_DATA_HOME");
+	if (xdg_home) {
+		return d_fmt("%s", xdg_home);
+	} else if (home) {
+		return d_fmt("%s/.local/share", home);
+	} else {
+		return d_fmt("~/.local/share");
+	}
+#elif defined(_WIN32) || defined(_WIN64)
 	// TODO
-	return NULL;
+	return d_fmt("");
+#endif
+	return d_fmt("");
 }
 
 #endif
-
 #endif
-#endif
-

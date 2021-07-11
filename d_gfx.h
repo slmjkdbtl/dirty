@@ -57,6 +57,7 @@ typedef struct {
 	int size;
 } d_bitset;
 
+// TODO: bitset might be slower in runtime
 typedef struct {
 	int width;
 	int height;
@@ -72,7 +73,7 @@ void d_bitset_free(d_bitset* m);
 typedef struct {
 	int gw;
 	int gh;
-	int map[128];
+	int charmap[128];
 	uint8_t* bitmap;
 } d_font;
 
@@ -607,7 +608,7 @@ d_font d_font_parse(uint8_t* bytes) {
 	}
 
 	for (int i = 0; i < chars_size; i++) {
-		f.map[(int)chars_buf[i]] = i;
+		f.charmap[(int)chars_buf[i]] = i;
 	}
 
 	return f;
@@ -618,7 +619,7 @@ d_font d_font_empty() {
 	return (d_font) {
 		.gw = 0,
 		.gh = 0,
-		.map = {0},
+		.charmap = {0},
 		.bitmap = malloc(0),
 	};
 }
@@ -814,11 +815,11 @@ void d_blit_text(char* text, vec2 pos, color c) {
 
 	for (int i = 0; i < num_chars; i++) {
 
-		int ii = font->map[(int)text[i]];
+		int charpos = font->charmap[(int)text[i]];
 
 		for (int x = 0; x < font->gw; x++) {
 			for (int y = 0; y < font->gh; y++) {
-				if (font->bitmap[(ii * font->gh + y) * font->gw + x] == 1) {
+				if (font->bitmap[(charpos * font->gh + y) * font->gw + x] == 1) {
 					d_gfx_blit_pixel(pos.x + ox + x, pos.y + y, c);
 				}
 			}

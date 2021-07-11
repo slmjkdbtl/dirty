@@ -7,6 +7,7 @@
 
 #define D_IMPL
 #include <d_fnt.h>
+#include <d_fs.h>
 
 int main() {
 	size_t size;

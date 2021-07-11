@@ -17,7 +17,7 @@
 
 #define FMT_MAX 256
 
-static char *d_fmt(char *fmt, ...) {
+static char* fmt(char *fmt, ...) {
 
 	static char buf[FMT_MAX];
 	va_list args;
@@ -41,9 +41,7 @@ void init() {
 		.clear_color = colori(0, 0, 0, 255),
 	});
 
-	d_fs_init((d_fs_desc) {0});
-
-	img = d_img_load("res/wizard.png");
+	img = d_img_load(d_res_path("res/wizard.png"));
 
 }
 
@@ -73,7 +71,7 @@ void frame() {
 
 	d_gfx_present();
 
-	d_app_set_title(d_fmt("%d", d_app_fps()));
+	d_app_set_title(fmt("%d", d_app_fps()));
 
 }
 

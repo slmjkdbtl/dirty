@@ -21,7 +21,7 @@ void frame() {
 		d_app_quit();
 	}
 
-	d_blit_text("123abc", vec2f(0, 0), colori(255, 255, 255, 255));
+	d_blit_text("123abc", vec2f(10, 10), colori(255, 255, 255, 255));
 	d_gfx_present();
 
 }

@@ -1,5 +1,8 @@
 // wengwengweng
 
+// TODO: u16 #chars
+// TODO: utf8
+
 // dirty bitmap font format
 //  -----------------------------------
 // | magic      u8[9] (d1Rtyf0Nt)      |

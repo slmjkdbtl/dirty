@@ -28,9 +28,7 @@ void init() {
 		.clear_color = colori(0, 0, 0, 255),
 	});
 
-	d_fs_init((d_fs_desc) {0});
-
-	btfly = d_model_load("res/btfly.glb");
+	btfly = d_model_load(d_res_path("res/btfly.glb"));
 
 }
 

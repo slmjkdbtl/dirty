@@ -18,7 +18,7 @@
 
 #define FMT_MAX 256
 
-static char *d_fmt(char *fmt, ...) {
+static char* fmt(char *fmt, ...) {
 
 	static char buf[FMT_MAX];
 	va_list args;
@@ -75,7 +75,7 @@ void frame() {
 
 	d_gfx_present();
 
-	d_app_set_title(d_fmt("%d", d_app_fps()));
+	d_app_set_title(fmt("%d", d_app_fps()));
 
 }
 
