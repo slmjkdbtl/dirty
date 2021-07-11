@@ -12,8 +12,6 @@
 int main() {
 	size_t size;
 	uint8_t* bytes = d_fnt_encode_from_png("unscii_8x8.png", 8, 8, " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", &size);
-	FILE* file = fopen("unscii.dbf", "wb");
-	fwrite(bytes, 1, size, file);
-	fclose(file);
+	d_write_bytes("unscii.bdf", bytes, size);
 	d_fnt_decode_to_png(bytes, "unscii.png");
 }

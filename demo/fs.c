@@ -5,6 +5,6 @@
 #include <d_fs.h>
 
 int main() {
-	printf("%s\n", d_read_text("Makefile"));
+	printf("%s\n", d_read_text("Makefile", NULL));
 }
 

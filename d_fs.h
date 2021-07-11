@@ -9,7 +9,10 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
-uint8_t*    d_read(char* path, size_t* osize);
+char*       d_read_text(char* path, size_t* osize);
+uint8_t*    d_read_bytes(char* path, size_t* osize);
+bool        d_write_bytes(char* path, uint8_t* data, size_t size);
+bool        d_write_text(char* path, char* text, size_t size);
 char**      d_read_dir(char* path, char* ext);
 void        d_free_dir(char** list);
 bool        d_is_file(char* path);
@@ -75,7 +78,7 @@ bool d_write_text(char* path, char* text, size_t size) {
 	return true;
 }
 
-bool write_bytes(char* path, uint8_t* data, size_t size) {
+bool d_write_bytes(char* path, uint8_t* data, size_t size) {
 	FILE* file = fopen(path, "wb");
 	if (!file) return false;
 	fwrite(data, 1, size, file);
