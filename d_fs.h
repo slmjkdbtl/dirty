@@ -13,7 +13,6 @@ char*       d_read_text(char* path, size_t* osize);
 uint8_t*    d_read_bytes(char* path, size_t* osize);
 bool        d_write_bytes(char* path, uint8_t* data, size_t size);
 bool        d_write_text(char* path, char* text, size_t size);
-char**      d_read_dir(char* path, char* ext);
 void        d_free_dir(char** list);
 bool        d_is_file(char* path);
 bool        d_is_dir(char* path);
@@ -94,53 +93,6 @@ bool d_is_file(char* path) {
 bool d_is_dir(char* path) {
 	struct stat sb;
 	return stat(path, &sb) == 0 && S_ISDIR(sb.st_mode);
-}
-
-char** d_glob(char* path, char* ext) {
-
-	DIR* dir = opendir(path);
-
-	if (!dir) {
-		return NULL;
-	}
-
-	struct dirent* entry;
-	int num = 0;
-
-	while ((entry = readdir(dir))) {
-		char* aext = d_extname(entry->d_name);
-		if (strcmp(ext, aext) == 0) {
-			num++;
-		}
-		free(aext);
-	}
-
-	rewinddir(dir);
-	char** list = malloc(sizeof(char*) * (num + 1));
-	num = 0;
-
-	while ((entry = readdir(dir))) {
-		char* aext = d_extname(entry->d_name);
-		if (strcmp(ext, aext) == 0) {
-			list[num] = malloc(strlen(entry->d_name) + 1);
-			strcpy(list[num], entry->d_name);
-			num++;
-		}
-		free(aext);
-	}
-
-	list[num] = NULL;
-	closedir(dir);
-
-	return list;
-
-}
-
-void d_free_dir(char** list) {
-	for (int i = 0; list[i] != NULL; i++) {
-		free(list[i]);
-	}
-	free(list);
 }
 
 char* d_extname(char* path) {

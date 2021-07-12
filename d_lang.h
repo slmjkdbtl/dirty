@@ -523,6 +523,8 @@ void      dt_cdata_free    (dt_vm* vm, dt_cdata* cdata);
 #include <math.h>
 #include <stdarg.h>
 #include <time.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 // op codes
 typedef enum {
@@ -4587,14 +4589,14 @@ static dt_type dt_c_cond_inner(dt_compiler* c) {
 			}
 		}
 
-		if (dt_type_eq(&type, &type2)) {
-			dt_c_err(
-				c,
-				"unmatched type in branches: %s vs %s\n",
-				dt_typename(type.type),
-				dt_typename(type2.type)
-			);
-		}
+// 		if (!dt_type_eq(&type, &type2)) {
+// 			dt_c_err(
+// 				c,
+// 				"unmatched type in branches: %s vs %s\n",
+// 				dt_typename(type.type),
+// 				dt_typename(type2.type)
+// 			);
+// 		}
 
 		dt_c_patch_jmp(c, pos);
 
@@ -5086,9 +5088,9 @@ static dt_parse_rule dt_expr_rules[] = {
 	[DT_TOKEN_DOT_DOT_DOT]   = { dt_c_args,     NULL,        DT_PREC_NONE },
 	[DT_TOKEN_HASH]          = { dt_c_unary,    NULL,        DT_PREC_NONE },
 	[DT_TOKEN_BANG]          = { dt_c_unary,    NULL,        DT_PREC_NONE },
-	[DT_TOKEN_BANG_EQ]       = { NULL,          NULL,        DT_PREC_NONE },
+	[DT_TOKEN_BANG_EQ]       = { NULL,          dt_c_binary, DT_PREC_CMP },
 	[DT_TOKEN_EQ]            = { NULL,          NULL,        DT_PREC_NONE },
-	[DT_TOKEN_EQ_EQ]         = { NULL,          dt_c_binary, DT_PREC_EQ },
+	[DT_TOKEN_EQ_EQ]         = { NULL,          dt_c_binary, DT_PREC_CMP },
 	[DT_TOKEN_GT]            = { NULL,          dt_c_binary, DT_PREC_CMP },
 	[DT_TOKEN_GT_EQ]         = { NULL,          dt_c_binary, DT_PREC_CMP },
 	[DT_TOKEN_LT]            = { NULL,          dt_c_binary, DT_PREC_CMP },
@@ -5201,6 +5203,10 @@ static dt_type dt_c_binary(dt_compiler* c, dt_type t1) {
 		case DT_TOKEN_EQ_EQ:
 			dt_c_emit(c, DT_OP_EQ);
 			return DT_TYPE_BOOL;
+		case DT_TOKEN_BANG_EQ:
+			dt_c_emit(c, DT_OP_EQ);
+			dt_c_emit(c, DT_OP_NOT);
+			return DT_TYPE_BOOL;
 		case DT_TOKEN_GT:
 			dt_c_emit(c, DT_OP_GT);
 			return DT_TYPE_BOOL;
@@ -5265,9 +5271,6 @@ static dt_val dt_f_print(dt_vm* vm, int nargs) {
 }
 
 static dt_val dt_f_type(dt_vm* vm, int nargs) {
-	if (nargs == 0) {
-		return DT_NIL;
-	}
 	dt_val val = dt_arg(vm, 0);
 	char* tname = dt_typename(dt_typeof(val));
 	return dt_to_str(dt_str_new(vm, tname));
@@ -5282,9 +5285,6 @@ static dt_val dt_f_exit(dt_vm* vm, int nargs) {
 #define DT_POPEN_SIZE 128
 
 static dt_val dt_f_exec(dt_vm* vm, int nargs) {
-	if (nargs == 0) {
-		return DT_NIL;
-	}
 	char* cmd = dt_arg_cstr(vm, 0);
 	system(cmd);
 	return DT_NIL;
@@ -5296,9 +5296,6 @@ static dt_val dt_f_exec(dt_vm* vm, int nargs) {
 }
 
 static dt_val dt_f_getenv(dt_vm* vm, int nargs) {
-	if (nargs == 0) {
-		return DT_NIL;
-	}
 	char* var = dt_arg_cstr(vm, 0);
 	char* val = getenv(var);
 	if (val) {
@@ -5326,29 +5323,11 @@ static dt_val dt_f_date(dt_vm* vm, int nargs) {
 }
 
 static dt_val dt_f_eval(dt_vm* vm, int nargs) {
-	if (nargs == 0) {
-		return DT_NIL;
-	}
 	return dt_eval(vm, dt_arg_cstr(vm, 0));
 }
 
 static dt_val dt_f_dofile(dt_vm* vm, int nargs) {
-	if (nargs == 0) {
-		return DT_NIL;
-	}
 	return dt_dofile(vm, dt_arg_cstr(vm, 0));
-}
-
-static dt_val dt_f_fread(dt_vm* vm, int nargs) {
-	if (nargs == 0) {
-		return DT_NIL;
-	}
-	char* path = dt_arg_cstr(vm, 0);
-	size_t size;
-	char* content = dt_read_file(path, &size);
-	dt_str* str = dt_str_new_len(vm, content, size);
-	free(content);
-	return dt_to_str(str);
 }
 
 static dt_val dt_f_str_replace(dt_vm* vm, int nargs) {
@@ -5748,12 +5727,73 @@ static dt_val dt_f_math_srand(dt_vm* vm, int nargs) {
 	return DT_NIL;
 }
 
+static dt_val dt_f_fs_readdir(dt_vm* vm, int nargs) {
+
+	char* path = dt_arg_cstr(vm, 0);
+	DIR* dir = opendir(path);
+
+	if (!dir) {
+		return DT_NIL;
+	}
+
+	struct dirent* entry;
+	dt_arr* list = dt_arr_new(vm);
+
+	while ((entry = readdir(dir))) {
+		if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+			dt_arr_push(vm, list, dt_to_str(dt_str_new(vm, entry->d_name)));
+		}
+	}
+
+	return dt_to_arr(list);
+
+}
+
+// TODO: prevent intermediate buffer
+static dt_val dt_f_fs_read(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	size_t size;
+	char* content = dt_read_file(path, &size);
+	dt_str* str = dt_str_new_len(vm, content, size);
+	free(content);
+	return dt_to_str(str);
+}
+
+static dt_val dt_f_fs_isfile(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	struct stat sb;
+	return dt_to_bool(stat(path, &sb) == 0 && S_ISREG(sb.st_mode));
+}
+
+static dt_val dt_f_fs_isdir(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	struct stat sb;
+	return dt_to_bool(stat(path, &sb) == 0 && S_ISDIR(sb.st_mode));
+}
+
+static dt_val dt_f_fs_extname(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	char* dot = strrchr(path, '.');
+	if (!dot) {
+		return DT_NIL;
+	}
+	return dt_to_str(dt_str_new(vm, dot + 1));
+}
+
+static dt_val dt_f_fs_basename(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	char* dot = strrchr(path, '.');
+	char* slash = strrchr(path, '/');
+	dot = dot ? dot : path + strlen(path);
+	slash = slash ? slash + 1 : path;
+	return dt_to_str(dt_str_new_len(vm, slash, dot - slash));
+}
+
 static dt_cfunc_reg std_funcs[] = {
 	{ "type", dt_f_type, },
 	{ "eval", dt_f_eval, },
 	{ "dofile", dt_f_dofile, },
 	{ "print", dt_f_print, },
-	{ "fread", dt_f_fread, },
 	{ NULL, NULL, },
 };
 
@@ -5822,6 +5862,16 @@ static dt_cfunc_reg func_funcs[] = {
 	{ NULL, NULL, },
 };
 
+static dt_cfunc_reg fs_funcs[] = {
+	{ "read", dt_f_fs_read, },
+	{ "readdir", dt_f_fs_readdir, },
+	{ "isfile", dt_f_fs_isfile, },
+	{ "isdir", dt_f_fs_isdir, },
+	{ "extname", dt_f_fs_extname, },
+	{ "basename", dt_f_fs_basename, },
+	{ NULL, NULL, },
+};
+
 static dt_cfunc_reg math_funcs[] = {
 	{ "sin", dt_f_math_sin, },
 	{ "cos", dt_f_math_cos, },
@@ -5879,6 +5929,10 @@ void dt_load_std(dt_vm* vm) {
 	dt_map* func = dt_map_new(vm);
 	dt_map_reg_cfuncs(vm, func, func_funcs);
 	dt_map_cset(vm, vm->globals, "func", dt_to_map(func));
+
+	dt_map* fs = dt_map_new(vm);
+	dt_map_reg_cfuncs(vm, fs, fs_funcs);
+	dt_map_cset(vm, vm->globals, "fs", dt_to_map(fs));
 
 }
 

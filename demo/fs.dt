@@ -1,0 +1,11 @@
+$ lst = fs.readdir(".")
+	:sort(~ (a, b) a < b)
+	:sort(~ (a, b) fs.isdir(a))
+	:filter(~ (p) p[0] != ".")
+	:each(~ (p) {
+		% (fs.isdir(p)) {
+			print("D " + p)
+		} | {
+			print("  " + p)
+		}
+	})

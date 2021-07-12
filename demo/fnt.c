@@ -11,7 +11,7 @@
 
 int main() {
 	size_t size;
-	uint8_t* bytes = d_fnt_encode_from_png("unscii_8x8.png", 8, 8, " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", &size);
-	d_write_bytes("unscii.bdf", bytes, size);
-	d_fnt_decode_to_png(bytes, "unscii.png");
+	uint8_t* bytes = d_fnt_encode_from_png("proggy_7x13.png", 7, 13, " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", &size);
+	d_write_bytes("proggy.df", bytes, size);
+	d_fnt_decode_to_png(bytes, "proggy.png");
 }

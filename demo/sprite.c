@@ -67,7 +67,7 @@ void frame() {
 
 	d_blit_img(&img, pos);
 	d_blit_circle(mpos, 3, colorx(0xffffffff));
-	d_blit_text("oh hi", pos, colorx(0xffffffff));
+	d_blit_text("oh hi", pos, colorx(0xffffffff), false, false);
 
 	d_gfx_present();
 
