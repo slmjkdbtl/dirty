@@ -1,4 +1,4 @@
-fs.readdir(".")
+$ lst = fs.readdir(".")
 	:sort()
 	:sort(~ (a, b) fs.isdir(a))
 	:filter(~ (p) p[0] != ".")

@@ -33,7 +33,7 @@ void frame() {
 	}
 }
 
-dt_val dt_f_app_run(dt_vm* vm, int nargs) {
+dt_val dt_f_app_run(dt_vm* vm) {
 	g_vm = vm;
 	d_app_desc desc = (d_app_desc) {
 		.title = "",
@@ -42,53 +42,51 @@ dt_val dt_f_app_run(dt_vm* vm, int nargs) {
 		.width = 480,
 		.height = 480,
 	};
-	if (nargs >= 1) {
-		dt_map* conf = dt_as_map(dt_arg(vm, 0));
-		dt_val frame = dt_map_cget(vm, conf, "frame");
-		if (dt_is_func(frame)) {
-			app_frame = frame;
-			dt_hold(vm, frame);
-		}
-		dt_val init = dt_map_cget(vm, conf, "init");
-		if (dt_is_func(init)) {
-			app_init = init;
-			dt_hold(vm, init);
-		}
-		dt_val width = dt_map_cget(vm, conf, "width");
-		if (dt_is_num(width)) {
-			desc.width = dt_as_num(width);
-		}
-		dt_val height = dt_map_cget(vm, conf, "height");
-		if (dt_is_num(height)) {
-			desc.height = dt_as_num(height);
-		}
-		dt_val title = dt_map_cget(vm, conf, "title");
-		if (dt_is_str(title)) {
-			desc.title = strdup(dt_as_str(title)->chars);
-		}
+	dt_map* conf = dt_arg_map(vm, 0);
+	dt_val frame = dt_map_cget(vm, conf, "frame");
+	if (dt_is_func(frame)) {
+		app_frame = frame;
+		dt_hold(vm, frame);
+	}
+	dt_val init = dt_map_cget(vm, conf, "init");
+	if (dt_is_func(init)) {
+		app_init = init;
+		dt_hold(vm, init);
+	}
+	dt_val width = dt_map_cget(vm, conf, "width");
+	if (dt_is_num(width)) {
+		desc.width = dt_as_num(width);
+	}
+	dt_val height = dt_map_cget(vm, conf, "height");
+	if (dt_is_num(height)) {
+		desc.height = dt_as_num(height);
+	}
+	dt_val title = dt_map_cget(vm, conf, "title");
+	if (dt_is_str(title)) {
+		desc.title = strdup(dt_as_str(title)->chars);
 	}
 	d_app_run(desc);
 	return DT_NIL;
 }
 
-dt_val dt_f_app_quit(dt_vm* vm, int nargs) {
+dt_val dt_f_app_quit(dt_vm* vm) {
 	d_app_quit();
 	return DT_NIL;
 }
 
-dt_val dt_f_app_width(dt_vm* vm, int nargs) {
+dt_val dt_f_app_width(dt_vm* vm) {
 	return dt_to_num(d_app_width());
 }
 
-dt_val dt_f_app_height(dt_vm* vm, int nargs) {
+dt_val dt_f_app_height(dt_vm* vm) {
 	return dt_to_num(d_app_height());
 }
 
-dt_val dt_f_app_time(dt_vm* vm, int nargs) {
+dt_val dt_f_app_time(dt_vm* vm) {
 	return dt_to_num(d_app_time());
 }
 
-dt_val dt_f_app_dt(dt_vm* vm, int nargs) {
+dt_val dt_f_app_dt(dt_vm* vm) {
 	return dt_to_num(d_app_dt());
 }
 
@@ -96,6 +94,7 @@ bool streq(char* s1, char* s2) {
 	return strcmp(s1, s2) == 0;
 }
 
+// TODO: table lookup for single chars
 d_key str_to_d_key(char* k) {
 	if      (streq(k, "a")) return D_KEY_A;
 	else if (streq(k, "b")) return D_KEY_B;
@@ -179,22 +178,22 @@ d_key str_to_d_key(char* k) {
 	return D_KEY_NONE;
 }
 
-dt_val dt_f_app_key_pressed(dt_vm* vm, int nargs) {
-	if (nargs == 0) {
+dt_val dt_f_app_key_pressed(dt_vm* vm) {
+	if (dt_nargs(vm) == 0) {
 		return dt_to_bool(false);
 	}
 	return dt_to_bool(d_app_key_pressed(str_to_d_key(dt_arg_cstr(vm, 0))));
 }
 
-dt_val dt_f_app_key_down(dt_vm* vm, int nargs) {
-	if (nargs == 0) {
+dt_val dt_f_app_key_down(dt_vm* vm) {
+	if (dt_nargs(vm) == 0) {
 		return dt_to_bool(false);
 	}
 	return dt_to_bool(d_app_key_down(str_to_d_key(dt_arg_cstr(vm, 0))));
 }
 
-dt_val dt_f_app_key_released(dt_vm* vm, int nargs) {
-	if (nargs == 0) {
+dt_val dt_f_app_key_released(dt_vm* vm) {
+	if (dt_nargs(vm) == 0) {
 		return dt_to_bool(false);
 	}
 	return dt_to_bool(d_app_key_released(str_to_d_key(dt_arg_cstr(vm, 0))));
