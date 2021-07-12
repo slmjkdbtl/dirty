@@ -1,5 +1,5 @@
-$ lst = fs.readdir(".")
-	:sort(~ (a, b) a < b)
+fs.readdir(".")
+	:sort()
 	:sort(~ (a, b) fs.isdir(a))
 	:filter(~ (p) p[0] != ".")
 	:each(~ (p) {
@@ -9,3 +9,9 @@ $ lst = fs.readdir(".")
 			print("  " + p)
 		}
 	})
+
+fs.readdir("demo")
+	:filter(~ (p) p:ends(".dt"))
+	:each(print)
+
+print(os.date(fs.lastmod("Makefile")))

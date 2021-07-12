@@ -5,7 +5,7 @@ print(lst)
 
 lst
 	:map(~ (i) i + 1)
-	:sort(~ (a, b) a < b)
+	:sort()
 	:each(print)
 
 print(os.date())

@@ -350,17 +350,18 @@ void      dt_load_std    (dt_vm* vm);
 void      dt_err       (dt_vm* vm, char* fmt, ...);
 
 // for getting args in cfunc
-dt_val    dt_arg              (dt_vm* vm, int idx);
 bool      dt_arg_exists       (dt_vm* vm, int idx);
+dt_val    dt_arg              (dt_vm* vm, int idx);
+dt_val    dt_arg_or           (dt_vm* vm, int idx, dt_val v);
 dt_num    dt_arg_num          (dt_vm* vm, int idx);
-dt_num    dt_arg_opt_num      (dt_vm* vm, int idx, dt_num n);
+dt_num    dt_arg_num_or       (dt_vm* vm, int idx, dt_num n);
 dt_bool   dt_arg_bool         (dt_vm* vm, int idx);
-dt_bool   dt_arg_opt_bool     (dt_vm* vm, int idx, dt_bool b);
+dt_bool   dt_arg_bool_or      (dt_vm* vm, int idx, dt_bool b);
 dt_str*   dt_arg_str          (dt_vm* vm, int idx);
 char*     dt_arg_cstr         (dt_vm* vm, int idx);
 char*     dt_arg_cstr_dup     (dt_vm* vm, int idx);
-char*     dt_arg_opt_cstr     (dt_vm* vm, int idx, char* str);
-char*     dt_arg_opt_cstr_dup (dt_vm* vm, int idx, char* str);
+char*     dt_arg_cstr_or      (dt_vm* vm, int idx, char* str);
+char*     dt_arg_cstr_or_dup  (dt_vm* vm, int idx, char* str);
 dt_map*   dt_arg_map          (dt_vm* vm, int idx);
 dt_arr*   dt_arg_arr          (dt_vm* vm, int idx);
 dt_func*  dt_arg_func         (dt_vm* vm, int idx);
@@ -1266,6 +1267,28 @@ bool dt_eq(dt_val a, dt_val b) {
 		return a == b;
 	}
 #endif
+}
+
+bool dt_val_lt(dt_vm* vm, dt_val a, dt_val b) {
+
+	dt_val_ty ta = dt_typeof(a);
+	dt_val_ty tb = dt_typeof(b);
+	if (ta != tb) {
+		return false;
+	} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
+		return dt_as_num(a) < dt_as_num(b);
+	} else if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
+		return dt_str_cmp(dt_as_str(a), dt_as_str(b)) < 0;
+	} else {
+		dt_err(
+			vm,
+			"cannot compare a '%s' with '%s'\n",
+			dt_typename(ta),
+			dt_typename(tb)
+		);
+		return false;
+	}
+
 }
 
 // TODO: func? cdata?
@@ -2388,6 +2411,7 @@ dt_val dt_arg(dt_vm* vm, int idx) {
 	if (v < vm->stack_top) {
 		return *v;
 	} else {
+		// TODO: error?
 		return DT_NIL;
 	}
 }
@@ -2422,12 +2446,20 @@ void dt_check_nargs(dt_vm* vm, int expected, int actual) {
 	}
 }
 
+dt_val dt_arg_or(dt_vm* vm, int idx, dt_val v) {
+	if (dt_arg_exists(vm, idx)) {
+		return dt_arg(vm, idx);
+	} else {
+		return v;
+	}
+}
+
 dt_num dt_arg_num(dt_vm* vm, int idx) {
 	dt_check_arg(vm, idx, DT_VAL_NUM);
 	return dt_as_num(dt_arg(vm, idx));
 }
 
-dt_num dt_arg_opt_num(dt_vm* vm, int idx, dt_num n) {
+dt_num dt_arg_num_or(dt_vm* vm, int idx, dt_num n) {
 	if (dt_arg_exists(vm, idx)) {
 		return dt_arg_num(vm, idx);
 	} else {
@@ -2440,7 +2472,7 @@ dt_bool dt_arg_bool(dt_vm* vm, int idx) {
 	return dt_as_bool(dt_arg(vm, idx));
 }
 
-dt_bool dt_arg_opt_bool(dt_vm* vm, int idx, dt_bool n) {
+dt_bool dt_arg_bool_or(dt_vm* vm, int idx, dt_bool n) {
 	if (dt_arg_exists(vm, idx)) {
 		return dt_arg_bool(vm, idx);
 	} else {
@@ -2461,7 +2493,7 @@ char* dt_arg_cstr_dup(dt_vm* vm, int idx) {
 	return dt_str_cstr(dt_arg_str(vm, idx));
 }
 
-char* dt_arg_opt_cstr(dt_vm* vm, int idx, char* str) {
+char* dt_arg_cstr_or(dt_vm* vm, int idx, char* str) {
 	if (dt_arg_exists(vm, idx)) {
 		return dt_arg_cstr(vm, idx);
 	} else {
@@ -2469,7 +2501,7 @@ char* dt_arg_opt_cstr(dt_vm* vm, int idx, char* str) {
 	}
 }
 
-char* dt_arg_opt_cstr_dup(dt_vm* vm, int idx, char* str) {
+char* dt_arg_cstr_or_dup(dt_vm* vm, int idx, char* str) {
 	if (dt_arg_exists(vm, idx)) {
 		return dt_arg_cstr_dup(vm, idx);
 	} else {
@@ -2941,23 +2973,7 @@ static void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_LT: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_typeof(a);
-				dt_val_ty tb = dt_typeof(b);
-				if (ta != tb) {
-					dt_vm_push(vm, DT_FALSE);
-				} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
-					dt_vm_push(vm, dt_to_bool(dt_as_num(a) < dt_as_num(b)));
-				} else if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
-					dt_vm_push(vm, dt_to_bool(dt_str_cmp(dt_as_str(a), dt_as_str(b)) < 0));
-				} else {
-					dt_err(
-						vm,
-						"cannot compare a '%s' with '%s'\n",
-						dt_typename(ta),
-						dt_typename(tb)
-					);
-					dt_vm_push(vm, DT_FALSE);
-				}
+				dt_vm_push(vm, dt_to_bool(dt_val_lt(vm, a, b)));
 				break;
 			}
 
@@ -5277,7 +5293,7 @@ static dt_val dt_f_type(dt_vm* vm, int nargs) {
 }
 
 static dt_val dt_f_exit(dt_vm* vm, int nargs) {
-	dt_num code = dt_arg_opt_num(vm, 0, EXIT_SUCCESS);
+	dt_num code = dt_arg_num_or(vm, 0, EXIT_SUCCESS);
 	exit(code);
 	return DT_NIL;
 }
@@ -5310,7 +5326,7 @@ static dt_val dt_f_time(dt_vm* vm, int nargs) {
 }
 
 static dt_val dt_f_date(dt_vm* vm, int nargs) {
-	time_t t = time(NULL);
+	time_t t = dt_arg_num_or(vm, 0, time(NULL));
 	struct tm tm = *localtime(&t);
 	dt_map* date = dt_map_new(vm);
 	dt_map_cset(vm, date, "year", dt_to_num(tm.tm_year + 1900));
@@ -5341,6 +5357,28 @@ static dt_val dt_f_str_split(dt_vm* vm, int nargs) {
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_str* sep = dt_arg_str(vm, 1);
 	return dt_to_arr(dt_str_split(vm, str, sep));
+}
+
+static dt_val dt_f_str_chars(dt_vm* vm, int nargs) {
+	dt_str* str = dt_arg_str(vm, 0);
+	return dt_to_arr(dt_str_split(vm, str, dt_str_new(vm, "")));
+}
+
+static dt_val dt_f_str_starts(dt_vm* vm, int nargs) {
+	dt_str* str = dt_arg_str(vm, 0);
+	dt_str* str2 = dt_arg_str(vm, 1);
+	return dt_to_bool(strncmp(str->chars, str2->chars, str2->len) == 0);
+}
+
+
+static dt_val dt_f_str_ends(dt_vm* vm, int nargs) {
+	dt_str* str = dt_arg_str(vm, 0);
+	dt_str* str2 = dt_arg_str(vm, 1);
+	return dt_to_bool(strncmp(
+		str->chars + str->len - str2->len,
+		str2->chars,
+		str2->len
+	) == 0);
 }
 
 static dt_val dt_f_str_rep(dt_vm* vm, int nargs) {
@@ -5457,9 +5495,15 @@ static dt_val dt_f_arr_map(dt_vm* vm, int nargs) {
 	return dt_to_arr(dt_arr_map(vm, arr, f));
 }
 
+static dt_val dt_f_arr_sort_def(dt_vm* vm, int nargs) {
+	dt_val v1 = dt_arg(vm, 0);
+	dt_val v2 = dt_arg(vm, 1);
+	return dt_to_bool(dt_val_lt(vm, v1, v2));
+}
+
 static dt_val dt_f_arr_sort(dt_vm* vm, int nargs) {
 	dt_arr* arr = dt_arg_arr(vm, 0);
-	dt_val f = dt_arg(vm, 1);
+	dt_val f = dt_arg_or(vm, 1, dt_to_cfunc(dt_f_arr_sort_def));
 	return dt_to_arr(dt_arr_sort(vm, arr, f));
 }
 
@@ -5645,7 +5689,7 @@ static dt_val dt_f_math_pow(dt_vm* vm, int nargs) {
 
 static dt_val dt_f_math_round(dt_vm* vm, int nargs) {
 	dt_num n = dt_arg_num(vm, 0);
-	int f = dt_arg_opt_num(vm, 1, 0);
+	int f = dt_arg_num_or(vm, 1, 0);
 	int p = pow(10, f);
 	return dt_to_num(round(n * p) / p);
 }
@@ -5749,26 +5793,108 @@ static dt_val dt_f_fs_readdir(dt_vm* vm, int nargs) {
 
 }
 
-// TODO: prevent intermediate buffer
+// TODO: read bytes?
 static dt_val dt_f_fs_read(dt_vm* vm, int nargs) {
 	char* path = dt_arg_cstr(vm, 0);
-	size_t size;
-	char* content = dt_read_file(path, &size);
-	dt_str* str = dt_str_new_len(vm, content, size);
-	free(content);
-	return dt_to_str(str);
+	FILE* file = fopen(path, "r");
+	if (!file) {
+		dt_err(vm, "failed to read file '%s'\n", path);
+		return DT_NIL;
+	}
+	fseek(file, 0L, SEEK_END);
+	size_t size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	dt_str* content = dt_str_alloc(vm, size);
+	size_t size_read = fread(content->chars, sizeof(char), size, file);
+	content->chars[size_read] = '\0';
+	fclose(file);
+	dt_str_hash(content);
+	return dt_to_str(content);
+}
+
+static dt_val dt_f_fs_write(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	dt_str* content = dt_arg_str(vm, 1);
+	FILE* file = fopen(path, "w");
+	if (!file) {
+		dt_err(vm, "failed to write to file '%s'\n", path);
+		return DT_NIL;
+	}
+	fwrite(content->chars, 1, content->len, file);
+	fclose(file);
+	return DT_NIL;
+}
+
+static dt_val dt_f_fs_exists(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	struct stat st;
+	return dt_to_bool(stat(path, &st) == 0);
 }
 
 static dt_val dt_f_fs_isfile(dt_vm* vm, int nargs) {
 	char* path = dt_arg_cstr(vm, 0);
-	struct stat sb;
-	return dt_to_bool(stat(path, &sb) == 0 && S_ISREG(sb.st_mode));
+	struct stat st;
+	return dt_to_bool(stat(path, &st) == 0 && S_ISREG(st.st_mode));
 }
 
 static dt_val dt_f_fs_isdir(dt_vm* vm, int nargs) {
 	char* path = dt_arg_cstr(vm, 0);
-	struct stat sb;
-	return dt_to_bool(stat(path, &sb) == 0 && S_ISDIR(sb.st_mode));
+	struct stat st;
+	return dt_to_bool(stat(path, &st) == 0 && S_ISDIR(st.st_mode));
+}
+
+static dt_val dt_f_fs_size(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	struct stat st;
+    if (stat(path, &st) != 0) {
+		dt_err(vm, "failed to get size of file '%s'\n", path);
+		return DT_NIL;
+	}
+	return dt_to_num(st.st_size);
+}
+
+static dt_val dt_f_fs_lastmod(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	struct stat st;
+    if (stat(path, &st) != 0) {
+		dt_err(vm, "failed to get lastmod of file '%s'\n", path);
+		return DT_NIL;
+	}
+	return dt_to_num(st.st_mtime);
+}
+
+static dt_val dt_f_fs_mkdir(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	// TODO: let user pass perm with default 755?
+	int status = mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+	if (status == -1) {
+		dt_err(vm, "failed to mkdir '%s'\n", path);
+	}
+	return DT_NIL;
+}
+
+// TODO
+static dt_val dt_f_fs_copy(dt_vm* vm, int nargs) {
+	char* from = dt_arg_cstr(vm, 0);
+	char* to = dt_arg_cstr(vm, 1);
+	return DT_NIL;
+}
+
+// TODO
+static dt_val dt_f_fs_move(dt_vm* vm, int nargs) {
+	char* from = dt_arg_cstr(vm, 0);
+	char* to = dt_arg_cstr(vm, 1);
+	return DT_NIL;
+}
+
+// TODO: remove dir
+static dt_val dt_f_fs_remove(dt_vm* vm, int nargs) {
+	char* path = dt_arg_cstr(vm, 0);
+	int status = remove(path);
+	if (status == -1) {
+		dt_err(vm, "failed to remove '%s'\n", path);
+	}
+	return DT_NIL;
 }
 
 static dt_val dt_f_fs_extname(dt_vm* vm, int nargs) {
@@ -5787,6 +5913,25 @@ static dt_val dt_f_fs_basename(dt_vm* vm, int nargs) {
 	dot = dot ? dot : path + strlen(path);
 	slash = slash ? slash + 1 : path;
 	return dt_to_str(dt_str_new_len(vm, slash, dot - slash));
+}
+
+#if defined(__APPLE__)
+#import <Foundation/Foundation.h>
+#endif
+
+static dt_val dt_f_fs_resdir(dt_vm* vm, int nargs) {
+#if defined(__APPLE__)
+	@autoreleasepool {
+		const char* dir = [[[NSBundle mainBundle] resourcePath] UTF8String];
+		return dt_to_str(dt_str_new(vm, (char*)dir));
+	}
+#endif
+	return dt_to_str(dt_str_new(vm, ""));
+}
+
+// TODO
+static dt_val dt_f_fs_datadir(dt_vm* vm, int nargs) {
+	return dt_to_str(dt_str_new(vm, ""));
 }
 
 static dt_cfunc_reg std_funcs[] = {
@@ -5809,6 +5954,9 @@ static dt_cfunc_reg os_funcs[] = {
 static dt_cfunc_reg str_funcs[] = {
 	{ "replace", dt_f_str_replace, },
 	{ "split", dt_f_str_split, },
+	{ "chars", dt_f_str_chars, },
+	{ "starts", dt_f_str_starts, },
+	{ "ends", dt_f_str_ends, },
 	{ "rep", dt_f_str_rep, },
 	{ "toupper", dt_f_str_toupper, },
 	{ "tolower", dt_f_str_tolower, },
@@ -5864,11 +6012,21 @@ static dt_cfunc_reg func_funcs[] = {
 
 static dt_cfunc_reg fs_funcs[] = {
 	{ "read", dt_f_fs_read, },
+	{ "write", dt_f_fs_write, },
 	{ "readdir", dt_f_fs_readdir, },
+	{ "exists", dt_f_fs_exists, },
+	{ "mkdir", dt_f_fs_mkdir, },
+	{ "copy", dt_f_fs_copy, },
+	{ "move", dt_f_fs_move, },
+	{ "remove", dt_f_fs_remove, },
 	{ "isfile", dt_f_fs_isfile, },
 	{ "isdir", dt_f_fs_isdir, },
+	{ "size", dt_f_fs_size, },
+	{ "lastmod", dt_f_fs_lastmod, },
 	{ "extname", dt_f_fs_extname, },
 	{ "basename", dt_f_fs_basename, },
+	{ "resdir", dt_f_fs_resdir, },
+	{ "datadir", dt_f_fs_datadir, },
 	{ NULL, NULL, },
 };
 
