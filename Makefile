@@ -42,6 +42,10 @@ CFLAGS += -Iext
 CFLAGS += -Wno-unused-function
 CFLAGS += -Wno-unused-variable
 
+ifeq ($(TARGET),web)
+CFLAGS += -Wno-unused-but-set-variable
+endif
+
 ifdef DEBUG
 CFLAGS += -O0 -g
 else
@@ -103,7 +107,7 @@ LDFLAGS += -lGL
 endif
 
 ifeq ($(TARGET),web)
-LDFLAGS += --preload-file demo/res@res
+LDFLAGS += --preload-file demo
 endif
 
 ifndef DEBUG
@@ -118,6 +122,7 @@ default: run
 .PHONY: run
 run: $(BIN)
 ifeq ($(TARGET),web)
+	sed 's/{{args}}/$(ARGS)/' misc/web.html > $(BIN_PATH)/index.html
 	cd $(BIN_PATH); \
 		PORT=8000 fserv
 else ifeq ($(TARGET),iossim)
@@ -125,7 +130,7 @@ else ifeq ($(TARGET),iossim)
 	xcrun simctl boot $(SIMULATOR)
 	xcrun simctl install $(SIMULATOR) $<.app
 	open -a Simulator --args -CurrentDeviceUDID $(SIMULATOR)
-	xcrun simctl launch --console $(SIMULATOR) xyz.space55.$(DEMO)
+	xcrun simctl launch --console $(SIMULATOR) xyz.space55.dirty
 else ifeq ($(TARGET),ios)
 	$(MAKE) bundle
 # 	ios-deploy --debug --bundle $<.app
@@ -135,43 +140,37 @@ endif
 
 $(BIN): dirty.c
 	@mkdir -p $(BIN_PATH)
-	cc $(CFLAGS) $(LDFLAGS) $< -o $@
+ifeq ($(TARGET),web)
+	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@.js
+else
+	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+endif
 
 .PHONY: debug
 debug: $(BIN)
 	lldb -- $< $(ARGS)
 
 .PHONY: bundle
-bundle: $(BIN_PATH)/$(DEMO)
+bundle: $(BIN)
 ifeq ($(TARGET),macos)
 	mkdir -p $<.app/Contents/MacOS
 	mkdir -p $<.app/Contents/Resources
 	cp $< $<.app/Contents/MacOS
 	cp -R $(DEMO_PATH)/res $<.app/Contents/Resources
-	sed 's/{{name}}/$(DEMO)/' misc/macos.plist > $<.app/Contents/Info.plist
+	sed 's/{{name}}/dirty/' misc/macos.plist > $<.app/Contents/Info.plist
 else ifeq ($(TARGET),iossim)
 	mkdir -p $<.app
 	cp $< $<.app/
 	cp -r $(BIN_PATH)/res $<.app/
-	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
+	sed 's/{{name}}/dirty/' misc/ios.plist > $<.app/Info.plist
 else ifeq ($(TARGET),ios)
 	mkdir -p $<.app
 	cp $< $<.app/
 	cp -r $(BIN_PATH)/res $<.app/
-	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
+	sed 's/{{name}}/dirty/' misc/ios.plist > $<.app/Info.plist
 # 	cp $(PROFILE) $<.app/embedded.mobileprovision
 # 	codesign -s "$(CODESIGN)" $<.app
 endif
-
-# $(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
-# 	@mkdir -p $(BIN_PATH)
-# ifeq ($(TARGET),web)
-# 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@.js $<
-# 	sed 's/{{name}}/$*/' misc/web.html > $(BIN_PATH)/index.html
-# else
-# 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
-# endif
-# 	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
 
 .PHONY: install
 install: $(BIN)

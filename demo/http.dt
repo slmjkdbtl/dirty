@@ -1,7 +1,13 @@
-print(http.fetch("space55.xyz", {}))
+$ http = import("http")
+$ fs = import("fs")
+$ port = 8000
 
-http.serve(8000, ~ (req) {
-	print(req)
+print(fs.ext("Makefile"))
+
+-- print(http.fetch("space55.xyz", {}))
+print("http://localhost:" + port)
+
+http.serve(port, ~ (req) {
 	~> {
 		status: 200
 		body: "oh hi"

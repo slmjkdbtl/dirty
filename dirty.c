@@ -79,6 +79,7 @@
 #include <unistd.h>
 #include <poll.h>
 #include <netdb.h>
+#include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -1424,7 +1425,7 @@ dt_val dt_val_clone(dt_vm* vm, dt_val v) {
 	}
 }
 
-void dt_func_free(dt_vm *vm, dt_func* func);
+void dt_func_free_rec(dt_vm *vm, dt_func* func);
 
 void dt_val_free_rec(dt_vm* vm, dt_val v) {
 	switch (dt_typeof(v)) {
@@ -1437,11 +1438,11 @@ void dt_val_free_rec(dt_vm* vm, dt_val v) {
 		case DT_VAL_STR:
 			dt_str_free(vm, dt_as_str2(v));
 			break;
+		case DT_VAL_FUNC:
+			dt_func_free_rec(vm, dt_as_func2(v));
+			break;
 		case DT_VAL_CDATA:
 			dt_cdata_free(vm, dt_as_cdata2(v));
-			break;
-		case DT_VAL_FUNC:
-			dt_func_free(vm, dt_as_func2(v));
 			break;
 		default:
 			break;
@@ -1718,14 +1719,14 @@ dt_str* dt_num_to_str(dt_vm* vm, dt_num num) {
 	return str;
 }
 
-inline size_t dt_nxt_pow2(size_t x) {
+size_t dt_nxt_pow2(size_t x) {
 	x--;
 	x |= x >> 1;
 	x |= x >> 2;
 	x |= x >> 4;
 	x |= x >> 8;
 	x |= x >> 16;
-	x |= x >> 32;
+// 	x |= x >> 32;
 	x++;
 	return x;
 }
@@ -2276,6 +2277,13 @@ void dt_func_free(dt_vm *vm, dt_func* func) {
 	dt_free(vm, func, sizeof(dt_func));
 }
 
+void dt_func_free_rec(dt_vm *vm, dt_func* func) {
+	for (int i = 0; i < func->num_upvals; i++) {
+		dt_upval_free(vm, func->upvals[i]);
+	}
+	dt_func_free(vm, func);
+}
+
 void dt_cdata_print(dt_cdata* cdata) {
 	printf("<cdata#%p>", (void*)cdata);
 }
@@ -2561,12 +2569,12 @@ dt_vm dt_vm_new() {
 		.stack_top = NULL,
 		.stack_bot = NULL,
 		.globals = NULL,
-		.libs = NULL,
-		.math_lib = NULL,
-		.str_lib = NULL,
-		.arr_lib = NULL,
-		.map_lib = NULL,
-		.func_lib = NULL,
+		.libs = dt_map_new(NULL),
+		.math_lib = dt_map_new(NULL),
+		.str_lib = dt_map_new(NULL),
+		.arr_lib = dt_map_new(NULL),
+		.map_lib = dt_map_new(NULL),
+		.func_lib = dt_map_new(NULL),
 		.strs = dt_map_new(NULL),
 		.open_upvals = {0},
 		.num_upvals = 0,
@@ -2577,12 +2585,6 @@ dt_vm dt_vm_new() {
 	vm.stack_bot = vm.stack;
 	vm.stack_top = vm.stack + 1;
 	vm.globals = dt_map_new(&vm);
-	vm.libs = dt_map_new(NULL);
-	vm.math_lib = dt_map_new(NULL);
-	vm.str_lib = dt_map_new(NULL);
-	vm.arr_lib = dt_map_new(NULL);
-	vm.map_lib = dt_map_new(NULL);
-	vm.func_lib = dt_map_new(NULL);
 	vm.holds = dt_arr_new(&vm);
 	vm.stack_top = vm.stack;
 	return vm;
@@ -5473,7 +5475,9 @@ dt_val dt_f_type(dt_vm* vm) {
 dt_val dt_f_import(dt_vm* vm) {
 	dt_str* name = dt_arg_str(vm, 0);
 	dt_val lib = dt_map_get(vm->libs, name);
-	// TODO: import file
+	if (dt_is_nil(lib)) {
+		return dt_dofile(vm, dt_arg_cstr(vm, 0));
+	}
 	return lib;
 }
 
@@ -5485,6 +5489,7 @@ dt_val dt_f_exit(dt_vm* vm) {
 
 #define DT_POPEN_SIZE 128
 
+#if !defined(D_IOS)
 dt_val dt_f_exec(dt_vm* vm) {
 	char* cmd = dt_arg_cstr(vm, 0);
 	system(cmd);
@@ -5495,6 +5500,7 @@ dt_val dt_f_exec(dt_vm* vm) {
 // 	pclose(pipe);
 // 	return dt_to_str(dt_str_new(vm, buf));
 }
+#endif
 
 dt_val dt_f_getenv(dt_vm* vm) {
 	char* var = dt_arg_cstr(vm, 0);
@@ -6115,6 +6121,7 @@ dt_val dt_f_fs_cwd(dt_vm* vm) {
 	return dt_to_str(str);
 }
 
+#if !defined(D_WEB)
 dt_val dt_f_fs_realpath(dt_vm* vm) {
 	char* path = dt_arg_cstr(vm, 0);
 	char* real = realpath(path, NULL);
@@ -6122,6 +6129,7 @@ dt_val dt_f_fs_realpath(dt_vm* vm) {
 	free(real);
 	return dt_to_str(str);
 }
+#endif
 
 dt_val dt_f_fs_cd(dt_vm* vm) {
 	char* path = dt_arg_cstr(vm, 0);
@@ -6640,7 +6648,9 @@ void dt_load_libs(dt_vm* vm) {
 #endif
 
 	dt_map_centry os_lib[] = {
+#if !defined(D_IOS)
 		{ "exec", dt_to_cfunc(dt_f_exec), },
+#endif
 		{ "time", dt_to_cfunc(dt_f_time), },
 		{ "date", dt_to_cfunc(dt_f_date), },
 		{ "getenv", dt_to_cfunc(dt_f_getenv), },
@@ -6724,7 +6734,9 @@ void dt_load_libs(dt_vm* vm) {
 		{ "ext", dt_to_cfunc(dt_f_fs_ext), },
 		{ "base", dt_to_cfunc(dt_f_fs_base), },
 		{ "cwd", dt_to_cfunc(dt_f_fs_cwd), },
+#if !defined(D_WEB)
 		{ "realpath", dt_to_cfunc(dt_f_fs_realpath), },
+#endif
 		{ "cd", dt_to_cfunc(dt_f_fs_cd), },
 		{ "resdir", dt_to_cfunc(dt_f_fs_resdir), },
 		{ "datadir", dt_to_cfunc(dt_f_fs_datadir), },
@@ -6818,7 +6830,7 @@ dt_val dt_dofile(dt_vm* vm, char* path) {
 	char* code = dt_read_file(path, NULL);
 
 	if (!code) {
-		dt_err(vm, "failed to read '%s'\n", path);
+		dt_err(vm, "failed to read file '%s'\n", path);
 		return DT_NIL;
 	}
 
