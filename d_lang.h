@@ -6235,7 +6235,10 @@ static char* dt_http_status_txt[] = {
 	"Service Unavailable",
 	"Gateway Timeout",
 	"HTTP Version Not Supported",
-	"", "", "", ""
+	"Variant Also Negotiates",
+	"Insufficient Storage",
+	"Loop Detected",
+	"",
 	"", "", "", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "", "", "",
 	"", "", "", "", "", "", "", "", "", "",
@@ -6329,14 +6332,88 @@ static dt_val dt_f_http_serve(dt_vm* vm) {
 				int conn_fd = pfds[i].fd;
 				size_t size;
 
-				// TODO: parse
+				dt_map* req = dt_map_new(vm);
+				dt_map* req_headers = dt_map_new(vm);
+				dt_map_cset(vm, req, "headers", dt_to_map(req_headers));
 				char* req_msg = dt_read_all(conn_fd, DT_HTTP_CHUNK_SIZE, &size);
+				char* cursor = req_msg;
+				char* method = strchr(cursor, ' ');
+
+				if (!method) {
+					dt_err(vm, "bad http request\n");
+					goto fail;
+				}
+
+				dt_map_cset(
+					vm,
+					req,
+					"method",
+					dt_to_str(dt_str_new_len(vm, cursor, method - cursor))
+				);
+
+				cursor = method + 1;
+				char* path = strchr(cursor, ' ');
+
+				if (!path) {
+					dt_err(vm, "bad http request\n");
+					goto fail;
+				}
+
+				dt_map_cset(
+					vm,
+					req,
+					"path",
+					dt_to_str(dt_str_new_len(vm, cursor, path - cursor))
+				);
+
+				cursor = path + 1;
+
+				char* version = strstr(cursor, "\r\n");
+
+				if (!version) {
+					dt_err(vm, "bad http request\n");
+					goto fail;
+				}
+
+				dt_map_cset(
+					vm,
+					req,
+					"version",
+					dt_to_str(dt_str_new_len(vm, cursor, version - cursor))
+				);
+
+				cursor = version + 2;
+
+				for (;;) {
+					if (cursor[0] == '\r' && cursor[1] == '\n') {
+						cursor += 2;
+						break;
+					}
+					char* key = strstr(cursor, ": ");
+					if (!key) {
+						dt_err(vm, "bad http request\n");
+						goto fail;
+					}
+					dt_str* dkey = dt_str_new_len(vm, cursor, key - cursor);
+					cursor = key + 2;
+					char* val = strstr(cursor, "\r\n");
+					if (!val) {
+						dt_err(vm, "bad http request\n");
+						goto fail;
+					}
+					dt_str* dval = dt_str_new_len(vm, cursor, val - cursor);
+					cursor = val + 2;
+					dt_map_set(vm, req_headers, dkey, dt_to_str(dval));
+				}
+
+				dt_str* body = dt_str_new_len(vm, cursor, req_msg + size - cursor);
+				dt_map_cset(vm, req, "body", dt_to_str(body));
 
 				dt_val res_val = dt_call(
 					vm,
 					cb,
 					1,
-					dt_to_str(dt_str_new_len(vm, req_msg, size))
+					dt_to_map(req)
 				);
 
 				// TODO: accept binary
@@ -6345,7 +6422,7 @@ static dt_val dt_f_http_serve(dt_vm* vm) {
 					int status = dt_as_num_or(vm, dt_map_cget(vm, res, "status"), 200);
 					if (status >= 600) {
 						dt_err(vm, "invalid status code: %d\n", status);
-						status = 500;
+						goto fail;
 					}
 					dt_str* body = dt_as_str_or(vm, dt_map_cget(vm, res, "body"), dt_str_new(vm, ""));
 					dt_map* headers = dt_as_map_or(vm, dt_map_cget(vm, res, "headers"), dt_map_new(vm));
@@ -6383,6 +6460,7 @@ static dt_val dt_f_http_serve(dt_vm* vm) {
 					write(conn_fd, body->chars, body->len);
 				}
 
+fail:
 				free(req_msg);
 				close(conn_fd);
 				pfds[i--] = pfds[--num_pfds];
