@@ -1,4 +1,7 @@
+print(http.fetch("space55.xyz", {}))
+
 http.serve(8000, ~ (req) {
+	print(req)
 	~> {
 		status: 200
 		body: "oh hi"

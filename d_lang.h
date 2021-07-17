@@ -308,6 +308,11 @@ typedef struct dt_map {
 	dt_map_entry* entries;
 } dt_map;
 
+typedef struct {
+	dt_map*  map;
+	uint32_t idx;
+} dt_map_iter;
+
 // TODO: store dt_logics on top level instead of consts
 // holding bytecodes and constants
 typedef struct {
@@ -531,6 +536,7 @@ dt_val   dt_map_cget       (dt_vm* vm, dt_map* map, char* key);
 void     dt_map_cset       (dt_vm* vm, dt_map* map, char* key, dt_val val);
 void     dt_map_reg        (dt_vm* vm, dt_map* map, dt_map_centry* table);
 bool     dt_map_has        (dt_map* map, dt_str* key);
+bool     dt_map_chas       (dt_vm* vm, dt_map* map, char* key);
 dt_val   dt_map_rm         (dt_map* map, dt_str* key);
 // get an array of keys
 dt_arr*  dt_map_keys       (dt_vm* vm, dt_map* map);
@@ -539,6 +545,9 @@ dt_arr*  dt_map_vals       (dt_vm* vm, dt_map* map);
 dt_map*  dt_map_clone      (dt_vm* vm, dt_map* src);
 void     dt_map_print      (dt_map* map);
 void     dt_map_println    (dt_map* map);
+
+dt_map_iter   dt_map_iter_new   (dt_map* map);
+dt_map_entry* dt_map_iter_nxt   (dt_map_iter* iter);
 
 dt_cdata* dt_cdata_new     (dt_vm* vm, void* data, size_t size);
 void      dt_cdata_free    (dt_vm* vm, dt_cdata* cdata);
@@ -2081,10 +2090,15 @@ void dt_map_set(dt_vm* vm, dt_map* map, dt_str* key, dt_val val) {
 
 }
 
+// TODO: review
 bool dt_map_has(dt_map* map, dt_str* key) {
 	int idx = dt_map_find(map, key);
 	dt_map_entry e = map->entries[idx];
 	return idx != -1 && e.key != NULL && !dt_is_nil(e.val);
+}
+
+bool dt_map_chas(dt_vm* vm, dt_map* map, char* key) {
+	return dt_map_has(map, dt_str_new(vm, key));
 }
 
 dt_val dt_map_rm(dt_map* map, dt_str* key) {
@@ -2107,12 +2121,28 @@ dt_val dt_map_get(dt_map* map, dt_str* key) {
 
 }
 
-void dt_map_each(dt_vm* vm, dt_map* map, dt_val f) {
-	for (int i = 0; i < map->cap; i++) {
-		dt_map_entry e = map->entries[i];
-		if (e.key && !dt_is_nil(e.val)) {
-			dt_call(vm, f, 2, e.key, e.val);
+dt_map_iter dt_map_iter_new(dt_map* map) {
+	return (dt_map_iter) {
+		.map = map,
+		.idx = 0,
+	};
+}
+
+dt_map_entry* dt_map_iter_nxt(dt_map_iter* iter) {
+	while (iter->idx < iter->map->cap) {
+		dt_map_entry* e = iter->map->entries + iter->idx++;
+		if (e->key && !dt_is_nil(e->val)) {
+			return e;
 		}
+	}
+	return NULL;
+}
+
+void dt_map_each(dt_vm* vm, dt_map* map, dt_val f) {
+	dt_map_iter iter = dt_map_iter_new(map);
+	dt_map_entry* e;
+	while ((e = dt_map_iter_nxt(&iter))) {
+		dt_call(vm, f, 2, e->key, e->val);
 	}
 }
 
@@ -2132,47 +2162,43 @@ void dt_map_reg(dt_vm* vm, dt_map* map, dt_map_centry* table) {
 
 dt_arr* dt_map_keys(dt_vm* vm, dt_map* map) {
 	dt_arr* arr = dt_arr_new(vm);
-	for (int i = 0; i < map->cap; i++) {
-		dt_map_entry e = map->entries[i];
-		if (e.key && !dt_is_nil(e.val)) {
-			dt_arr_push(vm, arr, dt_to_str(e.key));
-		}
+	dt_map_iter iter = dt_map_iter_new(map);
+	dt_map_entry* e;
+	while ((e = dt_map_iter_nxt(&iter))) {
+		dt_arr_push(vm, arr, dt_to_str(e->key));
 	}
 	return arr;
 }
 
 dt_arr* dt_map_vals(dt_vm* vm, dt_map* map) {
 	dt_arr* arr = dt_arr_new(vm);
-	for (int i = 0; i < map->cap; i++) {
-		dt_map_entry e = map->entries[i];
-		if (e.key && !dt_is_nil(e.val)) {
-			dt_arr_push(vm, arr, e.val);
-		}
+	dt_map_iter iter = dt_map_iter_new(map);
+	dt_map_entry* e;
+	while ((e = dt_map_iter_nxt(&iter))) {
+		dt_arr_push(vm, arr, e->val);
 	}
 	return arr;
 }
 
 dt_map* dt_map_clone(dt_vm* vm, dt_map* src) {
 	dt_map* new = dt_map_new_len(vm, src->cap);
-	for (int i = 0; i < src->cap; i++) {
-		dt_map_entry e = src->entries[i];
-		if (e.key && !dt_is_nil(e.val)) {
-			dt_map_set(vm, new, e.key, dt_val_clone(vm, e.val));
-		}
+	dt_map_iter iter = dt_map_iter_new(src);
+	dt_map_entry* e;
+	while ((e = dt_map_iter_nxt(&iter))) {
+		dt_map_set(vm, new, e->key, dt_val_clone(vm, e->val));
 	}
 	return new;
 }
 
 void dt_map_print(dt_map* map) {
 	printf("{ ");
-	for (int i = 0; i < map->cap; i++) {
-		dt_map_entry e = map->entries[i];
-		if (e.key && !dt_is_nil(e.val)) {
-			dt_str_print(e.key);
-			printf(": ");
-			dt_val_print(e.val);
-			printf(", ");
-		}
+	dt_map_iter iter = dt_map_iter_new(map);
+	dt_map_entry* e;
+	while ((e = dt_map_iter_nxt(&iter))) {
+		dt_str_print(e->key);
+		printf(": ");
+		dt_val_print(e->val);
+		printf(", ");
 	}
 	printf("}");
 }
@@ -6119,6 +6145,7 @@ void dt_write_fmt(int fd, char* fmt, ...) {
 }
 
 #include <poll.h>
+#include <netdb.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -6418,46 +6445,67 @@ static dt_val dt_f_http_serve(dt_vm* vm) {
 
 				// TODO: accept binary
 				if (!dt_is_nil(res_val)) {
+
 					dt_map* res = dt_as_map(vm, res_val);
 					int status = dt_as_num_or(vm, dt_map_cget(vm, res, "status"), 200);
+
 					if (status >= 600) {
 						dt_err(vm, "invalid status code: %d\n", status);
 						goto fail;
 					}
+
 					dt_str* body = dt_as_str_or(vm, dt_map_cget(vm, res, "body"), dt_str_new(vm, ""));
 					dt_map* headers = dt_as_map_or(vm, dt_map_cget(vm, res, "headers"), dt_map_new(vm));
+
+					// get date
 					time_t rawtime;
 					time(&rawtime);
 					struct tm* timeinfo = gmtime(&rawtime);
 					char datebuf[DT_DATEBUF_SIZE];
+
 					size_t datebuf_len = strftime(
 						datebuf,
 						DT_DATEBUF_SIZE,
 						"%a, %d %b %Y %T GMT",
 						timeinfo
 					);
+
+					// status line
 					dt_write_fmt(conn_fd, "HTTP/1.1 %d %s\r\n", status, dt_http_status_txt[status]);
-					dt_write_fmt(conn_fd, "Connection: %s\r\n", "keep-alive");
-					dt_write_fmt(conn_fd, "Content-Length: %d\r\n", body->len);
-					dt_write_fmt(conn_fd, "Date: %.*s\r\n", datebuf_len, datebuf);
-					for (int i = 0; i < headers->cap; i++) {
-						dt_map_entry e = headers->entries[i];
-						if (e.key && !dt_is_nil(e.val)) {
-							dt_str* val = dt_as_str(vm, e.val);
-							if (val) {
-								dt_write_fmt(
-									conn_fd,
-									"%.*s: %.*s\r\n",
-									e.key->len,
-									e.key->chars,
-									val->len,
-									val->chars
-								);
-							}
+
+					// default fields
+					if (!dt_map_chas(vm, headers, "Connection")) {
+						dt_write_fmt(conn_fd, "Connection: %s\r\n", "keep-alive");
+					}
+					if (!dt_map_chas(vm, headers, "Content-Length")) {
+						dt_write_fmt(conn_fd, "Content-Length: %d\r\n", body->len);
+					}
+					if (!dt_map_chas(vm, headers, "Date")) {
+						dt_write_fmt(conn_fd, "Date: %.*s\r\n", datebuf_len, datebuf);
+					}
+
+					// write headers
+					dt_map_iter iter = dt_map_iter_new(headers);
+					dt_map_entry* e;
+
+					while ((e = dt_map_iter_nxt(&iter))) {
+						dt_str* val = dt_as_str(vm, e->val);
+						if (val) {
+							dt_write_fmt(
+								conn_fd,
+								"%.*s: %.*s\r\n",
+								e->key->len,
+								e->key->chars,
+								val->len,
+								val->chars
+							);
 						}
 					}
+
+					// write body
 					write(conn_fd, "\r\n", 2);
 					write(conn_fd, body->chars, body->len);
+
 				}
 
 fail:
@@ -6472,6 +6520,41 @@ fail:
 	}
 
 	close(sock_fd);
+
+}
+
+static dt_val dt_f_http_fetch(dt_vm* vm) {
+
+	char* host = dt_arg_cstr(vm, 0);
+	dt_map* req = dt_arg_map(vm, 1);
+	struct addrinfo* res;
+
+	struct addrinfo hints = {
+		.ai_family = AF_UNSPEC,
+		.ai_socktype = SOCK_STREAM,
+		.ai_flags = AI_PASSIVE | AI_CANONNAME,
+	};
+
+	getaddrinfo(host, "http", &hints, &res);
+
+	int sock_fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+
+	if (sock_fd == -1) {
+		dt_err(vm, "failed to create socket\n");
+		return DT_NIL;
+	}
+
+	connect(sock_fd, res->ai_addr, res->ai_addrlen);
+	freeaddrinfo(res);
+
+// 	SSL_CTX* sctx = 0;
+// 	SSL* ssl = SSL_new(sctx);
+
+	close(sock_fd);
+
+// 	write(client->sock_fd, req_msg, strlen(req_msg));
+
+	return DT_NIL;
 
 }
 
@@ -6626,6 +6709,7 @@ void dt_load_std(dt_vm* vm) {
 
 	dt_map_centry http_lib[] = {
 		{ "serve", dt_to_cfunc(dt_f_http_serve), },
+		{ "fetch", dt_to_cfunc(dt_f_http_fetch), },
 		{ NULL, DT_NIL, },
 	};
 
