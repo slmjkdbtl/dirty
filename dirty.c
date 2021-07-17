@@ -36,35 +36,34 @@
 // TODO: hot reload
 // TODO: separate compiler and vm
 
-// vm value stack max size
 #define DT_STACK_MAX 2048
-// dt_arr minimum init size
 #define DT_ARR_INIT_SIZE 4
-// dt_map minimum init size
 #define DT_MAP_INIT_SIZE 8
-// dt_map expand rate (expand when cnt > cap * rate)
 #define DT_MAP_MAX_LOAD 0.75
-// trigger gc when memory reached this threshold
 #define DT_GC_THRESHOLD 1024 * 1024
-// gc threshold ^ grow rate
 #define DT_GC_GROW 2
-#define DT_PI 3.14
+#define D_PI 3.14
+
+// #define DT_NO_NANBOX
+// #define DT_VM_LOG
+// #define DT_GC_LOG
+// #define DT_GC_STRESS
 
 #if defined(__APPLE__)
 	#include <TargetConditionals.h>
 	#if TARGET_OS_OSX
-		#define DT_MACOS
+		#define D_MACOS
 	#elif TARGET_OS_IOS
-		#define DT_IOS
+		#define D_IOS
 	#endif
 #elif defined(__EMSCRIPTEN__)
-	#define DT_WEB
+	#define D_WEB
 #elif defined(_WIN32) || defined(_WIN64)
-	#define DT_WINDOWS
+	#define D_WINDOWS
 #elif defined(__ANDROID__)
-	#define DT_ANDROID
+	#define D_ANDROID
 #elif defined(__linux__) || defined(__unix__)
-	#define DT_LINUX
+	#define D_LINUX
 #endif
 
 #include <stdbool.h>
@@ -358,6 +357,12 @@ typedef struct dt_vm {
 	dt_val*    stack_top;
 	dt_val*    stack_bot;
 	dt_map*    globals;
+	dt_map*    libs;
+	dt_map*    map_lib;
+	dt_map*    arr_lib;
+	dt_map*    str_lib;
+	dt_map*    func_lib;
+	dt_map*    math_lib;
 	dt_arr*    holds;
 	dt_map*    strs;
 	dt_upval*  open_upvals[UINT8_MAX];
@@ -585,9 +590,6 @@ void      dt_vm_free   (dt_vm* vm);
 dt_val    dt_eval        (dt_vm* vm, char* src);
 dt_val    dt_dofile      (dt_vm* vm, char* path);
 
-// loads standard library
-void      dt_load_std    (dt_vm* vm);
-
 // throw runtime error
 void      dt_err       (dt_vm* vm, char* fmt, ...);
 
@@ -715,6 +717,7 @@ dt_arr*  dt_arr_new      (dt_vm* vm);
 // create array with capacity
 dt_arr*  dt_arr_new_len  (dt_vm* vm, int len);
 void     dt_arr_free     (dt_vm* vm, dt_arr* arr);
+void     dt_arr_free_rec (dt_vm* vm, dt_arr* arr);
 dt_val   dt_arr_get      (dt_arr* arr, int idx);
 void     dt_arr_set      (dt_vm* vm, dt_arr* arr, int idx, dt_val val);
 void     dt_arr_insert   (dt_vm* vm, dt_arr* arr, int idx, dt_val val);
@@ -746,6 +749,7 @@ dt_map*  dt_map_new      (dt_vm* vm);
 dt_map*  dt_map_new_len    (dt_vm* vm, int len);
 dt_map*  dt_map_new_reg    (dt_vm* vm, dt_map_centry* table);
 void     dt_map_free       (dt_vm* vm, dt_map* map);
+void     dt_map_free_rec   (dt_vm* vm, dt_map* map);
 dt_val   dt_map_get        (dt_map* map, dt_str* key);
 void     dt_map_set        (dt_vm* vm, dt_map* map, dt_str* key, dt_val val);
 void     dt_map_each       (dt_vm* vm, dt_map* map, dt_val f);
@@ -1420,6 +1424,30 @@ dt_val dt_val_clone(dt_vm* vm, dt_val v) {
 	}
 }
 
+void dt_func_free(dt_vm *vm, dt_func* func);
+
+void dt_val_free_rec(dt_vm* vm, dt_val v) {
+	switch (dt_typeof(v)) {
+		case DT_VAL_ARR:
+			dt_arr_free_rec(vm, dt_as_arr2(v));
+			break;
+		case DT_VAL_MAP:
+			dt_map_free_rec(vm, dt_as_map2(v));
+			break;
+		case DT_VAL_STR:
+			dt_str_free(vm, dt_as_str2(v));
+			break;
+		case DT_VAL_CDATA:
+			dt_cdata_free(vm, dt_as_cdata2(v));
+			break;
+		case DT_VAL_FUNC:
+			dt_func_free(vm, dt_as_func2(v));
+			break;
+		default:
+			break;
+	}
+}
+
 uint32_t dt_hash(char* key, int len) {
 	uint32_t hash = 2166136261u;
 	for (int i = 0; i < len; i++) {
@@ -1723,6 +1751,13 @@ void dt_arr_free(dt_vm* vm, dt_arr* arr) {
 	dt_free(vm, arr, sizeof(dt_arr));
 }
 
+void dt_arr_free_rec(dt_vm* vm, dt_arr* arr) {
+	for (int i = 0; i < arr->len; i++) {
+		dt_val_free_rec(vm, arr->values[i]);
+	}
+	dt_arr_free(vm, arr);
+}
+
 dt_val dt_arr_get(dt_arr* arr, int idx) {
 	if (idx < 0) {
 		idx = arr->len + idx;
@@ -2000,6 +2035,16 @@ dt_map* dt_map_new_reg(dt_vm* vm, dt_map_centry* table) {
 void dt_map_free(dt_vm* vm, dt_map* map) {
 	dt_free(vm, map->entries, map->cap * sizeof(dt_map_entry));
 	dt_free(vm, map, sizeof(dt_map));
+}
+
+void dt_map_free_rec(dt_vm* vm, dt_map* map) {
+	dt_map_iter iter = dt_map_iter_new(map);
+	dt_map_entry* e;
+	while ((e = dt_map_iter_nxt(&iter))) {
+		dt_str_free(vm, e->key);
+		dt_val_free_rec(vm, e->val);
+	}
+	dt_map_free(vm, map);
 }
 
 void dt_map_mark(dt_map* map) {
@@ -2516,7 +2561,12 @@ dt_vm dt_vm_new() {
 		.stack_top = NULL,
 		.stack_bot = NULL,
 		.globals = NULL,
-		.holds = NULL,
+		.libs = NULL,
+		.math_lib = NULL,
+		.str_lib = NULL,
+		.arr_lib = NULL,
+		.map_lib = NULL,
+		.func_lib = NULL,
 		.strs = dt_map_new(NULL),
 		.open_upvals = {0},
 		.num_upvals = 0,
@@ -2527,6 +2577,12 @@ dt_vm dt_vm_new() {
 	vm.stack_bot = vm.stack;
 	vm.stack_top = vm.stack + 1;
 	vm.globals = dt_map_new(&vm);
+	vm.libs = dt_map_new(NULL);
+	vm.math_lib = dt_map_new(NULL);
+	vm.str_lib = dt_map_new(NULL);
+	vm.arr_lib = dt_map_new(NULL);
+	vm.map_lib = dt_map_new(NULL);
+	vm.func_lib = dt_map_new(NULL);
 	vm.holds = dt_arr_new(&vm);
 	vm.stack_top = vm.stack;
 	return vm;
@@ -3411,24 +3467,24 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 				switch (dt_typeof(val)) {
 					case DT_VAL_NUM: {
-						meta = dt_as_map2(dt_map_cget(vm, vm->globals, "math"));
+						meta = vm->math_lib;
 						break;
 					}
 					case DT_VAL_STR: {
-						meta = dt_as_map2(dt_map_cget(vm, vm->globals, "str"));
+						meta = vm->str_lib;
 						break;
 					}
 					case DT_VAL_ARR: {
-						meta = dt_as_map2(dt_map_cget(vm, vm->globals, "arr"));
+						meta = vm->arr_lib;
 						break;
 					}
 					case DT_VAL_MAP: {
-						meta = dt_as_map2(dt_map_cget(vm, vm->globals, "map"));
+						meta = vm->map_lib;
 						break;
 					}
 					case DT_VAL_FUNC:
 					case DT_VAL_CFUNC: {
-						meta = dt_as_map2(dt_map_cget(vm, vm->globals, "func"));
+						meta = vm->func_lib;
 						break;
 					}
 					default:
@@ -3874,7 +3930,13 @@ void dt_gc_run(dt_vm* vm) {
 
 void dt_vm_free(dt_vm* vm) {
 	dt_gc_sweep(vm);
-	dt_map_free(NULL, vm->strs);
+	dt_map_free_rec(NULL, vm->strs);
+	dt_map_free_rec(NULL, vm->libs);
+	dt_map_free_rec(NULL, vm->math_lib);
+	dt_map_free_rec(NULL, vm->str_lib);
+	dt_map_free_rec(NULL, vm->arr_lib);
+	dt_map_free_rec(NULL, vm->map_lib);
+	dt_map_free_rec(NULL, vm->func_lib);
 	memset(vm, 0, sizeof(dt_vm));
 }
 
@@ -5408,6 +5470,13 @@ dt_val dt_f_type(dt_vm* vm) {
 	return dt_to_str(dt_str_new(vm, tname));
 }
 
+dt_val dt_f_import(dt_vm* vm) {
+	dt_str* name = dt_arg_str(vm, 0);
+	dt_val lib = dt_map_get(vm->libs, name);
+	// TODO: import file
+	return lib;
+}
+
 dt_val dt_f_exit(dt_vm* vm) {
 	dt_num code = dt_arg_num_or(vm, 0, EXIT_SUCCESS);
 	exit(code);
@@ -5854,12 +5923,12 @@ dt_val dt_f_math_clamp(dt_vm* vm) {
 
 dt_val dt_f_math_deg(dt_vm* vm) {
 	dt_num n = dt_arg_num(vm, 0);
-	return dt_to_num(n * (180.0 / DT_PI));
+	return dt_to_num(n * (180.0 / D_PI));
 }
 
 dt_val dt_f_math_rad(dt_vm* vm) {
 	dt_num n = dt_arg_num(vm, 0);
-	return dt_to_num(n / (180.0 / DT_PI));
+	return dt_to_num(n / (180.0 / D_PI));
 }
 
 dt_val dt_f_math_sign(dt_vm* vm) {
@@ -6543,27 +6612,28 @@ dt_val dt_f_http_fetch(dt_vm* vm) {
 
 }
 
-void dt_load_std(dt_vm* vm) {
+void dt_load_libs(dt_vm* vm) {
 
 	dt_map_centry std_lib[] = {
 		{ "type", dt_to_cfunc(dt_f_type), },
 		{ "eval", dt_to_cfunc(dt_f_eval), },
 		{ "dofile", dt_to_cfunc(dt_f_dofile), },
 		{ "print", dt_to_cfunc(dt_f_print), },
+		{ "import", dt_to_cfunc(dt_f_import), },
 		{ NULL, DT_NIL, },
 	};
 
-#if defined(DT_MACOS)
+#if defined(D_MACOS)
 	dt_val os = dt_to_str(dt_str_new(vm, "macos"));
-#elif defined(DT_IOS)
+#elif defined(D_IOS)
 	dt_val os = dt_to_str(dt_str_new(vm, "ios"));
-#elif defined(DT_WEB)
+#elif defined(D_WEB)
 	dt_val os = dt_to_str(dt_str_new(vm, "web"));
-#elif defined(DT_WINDOWS)
+#elif defined(D_WINDOWS)
 	dt_val os = dt_to_str(dt_str_new(vm, "windows"));
-#elif defined(DT_ANDROID)
+#elif defined(D_ANDROID)
 	dt_val os = dt_to_str(dt_str_new(vm, "android"));
-#elif defined(DT_LINUX)
+#elif defined(D_LINUX)
 	dt_val os = dt_to_str(dt_str_new(vm, "linux"));
 #else
 	dt_val os = DT_NIL;
@@ -6688,7 +6758,7 @@ void dt_load_std(dt_vm* vm) {
 		{ "sign", dt_to_cfunc(dt_f_math_sign), },
 		{ "rand", dt_to_cfunc(dt_f_math_rand), },
 		{ "srand", dt_to_cfunc(dt_f_math_srand), },
-		{ "PI", dt_to_num(DT_PI), },
+		{ "PI", dt_to_num(D_PI), },
 		{ NULL, DT_NIL, },
 	};
 
@@ -6698,17 +6768,22 @@ void dt_load_std(dt_vm* vm) {
 		{ NULL, DT_NIL, },
 	};
 
+	dt_map_centry app_lib[] = {
+		{ NULL, DT_NIL, },
+	};
+
 	dt_map_reg(vm, vm->globals, std_lib);
 
-	// TODO: use non-colliding names
-	dt_map_cset(vm, vm->globals, "os", dt_to_map(dt_map_new_reg(vm, os_lib)));
-	dt_map_cset(vm, vm->globals, "math", dt_to_map(dt_map_new_reg(vm, math_lib)));
-	dt_map_cset(vm, vm->globals, "str", dt_to_map(dt_map_new_reg(vm, str_lib)));
-	dt_map_cset(vm, vm->globals, "arr", dt_to_map(dt_map_new_reg(vm, arr_lib)));
-	dt_map_cset(vm, vm->globals, "map", dt_to_map(dt_map_new_reg(vm, map_lib)));
-	dt_map_cset(vm, vm->globals, "func", dt_to_map(dt_map_new_reg(vm, func_lib)));
-	dt_map_cset(vm, vm->globals, "fs", dt_to_map(dt_map_new_reg(vm, fs_lib)));
-	dt_map_cset(vm, vm->globals, "http", dt_to_map(dt_map_new_reg(vm, http_lib)));
+	dt_map_reg(NULL, vm->math_lib, math_lib);
+	dt_map_reg(NULL, vm->str_lib, str_lib);
+	dt_map_reg(NULL, vm->arr_lib, arr_lib);
+	dt_map_reg(NULL, vm->map_lib, map_lib);
+	dt_map_reg(NULL, vm->func_lib, func_lib);
+
+	dt_map_cset(NULL, vm->libs, "os", dt_to_map(dt_map_new_reg(NULL, os_lib)));
+	dt_map_cset(NULL, vm->libs, "fs", dt_to_map(dt_map_new_reg(NULL, fs_lib)));
+	dt_map_cset(NULL, vm->libs, "http", dt_to_map(dt_map_new_reg(NULL, http_lib)));
+	dt_map_cset(NULL, vm->libs, "app", dt_to_map(dt_map_new_reg(NULL, app_lib)));
 
 }
 
@@ -6756,7 +6831,7 @@ dt_val dt_dofile(dt_vm* vm, char* path) {
 
 int main(int argc, char** argv) {
 	dt_vm vm = dt_vm_new();
-	dt_load_std(&vm);
+	dt_load_libs(&vm);
 	if (argc >= 2) {
 		dt_dofile(&vm, argv[1]);
 	}
