@@ -28,8 +28,8 @@ ifeq ($(TARGET),iossim)
 CC := xcrun -sdk iphonesimulator clang
 endif
 
-DEMO := hi
 BIN_PATH := build/$(TARGET)
+BIN := $(BIN_PATH)/dirty
 DEMO_PATH := demo
 
 # flags
@@ -110,18 +110,13 @@ ifndef DEBUG
 LDFLAGS += -flto
 endif
 
-# files
-DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
-DEMOS := $(patsubst $(DEMO_PATH)/%.c, %, $(DEMO_FILES))
-DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(BIN_PATH)/%, $(DEMO_FILES))
-
 PREFIX := /usr/local
 
 .PHONY: default
 default: run
 
 .PHONY: run
-run: $(BIN_PATH)/$(DEMO)
+run: $(BIN)
 ifeq ($(TARGET),web)
 	cd $(BIN_PATH); \
 		PORT=8000 fserv
@@ -135,18 +130,16 @@ else ifeq ($(TARGET),ios)
 	$(MAKE) bundle
 # 	ios-deploy --debug --bundle $<.app
 else
-	./$< $(ARGS)
+	$< $(ARGS)
 endif
 
+$(BIN): dirty.c
+	@mkdir -p $(BIN_PATH)
+	cc $(CFLAGS) $(LDFLAGS) $< -o $@
+
 .PHONY: debug
-debug: $(BIN_PATH)/$(DEMO)
-	lldb $<
-
-.PHONY: demo
-demo: $(BIN_PATH)/$(DEMO)
-
-.PHONY: demos
-demos: $(DEMO_TARGETS)
+debug: $(BIN)
+	lldb -- $< $(ARGS)
 
 .PHONY: bundle
 bundle: $(BIN_PATH)/$(DEMO)
@@ -170,26 +163,18 @@ else ifeq ($(TARGET),ios)
 # 	codesign -s "$(CODESIGN)" $<.app
 endif
 
-$(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
-	@mkdir -p $(BIN_PATH)
-ifeq ($(TARGET),web)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@.js $<
-	sed 's/{{name}}/$*/' misc/web.html > $(BIN_PATH)/index.html
-else
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
-endif
-	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
-
-$(BIN_PATH)/dirty: dirty.c *.h
-	@mkdir -p $(BIN_PATH)
-	cc $(CFLAGS) $(LDFLAGS) $< -o $@
-
-.PHONY: runscript
-runscript: $(BIN_PATH)/dirty
-	$< $(ARGS)
+# $(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
+# 	@mkdir -p $(BIN_PATH)
+# ifeq ($(TARGET),web)
+# 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@.js $<
+# 	sed 's/{{name}}/$*/' misc/web.html > $(BIN_PATH)/index.html
+# else
+# 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+# endif
+# 	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
 
 .PHONY: install
-install: $(BIN_PATH)/dirty
+install: $(BIN)
 	install $< /usr/local/bin/dirty
 
 .PHONY: clean
