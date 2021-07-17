@@ -280,8 +280,7 @@ void d_http_serve(int port, d_http_handler handler) {
 
 				int conn_fd = pfds[i].fd;
 
-				char* req_msg = d_read_all(conn_fd, 4, NULL);
-// 				char* req_msg = d_read_all(conn_fd, D_HTTP_CHUNK_SIZE, NULL);
+				char* req_msg = d_read_all(conn_fd, D_HTTP_CHUNK_SIZE, NULL);
 				// TODO: parse req msg
 				// TODO: res msg builder abstractions
 				char* res_msg = handler(req_msg);

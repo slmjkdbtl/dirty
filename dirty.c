@@ -55,15 +55,15 @@ dt_val dt_f_app_run(dt_vm* vm) {
 	}
 	dt_val width = dt_map_cget(vm, conf, "width");
 	if (dt_is_num(width)) {
-		desc.width = dt_as_num(width);
+		desc.width = dt_as_num2(width);
 	}
 	dt_val height = dt_map_cget(vm, conf, "height");
 	if (dt_is_num(height)) {
-		desc.height = dt_as_num(height);
+		desc.height = dt_as_num2(height);
 	}
 	dt_val title = dt_map_cget(vm, conf, "title");
 	if (dt_is_str(title)) {
-		desc.title = strdup(dt_as_str(title)->chars);
+		desc.title = strdup(dt_as_str2(title)->chars);
 	}
 	d_app_run(desc);
 	return DT_NIL;
@@ -199,23 +199,25 @@ dt_val dt_f_app_key_released(dt_vm* vm) {
 	return dt_to_bool(d_app_key_released(str_to_d_key(dt_arg_cstr(vm, 0))));
 }
 
-dt_cfunc_reg app_funcs[] = {
-	{ "run", dt_f_app_run, },
-	{ "quit", dt_f_app_quit, },
-	{ "width", dt_f_app_width, },
-	{ "height", dt_f_app_height, },
-	{ "time", dt_f_app_time, },
-	{ "dt", dt_f_app_dt, },
-	{ "key_pressed", dt_f_app_key_pressed, },
-	{ "key_down", dt_f_app_key_down, },
-	{ "key_released", dt_f_app_key_released, },
-	{ NULL, NULL, },
-};
-
 void load_app(dt_vm* vm) {
+
+	dt_map_centry app_lib[] = {
+		{ "run", dt_to_cfunc(dt_f_app_run), },
+		{ "quit", dt_to_cfunc(dt_f_app_quit), },
+		{ "width", dt_to_cfunc(dt_f_app_width), },
+		{ "height", dt_to_cfunc(dt_f_app_height), },
+		{ "time", dt_to_cfunc(dt_f_app_time), },
+		{ "dt", dt_to_cfunc(dt_f_app_dt), },
+		{ "key_pressed", dt_to_cfunc(dt_f_app_key_pressed), },
+		{ "key_down", dt_to_cfunc(dt_f_app_key_down), },
+		{ "key_released", dt_to_cfunc(dt_f_app_key_released), },
+		{ NULL, DT_NIL, },
+	};
+
 	dt_map* app = dt_map_new(vm);
-	dt_map_reg_cfuncs(vm, app, app_funcs);
+	dt_map_reg(vm, app, app_lib);
 	dt_map_cset(vm, vm->globals, "app", dt_to_map(app));
+
 }
 
 void load_gfx(dt_vm* vm) {

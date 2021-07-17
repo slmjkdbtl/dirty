@@ -1,0 +1,6 @@
+http.serve(8000, ~ (req) {
+	~> {
+		status: 500
+		body: "oh hi"
+	}
+})
