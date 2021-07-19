@@ -627,7 +627,6 @@ dt_map*   dt_arg_map          (dt_vm* vm, int idx);
 dt_arr*   dt_arg_arr          (dt_vm* vm, int idx);
 dt_func*  dt_arg_func         (dt_vm* vm, int idx);
 bool      dt_check_args       (dt_vm* vm, int nargs, ...);
-void      dt_check_nargs      (dt_vm* vm, int expected, int actual);
 
 // calling a dt_func
 dt_val    dt_call      (dt_vm* vm, dt_val func, int nargs, ...);
@@ -2668,7 +2667,7 @@ int dt_nargs(dt_vm* vm) {
 }
 
 bool dt_arg_exists(dt_vm* vm, int idx) {
-	return dt_nargs(vm) > idx;
+	return dt_nargs(vm) > idx && dt_typeof(dt_arg(vm, idx)) != DT_VAL_NIL;
 }
 
 bool dt_check_args(dt_vm* vm, int nargs, ...) {
@@ -2691,17 +2690,6 @@ bool dt_check_args(dt_vm* vm, int nargs, ...) {
 	}
 	va_end(args);
 	return true;
-}
-
-void dt_check_nargs(dt_vm* vm, int expected, int actual) {
-	if (expected != actual) {
-		dt_throw(
-			vm,
-			"expected %d args, found %d",
-			expected,
-			actual
-		);
-	}
 }
 
 dt_val dt_arg_or(dt_vm* vm, int idx, dt_val v) {
@@ -2740,7 +2728,6 @@ dt_str* dt_arg_str(dt_vm* vm, int idx) {
 	return dt_as_str2(dt_arg(vm, idx));
 }
 
-// TODO: take nil
 dt_str* dt_arg_str_or(dt_vm* vm, int idx, dt_str* str) {
 	if (dt_arg_exists(vm, idx)) {
 		return dt_arg_str(vm, idx);
@@ -2759,7 +2746,12 @@ char* dt_arg_cstr(dt_vm* vm, int idx) {
 }
 
 char* dt_arg_cstr_dup(dt_vm* vm, int idx) {
-	return dt_str_cstr(dt_arg_str(vm, idx));
+	dt_str* str = dt_arg_str(vm, idx);
+	if (str) {
+		return dt_str_cstr(dt_arg_str(vm, idx));
+	} else {
+		return NULL;
+	}
 }
 
 char* dt_arg_cstr_or(dt_vm* vm, int idx, char* str) {
