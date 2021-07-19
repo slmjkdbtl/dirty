@@ -1,0 +1,19 @@
+$ run = ~ () {
+	$ err = ~ () {
+		$ err2 = ~ () {
+			:( "123"
+		}
+		err2()
+		print("not working 12312313")
+-- 		$ a = 123 + ?
+-- 		$ b = 3
+-- 		~> a + b
+	}
+	err()
+	print("not working")
+	~> 6
+}
+
+$ a = :) run | ~ (e) print("line #" + e.line + ": " + e.msg)
+
+print(a)

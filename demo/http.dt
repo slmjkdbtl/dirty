@@ -2,8 +2,6 @@ $ http = import("http")
 $ fs = import("fs")
 $ port = 8000
 
-print(fs.ext("Makefile"))
-
 -- print(http.fetch("space55.xyz", {}))
 print("http://localhost:" + port)
 

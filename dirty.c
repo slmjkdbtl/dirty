@@ -35,6 +35,8 @@
 // TODO: load dyn lib
 // TODO: hot reload
 // TODO: separate compiler and vm
+// TODO: don't rely on emscripten
+// TODO: cli arg for log
 
 #define DT_STACK_MAX 2048
 #define DT_ARR_INIT_SIZE 4
@@ -44,10 +46,19 @@
 #define DT_GC_GROW 2
 #define D_PI 3.14
 
-// #define DT_NO_NANBOX
-// #define DT_VM_LOG
-// #define DT_GC_LOG
-// #define DT_GC_STRESS
+#define D_LIB_OS
+#define D_LIB_FS
+#define D_LIB_APP
+#define D_LIB_GFX
+#define D_LIB_HTTP
+#define D_LIB_AUDIO
+#define D_LIB_SYNTH
+#define D_LIB_SOCKET
+
+// #define D_NO_NANBOX
+#define D_VM_LOG
+// #define D_GC_LOG
+// #define D_GC_STRESS
 
 #if defined(__APPLE__)
 	#include <TargetConditionals.h>
@@ -78,13 +89,7 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <poll.h>
-#include <netdb.h>
-#include <errno.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
 
 // value types
 typedef enum {
@@ -136,7 +141,7 @@ typedef struct {
 	char chars[5];
 } dt_pstr;
 
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 
 struct dt_val;
 typedef struct dt_val (dt_cfunc)(struct dt_vm* vm);
@@ -350,6 +355,18 @@ typedef struct dt_func {
 	dt_upval**  upvals;
 } dt_func;
 
+typedef struct {
+	int line;
+	char* msg;
+} dt_err;
+
+typedef struct {
+	uint8_t* ip;
+	dt_val*  stack_top;
+	dt_val*  stack_bot;
+	dt_func* func;
+} dt_vm_restore;
+
 // the runtime virtual machine
 typedef struct dt_vm {
 	dt_func*   func;
@@ -371,6 +388,9 @@ typedef struct dt_vm {
 	dt_heaper* heaper;
 	size_t     mem;
 	size_t     next_gc;
+	bool       throwing;
+	dt_err     err;
+	dt_vm_restore restore;
 } dt_vm;
 
 typedef struct {
@@ -381,6 +401,7 @@ typedef struct {
 // op codes
 typedef enum {
 	DT_OP_STOP,
+	DT_OP_THROW,
 	DT_OP_CONST,
 	DT_OP_NIL,
 	DT_OP_TRUE,
@@ -410,7 +431,7 @@ typedef enum {
 	DT_OP_SETI,
 	DT_OP_CALL,
 	DT_OP_CALL2,
-	DT_OP_MKSTR,
+	DT_OP_TRY,
 	DT_OP_MKFUNC,
 	DT_OP_MKARR,
 	DT_OP_MKMAP,
@@ -592,7 +613,7 @@ dt_val    dt_eval        (dt_vm* vm, char* src);
 dt_val    dt_dofile      (dt_vm* vm, char* path);
 
 // throw runtime error
-void      dt_err       (dt_vm* vm, char* fmt, ...);
+void      dt_throw       (dt_vm* vm, char* fmt, ...);
 
 // for getting args in cfunc
 int       dt_nargs            (dt_vm* vm);
@@ -880,7 +901,7 @@ bool dt_token_eq(dt_token* t1, dt_token* t2) {
 
 dt_val_ty dt_typeof(dt_val v) {
 
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.type;
 #else
 	if ((~v & DT_SMASK_EXPO) != 0) {
@@ -926,7 +947,7 @@ char* dt_typename(dt_val_ty ty) {
 }
 
 dt_val dt_to_num(dt_num n) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_NUM,
 		.data.num = n,
@@ -937,7 +958,7 @@ dt_val dt_to_num(dt_num n) {
 }
 
 dt_num dt_as_num2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.num;
 #else
 	return *(dt_num*)(&v);
@@ -946,9 +967,9 @@ dt_num dt_as_num2(dt_val v) {
 
 void dt_assert_ty(dt_vm* vm, dt_val_ty expected, dt_val_ty actual) {
 	if (expected != actual) {
-		dt_err(
+		dt_throw(
 			vm,
-			"expected '%s', found '%s'\n",
+			"expected '%s', found '%s'",
 			dt_typename(expected),
 			dt_typename(actual)
 		);
@@ -1045,7 +1066,7 @@ dt_val dt_to_bool(dt_bool b) {
 }
 
 dt_bool dt_as_bool2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.boolean;
 #else
 	return v == DT_TRUE ? true : false;
@@ -1053,7 +1074,7 @@ dt_bool dt_as_bool2(dt_val v) {
 }
 
 dt_val dt_to_range(dt_range r) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_RANGE,
 		.data.range = r,
@@ -1064,7 +1085,7 @@ dt_val dt_to_range(dt_range r) {
 }
 
 dt_range dt_as_range2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.range;
 #else
 	uint32_t n = v & DT_SMASK_RANGE;
@@ -1082,7 +1103,7 @@ dt_range dt_as_range2(dt_val v) {
 // }
 
 // dt_val dt_to_pstr(dt_pstr s) {
-// #ifdef DT_NO_NANBOX
+// #ifdef D_NO_NANBOX
 // 	return (dt_val) {
 // 		.type = DT_VAL_PSTR,
 // 		.data.pstr = s,
@@ -1107,7 +1128,7 @@ dt_range dt_as_range2(dt_val v) {
 // #endif
 // }
 
-#ifndef DT_NO_NANBOX
+#ifndef D_NO_NANBOX
 void* dt_as_ptr2(dt_val v) {
 	return (void*)(v & DT_SMASK_PTR);
 }
@@ -1121,7 +1142,7 @@ dt_val dt_to_heap(void* ptr) {
 #endif
 
 dt_val dt_to_str(dt_str* str) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_STR,
 		.data.str = str,
@@ -1132,7 +1153,7 @@ dt_val dt_to_str(dt_str* str) {
 }
 
 dt_str* dt_as_str2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.str;
 #else
 	return (dt_str*)dt_as_ptr2(v);
@@ -1140,7 +1161,7 @@ dt_str* dt_as_str2(dt_val v) {
 }
 
 dt_val dt_to_arr(dt_arr* arr) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_ARR,
 		.data.arr = arr,
@@ -1151,7 +1172,7 @@ dt_val dt_to_arr(dt_arr* arr) {
 }
 
 dt_arr* dt_as_arr2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.arr;
 #else
 	return (dt_arr*)dt_as_ptr2(v);
@@ -1159,7 +1180,7 @@ dt_arr* dt_as_arr2(dt_val v) {
 }
 
 dt_val dt_to_map(dt_map* map) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_MAP,
 		.data.map = map,
@@ -1170,7 +1191,7 @@ dt_val dt_to_map(dt_map* map) {
 }
 
 dt_map* dt_as_map2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.map;
 #else
 	return (dt_map*)dt_as_ptr2(v);
@@ -1178,7 +1199,7 @@ dt_map* dt_as_map2(dt_val v) {
 }
 
 dt_val dt_to_func(dt_func* func) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_FUNC,
 		.data.func = func,
@@ -1189,7 +1210,7 @@ dt_val dt_to_func(dt_func* func) {
 }
 
 dt_func* dt_as_func2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.func;
 #else
 	return (dt_func*)dt_as_ptr2(v);
@@ -1200,7 +1221,7 @@ dt_val dt_to_cfunc(dt_cfunc* cfunc) {
 	if (!cfunc) {
 		return DT_NIL;
 	}
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_CFUNC,
 		.data.cfunc = cfunc,
@@ -1211,7 +1232,7 @@ dt_val dt_to_cfunc(dt_cfunc* cfunc) {
 }
 
 dt_cfunc* dt_as_cfunc2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.cfunc;
 #else
 	return (dt_cfunc*)dt_as_ptr2(v);
@@ -1222,7 +1243,7 @@ dt_val dt_to_cdata(dt_cdata* cdata) {
 	if (!cdata) {
 		return DT_NIL;
 	}
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_CDATA,
 		.data.cdata = cdata,
@@ -1233,7 +1254,7 @@ dt_val dt_to_cdata(dt_cdata* cdata) {
 }
 
 dt_cdata* dt_as_cdata2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.cdata;
 #else
 	return (dt_cdata*)dt_as_ptr2(v);
@@ -1244,7 +1265,7 @@ dt_val dt_to_cptr(void* cptr) {
 	if (!cptr) {
 		return DT_NIL;
 	}
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_CPTR,
 		.data.cptr = cptr,
@@ -1255,7 +1276,7 @@ dt_val dt_to_cptr(void* cptr) {
 }
 
 void* dt_as_cptr2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.cptr;
 #else
 	return (void*)dt_as_ptr2(v);
@@ -1266,7 +1287,7 @@ dt_val dt_to_logic(dt_logic* logic) {
 	if (!logic) {
 		return DT_NIL;
 	}
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return (dt_val) {
 		.type = DT_VAL_LOGIC,
 		.data.logic = logic,
@@ -1277,7 +1298,7 @@ dt_val dt_to_logic(dt_logic* logic) {
 }
 
 dt_logic* dt_as_logic2(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return v.data.logic;
 #else
 	return (dt_logic*)dt_as_ptr2(v);
@@ -1286,7 +1307,7 @@ dt_logic* dt_as_logic2(dt_val v) {
 
 // if the value is a heap ptr / gc managed
 bool dt_is_heap(dt_val v) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	dt_val_ty t = v.type;
 	return
 		t == DT_VAL_STR
@@ -1372,7 +1393,7 @@ void dt_val_println(dt_val val) {
 bool dt_val_eq(dt_val a, dt_val b) {
 	dt_val_ty ta = dt_typeof(a);
 	dt_val_ty tb = dt_typeof(b);
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	if (ta != tb) {
 		return false;
 	} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
@@ -1726,7 +1747,6 @@ size_t dt_nxt_pow2(size_t x) {
 	x |= x >> 4;
 	x |= x >> 8;
 	x |= x >> 16;
-// 	x |= x >> 32;
 	x++;
 	return x;
 }
@@ -2114,7 +2134,7 @@ void dt_map_set(dt_vm* vm, dt_map* map, dt_str* key, dt_val val) {
 	int idx = dt_map_find(map, key);
 
 	if (idx == -1) {
-		dt_err(vm, "map overflow\n");
+		dt_throw(vm, "map overflow");
 	}
 
 	if (map->entries[idx].key) {
@@ -2316,7 +2336,7 @@ void dt_cdata_free(dt_vm* vm, dt_cdata* cdata) {
 }
 
 bool dt_val_truthy(dt_val val) {
-#ifdef DT_NO_NANBOX
+#ifdef D_NO_NANBOX
 	return !(
 		val.type == DT_VAL_NIL
 		|| (val.type == DT_VAL_BOOL && val.data.boolean == false)
@@ -2384,6 +2404,7 @@ void dt_chunk_free(dt_chunk* c) {
 char* dt_op_name(dt_op op) {
 	switch (op) {
 		case DT_OP_STOP:      return "STOP";
+		case DT_OP_THROW:     return "THROW";
 		case DT_OP_CONST:     return "CONST";
 		case DT_OP_NIL:       return "NIL";
 		case DT_OP_TRUE:      return "TRUE";
@@ -2413,7 +2434,7 @@ char* dt_op_name(dt_op op) {
 		case DT_OP_SETI:      return "SETI";
 		case DT_OP_CALL:      return "CALL";
 		case DT_OP_CALL2:     return "CALL2";
-		case DT_OP_MKSTR:     return "MKSTR";
+		case DT_OP_TRY:       return "TRY";
 		case DT_OP_MKFUNC:    return "MKFUNC";
 		case DT_OP_MKARR:     return "MKARR";
 		case DT_OP_MKMAP:     return "MKMAP";
@@ -2480,11 +2501,6 @@ int dt_chunk_peek_at(dt_chunk* c, int idx) {
 		case DT_OP_CALL2: {
 			uint8_t nargs = c->code[idx + 1];
 			printf("CALL2 %d", nargs);
-			return idx + 2;
-		}
-		case DT_OP_MKSTR: {
-			uint8_t len = c->code[idx + 1];
-			printf("MKSTR %d", len);
 			return idx + 2;
 		}
 		case DT_OP_MKFUNC: {
@@ -2581,6 +2597,7 @@ dt_vm dt_vm_new() {
 		.heaper = NULL,
 		.mem = 0,
 		.next_gc = DT_GC_THRESHOLD,
+		.throwing = false,
 	};
 	vm.stack_bot = vm.stack;
 	vm.stack_top = vm.stack + 1;
@@ -2590,16 +2607,46 @@ dt_vm dt_vm_new() {
 	return vm;
 }
 
-// TODO: throw mechanism
-void dt_err(dt_vm* vm, char* fmt, ...) {
+char* dt_fmt(size_t* osize, char* fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	size_t size = vsnprintf(NULL, 0, fmt, args);
+	va_end(args);
+	char* buf = malloc(size + 1);
+	va_start(args, fmt);
+	vsnprintf(buf, size + 1, fmt, args);
+	va_end(args);
+	if (osize) {
+		*osize = size;
+	}
+	return buf;
+}
+
+void dt_def_catch(dt_err* err) {
+	fprintf(stderr, "line #%d: %s\n", err->line, err->msg);
+}
+
+void dt_throw(dt_vm* vm, char* fmt, ...) {
+
 	dt_chunk* chunk = &vm->func->logic->chunk;
 	int offset = vm->ip - chunk->code;
 	int line = chunk->lines[offset];
+
 	va_list args;
 	va_start(args, fmt);
-	fprintf(stderr, "line #%d: ", line);
-	vfprintf(stderr, fmt, args);
+	size_t size = vsnprintf(NULL, 0, fmt, args);
 	va_end(args);
+	char* msg = malloc(size + 1);
+	va_start(args, fmt);
+	vsnprintf(msg, size + 1, fmt, args);
+	va_end(args);
+
+	vm->throwing = true;
+	vm->err.msg = msg;
+	vm->err.line = line;
+
+	while (*vm->ip != DT_OP_STOP) vm->ip++;
+
 }
 
 // get the last n'th value on stack
@@ -2633,9 +2680,9 @@ bool dt_arg_exists(dt_vm* vm, int idx) {
 bool dt_check_arg(dt_vm* vm, int idx, dt_val_ty ty) {
 	dt_val v = dt_arg(vm, idx);
 	if (dt_typeof(v) != ty) {
-		dt_err(
+		dt_throw(
 			vm,
-			"expected a '%s' at %d, found '%s'\n",
+			"expected a '%s' at %d, found '%s'",
 			dt_typename(ty),
 			idx,
 			dt_typename(dt_typeof(v))
@@ -2647,9 +2694,9 @@ bool dt_check_arg(dt_vm* vm, int idx, dt_val_ty ty) {
 
 void dt_check_nargs(dt_vm* vm, int expected, int actual) {
 	if (expected != actual) {
-		dt_err(
+		dt_throw(
 			vm,
-			"expected %d args, found %d\n",
+			"expected %d args, found %d",
 			expected,
 			actual
 		);
@@ -2836,6 +2883,11 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 		dt_val* prev_bot = vm->stack_bot;
 		vm->stack_bot = vm->stack_top - nargs;
 		dt_vm_run(vm, func);
+
+		if (vm->throwing) {
+			return DT_NIL;
+		}
+
 		int locals_cnt = vm->stack_top - vm->stack_bot - 1 - nargs;
 		vm->stack_bot = prev_bot;
 		vm->func = prev_func;
@@ -2848,9 +2900,9 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 		}
 
 	} else {
-		dt_err(
+		dt_throw(
 			vm,
-			"cannot call a '%s'\n",
+			"cannot call a '%s'",
 			dt_typename(ty)
 		);
 		for (int i = 0; i < nargs; i++) {
@@ -2912,13 +2964,13 @@ void dt_vm_gc_check(dt_vm* vm);
 void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 	vm->func = func;
-	dt_chunk* chunk = &func->logic->chunk;
-	vm->ip = chunk->code;
+	vm->ip = func->logic->chunk.code;
 
 	for (;;) {
 
-#ifdef DT_VM_LOG
+#ifdef D_VM_LOG
 
+		dt_chunk* chunk = &vm->func->logic->chunk;
 		int offset = vm->ip - chunk->code;
 		int line = chunk->lines[offset];
 
@@ -2975,9 +3027,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_str* a_str = dt_val_to_str(vm, a);
 					dt_str* b_str = dt_val_to_str(vm, b);
 					if (a_str == NULL || b_str == NULL) {
-						dt_err(
+						dt_throw(
 							vm,
-							"cannot add a '%s' with '%s'\n",
+							"cannot add a '%s' with '%s'",
 							dt_typename(ta),
 							dt_typename(tb)
 						);
@@ -2986,9 +3038,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						dt_vm_push(vm, dt_to_str(dt_str_concat(vm, a_str, b_str)));
 					}
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot add a '%s' with '%s'\n",
+						"cannot add a '%s' with '%s'",
 						dt_typename(ta),
 						dt_typename(tb)
 					);
@@ -3005,9 +3057,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num2(a) - dt_as_num2(b)));
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot sub a '%s' by '%s'\n",
+						"cannot sub a '%s' by '%s'",
 						dt_typename(ta),
 						dt_typename(tb)
 					);
@@ -3024,9 +3076,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num2(a) * dt_as_num2(b)));
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot mul a '%s' with '%s'\n",
+						"cannot mul a '%s' with '%s'",
 						dt_typename(ta),
 						dt_typename(tb)
 					);
@@ -3043,9 +3095,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(dt_as_num2(a) / dt_as_num2(b)));
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot div a '%s' by '%s'\n",
+						"cannot div a '%s' by '%s'",
 						dt_typename(ta),
 						dt_typename(tb)
 					);
@@ -3063,9 +3115,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						.end = dt_as_num2(b),
 					}));
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot spread a '%s' and '%s'\n",
+						"cannot spread a '%s' and '%s'",
 						dt_typename(dt_typeof(a)),
 						dt_typename(dt_typeof(b))
 					);
@@ -3079,9 +3131,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				if (dt_typeof(a) == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(-dt_as_num2(a)));
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot negate a '%s'\n",
+						"cannot negate a '%s'",
 						dt_typename(dt_typeof(a))
 					);
 					dt_vm_push(vm, DT_NIL);
@@ -3094,9 +3146,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				if (dt_typeof(a) == DT_VAL_BOOL) {
 					dt_vm_push(vm, dt_to_bool(!dt_as_bool2(a)));
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot not a '%s'\n",
+						"cannot not a '%s'",
 						dt_typename(dt_typeof(a))
 					);
 					dt_vm_push(vm, DT_NIL);
@@ -3117,9 +3169,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_range r = dt_as_range2(a);
 					dt_vm_push(vm, dt_to_num(abs(r.end - r.start)));
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot get len of a '%s'\n",
+						"cannot get len of a '%s'",
 						dt_typename(t)
 					);
 					dt_vm_push(vm, DT_NIL);
@@ -3173,9 +3225,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_vm_push(vm, dt_to_bool(dt_as_bool2(a) || dt_as_bool2(b)));
 				} else {
 					// TODO: eval to the later operand?
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot || a '%s' with '%s'\n",
+						"cannot || a '%s' with '%s'",
 						dt_typename(ta),
 						dt_typename(tb)
 					);
@@ -3194,9 +3246,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				} else if (ta == DT_VAL_BOOL && tb == DT_VAL_BOOL) {
 					dt_vm_push(vm, dt_to_bool(dt_as_bool2(a) && dt_as_bool2(b)));
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot && a '%s' with '%s'\n",
+						"cannot && a '%s' with '%s'",
 						dt_typename(ta),
 						dt_typename(tb)
 					);
@@ -3218,9 +3270,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_val val = dt_map_get(vm->globals, dt_as_str2(name));
 					dt_vm_push(vm, val);
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"expected var name to be 'str' found '%s'\n",
+						"expected var name to be 'str' found '%s'",
 						dt_typename(dt_typeof(name))
 					);
 					dt_vm_push(vm, DT_NIL);
@@ -3230,7 +3282,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_SETG: {
 				dt_val name = chunk->consts->values[*vm->ip++];
-				dt_err(vm, "cannot set global '%s'\n", dt_as_str2(name)->chars);
+				dt_throw(vm, "cannot set global '%s'", dt_as_str2(name)->chars);
 				break;
 			}
 
@@ -3290,9 +3342,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 								)));
 							}
 						} else {
-							dt_err(
+							dt_throw(
 								vm,
-								"invalid arr idx type '%s'\n",
+								"invalid arr idx type '%s'",
 								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
@@ -3302,9 +3354,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						if (dt_typeof(key) == DT_VAL_STR) {
 							dt_vm_push(vm, dt_map_get(dt_as_map2(val), dt_as_str2(key)));
 						} else {
-							dt_err(
+							dt_throw(
 								vm,
-								"invalid map idx type '%s'\n",
+								"invalid map idx type '%s'",
 								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
@@ -3338,9 +3390,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 								)));
 							}
 						} else {
-							dt_err(
+							dt_throw(
 								vm,
-								"invalid str idx type '%s'\n",
+								"invalid str idx type '%s'",
 								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
@@ -3352,9 +3404,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_vm_push(vm, DT_NIL);
 						}
 					default:
-						dt_err(
+						dt_throw(
 							vm,
-							"failed to get idx for a '%s'\n",
+							"failed to get idx for a '%s'",
 							dt_typename(dt_typeof(val))
 						);
 						dt_vm_push(vm, DT_NIL);
@@ -3374,9 +3426,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_arr_set(vm, dt_as_arr2(parent), idx, val);
 							dt_vm_push(vm, val);
 						} else {
-							dt_err(
+							dt_throw(
 								vm,
-								"invalid arr idx type '%s'\n",
+								"invalid arr idx type '%s'",
 								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
@@ -3387,9 +3439,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_map_set(vm, dt_as_map2(parent), dt_as_str2(key), val);
 							dt_vm_push(vm, val);
 						} else {
-							dt_err(
+							dt_throw(
 								vm,
-								"invalid map idx type '%s'\n",
+								"invalid map idx type '%s'",
 								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
@@ -3397,18 +3449,18 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						break;
 					case DT_VAL_STR: {
 						if (dt_typeof(key) != DT_VAL_NUM) {
-							dt_err(
+							dt_throw(
 								vm,
-								"invalid str idx type '%s'\n",
+								"invalid str idx type '%s'",
 								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
 							break;
 						}
 						if (dt_typeof(val) != DT_VAL_STR) {
-							dt_err(
+							dt_throw(
 								vm,
-								"cannot set str idx to '%s'\n",
+								"cannot set str idx to '%s'",
 								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
@@ -3417,9 +3469,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						dt_str* pstr = dt_as_str2(parent);
 						dt_str* vstr = dt_as_str2(val);
 						if (vstr->len != 1) {
-							dt_err(
+							dt_throw(
 								vm,
-								"can only set str idx to a char '%s'\n",
+								"can only set str idx to a char '%s'",
 								dt_typename(dt_typeof(val))
 							);
 							dt_vm_push(vm, DT_NIL);
@@ -3437,9 +3489,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						break;
 					}
 					default:
-						dt_err(
+						dt_throw(
 							vm,
-							"cannot set index a '%s'\n",
+							"cannot set index a '%s'",
 							dt_typename(dt_typeof(val))
 						);
 						dt_vm_push(vm, DT_NIL);
@@ -3496,9 +3548,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				if (meta) {
 					dt_vm_push(vm, dt_vm_call(vm, dt_map_get(meta, name), nargs + 1));
 				} else {
-					dt_err(
+					dt_throw(
 						vm,
-						"no func for '%s'\n",
+						"no func for '%s'",
 						dt_typename(dt_typeof(val))
 					);
 					dt_vm_push(vm, DT_NIL);
@@ -3548,9 +3600,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					if (dt_typeof(key) == DT_VAL_STR) {
 						dt_map_set(vm, map, dt_as_str2(key), val);
 					} else {
-						dt_err(
+						dt_throw(
 							vm,
-							"expected key to be 'str', found '%s'\n",
+							"expected key to be 'str', found '%s'",
 							dt_typename(dt_typeof(key))
 						);
 					}
@@ -3566,9 +3618,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				uint8_t num_upvals = *vm->ip++;
 				if (dt_typeof(val) != DT_VAL_LOGIC) {
 					// unreachable
-					dt_err(
+					dt_throw(
 						vm,
-						"cannot make a func out of '%s'\n",
+						"cannot make a func out of '%s'",
 						dt_typename(dt_typeof(val))
 					);
 				}
@@ -3677,9 +3729,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						dt_vm_push(vm, dt_to_num(dt_as_range2(iter).start));
 						break;
 					default:
-						dt_err(
+						dt_throw(
 							vm,
-							"'%s' is not iterable\n",
+							"'%s' is not iterable",
 							dt_typename(dt_typeof(iter))
 						);
 						dt_vm_pop(vm);
@@ -3746,15 +3798,49 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						break;
 					}
 					default:
-						dt_err(
+						dt_throw(
 							vm,
-							"'%s' is not iterable\n",
+							"'%s' is not iterable",
 							dt_typename(dt_typeof(iter))
 						);
 						// unreachable
 						break;
 				}
 				break;
+			}
+
+			case DT_OP_TRY: {
+				dt_val catch = dt_vm_pop(vm);
+				dt_val try = dt_vm_pop(vm);
+				dt_vm_restore prev_restore = vm->restore;
+				vm->restore.func = vm->func;
+				vm->restore.ip = vm->ip;
+				vm->restore.stack_top = vm->stack_top;
+				vm->restore.stack_bot = vm->stack_bot;
+				dt_val ret = dt_vm_call(vm, try, 0);
+				if (vm->throwing) {
+					vm->ip = vm->restore.ip;
+					vm->stack_top = vm->restore.stack_top;
+					vm->stack_bot = vm->restore.stack_bot;
+					vm->func = vm->restore.func;
+// 					chunk = &vm->func->logic->chunk;
+					vm->throwing = false;
+					dt_map* err = dt_map_new(vm);
+					dt_map_cset(vm, err, "msg", dt_to_str(dt_str_new(vm, vm->err.msg)));
+					dt_map_cset(vm, err, "line", dt_to_num(vm->err.line));
+					dt_vm_push(vm, dt_to_map(err));
+					dt_vm_push(vm, dt_vm_call(vm, catch, 1));
+				} else {
+					dt_vm_push(vm, ret);
+				}
+				vm->restore = prev_restore;
+				break;
+			}
+
+			case DT_OP_THROW: {
+				dt_str* msg = dt_as_str(vm, dt_vm_pop(vm));
+				dt_throw(vm, "%s", msg->chars);
+				return;
 			}
 
 			case DT_OP_STOP: {
@@ -3811,7 +3897,7 @@ void dt_gc_mark(dt_vm* vm) {
 
 // free all unmarked heap values
 void dt_gc_sweep(dt_vm* vm) {
-#ifdef DT_GC_LOG
+#ifdef D_GC_LOG
 	size_t start_mem = vm->mem;
 	printf("--- GC START\n");
 #endif
@@ -3828,7 +3914,7 @@ void dt_gc_sweep(dt_vm* vm) {
 			}
 			switch (unreached->type) {
 				case DT_VAL_STR: {
-#ifdef DT_GC_LOG
+#ifdef D_GC_LOG
 					dt_str* str = (dt_str*)unreached;
 					printf("FREE STR ");
 					dt_str_println(str);
@@ -3837,7 +3923,7 @@ void dt_gc_sweep(dt_vm* vm) {
 					break;
 				}
 				case DT_VAL_ARR: {
-#ifdef DT_GC_LOG
+#ifdef D_GC_LOG
 					dt_arr* arr = (dt_arr*)unreached;
 					printf("FREE ARR #%d\n", arr->len);
 #endif
@@ -3845,7 +3931,7 @@ void dt_gc_sweep(dt_vm* vm) {
 					break;
 				}
 				case DT_VAL_MAP: {
-#ifdef DT_GC_LOG
+#ifdef D_GC_LOG
 					dt_map* map = (dt_map*)unreached;
 					printf("FREE MAP #%d\n", map->cnt);
 #endif
@@ -3853,7 +3939,7 @@ void dt_gc_sweep(dt_vm* vm) {
 					break;
 				}
 				case DT_VAL_FUNC: {
-#ifdef DT_GC_LOG
+#ifdef D_GC_LOG
 					dt_func* func = (dt_func*)unreached;
 					printf("FREE FUNC ");
 					dt_func_println(func);
@@ -3862,7 +3948,7 @@ void dt_gc_sweep(dt_vm* vm) {
 					break;
 				}
 				case DT_VAL_UPVAL: {
-#ifdef DT_GC_LOG
+#ifdef D_GC_LOG
 					dt_upval* upval = (dt_upval*)unreached;
 					printf("FREE UPVAL ");
 					dt_val_println(*upval->val);
@@ -3871,7 +3957,7 @@ void dt_gc_sweep(dt_vm* vm) {
 					break;
 				}
 				case DT_VAL_CDATA: {
-#ifdef DT_GC_LOG
+#ifdef D_GC_LOG
 					dt_cdata* cdata = (dt_cdata*)unreached;
 					printf("FREE CDATA ");
 					dt_cdata_println(cdata);
@@ -3886,7 +3972,7 @@ void dt_gc_sweep(dt_vm* vm) {
 			heaper = heaper->nxt;
 		}
 	}
-#ifdef DT_GC_LOG
+#ifdef D_GC_LOG
 	printf("--- GC END");
 	if (start_mem != vm->mem) {
 		printf(" (%zu -> %zu)\n", start_mem, vm->mem);
@@ -3914,7 +4000,7 @@ void dt_drop(dt_vm* vm, dt_val v) {
 
 // run gc if needed
 void dt_vm_gc_check(dt_vm* vm) {
-#ifdef DT_GC_STRESS
+#ifdef D_GC_STRESS
 	dt_gc_run(vm);
 #else
 	if (vm->mem >= vm->next_gc) {
@@ -3934,12 +4020,10 @@ void dt_vm_free(dt_vm* vm) {
 	dt_gc_sweep(vm);
 	dt_map_free_rec(NULL, vm->strs);
 	dt_map_free_rec(NULL, vm->libs);
-	dt_map_free_rec(NULL, vm->math_lib);
-	dt_map_free_rec(NULL, vm->str_lib);
-	dt_map_free_rec(NULL, vm->arr_lib);
-	dt_map_free_rec(NULL, vm->map_lib);
-	dt_map_free_rec(NULL, vm->func_lib);
 	memset(vm, 0, sizeof(dt_vm));
+	if (vm->throwing) {
+		free(vm->err.msg);
+	}
 }
 
 dt_scanner dt_scanner_new(char* src) {
@@ -4436,31 +4520,6 @@ dt_type dt_c_str(dt_compiler* c) {
 		str_t.len - 2
 	));
 	dt_c_push_const(c, str);
-	return DT_TYPE_STR;
-}
-
-// template string
-dt_type dt_c_str2(dt_compiler* c) {
-	int n = 0;
-	dt_c_consume(c, DT_TOKEN_QUOTE);
-	while (dt_c_peek(c) != DT_TOKEN_QUOTE) {
-		if (dt_c_match(c, DT_TOKEN_DOLLAR_LBRACE)) {
-			dt_c_expr(c);
-			dt_c_consume(c, DT_TOKEN_RBRACE);
-			n++;
-		} else {
-			dt_token str_t = dt_c_consume(c, DT_TOKEN_STR);
-			dt_val str = dt_to_str(dt_str_new_len(
-				NULL,
-				str_t.start,
-				str_t.len
-			));
-			dt_c_push_const(c, str);
-			n++;
-		}
-	}
-	dt_c_consume(c, DT_TOKEN_QUOTE);
-	dt_c_emit2(c, DT_OP_MKSTR, n);
 	return DT_TYPE_STR;
 }
 
@@ -4983,11 +5042,19 @@ dt_type dt_c_return(dt_compiler* c) {
 	return type;
 }
 
-// TODO
 dt_type dt_c_throw(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_COLON_LPAREN);
 	dt_type type = dt_c_expr(c);
-	dt_c_emit(c, DT_OP_STOP);
+	dt_c_emit(c, DT_OP_THROW);
+	return type;
+}
+
+dt_type dt_c_try(dt_compiler* c) {
+	dt_c_consume(c, DT_TOKEN_COLON_RPAREN);
+	dt_type type = dt_c_expr(c);
+	dt_c_consume(c, DT_TOKEN_OR);
+	dt_c_expr(c);
+	dt_c_emit(c, DT_OP_TRY);
 	return type;
 }
 
@@ -5310,6 +5377,7 @@ dt_parse_rule dt_expr_rules[] = {
 	[DT_TOKEN_COLON]         = { NULL,          dt_c_index3, DT_PREC_CALL },
 	[DT_TOKEN_COLON_LPAREN]  = { dt_c_throw,    NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE_GT]      = { dt_c_return,   NULL,        DT_PREC_NONE },
+	[DT_TOKEN_COLON_RPAREN]  = { dt_c_try,      NULL,        DT_PREC_NONE } ,
 };
 
 dt_type dt_c_prec(dt_compiler* c, dt_prec prec) {
@@ -5481,52 +5549,13 @@ dt_val dt_f_import(dt_vm* vm) {
 	return lib;
 }
 
-dt_val dt_f_exit(dt_vm* vm) {
-	dt_num code = dt_arg_num_or(vm, 0, EXIT_SUCCESS);
-	exit(code);
-	return DT_NIL;
-}
-
-#define DT_POPEN_SIZE 128
-
-#if !defined(D_IOS)
-dt_val dt_f_exec(dt_vm* vm) {
-	char* cmd = dt_arg_cstr(vm, 0);
-	system(cmd);
-	return DT_NIL;
-// 	char buf[DT_POPEN_SIZE];
-// 	FILE* pipe = popen(cmd, "r");
-// 	while (fgets(buf, DT_POPEN_SIZE, pipe) != NULL) {}
-// 	pclose(pipe);
-// 	return dt_to_str(dt_str_new(vm, buf));
-}
-#endif
-
-dt_val dt_f_getenv(dt_vm* vm) {
-	char* var = dt_arg_cstr(vm, 0);
-	char* val = getenv(var);
-	if (val) {
-		return dt_to_str(dt_str_new(vm, val));
-	} else {
-		return DT_NIL;
+dt_val dt_f_assert(dt_vm* vm) {
+	dt_val v = dt_arg(vm, 0);
+	dt_str* msg = dt_arg_str(vm, 1);
+	if (!dt_val_truthy(v)) {
+		dt_throw(vm, "%s", msg->chars);
 	}
-}
-
-dt_val dt_f_time(dt_vm* vm) {
-	return dt_to_num(time(NULL));
-}
-
-dt_val dt_f_date(dt_vm* vm) {
-	time_t t = dt_arg_num_or(vm, 0, time(NULL));
-	struct tm tm = *localtime(&t);
-	dt_map* date = dt_map_new(vm);
-	dt_map_cset(vm, date, "year", dt_to_num(tm.tm_year + 1900));
-	dt_map_cset(vm, date, "month", dt_to_num(tm.tm_mon + 1));
-	dt_map_cset(vm, date, "day", dt_to_num(tm.tm_mday));
-	dt_map_cset(vm, date, "hour", dt_to_num(tm.tm_hour));
-	dt_map_cset(vm, date, "min", dt_to_num(tm.tm_min));
-	dt_map_cset(vm, date, "sec", dt_to_num(tm.tm_sec));
-	return dt_to_map(date);
+	return DT_NIL;
 }
 
 // TODO: compiletime error as runtime error here
@@ -5639,6 +5668,12 @@ dt_val dt_f_str_len(dt_vm* vm) {
 dt_val dt_f_str_hash(dt_vm* vm) {
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_num(str->hash);
+}
+
+// TODO
+dt_val dt_f_str_tonum(dt_vm* vm) {
+	dt_str* str = dt_arg_str(vm, 0);
+	return dt_to_num(0);
 }
 
 dt_val dt_f_arr_push(dt_vm* vm) {
@@ -5813,6 +5848,12 @@ dt_val dt_f_func_call(dt_vm* vm) {
 	return dt_vm_call(vm, func, args->len);
 }
 
+// TODO
+dt_val dt_f_func_bind(dt_vm* vm) {
+	dt_val func = dt_arg(vm, 0);
+	return func;
+}
+
 dt_val dt_f_math_sin(dt_vm* vm) {
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(sin(n));
@@ -5970,6 +6011,59 @@ dt_val dt_f_math_srand(dt_vm* vm) {
 	return DT_NIL;
 }
 
+#ifdef D_LIB_OS
+
+dt_val dt_f_os_exit(dt_vm* vm) {
+	dt_num code = dt_arg_num_or(vm, 0, EXIT_SUCCESS);
+	exit(code);
+	return DT_NIL;
+}
+
+#define D_POPEN_SIZE 128
+
+#if !defined(D_IOS)
+dt_val dt_f_os_exec(dt_vm* vm) {
+	char* cmd = dt_arg_cstr(vm, 0);
+	system(cmd);
+	return DT_NIL;
+// 	char buf[DT_POPEN_SIZE];
+// 	FILE* pipe = popen(cmd, "r");
+// 	while (fgets(buf, D_POPEN_SIZE, pipe) != NULL) {}
+// 	pclose(pipe);
+// 	return dt_to_str(dt_str_new(vm, buf));
+}
+#endif
+
+dt_val dt_f_os_getenv(dt_vm* vm) {
+	char* var = dt_arg_cstr(vm, 0);
+	char* val = getenv(var);
+	if (val) {
+		return dt_to_str(dt_str_new(vm, val));
+	} else {
+		return DT_NIL;
+	}
+}
+
+dt_val dt_f_os_time(dt_vm* vm) {
+	return dt_to_num(time(NULL));
+}
+
+dt_val dt_f_os_date(dt_vm* vm) {
+	time_t t = dt_arg_num_or(vm, 0, time(NULL));
+	struct tm tm = *localtime(&t);
+	dt_map* date = dt_map_new(vm);
+	dt_map_cset(vm, date, "year", dt_to_num(tm.tm_year + 1900));
+	dt_map_cset(vm, date, "month", dt_to_num(tm.tm_mon + 1));
+	dt_map_cset(vm, date, "day", dt_to_num(tm.tm_mday));
+	dt_map_cset(vm, date, "hour", dt_to_num(tm.tm_hour));
+	dt_map_cset(vm, date, "min", dt_to_num(tm.tm_min));
+	dt_map_cset(vm, date, "sec", dt_to_num(tm.tm_sec));
+	return dt_to_map(date);
+}
+
+#endif
+
+#ifdef D_LIB_FS
 dt_val dt_f_fs_readdir(dt_vm* vm) {
 
 	char* path = dt_arg_cstr(vm, 0);
@@ -5997,14 +6091,14 @@ dt_val dt_f_fs_read(dt_vm* vm) {
 	char* path = dt_arg_cstr(vm, 0);
 	FILE* file = fopen(path, "r");
 	if (!file) {
-		dt_err(vm, "failed to read file '%s'\n", path);
+		dt_throw(vm, "failed to read file '%s'", path);
 		return DT_NIL;
 	}
 	fseek(file, 0L, SEEK_END);
 	size_t size = ftell(file);
 	fseek(file, 0, SEEK_SET);
 	dt_str* content = dt_str_alloc(vm, size);
-	size_t size_read = fread(content->chars, sizeof(char), size, file);
+	size_t size_read = fread(content->chars, 1, size, file);
 	content->chars[size_read] = '\0';
 	fclose(file);
 	dt_str_hash(content);
@@ -6016,7 +6110,7 @@ dt_val dt_f_fs_write(dt_vm* vm) {
 	dt_str* content = dt_arg_str(vm, 1);
 	FILE* file = fopen(path, "w");
 	if (!file) {
-		dt_err(vm, "failed to write to file '%s'\n", path);
+		dt_throw(vm, "failed to write to file '%s'", path);
 		return DT_NIL;
 	}
 	fwrite(content->chars, 1, content->len, file);
@@ -6046,7 +6140,7 @@ dt_val dt_f_fs_size(dt_vm* vm) {
 	char* path = dt_arg_cstr(vm, 0);
 	struct stat st;
     if (stat(path, &st) != 0) {
-		dt_err(vm, "failed to get size of file '%s'\n", path);
+		dt_throw(vm, "failed to get size of file '%s'", path);
 		return DT_NIL;
 	}
 	return dt_to_num(st.st_size);
@@ -6056,33 +6150,44 @@ dt_val dt_f_fs_lastmod(dt_vm* vm) {
 	char* path = dt_arg_cstr(vm, 0);
 	struct stat st;
     if (stat(path, &st) != 0) {
-		dt_err(vm, "failed to get lastmod of file '%s'\n", path);
+		dt_throw(vm, "failed to get lastmod of file '%s'", path);
 		return DT_NIL;
 	}
 	return dt_to_num(st.st_mtime);
 }
 
+// TODO: let user pass perm with default 755?
 dt_val dt_f_fs_mkdir(dt_vm* vm) {
 	char* path = dt_arg_cstr(vm, 0);
-	// TODO: let user pass perm with default 755?
 	int status = mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 	if (status == -1) {
-		dt_err(vm, "failed to mkdir '%s'\n", path);
+		dt_throw(vm, "failed to mkdir '%s'", path);
 	}
 	return DT_NIL;
 }
 
-// TODO
+// TODO: copy perm
 dt_val dt_f_fs_copy(dt_vm* vm) {
 	char* from = dt_arg_cstr(vm, 0);
 	char* to = dt_arg_cstr(vm, 1);
-	return DT_NIL;
-}
-
-// TODO
-dt_val dt_f_fs_move(dt_vm* vm) {
-	char* from = dt_arg_cstr(vm, 0);
-	char* to = dt_arg_cstr(vm, 1);
+	FILE* f1 = fopen(from, "rb");
+	if (!f1) {
+		dt_throw(vm, "failed to read file '%s'", from);
+		return DT_NIL;
+	}
+	fseek(f1, 0L, SEEK_END);
+	size_t size = ftell(f1);
+	fseek(f1, 0, SEEK_SET);
+	uint8_t* bytes = malloc(size);
+	fread(bytes, 1, size, f1);
+	fclose(f1);
+	FILE* f2 = fopen(to, "wb");
+	if (!f2) {
+		dt_throw(vm, "failed to write to file '%s'", to);
+		return DT_NIL;
+	}
+	fwrite(bytes, 1, size, f2);
+	fclose(f2);
 	return DT_NIL;
 }
 
@@ -6091,8 +6196,14 @@ dt_val dt_f_fs_remove(dt_vm* vm) {
 	char* path = dt_arg_cstr(vm, 0);
 	int status = remove(path);
 	if (status == -1) {
-		dt_err(vm, "failed to remove '%s'\n", path);
+		dt_throw(vm, "failed to remove '%s'", path);
 	}
+	return DT_NIL;
+}
+
+dt_val dt_f_fs_move(dt_vm* vm) {
+	dt_call(vm, dt_to_cfunc(dt_f_fs_copy), 2, dt_arg(vm, 0), dt_arg(vm, 1));
+	dt_call(vm, dt_to_cfunc(dt_f_fs_remove), 1, dt_arg(vm, 0));
 	return DT_NIL;
 }
 
@@ -6163,6 +6274,21 @@ dt_val dt_f_fs_watch(dt_vm* vm) {
 	return DT_NIL;
 }
 
+#endif
+
+#ifdef D_LIB_HTTP
+
+#include <netdb.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+
+#define DT_HTTP_CHUNK_SIZE 1024
+#define DT_HTTP_MAX_PFDS 256
+#define DT_DATEBUF_SIZE 32
+
 char* dt_read_all(int fd, size_t chunk_size, size_t* osize) {
 
 	char* data = malloc(chunk_size);
@@ -6185,21 +6311,6 @@ char* dt_read_all(int fd, size_t chunk_size, size_t* osize) {
 
 }
 
-char* dt_fmt(size_t* osize, char* fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	size_t size = vsnprintf(NULL, 0, fmt, args);
-	va_end(args);
-	char* buf = malloc(size + 1);
-	va_start(args, fmt);
-	vsnprintf(buf, size + 1, fmt, args);
-	va_end(args);
-	if (osize) {
-		*osize = size;
-	}
-	return buf;
-}
-
 void dt_write_fmt(int fd, char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
@@ -6212,10 +6323,6 @@ void dt_write_fmt(int fd, char* fmt, ...) {
 	write(fd, buf, size);
 	free(buf);
 }
-
-#define DT_HTTP_CHUNK_SIZE 1024
-#define DT_HTTP_MAX_PFDS 256
-#define DT_DATEBUF_SIZE 32
 
 char* dt_http_status_txt[] = {
 
@@ -6347,7 +6454,7 @@ dt_val dt_f_http_serve(dt_vm* vm) {
 	int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
 	if (sock_fd == -1) {
-		dt_err(vm, "failed to create socket\n");
+		dt_throw(vm, "failed to create socket");
 		return DT_NIL;
 	}
 
@@ -6365,13 +6472,13 @@ dt_val dt_f_http_serve(dt_vm* vm) {
 	if (bind(sock_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 		switch (errno) {
 			case EACCES:
-				dt_err(vm, "port %d is in protected\n", port);
+				dt_throw(vm, "port %d is in protected", port);
 				return DT_NIL;
 			case EADDRINUSE:
-				dt_err(vm, "port %d is in use\n", port);
+				dt_throw(vm, "port %d is in use", port);
 				return DT_NIL;
 			default:
-				dt_err(vm, "failed to bind socket\n");
+				dt_throw(vm, "failed to bind socket");
 				return DT_NIL;
 		}
 	}
@@ -6393,7 +6500,7 @@ dt_val dt_f_http_serve(dt_vm* vm) {
 		int poll_res = poll(pfds, num_pfds, -1);
 
 		if (poll_res <= 0) {
-			dt_err(vm, "poll err\n");
+			dt_throw(vm, "poll err");
 			continue;
 		}
 
@@ -6429,7 +6536,7 @@ dt_val dt_f_http_serve(dt_vm* vm) {
 				char* method = strchr(cursor, ' ');
 
 				if (!method) {
-					dt_err(vm, "bad http request\n");
+					dt_throw(vm, "bad http request");
 					goto fail;
 				}
 
@@ -6444,7 +6551,7 @@ dt_val dt_f_http_serve(dt_vm* vm) {
 				char* path = strchr(cursor, ' ');
 
 				if (!path) {
-					dt_err(vm, "bad http request\n");
+					dt_throw(vm, "bad http request");
 					goto fail;
 				}
 
@@ -6460,7 +6567,7 @@ dt_val dt_f_http_serve(dt_vm* vm) {
 				char* version = strstr(cursor, "\r\n");
 
 				if (!version) {
-					dt_err(vm, "bad http request\n");
+					dt_throw(vm, "bad http request");
 					goto fail;
 				}
 
@@ -6480,14 +6587,14 @@ dt_val dt_f_http_serve(dt_vm* vm) {
 					}
 					char* key = strstr(cursor, ": ");
 					if (!key) {
-						dt_err(vm, "bad http request\n");
+						dt_throw(vm, "bad http request");
 						goto fail;
 					}
 					dt_str* dkey = dt_str_new_len(vm, cursor, key - cursor);
 					cursor = key + 2;
 					char* val = strstr(cursor, "\r\n");
 					if (!val) {
-						dt_err(vm, "bad http request\n");
+						dt_throw(vm, "bad http request");
 						goto fail;
 					}
 					dt_str* dval = dt_str_new_len(vm, cursor, val - cursor);
@@ -6512,7 +6619,7 @@ dt_val dt_f_http_serve(dt_vm* vm) {
 					int status = dt_as_num_or(vm, dt_map_cget(vm, res, "status"), 200);
 
 					if (status >= 600) {
-						dt_err(vm, "invalid status code: %d\n", status);
+						dt_throw(vm, "invalid status code: %d", status);
 						goto fail;
 					}
 
@@ -6602,7 +6709,7 @@ dt_val dt_f_http_fetch(dt_vm* vm) {
 	int sock_fd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
 
 	if (sock_fd == -1) {
-		dt_err(vm, "failed to create socket\n");
+		dt_throw(vm, "failed to create socket");
 		return DT_NIL;
 	}
 
@@ -6620,44 +6727,19 @@ dt_val dt_f_http_fetch(dt_vm* vm) {
 
 }
 
+#endif
+
 void dt_load_libs(dt_vm* vm) {
 
-	dt_map_centry std_lib[] = {
+	dt_map_reg(vm, vm->globals, (dt_map_centry[]) {
 		{ "type", dt_to_cfunc(dt_f_type), },
 		{ "eval", dt_to_cfunc(dt_f_eval), },
 		{ "dofile", dt_to_cfunc(dt_f_dofile), },
 		{ "print", dt_to_cfunc(dt_f_print), },
 		{ "import", dt_to_cfunc(dt_f_import), },
+		{ "assert", dt_to_cfunc(dt_f_assert), },
 		{ NULL, DT_NIL, },
-	};
-
-#if defined(D_MACOS)
-	dt_val os = dt_to_str(dt_str_new(vm, "macos"));
-#elif defined(D_IOS)
-	dt_val os = dt_to_str(dt_str_new(vm, "ios"));
-#elif defined(D_WEB)
-	dt_val os = dt_to_str(dt_str_new(vm, "web"));
-#elif defined(D_WINDOWS)
-	dt_val os = dt_to_str(dt_str_new(vm, "windows"));
-#elif defined(D_ANDROID)
-	dt_val os = dt_to_str(dt_str_new(vm, "android"));
-#elif defined(D_LINUX)
-	dt_val os = dt_to_str(dt_str_new(vm, "linux"));
-#else
-	dt_val os = DT_NIL;
-#endif
-
-	dt_map_centry os_lib[] = {
-#if !defined(D_IOS)
-		{ "exec", dt_to_cfunc(dt_f_exec), },
-#endif
-		{ "time", dt_to_cfunc(dt_f_time), },
-		{ "date", dt_to_cfunc(dt_f_date), },
-		{ "getenv", dt_to_cfunc(dt_f_getenv), },
-		{ "exit", dt_to_cfunc(dt_f_exit), },
-		{ "OS",  os, },
-		{ NULL, DT_NIL, },
-	};
+	});
 
 	dt_map_centry str_lib[] = {
 		{ "replace", dt_to_cfunc(dt_f_str_replace), },
@@ -6677,8 +6759,12 @@ void dt_load_libs(dt_vm* vm) {
 		{ "sub", dt_to_cfunc(dt_f_str_sub), },
 		{ "len", dt_to_cfunc(dt_f_str_len), },
 		{ "hash", dt_to_cfunc(dt_f_str_hash), },
+		{ "tonum", dt_to_cfunc(dt_f_str_tonum), },
 		{ NULL, DT_NIL, },
 	};
+
+	dt_map_reg(NULL, vm->str_lib, str_lib);
+	dt_map_cset(NULL, vm->libs, "str", dt_to_map(vm->str_lib));
 
 	dt_map_centry arr_lib[] = {
 		{ "push", dt_to_cfunc(dt_f_arr_push), },
@@ -6703,6 +6789,9 @@ void dt_load_libs(dt_vm* vm) {
 		{ NULL, DT_NIL, },
 	};
 
+	dt_map_reg(NULL, vm->arr_lib, arr_lib);
+	dt_map_cset(NULL, vm->libs, "arr", dt_to_map(vm->arr_lib));
+
 	dt_map_centry map_lib[] = {
 		{ "keys", dt_to_cfunc(dt_f_map_keys), },
 		{ "vals", dt_to_cfunc(dt_f_map_vals), },
@@ -6713,36 +6802,17 @@ void dt_load_libs(dt_vm* vm) {
 		{ NULL, DT_NIL, },
 	};
 
+	dt_map_reg(NULL, vm->map_lib, map_lib);
+	dt_map_cset(NULL, vm->libs, "map", dt_to_map(vm->map_lib));
+
 	dt_map_centry func_lib[] = {
 		{ "call", dt_to_cfunc(dt_f_func_call), },
+		{ "bind", dt_to_cfunc(dt_f_func_bind), },
 		{ NULL, DT_NIL, },
 	};
 
-	dt_map_centry fs_lib[] = {
-		{ "read", dt_to_cfunc(dt_f_fs_read), },
-		{ "write", dt_to_cfunc(dt_f_fs_write), },
-		{ "readdir", dt_to_cfunc(dt_f_fs_readdir), },
-		{ "exists", dt_to_cfunc(dt_f_fs_exists), },
-		{ "mkdir", dt_to_cfunc(dt_f_fs_mkdir), },
-		{ "copy", dt_to_cfunc(dt_f_fs_copy), },
-		{ "move", dt_to_cfunc(dt_f_fs_move), },
-		{ "remove", dt_to_cfunc(dt_f_fs_remove), },
-		{ "isfile", dt_to_cfunc(dt_f_fs_isfile), },
-		{ "isdir", dt_to_cfunc(dt_f_fs_isdir), },
-		{ "size", dt_to_cfunc(dt_f_fs_size), },
-		{ "lastmod", dt_to_cfunc(dt_f_fs_lastmod), },
-		{ "ext", dt_to_cfunc(dt_f_fs_ext), },
-		{ "base", dt_to_cfunc(dt_f_fs_base), },
-		{ "cwd", dt_to_cfunc(dt_f_fs_cwd), },
-#if !defined(D_WEB)
-		{ "realpath", dt_to_cfunc(dt_f_fs_realpath), },
-#endif
-		{ "cd", dt_to_cfunc(dt_f_fs_cd), },
-		{ "resdir", dt_to_cfunc(dt_f_fs_resdir), },
-		{ "datadir", dt_to_cfunc(dt_f_fs_datadir), },
-		{ "watch", dt_to_cfunc(dt_f_fs_watch), },
-		{ NULL, DT_NIL, },
-	};
+	dt_map_reg(NULL, vm->func_lib, func_lib);
+	dt_map_cset(NULL, vm->libs, "func", dt_to_map(vm->func_lib));
 
 	dt_map_centry math_lib[] = {
 		{ "sin", dt_to_cfunc(dt_f_math_sin), },
@@ -6774,28 +6844,100 @@ void dt_load_libs(dt_vm* vm) {
 		{ NULL, DT_NIL, },
 	};
 
-	dt_map_centry http_lib[] = {
-		{ "serve", dt_to_cfunc(dt_f_http_serve), },
-		{ "fetch", dt_to_cfunc(dt_f_http_fetch), },
-		{ NULL, DT_NIL, },
-	};
-
-	dt_map_centry app_lib[] = {
-		{ NULL, DT_NIL, },
-	};
-
-	dt_map_reg(vm, vm->globals, std_lib);
-
 	dt_map_reg(NULL, vm->math_lib, math_lib);
-	dt_map_reg(NULL, vm->str_lib, str_lib);
-	dt_map_reg(NULL, vm->arr_lib, arr_lib);
-	dt_map_reg(NULL, vm->map_lib, map_lib);
-	dt_map_reg(NULL, vm->func_lib, func_lib);
+	dt_map_cset(NULL, vm->libs, "math", dt_to_map(vm->math_lib));
 
-	dt_map_cset(NULL, vm->libs, "os", dt_to_map(dt_map_new_reg(NULL, os_lib)));
-	dt_map_cset(NULL, vm->libs, "fs", dt_to_map(dt_map_new_reg(NULL, fs_lib)));
-	dt_map_cset(NULL, vm->libs, "http", dt_to_map(dt_map_new_reg(NULL, http_lib)));
-	dt_map_cset(NULL, vm->libs, "app", dt_to_map(dt_map_new_reg(NULL, app_lib)));
+#ifdef D_LIB_OS
+	dt_val os = dt_to_str(dt_str_new(
+		vm,
+#if defined(D_MACOS)
+		"macos"
+#elif defined(D_IOS)
+		"ios"
+#elif defined(D_WEB)
+		"web"
+#elif defined(D_WINDOWS)
+		"windows"
+#elif defined(D_ANDROID)
+		"android"
+#elif defined(D_LINUX)
+		"linux"
+#endif
+	));
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"os",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "time", dt_to_cfunc(dt_f_os_time), },
+			{ "date", dt_to_cfunc(dt_f_os_date), },
+			{ "getenv", dt_to_cfunc(dt_f_os_getenv), },
+			{ "exit", dt_to_cfunc(dt_f_os_exit), },
+			{ "OS",  os, },
+#if !defined(D_IOS)
+			{ "exec", dt_to_cfunc(dt_f_os_exec), },
+#endif
+			{ NULL, DT_NIL, },
+		}))
+	);
+#endif
+
+#ifdef D_LIB_FS
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"fs",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "read", dt_to_cfunc(dt_f_fs_read), },
+			{ "write", dt_to_cfunc(dt_f_fs_write), },
+			{ "readdir", dt_to_cfunc(dt_f_fs_readdir), },
+			{ "exists", dt_to_cfunc(dt_f_fs_exists), },
+			{ "mkdir", dt_to_cfunc(dt_f_fs_mkdir), },
+			{ "copy", dt_to_cfunc(dt_f_fs_copy), },
+			{ "move", dt_to_cfunc(dt_f_fs_move), },
+			{ "remove", dt_to_cfunc(dt_f_fs_remove), },
+			{ "isfile", dt_to_cfunc(dt_f_fs_isfile), },
+			{ "isdir", dt_to_cfunc(dt_f_fs_isdir), },
+			{ "size", dt_to_cfunc(dt_f_fs_size), },
+			{ "lastmod", dt_to_cfunc(dt_f_fs_lastmod), },
+			{ "ext", dt_to_cfunc(dt_f_fs_ext), },
+			{ "base", dt_to_cfunc(dt_f_fs_base), },
+			{ "cwd", dt_to_cfunc(dt_f_fs_cwd), },
+			{ "cd", dt_to_cfunc(dt_f_fs_cd), },
+			{ "resdir", dt_to_cfunc(dt_f_fs_resdir), },
+			{ "datadir", dt_to_cfunc(dt_f_fs_datadir), },
+			{ "watch", dt_to_cfunc(dt_f_fs_watch), },
+#if !defined(D_WEB)
+			{ "realpath", dt_to_cfunc(dt_f_fs_realpath), },
+#endif
+			{ NULL, DT_NIL, },
+		}))
+	);
+#endif
+
+#ifdef D_LIB_HTTP
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"http",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "serve", dt_to_cfunc(dt_f_http_serve), },
+			{ "fetch", dt_to_cfunc(dt_f_http_fetch), },
+			{ NULL, DT_NIL, },
+		}))
+	);
+#endif
+
+#ifdef D_LIB_APP
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"app",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ NULL, DT_NIL, },
+		}))
+	);
+#endif
 
 }
 
@@ -6830,7 +6972,7 @@ dt_val dt_dofile(dt_vm* vm, char* path) {
 	char* code = dt_read_file(path, NULL);
 
 	if (!code) {
-		dt_err(vm, "failed to read file '%s'\n", path);
+		dt_throw(vm, "failed to read file '%s'", path);
 		return DT_NIL;
 	}
 
