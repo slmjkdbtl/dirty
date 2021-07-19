@@ -37,6 +37,7 @@
 // TODO: separate compiler and vm
 // TODO: don't rely on emscripten
 // TODO: cli arg for log
+// TODO: try func table instead of switch
 
 #define DT_STACK_MAX 2048
 #define DT_ARR_INIT_SIZE 4
@@ -617,6 +618,7 @@ dt_num    dt_arg_num_or       (dt_vm* vm, int idx, dt_num n);
 dt_bool   dt_arg_bool         (dt_vm* vm, int idx);
 dt_bool   dt_arg_bool_or      (dt_vm* vm, int idx, dt_bool b);
 dt_str*   dt_arg_str          (dt_vm* vm, int idx);
+dt_str*   dt_arg_str_or       (dt_vm* vm, int idx, dt_str* str);
 char*     dt_arg_cstr         (dt_vm* vm, int idx);
 char*     dt_arg_cstr_dup     (dt_vm* vm, int idx);
 char*     dt_arg_cstr_or      (dt_vm* vm, int idx, char* str);
@@ -624,7 +626,7 @@ char*     dt_arg_cstr_or_dup  (dt_vm* vm, int idx, char* str);
 dt_map*   dt_arg_map          (dt_vm* vm, int idx);
 dt_arr*   dt_arg_arr          (dt_vm* vm, int idx);
 dt_func*  dt_arg_func         (dt_vm* vm, int idx);
-bool      dt_check_arg        (dt_vm* vm, int idx, dt_val_ty ty);
+bool      dt_check_args       (dt_vm* vm, int nargs, ...);
 void      dt_check_nargs      (dt_vm* vm, int expected, int actual);
 
 // calling a dt_func
@@ -2669,18 +2671,25 @@ bool dt_arg_exists(dt_vm* vm, int idx) {
 	return dt_nargs(vm) > idx;
 }
 
-bool dt_check_arg(dt_vm* vm, int idx, dt_val_ty ty) {
-	dt_val v = dt_arg(vm, idx);
-	if (dt_typeof(v) != ty) {
-		dt_throw(
-			vm,
-			"expected a '%s' at %d, found '%s'",
-			dt_typename(ty),
-			idx,
-			dt_typename(dt_typeof(v))
-		);
-		return false;
+bool dt_check_args(dt_vm* vm, int nargs, ...) {
+	va_list args;
+	va_start(args, nargs);
+	for (int i = 0; i < nargs; i++) {
+		dt_val v = dt_arg(vm, i);
+		dt_val_ty actual = dt_typeof(dt_arg(vm, i));
+		dt_val_ty expected = va_arg(args, dt_val_ty);
+		if (actual != expected) {
+			dt_throw(
+				vm,
+				"expected a '%s' at %d, found '%s'",
+				dt_typename(expected),
+				i,
+				dt_typename(actual)
+			);
+			return false;
+		}
 	}
+	va_end(args);
 	return true;
 }
 
@@ -2704,7 +2713,6 @@ dt_val dt_arg_or(dt_vm* vm, int idx, dt_val v) {
 }
 
 dt_num dt_arg_num(dt_vm* vm, int idx) {
-	dt_check_arg(vm, idx, DT_VAL_NUM);
 	return dt_as_num2(dt_arg(vm, idx));
 }
 
@@ -2717,7 +2725,6 @@ dt_num dt_arg_num_or(dt_vm* vm, int idx, dt_num n) {
 }
 
 dt_bool dt_arg_bool(dt_vm* vm, int idx) {
-	dt_check_arg(vm, idx, DT_VAL_BOOL);
 	return dt_as_bool2(dt_arg(vm, idx));
 }
 
@@ -2730,12 +2737,25 @@ dt_bool dt_arg_bool_or(dt_vm* vm, int idx, dt_bool n) {
 }
 
 dt_str* dt_arg_str(dt_vm* vm, int idx) {
-	dt_check_arg(vm, idx, DT_VAL_STR);
 	return dt_as_str2(dt_arg(vm, idx));
 }
 
+// TODO: take nil
+dt_str* dt_arg_str_or(dt_vm* vm, int idx, dt_str* str) {
+	if (dt_arg_exists(vm, idx)) {
+		return dt_arg_str(vm, idx);
+	} else {
+		return str;
+	}
+}
+
 char* dt_arg_cstr(dt_vm* vm, int idx) {
-	return dt_arg_str(vm, idx)->chars;
+	dt_str* str = dt_arg_str(vm, idx);
+	if (str) {
+		return str->chars;
+	} else {
+		return NULL;
+	}
 }
 
 char* dt_arg_cstr_dup(dt_vm* vm, int idx) {
@@ -2759,17 +2779,14 @@ char* dt_arg_cstr_or_dup(dt_vm* vm, int idx, char* str) {
 }
 
 dt_map* dt_arg_map(dt_vm* vm, int idx) {
-	dt_check_arg(vm, idx, DT_VAL_MAP);
 	return dt_as_map2(dt_arg(vm, idx));
 }
 
 dt_arr* dt_arg_arr(dt_vm* vm, int idx) {
-	dt_check_arg(vm, idx, DT_VAL_ARR);
 	return dt_as_arr2(dt_arg(vm, idx));
 }
 
 dt_func* dt_arg_func(dt_vm* vm, int idx) {
-	dt_check_arg(vm, idx, DT_VAL_FUNC);
 	return dt_as_func2(dt_arg(vm, idx));
 }
 
@@ -2899,7 +2916,10 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 	}
 
 	if (vm->throwing) {
-		while (*vm->ip != DT_OP_STOP) vm->ip++;
+		// TODO: not sure why sometimes NULL, investigate
+		if (vm->ip) {
+			while (*vm->ip != DT_OP_STOP) vm->ip++;
+		}
 		return DT_NIL;
 	}
 
@@ -2981,9 +3001,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 #endif
 
-		uint8_t ins = *vm->ip++;
-
-		switch (ins) {
+		switch (*vm->ip++) {
 
 			case DT_OP_CONST: {
 				dt_vm_push(
@@ -5524,6 +5542,7 @@ dt_val dt_f_type(dt_vm* vm) {
 }
 
 dt_val dt_f_import(dt_vm* vm) {
+	if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL;
 	dt_str* name = dt_arg_str(vm, 0);
 	dt_val lib = dt_map_get(vm->libs, name);
 	if (dt_is_nil(lib)) {
@@ -5543,14 +5562,25 @@ dt_val dt_f_assert(dt_vm* vm) {
 
 // TODO: compiletime error as runtime error here
 dt_val dt_f_eval(dt_vm* vm) {
+	if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL;
 	return dt_eval(vm, dt_arg_cstr(vm, 0));
 }
 
 dt_val dt_f_dofile(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	return dt_dofile(vm, dt_arg_cstr(vm, 0));
 }
 
 dt_val dt_f_str_replace(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		3,
+		DT_VAL_STR,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_str* old = dt_arg_str(vm, 1);
 	dt_str* new = dt_arg_str(vm, 2);
@@ -5558,17 +5588,31 @@ dt_val dt_f_str_replace(dt_vm* vm) {
 }
 
 dt_val dt_f_str_split(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_str* sep = dt_arg_str(vm, 1);
 	return dt_to_arr(dt_str_split(vm, str, sep));
 }
 
 dt_val dt_f_str_chars(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_arr(dt_str_split(vm, str, dt_str_new(vm, "")));
 }
 
 dt_val dt_f_str_starts(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_str* str2 = dt_arg_str(vm, 1);
 	return dt_to_bool(strncmp(str->chars, str2->chars, str2->len) == 0);
@@ -5576,6 +5620,11 @@ dt_val dt_f_str_starts(dt_vm* vm) {
 
 
 dt_val dt_f_str_ends(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_str* str2 = dt_arg_str(vm, 1);
 	return dt_to_bool(strncmp(
@@ -5586,57 +5635,105 @@ dt_val dt_f_str_ends(dt_vm* vm) {
 }
 
 dt_val dt_f_str_rep(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_num n = dt_arg_num(vm, 1);
 	return dt_to_str(dt_str_rep(vm, str, n));
 }
 
 dt_val dt_f_str_toupper(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_str(dt_str_toupper(vm, str));
 }
 
 dt_val dt_f_str_tolower(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_str(dt_str_tolower(vm, str));
 }
 
 dt_val dt_f_str_find(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_str* key = dt_arg_str(vm, 1);
 	return dt_to_num(dt_str_find(str, key));
 }
 
 dt_val dt_f_str_contains(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_str* key = dt_arg_str(vm, 1);
 	return dt_to_bool(dt_str_contains(str, key));
 }
 
 dt_val dt_f_str_rev(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_str(dt_str_rev(vm, str));
 }
 
 dt_val dt_f_str_match(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_str* pat = dt_arg_str(vm, 1);
 	return dt_to_map(dt_str_match(vm, str, pat));
 }
 
 dt_val dt_f_str_trim(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_str(dt_str_trim(vm, str));
 }
 
 dt_val dt_f_str_trunc(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_num len = dt_arg_num(vm, 1);
-	dt_str* rest = dt_arg_str(vm, 2);
+	dt_str* rest = dt_arg_str_or(vm, 2, NULL);
 	return dt_to_str(dt_str_trunc(vm, str, len, rest));
 }
 
+// TODO: make third optional
 dt_val dt_f_str_sub(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		3,
+		DT_VAL_STR,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_num a = dt_arg_num(vm, 1);
 	dt_num b = dt_arg_num(vm, 2);
@@ -5644,22 +5741,38 @@ dt_val dt_f_str_sub(dt_vm* vm) {
 }
 
 dt_val dt_f_str_len(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_num(str->len);
 }
 
 dt_val dt_f_str_hash(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_num(str->hash);
 }
 
 // TODO
 dt_val dt_f_str_tonum(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_num(0);
 }
 
 dt_val dt_f_arr_push(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	int nargs = dt_nargs(vm);
 	for (int i = 0; i < nargs - 1; i++) {
@@ -5669,6 +5782,10 @@ dt_val dt_f_arr_push(dt_vm* vm) {
 }
 
 dt_val dt_f_arr_insert(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_num idx = dt_arg_num(vm, 1);
 	dt_val item = dt_arg(vm, 2);
@@ -5677,6 +5794,11 @@ dt_val dt_f_arr_insert(dt_vm* vm) {
 }
 
 dt_val dt_f_arr_rm(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_ARR,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_num idx = dt_arg_num(vm, 1);
 	return dt_arr_rm(arr, idx);
@@ -5701,6 +5823,10 @@ dt_val dt_f_arr_find(dt_vm* vm) {
 }
 
 dt_val dt_f_arr_map(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_val f = dt_arg(vm, 1);
 	return dt_to_arr(dt_arr_map(vm, arr, f));
@@ -5713,12 +5839,20 @@ dt_val dt_f_arr_sort_def(dt_vm* vm) {
 }
 
 dt_val dt_f_arr_sort(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_val f = dt_arg_or(vm, 1, dt_to_cfunc(dt_f_arr_sort_def));
 	return dt_to_arr(dt_arr_sort(vm, arr, f));
 }
 
 dt_val dt_f_arr_each(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_val f = dt_arg(vm, 1);
 	dt_arr_each(vm, arr, f);
@@ -5726,12 +5860,20 @@ dt_val dt_f_arr_each(dt_vm* vm) {
 }
 
 dt_val dt_f_arr_filter(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_val f = dt_arg(vm, 1);
 	return dt_to_arr(dt_arr_filter(vm, arr, f));
 }
 
 dt_val dt_f_arr_reduce(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_val init = dt_arg(vm, 1);
 	dt_val f = dt_arg(vm, 2);
@@ -5739,28 +5881,52 @@ dt_val dt_f_arr_reduce(dt_vm* vm) {
 }
 
 dt_val dt_f_arr_contains(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_val v = dt_arg(vm, 1);
 	return dt_to_bool(dt_arr_contains(arr, v));
 }
 
 dt_val dt_f_arr_join(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_ARR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_str* s = dt_arg_str(vm, 1);
 	return dt_to_str(dt_arr_join(vm, arr, s));
 }
 
 dt_val dt_f_arr_rev(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	return dt_to_arr(dt_arr_rev(vm, arr));
 }
 
 dt_val dt_f_arr_pop(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	return dt_arr_pop(arr);
 }
 
+// TODO: make 3rd arg optional
 dt_val dt_f_arr_sub(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		3,
+		DT_VAL_ARR,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_num start = dt_arg_num(vm, 1);
 	dt_num end = dt_arg_num(vm, 2);
@@ -5768,37 +5934,66 @@ dt_val dt_f_arr_sub(dt_vm* vm) {
 }
 
 dt_val dt_f_arr_concat(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_ARR,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* a1 = dt_arg_arr(vm, 0);
 	dt_arr* a2 = dt_arg_arr(vm, 1);
 	return dt_to_arr(dt_arr_concat(vm, a1, a2));
 }
 
 dt_val dt_f_arr_rand(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	return dt_arr_rand(arr);
 }
 
 dt_val dt_f_arr_clone(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	return dt_to_arr(dt_arr_clone(vm, arr));
 }
 
 dt_val dt_f_arr_len(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_ARR
+	)) return DT_NIL;
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	return dt_to_num(arr->len);
 }
 
 dt_val dt_f_map_keys(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_MAP
+	)) return DT_NIL;
 	dt_map* map = dt_arg_map(vm, 0);
 	return dt_to_arr(dt_map_keys(vm, map));
 }
 
 dt_val dt_f_map_vals(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_MAP
+	)) return DT_NIL;
 	dt_map* map = dt_arg_map(vm, 0);
 	return dt_to_arr(dt_map_vals(vm, map));
 }
 
 dt_val dt_f_map_each(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_MAP
+	)) return DT_NIL;
 	dt_map* map = dt_arg_map(vm, 0);
 	dt_val f = dt_arg(vm, 1);
 	dt_map_each(vm, map, f);
@@ -5806,18 +6001,32 @@ dt_val dt_f_map_each(dt_vm* vm) {
 }
 
 dt_val dt_f_map_rm(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_MAP,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_map* map = dt_arg_map(vm, 0);
 	dt_str* key = dt_arg_str(vm, 1);
 	return dt_map_rm(map, key);
 }
 
 dt_val dt_f_map_has(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_MAP,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_map* map = dt_arg_map(vm, 0);
 	dt_str* key = dt_arg_str(vm, 1);
 	return dt_to_bool(dt_map_has(map, key));
 }
 
 dt_val dt_f_map_clone(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_MAP
+	)) return DT_NIL;
 	dt_map* map = dt_arg_map(vm, 0);
 	return dt_to_map(dt_map_clone(vm, map));
 }
@@ -5838,69 +6047,123 @@ dt_val dt_f_func_bind(dt_vm* vm) {
 }
 
 dt_val dt_f_math_sin(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(sin(n));
 }
 
 dt_val dt_f_math_cos(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(cos(n));
 }
 
 dt_val dt_f_math_tan(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(tan(n));
 }
 
 dt_val dt_f_math_asin(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(asin(n));
 }
 
 dt_val dt_f_math_acos(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(acos(n));
 }
 
 dt_val dt_f_math_atan(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(atan(n));
 }
 
 dt_val dt_f_math_atan2(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	dt_num n2 = dt_arg_num(vm, 0);
 	return dt_to_num(atan2(n, n2));
 }
 
 dt_val dt_f_math_isnan(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(isnan(n));
 }
 
 dt_val dt_f_math_abs(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(fabs(n));
 }
 
 dt_val dt_f_math_mod(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	dt_num n2 = dt_arg_num(vm, 1);
 	return dt_to_num(fmod(n, n2));
 }
 
 dt_val dt_f_math_sqrt(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(sqrt(n));
 }
 
 dt_val dt_f_math_pow(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	dt_num p = dt_arg_num_or(vm, 1, 2);
 	return dt_to_num(pow(n, p));
 }
 
 dt_val dt_f_math_log(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	if (dt_arg_exists(vm, 1)) {
 		dt_num base = dt_arg_num(vm, 1);
@@ -5911,6 +6174,10 @@ dt_val dt_f_math_log(dt_vm* vm) {
 }
 
 dt_val dt_f_math_round(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	int f = dt_arg_num_or(vm, 1, 0);
 	int p = pow(10, f);
@@ -5918,50 +6185,125 @@ dt_val dt_f_math_round(dt_vm* vm) {
 }
 
 dt_val dt_f_math_floor(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(floor(n));
 }
 
 dt_val dt_f_math_ceil(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(ceil(n));
 }
 
 dt_val dt_f_math_fract(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(n - floor(n));
 }
 
 dt_val dt_f_math_max(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num a = dt_arg_num(vm, 0);
 	dt_num b = dt_arg_num(vm, 1);
 	return dt_to_num(fmax(a, b));
 }
 
 dt_val dt_f_math_min(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num a = dt_arg_num(vm, 0);
 	dt_num b = dt_arg_num(vm, 1);
 	return dt_to_num(fmin(a, b));
 }
 
 dt_val dt_f_math_clamp(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		3,
+		DT_VAL_NUM,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num v = dt_arg_num(vm, 0);
 	dt_num lo = dt_arg_num(vm, 1);
 	dt_num hi = dt_arg_num(vm, 2);
 	return dt_to_num(fmax(lo, fmin(hi, v)));
 }
 
+dt_val dt_f_math_map(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		5,
+		DT_VAL_NUM,
+		DT_VAL_NUM,
+		DT_VAL_NUM,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
+	dt_num v = dt_arg_num(vm, 0);
+	dt_num a1 = dt_arg_num(vm, 1);
+	dt_num b1 = dt_arg_num(vm, 2);
+	dt_num a2 = dt_arg_num(vm, 3);
+	dt_num b2 = dt_arg_num(vm, 4);
+	return dt_to_num(a2 + (v - a1) / (b1 - a1) * (b2 - a2));
+}
+
+dt_val dt_f_math_mapc(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		5,
+		DT_VAL_NUM,
+		DT_VAL_NUM,
+		DT_VAL_NUM,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
+	dt_num v = dt_arg_num(vm, 0);
+	dt_num a1 = dt_arg_num(vm, 1);
+	dt_num b1 = dt_arg_num(vm, 2);
+	dt_num a2 = dt_arg_num(vm, 3);
+	dt_num b2 = dt_arg_num(vm, 4);
+	dt_num v2 = a2 + (v - a1) / (b1 - a1) * (b2 - a2);
+	return dt_to_num(fmax(a2, fmin(b2, v2)));
+}
+
 dt_val dt_f_math_deg(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(n * (180.0 / D_PI));
 }
 
 dt_val dt_f_math_rad(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	return dt_to_num(n / (180.0 / D_PI));
 }
 
 dt_val dt_f_math_sign(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	if (n > 0) {
 		return dt_to_num(1);
@@ -5977,6 +6319,10 @@ double dt_randf(double low, double hi) {
 }
 
 dt_val dt_f_math_rand(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	switch (dt_nargs(vm)) {
 		case 0:
 			return dt_to_num(dt_randf(0, 1));
@@ -5988,7 +6334,12 @@ dt_val dt_f_math_rand(dt_vm* vm) {
 	}
 }
 
+// TODO: get current seed
 dt_val dt_f_math_srand(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 	dt_num n = dt_arg_num(vm, 0);
 	srand(n);
 	return DT_NIL;
@@ -6006,6 +6357,10 @@ dt_val dt_f_os_exit(dt_vm* vm) {
 
 #if !defined(D_IOS)
 dt_val dt_f_os_exec(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* cmd = dt_arg_cstr(vm, 0);
 	system(cmd);
 	return DT_NIL;
@@ -6018,6 +6373,10 @@ dt_val dt_f_os_exec(dt_vm* vm) {
 #endif
 
 dt_val dt_f_os_getenv(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* var = dt_arg_cstr(vm, 0);
 	char* val = getenv(var);
 	if (val) {
@@ -6049,6 +6408,11 @@ dt_val dt_f_os_date(dt_vm* vm) {
 #ifdef D_LIB_FS
 dt_val dt_f_fs_readdir(dt_vm* vm) {
 
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
+
 	char* path = dt_arg_cstr(vm, 0);
 	DIR* dir = opendir(path);
 
@@ -6071,6 +6435,10 @@ dt_val dt_f_fs_readdir(dt_vm* vm) {
 
 // TODO: read bytes?
 dt_val dt_f_fs_read(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	FILE* file = fopen(path, "r");
 	if (!file) {
@@ -6089,6 +6457,11 @@ dt_val dt_f_fs_read(dt_vm* vm) {
 }
 
 dt_val dt_f_fs_write(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	dt_str* content = dt_arg_str(vm, 1);
 	FILE* file = fopen(path, "w");
@@ -6102,24 +6475,40 @@ dt_val dt_f_fs_write(dt_vm* vm) {
 }
 
 dt_val dt_f_fs_exists(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	struct stat st;
 	return dt_to_bool(stat(path, &st) == 0);
 }
 
 dt_val dt_f_fs_isfile(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	struct stat st;
 	return dt_to_bool(stat(path, &st) == 0 && S_ISREG(st.st_mode));
 }
 
 dt_val dt_f_fs_isdir(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	struct stat st;
 	return dt_to_bool(stat(path, &st) == 0 && S_ISDIR(st.st_mode));
 }
 
 dt_val dt_f_fs_size(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	struct stat st;
     if (stat(path, &st) != 0) {
@@ -6130,6 +6519,10 @@ dt_val dt_f_fs_size(dt_vm* vm) {
 }
 
 dt_val dt_f_fs_lastmod(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	struct stat st;
     if (stat(path, &st) != 0) {
@@ -6141,6 +6534,10 @@ dt_val dt_f_fs_lastmod(dt_vm* vm) {
 
 // TODO: let user pass perm with default 755?
 dt_val dt_f_fs_mkdir(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	int status = mkdir(path, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
 	if (status == -1) {
@@ -6151,6 +6548,11 @@ dt_val dt_f_fs_mkdir(dt_vm* vm) {
 
 // TODO: copy perm
 dt_val dt_f_fs_copy(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* from = dt_arg_cstr(vm, 0);
 	char* to = dt_arg_cstr(vm, 1);
 	FILE* f1 = fopen(from, "rb");
@@ -6176,6 +6578,10 @@ dt_val dt_f_fs_copy(dt_vm* vm) {
 
 // TODO: remove dir
 dt_val dt_f_fs_remove(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	int status = remove(path);
 	if (status == -1) {
@@ -6185,12 +6591,21 @@ dt_val dt_f_fs_remove(dt_vm* vm) {
 }
 
 dt_val dt_f_fs_move(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
 	dt_call(vm, dt_to_cfunc(dt_f_fs_copy), 2, dt_arg(vm, 0), dt_arg(vm, 1));
 	dt_call(vm, dt_to_cfunc(dt_f_fs_remove), 1, dt_arg(vm, 0));
 	return DT_NIL;
 }
 
 dt_val dt_f_fs_ext(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	char* dot = strrchr(path, '.');
 	if (!dot) {
@@ -6200,6 +6615,10 @@ dt_val dt_f_fs_ext(dt_vm* vm) {
 }
 
 dt_val dt_f_fs_base(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	char* dot = strrchr(path, '.');
 	char* slash = strrchr(path, '/');
@@ -6217,6 +6636,10 @@ dt_val dt_f_fs_cwd(dt_vm* vm) {
 
 #if !defined(D_WEB)
 dt_val dt_f_fs_realpath(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	char* real = realpath(path, NULL);
 	dt_str* str = dt_str_new(vm, real);
@@ -6226,6 +6649,10 @@ dt_val dt_f_fs_realpath(dt_vm* vm) {
 #endif
 
 dt_val dt_f_fs_cd(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	chdir(path);
 	return DT_NIL;
@@ -6252,6 +6679,10 @@ dt_val dt_f_fs_datadir(dt_vm* vm) {
 
 // TODO
 dt_val dt_f_fs_watch(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
 	char* path = dt_arg_cstr(vm, 0);
 	dt_val cb = dt_arg(vm, 1);
 	return DT_NIL;
@@ -6431,6 +6862,11 @@ char* dt_http_status_txt[] = {
 };
 
 dt_val dt_f_http_serve(dt_vm* vm) {
+
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
 
 	int port = dt_arg_num(vm, 0);
 	dt_val cb = dt_arg(vm, 1);
@@ -6677,6 +7113,11 @@ fail:
 
 dt_val dt_f_http_fetch(dt_vm* vm) {
 
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
+
 	char* host = dt_arg_cstr(vm, 0);
 	dt_map* req = dt_arg_map(vm, 1);
 	struct addrinfo* res;
@@ -6818,6 +7259,8 @@ void dt_load_libs(dt_vm* vm) {
 		{ "max", dt_to_cfunc(dt_f_math_max), },
 		{ "min", dt_to_cfunc(dt_f_math_min), },
 		{ "clamp", dt_to_cfunc(dt_f_math_clamp), },
+		{ "map", dt_to_cfunc(dt_f_math_map), },
+		{ "mapc", dt_to_cfunc(dt_f_math_mapc), },
 		{ "deg", dt_to_cfunc(dt_f_math_deg), },
 		{ "rad", dt_to_cfunc(dt_f_math_rad), },
 		{ "sign", dt_to_cfunc(dt_f_math_sign), },
@@ -6946,7 +7389,13 @@ dt_val dt_eval(dt_vm* vm, char* code) {
 		.num_upvals = 0,
 	};
 
-	return dt_call(vm, dt_to_func(&func), 0);
+	dt_val ret = dt_call(vm, dt_to_func(&func), 0);
+
+	if (vm->throwing) {
+		dt_def_catch(&vm->err);
+	}
+
+	return ret;
 
 }
 

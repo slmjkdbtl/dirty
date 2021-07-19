@@ -1,21 +1,19 @@
 $ run = ~ () {
 	$ err = ~ () {
-		$ err2 = ~ () {
-			:( "123"
-		}
-		err2()
+		$ a = 123 + ?
+		$ b = 3
 		print("not working 12312313")
--- 		$ a = 123 + ?
--- 		$ b = 3
--- 		~> a + b
+		~> a + b
 	}
 	err()
 	print("not working")
 	~> 6
 }
 
+-- run()
+
 $ a = :) run | ~ (e) {
-	print("line #" + e.line + ": " + e.msg)
+	print("ERROR!!!!! line #" + e.line + ": " + e.msg)
 	~> 999
 }
 

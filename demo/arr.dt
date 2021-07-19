@@ -1,5 +1,3 @@
-$ os = import("os")
-
 $ lst = [1 5 3 6 4]
 
 lst:insert(1, 8)
@@ -10,7 +8,4 @@ lst
 	:sort()
 	:each(print)
 
-print(os.date())
 print(lst:join(", "))
-print("http://space55.xyz/123":match("<protocol>://<host>/<path>"))
--- print("<a href='123123'>":match("href=<url>"))
