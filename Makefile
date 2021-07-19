@@ -114,7 +114,7 @@ ifndef DEBUG
 LDFLAGS += -flto
 endif
 
-PREFIX := /usr/local
+INSTALL_PATH := /usr/local/bin
 
 .PHONY: default
 default: run
@@ -174,7 +174,7 @@ endif
 
 .PHONY: install
 install: $(BIN)
-	install $< /usr/local/bin/dirty
+	install $< $(INSTALL_PATH)/dirty
 
 .PHONY: clean
 clean:

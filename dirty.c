@@ -56,7 +56,7 @@
 #define D_LIB_SOCKET
 
 // #define D_NO_NANBOX
-#define D_VM_LOG
+// #define D_VM_LOG
 // #define D_GC_LOG
 // #define D_GC_STRESS
 
@@ -360,13 +360,6 @@ typedef struct {
 	char* msg;
 } dt_err;
 
-typedef struct {
-	uint8_t* ip;
-	dt_val*  stack_top;
-	dt_val*  stack_bot;
-	dt_func* func;
-} dt_vm_restore;
-
 // the runtime virtual machine
 typedef struct dt_vm {
 	dt_func*   func;
@@ -390,7 +383,6 @@ typedef struct dt_vm {
 	size_t     next_gc;
 	bool       throwing;
 	dt_err     err;
-	dt_vm_restore restore;
 } dt_vm;
 
 typedef struct {
@@ -2884,10 +2876,6 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 		vm->stack_bot = vm->stack_top - nargs;
 		dt_vm_run(vm, func);
 
-		if (vm->throwing) {
-			return DT_NIL;
-		}
-
 		int locals_cnt = vm->stack_top - vm->stack_bot - 1 - nargs;
 		vm->stack_bot = prev_bot;
 		vm->func = prev_func;
@@ -2908,6 +2896,11 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 		for (int i = 0; i < nargs; i++) {
 			dt_vm_pop(vm);
 		}
+	}
+
+	if (vm->throwing) {
+		while (*vm->ip != DT_OP_STOP) vm->ip++;
+		return DT_NIL;
 	}
 
 	return ret;
@@ -2964,13 +2957,13 @@ void dt_vm_gc_check(dt_vm* vm);
 void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 	vm->func = func;
+	dt_chunk* chunk = &vm->func->logic->chunk;
 	vm->ip = func->logic->chunk.code;
 
 	for (;;) {
 
 #ifdef D_VM_LOG
 
-		dt_chunk* chunk = &vm->func->logic->chunk;
 		int offset = vm->ip - chunk->code;
 		int line = chunk->lines[offset];
 
@@ -3810,30 +3803,20 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_TRY: {
+				uint8_t* prev_ip = vm->ip;
 				dt_val catch = dt_vm_pop(vm);
 				dt_val try = dt_vm_pop(vm);
-				dt_vm_restore prev_restore = vm->restore;
-				vm->restore.func = vm->func;
-				vm->restore.ip = vm->ip;
-				vm->restore.stack_top = vm->stack_top;
-				vm->restore.stack_bot = vm->stack_bot;
 				dt_val ret = dt_vm_call(vm, try, 0);
 				if (vm->throwing) {
-					vm->ip = vm->restore.ip;
-					vm->stack_top = vm->restore.stack_top;
-					vm->stack_bot = vm->restore.stack_bot;
-					vm->func = vm->restore.func;
-// 					chunk = &vm->func->logic->chunk;
 					vm->throwing = false;
 					dt_map* err = dt_map_new(vm);
 					dt_map_cset(vm, err, "msg", dt_to_str(dt_str_new(vm, vm->err.msg)));
 					dt_map_cset(vm, err, "line", dt_to_num(vm->err.line));
-					dt_vm_push(vm, dt_to_map(err));
-					dt_vm_push(vm, dt_vm_call(vm, catch, 1));
+					dt_vm_push(vm, dt_call(vm, catch, 1, dt_to_map(err)));
+					vm->ip = prev_ip;
 				} else {
 					dt_vm_push(vm, ret);
 				}
-				vm->restore = prev_restore;
 				break;
 			}
 
