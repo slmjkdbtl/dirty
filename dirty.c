@@ -382,6 +382,7 @@ typedef struct dt_vm {
 	dt_heaper* heaper;
 	size_t     mem;
 	size_t     next_gc;
+	dt_func*   trying;
 	bool       throwing;
 	dt_err     err;
 } dt_vm;
@@ -424,6 +425,7 @@ typedef enum {
 	DT_OP_SETI,
 	DT_OP_CALL,
 	DT_OP_CALL2,
+	DT_OP_TRY_PREP,
 	DT_OP_TRY,
 	DT_OP_MKFUNC,
 	DT_OP_MKARR,
@@ -2427,6 +2429,7 @@ char* dt_op_name(dt_op op) {
 		case DT_OP_SETI:      return "SETI";
 		case DT_OP_CALL:      return "CALL";
 		case DT_OP_CALL2:     return "CALL2";
+		case DT_OP_TRY_PREP:  return "TRY_PREP";
 		case DT_OP_TRY:       return "TRY";
 		case DT_OP_MKFUNC:    return "MKFUNC";
 		case DT_OP_MKARR:     return "MKARR";
@@ -2590,6 +2593,7 @@ dt_vm dt_vm_new() {
 		.heaper = NULL,
 		.mem = 0,
 		.next_gc = DT_GC_THRESHOLD,
+		.trying = NULL,
 		.throwing = false,
 	};
 	vm.stack_bot = vm.stack;
@@ -2623,7 +2627,7 @@ void dt_throw(dt_vm* vm, char* fmt, ...) {
 
 	dt_chunk* chunk = &vm->func->logic->chunk;
 	int offset = vm->ip - chunk->code;
-	int line = chunk->lines[offset];
+	int line = chunk->lines[offset - 1];
 
 	va_list args;
 	va_start(args, fmt);
@@ -2909,7 +2913,7 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 
 	if (vm->throwing) {
 		// TODO: not sure why sometimes NULL, investigate
-		if (vm->ip) {
+		if (vm->ip && vm->func != vm->trying) {
 			while (*vm->ip != DT_OP_STOP) vm->ip++;
 		}
 		return DT_NIL;
@@ -3812,11 +3816,15 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				break;
 			}
 
+			case DT_OP_TRY_PREP: {
+				vm->trying = vm->func;
+				break;
+			}
+
 			case DT_OP_TRY: {
 				uint8_t* prev_ip = vm->ip;
 				dt_val catch = dt_vm_pop(vm);
 				dt_val try = dt_vm_pop(vm);
-				dt_val ret = dt_vm_call(vm, try, 0);
 				if (vm->throwing) {
 					vm->throwing = false;
 					dt_map* err = dt_map_new(vm);
@@ -3825,7 +3833,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_vm_push(vm, dt_call(vm, catch, 1, dt_to_map(err)));
 					vm->ip = prev_ip;
 				} else {
-					dt_vm_push(vm, ret);
+					dt_vm_push(vm, try);
 				}
 				break;
 			}
@@ -5044,6 +5052,7 @@ dt_type dt_c_throw(dt_compiler* c) {
 
 dt_type dt_c_try(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_COLON_RPAREN);
+	dt_c_emit(c, DT_OP_TRY_PREP);
 	dt_type type = dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_OR);
 	dt_c_expr(c);
