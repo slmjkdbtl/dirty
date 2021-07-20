@@ -3780,9 +3780,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_THROW: {
-				dt_str* msg = dt_as_str(vm, dt_vm_pop(vm));
+				dt_str* msg = dt_as_str(vm, dt_vm_get(vm, 0));
 				dt_throw(vm, "%s", msg->chars);
-				return;
+				break;
 			}
 
 			case DT_OP_STOP: {

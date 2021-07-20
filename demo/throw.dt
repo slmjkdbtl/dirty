@@ -17,4 +17,10 @@ $ a = :) run() | ~ (e) {
 	~> 999
 }
 
+$ badfunc = ~ () :( "oh no"
+:) badfunc() | print
+
+:) :( "123" | print
+
 print(a)
+
