@@ -1,6 +1,5 @@
 // wengwengweng
 
-// TODO: error handling
 // TODO: ... to access func args
 // TODO: 'this'
 // TODO: trait
@@ -19,7 +18,7 @@
 // TODO: loop return val
 // TODO: switch
 // TODO: str intern
-// TODO: 3 <= a < 7
+// TODO: chained comparison
 // TODO: iter with index
 // TODO: separate debug print / actual print
 // TODO: ordered map ?
@@ -38,6 +37,7 @@
 // TODO: don't rely on emscripten
 // TODO: cli arg for log
 // TODO: try func table instead of switch
+// TODO: require ! postfix for mut funcs
 
 #define DT_STACK_MAX 2048
 #define DT_ARR_INIT_SIZE 4
@@ -632,9 +632,6 @@ bool      dt_check_args       (dt_vm* vm, int nargs, ...);
 
 // calling a dt_func
 dt_val    dt_call      (dt_vm* vm, dt_val func, int nargs, ...);
-dt_val    dt_call_0    (dt_vm* vm, dt_val func);
-dt_val    dt_call_1    (dt_vm* vm, dt_val func, dt_val a1);
-dt_val    dt_call_2    (dt_vm* vm, dt_val func, dt_val a1, dt_val a2);
 
 // value conversions
 dt_val    dt_to_num      (dt_num n);
@@ -2642,7 +2639,9 @@ void dt_throw(dt_vm* vm, char* fmt, ...) {
 	vm->err.msg = msg;
 	vm->err.line = line;
 
-	while (*vm->ip != DT_OP_STOP) vm->ip++;
+	if (vm->func != vm->trying) {
+		while (*vm->ip != DT_OP_STOP) vm->ip++;
+	}
 
 }
 
@@ -2912,8 +2911,8 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 	}
 
 	if (vm->throwing) {
-		// TODO: not sure why sometimes NULL, investigate
-		if (vm->ip && vm->func != vm->trying) {
+		// TODO: somtimes vm->ip is NULL for single depth stuff
+		if (vm->func != vm->trying) {
 			while (*vm->ip != DT_OP_STOP) vm->ip++;
 		}
 		return DT_NIL;
@@ -2932,39 +2931,6 @@ dt_val dt_call(dt_vm* vm, dt_val func, int nargs, ...) {
 	dt_val ret = dt_vm_call(vm, func, nargs);
 	va_end(args);
 	return ret;
-}
-
-dt_val dt_call_0(dt_vm* vm, dt_val func) {
-	return dt_call(vm, func, 0);
-}
-
-dt_val dt_call_1(dt_vm* vm, dt_val func, dt_val a1) {
-	return dt_call(vm, func, 1, a1);
-}
-
-dt_val dt_call_2(dt_vm* vm, dt_val func, dt_val a1, dt_val a2) {
-	return dt_call(vm, func, 2, a1, a2);
-}
-
-dt_val dt_call_3(
-	dt_vm* vm,
-	dt_val func,
-	dt_val a1,
-	dt_val a2,
-	dt_val a3
-) {
-	return dt_call(vm, func, 3, a1, a2, a3);
-}
-
-dt_val dt_call_4(
-	dt_vm* vm,
-	dt_val func,
-	dt_val a1,
-	dt_val a2,
-	dt_val a3,
-	dt_val a4
-) {
-	return dt_call(vm, func, 4, a1, a2, a3, a4);
 }
 
 void dt_vm_gc_check(dt_vm* vm);
@@ -3323,9 +3289,21 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				dt_val key = dt_vm_pop(vm);
 				dt_val val = dt_vm_pop(vm);
 				switch (dt_typeof(val)) {
-					case DT_VAL_ARR:
+					case DT_VAL_ARR: {
+						dt_arr* arr = dt_as_arr2(val);
 						if (dt_typeof(key) == DT_VAL_NUM) {
-							dt_vm_push(vm, dt_arr_get(dt_as_arr2(val), dt_as_num2(key)));
+							int n = dt_as_num2(key);
+							if (n >= arr->len) {
+								dt_vm_push(vm, DT_NIL);
+								dt_throw(
+									vm,
+									"arr index out of bound: %d",
+									n
+								);
+								break;
+							} else {
+								dt_vm_push(vm, dt_arr_get(arr, n));
+							}
 						} else if (dt_typeof(key) == DT_VAL_STR) {
 							// TODO
 							dt_vm_push(vm, DT_NIL);
@@ -3337,7 +3315,6 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 									.end = range.start,
 								};
 							}
-							dt_arr* arr = dt_as_arr2(val);
 							if (range.start >= arr->len || range.end > arr->len) {
 								dt_vm_push(vm, DT_NIL);
 							} else {
@@ -3357,6 +3334,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_vm_push(vm, DT_NIL);
 						}
 						break;
+					}
 					case DT_VAL_MAP:
 						if (dt_typeof(key) == DT_VAL_STR) {
 							dt_vm_push(vm, dt_map_get(dt_as_map2(val), dt_as_str2(key)));
@@ -3454,47 +3432,6 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_vm_push(vm, DT_NIL);
 						}
 						break;
-					case DT_VAL_STR: {
-						if (dt_typeof(key) != DT_VAL_NUM) {
-							dt_throw(
-								vm,
-								"invalid str idx type '%s'",
-								dt_typename(dt_typeof(val))
-							);
-							dt_vm_push(vm, DT_NIL);
-							break;
-						}
-						if (dt_typeof(val) != DT_VAL_STR) {
-							dt_throw(
-								vm,
-								"cannot set str idx to '%s'",
-								dt_typename(dt_typeof(val))
-							);
-							dt_vm_push(vm, DT_NIL);
-							break;
-						}
-						dt_str* pstr = dt_as_str2(parent);
-						dt_str* vstr = dt_as_str2(val);
-						if (vstr->len != 1) {
-							dt_throw(
-								vm,
-								"can only set str idx to a char '%s'",
-								dt_typename(dt_typeof(val))
-							);
-							dt_vm_push(vm, DT_NIL);
-							break;
-						}
-						int idx = dt_as_num2(key);
-						if (idx >= pstr->len) {
-							dt_vm_push(vm, DT_NIL);
-						} else {
-							// TODO: str mutation??
-							pstr->chars[idx] = vstr->chars[0];
-							dt_str_hash(pstr);
-							dt_vm_push(vm, val);
-						}
-						break;
-					}
 					default:
 						dt_throw(
 							vm,
@@ -3828,10 +3765,14 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				if (vm->throwing) {
 					vm->throwing = false;
 					dt_map* err = dt_map_new(vm);
+					// TODO: stack trace
+					// TODO: file
 					dt_map_cset(vm, err, "msg", dt_to_str(dt_str_new(vm, vm->err.msg)));
 					dt_map_cset(vm, err, "line", dt_to_num(vm->err.line));
 					dt_vm_push(vm, dt_call(vm, catch, 1, dt_to_map(err)));
 					vm->ip = prev_ip;
+					// TODO: restore previous
+					vm->trying = NULL;
 				} else {
 					dt_vm_push(vm, try);
 				}
@@ -5536,7 +5477,7 @@ dt_val dt_f_print(dt_vm* vm) {
 
 }
 
-dt_val dt_f_type(dt_vm* vm) {
+dt_val dt_f_typeof(dt_vm* vm) {
 	dt_val val = dt_arg(vm, 0);
 	char* tname = dt_typename(dt_typeof(val));
 	return dt_to_str(dt_str_new(vm, tname));
@@ -5586,6 +5527,23 @@ dt_val dt_f_str_replace(dt_vm* vm) {
 	dt_str* old = dt_arg_str(vm, 1);
 	dt_str* new = dt_arg_str(vm, 2);
 	return dt_to_str(dt_str_replace(vm, str, old, new));
+}
+
+dt_val dt_f_str_replace_at(dt_vm* vm) {
+	// TODO: interface to variable arg type
+	if (!dt_check_args(vm,
+		3,
+		DT_VAL_STR,
+		DT_VAL_NUM,
+		DT_VAL_STR
+	)) return DT_NIL;
+	dt_str* str = dt_arg_str(vm, 0);
+	// TODO: or range
+	dt_val pos = dt_arg(vm, 1);
+	dt_str* new = dt_arg_str(vm, 2);
+	int len = str->len - 1 + new->len;
+	// TODO
+	return dt_to_str(str);
 }
 
 dt_val dt_f_str_split(dt_vm* vm) {
@@ -7157,7 +7115,7 @@ dt_val dt_f_http_fetch(dt_vm* vm) {
 void dt_load_libs(dt_vm* vm) {
 
 	dt_map_reg(vm, vm->globals, (dt_map_centry[]) {
-		{ "type", dt_to_cfunc(dt_f_type), },
+		{ "typeof", dt_to_cfunc(dt_f_typeof), },
 		{ "eval", dt_to_cfunc(dt_f_eval), },
 		{ "dofile", dt_to_cfunc(dt_f_dofile), },
 		{ "print", dt_to_cfunc(dt_f_print), },
@@ -7167,7 +7125,6 @@ void dt_load_libs(dt_vm* vm) {
 	});
 
 	dt_map_centry str_lib[] = {
-		{ "replace", dt_to_cfunc(dt_f_str_replace), },
 		{ "split", dt_to_cfunc(dt_f_str_split), },
 		{ "chars", dt_to_cfunc(dt_f_str_chars), },
 		{ "starts", dt_to_cfunc(dt_f_str_starts), },
@@ -7177,6 +7134,8 @@ void dt_load_libs(dt_vm* vm) {
 		{ "tolower", dt_to_cfunc(dt_f_str_tolower), },
 		{ "find", dt_to_cfunc(dt_f_str_find), },
 		{ "contains", dt_to_cfunc(dt_f_str_contains), },
+		{ "replace", dt_to_cfunc(dt_f_str_replace), },
+		{ "replace_at", dt_to_cfunc(dt_f_str_replace_at), },
 		{ "rev", dt_to_cfunc(dt_f_str_rev), },
 		{ "match", dt_to_cfunc(dt_f_str_match), },
 		{ "trim", dt_to_cfunc(dt_f_str_trim), },
@@ -7193,9 +7152,13 @@ void dt_load_libs(dt_vm* vm) {
 
 	dt_map_centry arr_lib[] = {
 		{ "push", dt_to_cfunc(dt_f_arr_push), },
+// 		{ "push!", dt_to_cfunc(dt_f_arr_push), },
 		{ "insert", dt_to_cfunc(dt_f_arr_insert), },
+// 		{ "insert!", dt_to_cfunc(dt_f_arr_insert), },
 		{ "rm", dt_to_cfunc(dt_f_arr_rm), },
+// 		{ "rm!", dt_to_cfunc(dt_f_arr_rm), },
 		{ "rm_all", dt_to_cfunc(dt_f_arr_rm_all), },
+// 		{ "rm_all!", dt_to_cfunc(dt_f_arr_rm_all), },
 		{ "find", dt_to_cfunc(dt_f_arr_find), },
 		{ "map", dt_to_cfunc(dt_f_arr_map), },
 		{ "sort", dt_to_cfunc(dt_f_arr_sort), },
@@ -7205,6 +7168,7 @@ void dt_load_libs(dt_vm* vm) {
 		{ "join", dt_to_cfunc(dt_f_arr_join), },
 		{ "rev", dt_to_cfunc(dt_f_arr_rev), },
 		{ "pop", dt_to_cfunc(dt_f_arr_pop), },
+// 		{ "pop!", dt_to_cfunc(dt_f_arr_pop), },
 		{ "sub", dt_to_cfunc(dt_f_arr_sub), },
 		{ "reduce", dt_to_cfunc(dt_f_arr_reduce), },
 		{ "concat", dt_to_cfunc(dt_f_arr_concat), },
@@ -7222,6 +7186,7 @@ void dt_load_libs(dt_vm* vm) {
 		{ "vals", dt_to_cfunc(dt_f_map_vals), },
 		{ "each", dt_to_cfunc(dt_f_map_each), },
 		{ "rm", dt_to_cfunc(dt_f_map_rm), },
+// 		{ "rm!", dt_to_cfunc(dt_f_map_rm), },
 		{ "has", dt_to_cfunc(dt_f_map_has), },
 		{ "clone", dt_to_cfunc(dt_f_map_clone), },
 		{ NULL, DT_NIL, },
@@ -7276,7 +7241,7 @@ void dt_load_libs(dt_vm* vm) {
 
 #ifdef D_LIB_OS
 	dt_val os = dt_to_str(dt_str_new(
-		vm,
+		NULL,
 #if defined(D_MACOS)
 		"macos"
 #elif defined(D_IOS)

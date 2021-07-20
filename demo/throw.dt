@@ -1,9 +1,9 @@
+:) 1 + ? | print
+
 $ run = ~ () {
 	$ err = ~ () {
--- 		$ a = 123 + ?
--- 		$ b = 3
+		:( "not good"
 		print("not working 12312313")
--- 		~> a + b
 	}
 	err()
 	print("not working")
