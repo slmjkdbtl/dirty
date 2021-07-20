@@ -3791,7 +3791,13 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_THROW: {
-				dt_str* msg = dt_as_str(vm, dt_vm_get(vm, 0));
+				dt_val v = dt_vm_get(vm, 0);
+				dt_val_ty vt = dt_typeof(v);
+				if (dt_typeof(v) != DT_VAL_STR) {
+					dt_throw(vm, "can only throw a str, found '%s'", dt_typename(vt));
+					break;
+				}
+				dt_str* msg = dt_as_str(vm, v);
 				dt_throw(vm, "%s", msg->chars);
 				break;
 			}
@@ -7368,10 +7374,6 @@ dt_val dt_eval(dt_vm* vm, char* code) {
 
 	dt_val ret = dt_call(vm, dt_to_func(&func), 0);
 
-	if (vm->throwing) {
-		dt_def_catch(&vm->err);
-	}
-
 	return ret;
 
 }
@@ -7394,7 +7396,8 @@ dt_val dt_dofile(dt_vm* vm, char* path) {
 
 int main(int argc, char** argv) {
 
-	char* file = NULL;
+	char* target = NULL;
+	int args_start = -1;
 	bool eval = false;
 
 	for (int i = 1 ; i < argc; i++) {
@@ -7407,19 +7410,26 @@ int main(int argc, char** argv) {
 					break;
 			}
 		} else if (arg[0] != '-') {
-			file = arg;
+			target = arg;
+			args_start = i + 1;
+			break;
 		}
 	}
 
 	dt_vm vm = dt_vm_new();
 	dt_load_libs(&vm);
 
-	if (file) {
+	if (target) {
 		if (eval) {
-			dt_eval(&vm, file);
+			dt_eval(&vm, target);
 		} else {
-			dt_dofile(&vm, file);
+			dt_dofile(&vm, target);
 		}
+	}
+
+	// TODO: good place?
+	if (vm.throwing) {
+		dt_def_catch(&vm.err);
 	}
 
 	dt_vm_free(&vm);
