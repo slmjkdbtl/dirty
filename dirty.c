@@ -2622,6 +2622,17 @@ void dt_def_catch(dt_err* err) {
 
 void dt_throw(dt_vm* vm, char* fmt, ...) {
 
+	// not running
+	if (!vm->func) {
+		va_list args;
+		va_start(args, fmt);
+		vfprintf(stderr, fmt, args);
+		fprintf(stderr, "\n");
+		va_end(args);
+		exit(EXIT_FAILURE);
+		return;
+	}
+
 	dt_chunk* chunk = &vm->func->logic->chunk;
 	int offset = vm->ip - chunk->code;
 	int line = chunk->lines[offset - 1];
@@ -7382,11 +7393,37 @@ dt_val dt_dofile(dt_vm* vm, char* path) {
 }
 
 int main(int argc, char** argv) {
+
+	char* file = NULL;
+	bool eval = false;
+
+	for (int i = 1 ; i < argc; i++) {
+		char* arg = argv[i];
+		int len = strlen(arg);
+		if (len >= 2 && arg[0] == '-' && arg[1] != '-') {
+			switch (arg[1]) {
+				case 'c':
+					eval = true;
+					break;
+			}
+		} else if (arg[0] != '-') {
+			file = arg;
+		}
+	}
+
 	dt_vm vm = dt_vm_new();
 	dt_load_libs(&vm);
-	if (argc >= 2) {
-		dt_dofile(&vm, argv[1]);
+
+	if (file) {
+		if (eval) {
+			dt_eval(&vm, file);
+		} else {
+			dt_dofile(&vm, file);
+		}
 	}
+
 	dt_vm_free(&vm);
+
 	return 0;
+
 }
