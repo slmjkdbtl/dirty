@@ -5,9 +5,59 @@ $ port = 8000
 -- print(http.fetch("space55.xyz", {}))
 print("http://localhost:" + port)
 
+$ mimes = {
+	"aac": "audio/aac",
+	"mp3": "audio/mpeg",
+	"wav": "audio/wav",
+	"ogg": "audio/ogg",
+	"mid": "audio/midi",
+	"midi": "audio/midi",
+	"otf": "font/otf",
+	"ttf": "font/ttf",
+	"woff": "font/woff",
+	"woff2": "font/woff2",
+	"mp4": "video/mp4",
+	"bmp": "image/bmp",
+	"png": "image/png",
+	"jpg": "image/jpeg",
+	"jpeg": "image/jpeg",
+	"webp": "image/webp",
+	"gif": "image/gif",
+	"css": "text/css",
+	"htm": "text/html",
+	"html": "text/html",
+	"txt": "text/plain",
+	"csv": "text/csv",
+	"js": "text/javascript",
+	"xml": "text/xml",
+	"php": "text/php",
+	"json": "application/json",
+	"pdf": "application/pdf",
+	"zip": "application/zip",
+	"rtf": "application/rtf",
+	"gz": "application/gzip",
+	"wasm": "application/wasm",
+}
+
+$ t = ~ (tag, attrs, children) {
+	$ code = "<" + tag
+	attrs:each(~ (k, v) code += " " + k + "=" + v)
+	% (children) {
+		% (typeof(children) == "arr") {
+			code += ">"
+			children:each(~ (c) code += c)
+			code += "</" + tag + ">"
+		} | code += ">" + children + "</" + tag + ">"
+	} | code += " />"
+	~> code
+}
+
 http.serve(port, ~ (req) {
 	~> {
 		status: 200
-		body: "oh hi"
+		headers: {
+			"Content-Type": "text/html"
+		}
+		body: t("div", {}, fs.readdir("demo"):map(~ (name) t("p", {}, name)))
 	}
 })

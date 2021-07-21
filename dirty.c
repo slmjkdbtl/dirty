@@ -412,6 +412,7 @@ typedef enum {
 	DT_OP_LT,
 	DT_OP_LT_EQ,
 	DT_OP_OR,
+	DT_OP_NIL_OR,
 	DT_OP_AND,
 	DT_OP_LEN,
 	DT_OP_POP,
@@ -474,6 +475,7 @@ typedef enum {
 	DT_TOKEN_COLON_LPAREN, // :(
 	DT_TOKEN_COLON_RPAREN, // :)
 	DT_TOKEN_QUESTION, // ?
+	DT_TOKEN_QUESTION_Q, // ??
 	DT_TOKEN_AND, // &
 	DT_TOKEN_OR, // |
 	DT_TOKEN_AT, // @
@@ -852,6 +854,7 @@ char* dt_token_name(dt_token_ty ty) {
 		case DT_TOKEN_COLON_LPAREN: return "COLON_LPAREN";
 		case DT_TOKEN_COLON_RPAREN: return "COLON_RPAREN";
 		case DT_TOKEN_QUESTION: return "QUESTION";
+		case DT_TOKEN_QUESTION_Q: return "QUESTION_QUESTION";
 		case DT_TOKEN_QUOTE: return "QUOTE";
 		case DT_TOKEN_AND: return "AND";
 		case DT_TOKEN_OR: return "OR";
@@ -2192,7 +2195,7 @@ void dt_map_each(dt_vm* vm, dt_map* map, dt_val f) {
 	dt_map_iter iter = dt_map_iter_new(map);
 	dt_map_entry* e;
 	while ((e = dt_map_iter_nxt(&iter))) {
-		dt_call(vm, f, 2, e->key, e->val);
+		dt_call(vm, f, 2, dt_to_str(e->key), e->val);
 	}
 }
 
@@ -2413,6 +2416,7 @@ char* dt_op_name(dt_op op) {
 		case DT_OP_LT:        return "LT";
 		case DT_OP_LT_EQ:     return "LT_EQ";
 		case DT_OP_OR:        return "OR";
+		case DT_OP_NIL_OR:    return "NIL_OR";
 		case DT_OP_AND:       return "AND";
 		case DT_OP_LEN:       return "LEN";
 		case DT_OP_POP:       return "POP";
@@ -2880,6 +2884,7 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 		dt_func* func = dt_as_func2(val);
 		dt_logic* logic = func->logic;
 
+		// TODO: keep extra args
 		// balance the arg stack
 		if (logic->nargs > nargs) {
 			for (int i = 0; i < logic->nargs - nargs; i++) {
@@ -2922,6 +2927,7 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 	}
 
 	if (vm->throwing) {
+		// TODO: add stack trace here
 		// TODO: somtimes vm->ip is NULL for single depth stuff
 		if (vm->func != vm->trying) {
 			while (*vm->ip != DT_OP_STOP) vm->ip++;
@@ -3220,6 +3226,17 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				break;
 			}
 
+			case DT_OP_NIL_OR: {
+				dt_val b = dt_vm_pop(vm);
+				dt_val a = dt_vm_pop(vm);
+				if (dt_is_nil(a)) {
+					dt_vm_push(vm, b);
+				} else {
+					dt_vm_push(vm, a);
+				}
+				break;
+			}
+
 			case DT_OP_AND: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
@@ -3291,8 +3308,11 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_ARGS: {
-				// TODO
-				dt_vm_push(vm, DT_NIL);
+				dt_arr* args = dt_arr_new(vm);
+				for (int i = 0; i < vm->func->logic->nargs; i++) {
+					dt_arr_push(vm, args, vm->stack_bot[i]);
+				}
+				dt_vm_push(vm, dt_to_arr(args));
 				break;
 			}
 
@@ -4204,13 +4224,13 @@ dt_token dt_scanner_scan(dt_scanner* s) {
 		case ',': return dt_scanner_make_token(s, DT_TOKEN_COMMA);
 		case '#': return dt_scanner_make_token(s, DT_TOKEN_HASH);
 		case '\\': return dt_scanner_make_token(s, DT_TOKEN_BACKSLASH);
-		case '?': return dt_scanner_make_token(s, DT_TOKEN_QUESTION);
 		case '^': return dt_scanner_make_token(s, DT_TOKEN_CARET);
-		case '$':
-			if (dt_scanner_match(s, '{')) {
-				return dt_scanner_make_token(s, DT_TOKEN_DOLLAR_LBRACE);
+		case '$': return dt_scanner_make_token(s, DT_TOKEN_DOLLAR);
+		case '?':
+			if (dt_scanner_match(s, '?')) {
+				return dt_scanner_make_token(s, DT_TOKEN_QUESTION_Q);
 			} else {
-				return dt_scanner_make_token(s, DT_TOKEN_DOLLAR);
+				return dt_scanner_make_token(s, DT_TOKEN_QUESTION);
 			}
 		case ':':
 			if (dt_scanner_match(s, ':')) {
@@ -4233,9 +4253,15 @@ dt_token dt_scanner_scan(dt_scanner* s) {
 				dt_scanner_match(s, '|') ? DT_TOKEN_OR_OR : DT_TOKEN_OR
 			);
 		case '.':
-			return dt_scanner_make_token(s,
-				dt_scanner_match(s, '.') ? DT_TOKEN_DOT_DOT : DT_TOKEN_DOT
-			);
+			if (dt_scanner_match(s, '.')) {
+				if (dt_scanner_match(s, '.')) {
+					return dt_scanner_make_token(s, DT_TOKEN_DOT_DOT_DOT);
+				} else {
+					return dt_scanner_make_token(s, DT_TOKEN_DOT_DOT);
+				}
+			} else {
+				return dt_scanner_make_token(s, DT_TOKEN_DOT);
+			}
 		case '+':
 			if (dt_scanner_match(s, '=')) {
 				return dt_scanner_make_token(s, DT_TOKEN_PLUS_EQ);
@@ -4495,6 +4521,7 @@ bool dt_type_eq(dt_type* t1, dt_type* t2) {
 	return t1->type == t2->type && t1->idx == t2->idx;
 }
 
+// TODO: [ ..arr ] spread syntax
 // TODO: store arr inner type
 dt_type dt_c_arr(dt_compiler* c) {
 
@@ -5093,7 +5120,6 @@ dt_type dt_c_call(dt_compiler* c, dt_type ty) {
 
 }
 
-// TODO
 dt_type dt_c_args(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_DOT_DOT_DOT);
 	dt_c_emit(c, DT_OP_ARGS);
@@ -5326,7 +5352,7 @@ dt_parse_rule dt_expr_rules[] = {
 	[DT_TOKEN_T]             = { dt_c_lit,      NULL,        DT_PREC_NONE },
 	[DT_TOKEN_F]             = { dt_c_lit,      NULL,        DT_PREC_NONE },
 	[DT_TOKEN_QUESTION]      = { dt_c_lit,      NULL,        DT_PREC_NONE },
-	[DT_TOKEN_OR]            = { NULL,          NULL,        DT_PREC_NONE },
+	[DT_TOKEN_QUESTION_Q]    = { NULL,          dt_c_binary, DT_PREC_LOGIC },
 	[DT_TOKEN_ERR]           = { NULL,          NULL,        DT_PREC_NONE },
 	[DT_TOKEN_END]           = { NULL,          NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AT]            = { dt_c_loop,     NULL,        DT_PREC_NONE },
@@ -5419,6 +5445,9 @@ dt_type dt_c_binary(dt_compiler* c, dt_type t1) {
 				return DT_TYPE_NIL;
 			}
 			break;
+		case DT_TOKEN_QUESTION_Q:
+			dt_c_emit(c, DT_OP_NIL_OR);
+			return DT_TYPE_NIL;
 		case DT_TOKEN_DOT_DOT:
 			dt_c_emit(c, DT_OP_SPREAD);
 			return DT_TYPE_RANGE;

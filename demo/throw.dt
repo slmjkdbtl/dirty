@@ -1,4 +1,4 @@
-:) 1 + ? | print
+:) 1 + N | print
 
 $ run = ~ () {
 	$ err = ~ () {
@@ -21,7 +21,6 @@ $ badfunc = ~ () :( "oh no"
 :) badfunc() | print
 
 :) :( "123" | print
--- TODO: should only log once
 :) eval("1 + ?") | print
 
 print(a)
