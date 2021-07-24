@@ -24,4 +24,3 @@ $ badfunc = ~ () :( "oh no"
 :) eval("1 + ?") | print
 
 print(a)
-

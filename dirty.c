@@ -150,18 +150,18 @@ typedef struct dt_val (dt_cfunc)(struct dt_vm* vm);
 typedef struct dt_val {
 	dt_val_ty type;
 	union {
-		dt_num num;
-		dt_bool boolean;
-		dt_range range;
-		dt_pstr pstr;
-		struct dt_str* str;
-		struct dt_arr* arr;
-		struct dt_map* map;
-		struct dt_func* func;
+		dt_num           num;
+		dt_bool          boolean;
+		dt_range         range;
+		dt_pstr          pstr;
+		struct dt_str*   str;
+		struct dt_arr*   arr;
+		struct dt_map*   map;
+		struct dt_func*  func;
 		struct dt_logic* logic;
-		dt_cfunc* cfunc;
+		dt_cfunc*        cfunc;
 		struct dt_cdata* cdata;
-		struct dt_cptr* cptr;
+		struct dt_cptr*  cptr;
 	} data;
 } dt_val;
 
@@ -677,6 +677,8 @@ bool      dt_is_map      (dt_val v);
 bool      dt_is_arr      (dt_val v);
 bool      dt_is_func     (dt_val v);
 bool      dt_is_cfunc    (dt_val v);
+bool      dt_typecheck   (dt_vm* vm, dt_val v, dt_val_ty ty);
+bool      dt_typecheck_opt (dt_vm* vm, dt_val v, dt_val_ty ty);
 
 // misc value related
 bool      dt_val_eq      (dt_val a, dt_val b);
@@ -920,6 +922,34 @@ dt_val_ty dt_typeof(dt_val v) {
 
 }
 
+bool dt_typecheck(dt_vm* vm, dt_val v, dt_val_ty expected) {
+	dt_val_ty actual = dt_typeof(v);
+	if (actual != expected) {
+		dt_throw(
+			vm,
+			"expected a '%s', found '%s'",
+			dt_typename(expected),
+			dt_typename(actual)
+		);
+		return false;
+	}
+	return true;
+}
+
+bool dt_typecheck_opt(dt_vm* vm, dt_val v, dt_val_ty expected) {
+	dt_val_ty actual = dt_typeof(v);
+	if (actual != expected && actual != DT_VAL_NIL) {
+		dt_throw(
+			vm,
+			"expected a '%s', found '%s'",
+			dt_typename(expected),
+			dt_typename(actual)
+		);
+		return false;
+	}
+	return true;
+}
+
 char* dt_typename(dt_val_ty ty) {
 	switch (ty) {
 		case DT_VAL_NIL: return "nil";
@@ -975,7 +1005,7 @@ dt_num dt_as_num(dt_vm* vm, dt_val v) {
 	if (dt_is_num(v)) {
 		return dt_as_num2(v);
 	} else {
-		dt_assert_ty(vm, DT_VAL_NUM, dt_typeof(v));
+		dt_typecheck(vm, v, DT_VAL_NUM);
 		return 0;
 	}
 }
@@ -992,7 +1022,7 @@ dt_bool dt_as_bool(dt_vm* vm, dt_val v) {
 	if (dt_is_bool(v)) {
 		return dt_as_bool2(v);
 	} else {
-		dt_assert_ty(vm, DT_VAL_BOOL, dt_typeof(v));
+		dt_typecheck(vm, v, DT_VAL_BOOL);
 		return false;
 	}
 }
@@ -1009,7 +1039,7 @@ dt_str* dt_as_str(dt_vm* vm, dt_val v) {
 	if (dt_is_str(v)) {
 		return dt_as_str2(v);
 	} else {
-		dt_assert_ty(vm, DT_VAL_STR, dt_typeof(v));
+		dt_typecheck(vm, v, DT_VAL_STR);
 		return NULL;
 	}
 }
@@ -1026,7 +1056,7 @@ dt_arr* dt_as_arr(dt_vm* vm, dt_val v) {
 	if (dt_is_arr(v)) {
 		return dt_as_arr2(v);
 	} else {
-		dt_assert_ty(vm, DT_VAL_ARR, dt_typeof(v));
+		dt_typecheck(vm, v, DT_VAL_ARR);
 		return NULL;
 	}
 }
@@ -1043,7 +1073,7 @@ dt_map* dt_as_map(dt_vm* vm, dt_val v) {
 	if (dt_is_map(v)) {
 		return dt_as_map2(v);
 	} else {
-		dt_assert_ty(vm, DT_VAL_MAP, dt_typeof(v));
+		dt_typecheck(vm, v, DT_VAL_MAP);
 		return NULL;
 	}
 }
@@ -2884,12 +2914,12 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 		dt_func* func = dt_as_func2(val);
 		dt_logic* logic = func->logic;
 
-		// TODO: keep extra args
 		// balance the arg stack
 		if (logic->nargs > nargs) {
 			for (int i = 0; i < logic->nargs - nargs; i++) {
 				dt_vm_push(vm, DT_NIL);
 			}
+		// TODO: keep extra args
 		} else if (logic->nargs < nargs) {
 			for (int i = 0; i < nargs - logic->nargs; i++) {
 				dt_vm_pop(vm);
@@ -3307,6 +3337,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				break;
 			}
 
+			// TODO: cache
 			case DT_OP_ARGS: {
 				dt_arr* args = dt_arr_new(vm);
 				for (int i = 0; i < vm->func->logic->nargs; i++) {
@@ -3798,8 +3829,10 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_map* err = dt_map_new(vm);
 					// TODO: stack trace
 					// TODO: file
+					dt_arr* trace = dt_arr_new(vm);
 					dt_map_cset(vm, err, "msg", dt_to_str(dt_str_new(vm, vm->err.msg)));
 					dt_map_cset(vm, err, "line", dt_to_num(vm->err.line));
+					dt_map_cset(vm, err, "trace", dt_to_arr(trace));
 					dt_vm_push(vm, dt_call(vm, catch, 1, dt_to_map(err)));
 					vm->ip = prev_ip;
 					// TODO: restore previous
@@ -4796,6 +4829,7 @@ int dt_c_block(dt_compiler* c, dt_block_ty ty) {
 // for parsing following cond without % only |
 dt_type dt_c_cond_inner(dt_compiler* c) {
 
+	// TODO: don't require paren
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
@@ -5592,6 +5626,15 @@ dt_val dt_f_str_replace_at(dt_vm* vm) {
 	return dt_to_str(str);
 }
 
+dt_val dt_f_str_tonum(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
+	dt_str* str = dt_arg_str(vm, 0);
+	return dt_to_num(atoi(str->chars));
+}
+
 dt_val dt_f_str_split(dt_vm* vm) {
 	if (!dt_check_args(vm,
 		2,
@@ -5761,16 +5804,6 @@ dt_val dt_f_str_hash(dt_vm* vm) {
 	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
 	return dt_to_num(str->hash);
-}
-
-// TODO
-dt_val dt_f_str_tonum(dt_vm* vm) {
-	if (!dt_check_args(vm,
-		1,
-		DT_VAL_STR
-	)) return DT_NIL;
-	dt_str* str = dt_arg_str(vm, 0);
-	return dt_to_num(0);
 }
 
 dt_val dt_f_arr_push(dt_vm* vm) {
@@ -6358,6 +6391,13 @@ dt_val dt_f_os_exit(dt_vm* vm) {
 	return DT_NIL;
 }
 
+dt_val dt_f_os_cwd(dt_vm* vm) {
+	char* path = getcwd(NULL, 0);
+	dt_str* str = dt_str_new(vm, path);
+	free(path);
+	return dt_to_str(str);
+}
+
 #define D_POPEN_SIZE 128
 
 #if !defined(D_IOS)
@@ -6422,6 +6462,7 @@ dt_val dt_f_fs_readdir(dt_vm* vm) {
 	DIR* dir = opendir(path);
 
 	if (!dir) {
+		dt_throw(vm, "failed to read dir '%s'", path);
 		return DT_NIL;
 	}
 
@@ -6614,7 +6655,7 @@ dt_val dt_f_fs_ext(dt_vm* vm) {
 	char* path = dt_arg_cstr(vm, 0);
 	char* dot = strrchr(path, '.');
 	if (!dot) {
-		return DT_NIL;
+		return dt_to_str(dt_str_new(vm, ""));
 	}
 	return dt_to_str(dt_str_new(vm, dot + 1));
 }
@@ -6630,13 +6671,6 @@ dt_val dt_f_fs_base(dt_vm* vm) {
 	dot = dot ? dot : path + strlen(path);
 	slash = slash ? slash + 1 : path;
 	return dt_to_str(dt_str_new_len(vm, slash, dot - slash));
-}
-
-dt_val dt_f_fs_cwd(dt_vm* vm) {
-	char* path = getcwd(NULL, 0);
-	dt_str* str = dt_str_new(vm, path);
-	free(path);
-	return dt_to_str(str);
 }
 
 #if !defined(D_WEB)
@@ -7036,19 +7070,32 @@ dt_val dt_f_http_serve(dt_vm* vm) {
 					dt_to_map(req)
 				);
 
+				if (vm->throwing) {
+					dt_def_catch(&vm->err);
+					vm->throwing = false;
+					goto fail;
+				}
+
 				// TODO: accept binary
 				if (!dt_is_nil(res_val)) {
 
 					dt_map* res = dt_as_map(vm, res_val);
-					int status = dt_as_num_or(vm, dt_map_cget(vm, res, "status"), 200);
+					dt_val status_val = dt_map_cget(vm, res, "status");
+					dt_val body_val = dt_map_cget(vm, res, "body");
+					dt_val headers_val = dt_map_cget(vm, res, "headers");
+					if (!dt_typecheck_opt(vm, status_val, DT_VAL_NUM)) goto fail;
+					if (!dt_typecheck_opt(vm, body_val, DT_VAL_STR)) goto fail;
+					if (!dt_typecheck_opt(vm, headers_val, DT_VAL_MAP)) goto fail;
+
+					int status = dt_as_num_or(vm, status_val, 200);
 
 					if (status >= 600) {
 						dt_throw(vm, "invalid status code: %d", status);
 						goto fail;
 					}
 
-					dt_str* body = dt_as_str_or(vm, dt_map_cget(vm, res, "body"), dt_str_new(vm, ""));
-					dt_map* headers = dt_as_map_or(vm, dt_map_cget(vm, res, "headers"), dt_map_new(vm));
+					dt_str* body = dt_as_str_or(vm, body_val, dt_str_new(vm, ""));
+					dt_map* headers = dt_as_map_or(vm, headers_val, dt_map_new(vm));
 
 					// get date
 					time_t rawtime;
@@ -7311,6 +7358,7 @@ void dt_load_libs(dt_vm* vm) {
 			{ "date", dt_to_cfunc(dt_f_os_date), },
 			{ "getenv", dt_to_cfunc(dt_f_os_getenv), },
 			{ "exit", dt_to_cfunc(dt_f_os_exit), },
+			{ "cwd", dt_to_cfunc(dt_f_os_cwd), },
 			{ "OS",  os, },
 #if !defined(D_IOS)
 			{ "exec", dt_to_cfunc(dt_f_os_exec), },
@@ -7340,7 +7388,6 @@ void dt_load_libs(dt_vm* vm) {
 			{ "lastmod", dt_to_cfunc(dt_f_fs_lastmod), },
 			{ "ext", dt_to_cfunc(dt_f_fs_ext), },
 			{ "base", dt_to_cfunc(dt_f_fs_base), },
-			{ "cwd", dt_to_cfunc(dt_f_fs_cwd), },
 			{ "cd", dt_to_cfunc(dt_f_fs_cd), },
 			{ "resdir", dt_to_cfunc(dt_f_fs_resdir), },
 			{ "datadir", dt_to_cfunc(dt_f_fs_datadir), },
@@ -7379,6 +7426,7 @@ void dt_load_libs(dt_vm* vm) {
 
 }
 
+// TODO: pass args
 dt_val dt_eval(dt_vm* vm, char* code) {
 
 	dt_compiler c = dt_compiler_new(code);

@@ -1,3 +1,6 @@
+$ fs = import("fs")
+$ os = import("os")
+
 $ lst = fs.readdir(".")
 	:sort()
 	:sort(~ (a, b) fs.isdir(a))
