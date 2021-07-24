@@ -1,2 +1,0 @@
-DIRTY (short for "dangerous ichthyologist reincarnates tropical yeti") is the
-personal virtual machine bytecode standard of tga, mainly for digital toys.
