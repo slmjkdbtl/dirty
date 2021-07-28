@@ -44,6 +44,7 @@
 #define DT_MAP_INIT_SIZE 8
 #define DT_MAP_MAX_LOAD 0.75
 #define DT_GC_THRESHOLD 1024 * 1024
+#define DT_GC_MAX 1024 * 1024 * 1024
 #define DT_GC_GROW 2
 #define D_PI 3.14
 
@@ -230,6 +231,7 @@ typedef dt_val (dt_cfunc)(struct dt_vm* vm);
 
 #endif
 
+// TODO
 typedef struct dt_type {
 	dt_val_ty type;
 	// struct / func idx in compiler
@@ -3826,14 +3828,16 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				dt_val try = dt_vm_pop(vm);
 				if (vm->throwing) {
 					vm->throwing = false;
-					dt_map* err = dt_map_new(vm);
 					// TODO: stack trace
 					// TODO: file
-					dt_arr* trace = dt_arr_new(vm);
-					dt_map_cset(vm, err, "msg", dt_to_str(dt_str_new(vm, vm->err.msg)));
-					dt_map_cset(vm, err, "line", dt_to_num(vm->err.line));
-					dt_map_cset(vm, err, "trace", dt_to_arr(trace));
-					dt_vm_push(vm, dt_call(vm, catch, 1, dt_to_map(err)));
+					// TODO: deal with errors in this call
+					dt_vm_push(vm, dt_call(
+						vm,
+						catch,
+						2,
+						dt_to_str(dt_str_new(vm, vm->err.msg)),
+						dt_to_num(vm->err.line)
+					));
 					vm->ip = prev_ip;
 					// TODO: restore previous
 					vm->trying = NULL;
@@ -4018,6 +4022,7 @@ void dt_vm_gc_check(dt_vm* vm) {
 	if (vm->mem >= vm->next_gc) {
 		dt_gc_run(vm);
 		vm->next_gc *= DT_GC_GROW;
+		if (vm->next_gc > DT_GC_MAX) vm->next_gc = DT_GC_MAX;
 	}
 #endif
 }
@@ -7458,13 +7463,19 @@ dt_val dt_eval(dt_vm* vm, char* code) {
 dt_val dt_dofile(dt_vm* vm, char* path) {
 
 	char* code = dt_read_file(path, NULL);
+	char* start = code;
 
 	if (!code) {
 		dt_throw(vm, "failed to read file '%s'", path);
 		return DT_NIL;
 	}
 
-	dt_val ret = dt_eval(vm, code);
+	// shebang
+	if (start[0] == '#' && start[1] == '!') {
+		while (*start != '\n') start++;
+	}
+
+	dt_val ret = dt_eval(vm, start);
 	free(code);
 
 	return ret;

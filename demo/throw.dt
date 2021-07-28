@@ -12,8 +12,8 @@ $ run = ~ () {
 
 -- run()
 
-$ a = :) run() | ~ (e) {
-	print("ERROR!!!!! line #" + e.line + ": " + e.msg)
+$ a = :) run() | ~ (msg, line) {
+	print("ERROR!!!!! line #" + line + ": " + msg)
 	~> 999
 }
 
