@@ -58,8 +58,8 @@
 #define D_LIB_SOCKET
 
 // #define D_NO_NANBOX
-#define D_VM_LOG
-#define D_GC_LOG
+// #define D_VM_LOG
+// #define D_GC_LOG
 // #define D_GC_STRESS
 #define D_GC_TRACE
 
@@ -1533,8 +1533,10 @@ void dt_rc_inc(dt_val val) {
 	}
 	dt_heaper* h = dt_as_ptr2(val);
 	h->rc++;
+#ifdef D_GC_LOG
 	printf("+ rc: %d (%s) ", h->rc, dt_typename(dt_typeof(val)));
 	dt_val_println(val);
+#endif
 }
 
 void dt_func_println(dt_func* func);
@@ -1546,8 +1548,10 @@ void dt_rc_dec(dt_val val) {
 	}
 	dt_heaper* h = dt_as_ptr2(val);
 	h->rc--;
+#ifdef D_GC_LOG
 	printf("- rc: %d (%s) ", h->rc, dt_typename(dt_typeof(val)));
 	dt_val_println(val);
+#endif
 	if (h->rc == 0) {
 		// TODO: recursive dec
 		switch (dt_typeof(val)) {
@@ -1907,6 +1911,9 @@ dt_arr* dt_arr_new(dt_vm* vm) {
 }
 
 void dt_arr_free(dt_vm* vm, dt_arr* arr) {
+	for (int i = 0; i < arr->len; i++) {
+		dt_rc_dec(arr->values[i]);
+	}
 	dt_free(vm, arr->values, arr->cap * sizeof(dt_val));
 	dt_free(vm, arr, sizeof(dt_arr));
 }
@@ -2199,6 +2206,12 @@ dt_map* dt_map_new_reg(dt_vm* vm, dt_map_centry* table) {
 }
 
 void dt_map_free(dt_vm* vm, dt_map* map) {
+	dt_map_iter iter = dt_map_iter_new(map);
+	dt_map_entry* e;
+	while ((e = dt_map_iter_nxt(&iter))) {
+		dt_rc_dec(dt_to_str(e->key));
+		dt_rc_dec(e->val);
+	}
 	dt_free(vm, map->entries, map->cap * sizeof(dt_map_entry));
 	dt_free(vm, map, sizeof(dt_map));
 }
@@ -3712,7 +3725,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				int len = *vm->ip++;
 				dt_arr* arr = dt_arr_new_len(vm, len);
 				for (int i = 0; i < len; i++) {
-					dt_val v = dt_vm_get(vm, -i);
+					dt_val v = dt_vm_get(vm, 0);
 					if (dt_typeof(v) == DT_VAL_RANGE) {
 						dt_range r = dt_as_range2(v);
 						if (r.end >= r.start) {
@@ -4173,8 +4186,7 @@ void dt_gc_run(dt_vm* vm) {
 
 void dt_vm_free(dt_vm* vm) {
 // 	dt_gc_sweep(vm);
-	dt_map_free_rec(NULL, vm->strs);
-	dt_map_free_rec(NULL, vm->libs);
+	dt_rc_dec(dt_to_map(vm->libs));
 	memset(vm, 0, sizeof(dt_vm));
 	if (vm->throwing) {
 		free(vm->err.msg);
@@ -7344,6 +7356,8 @@ dt_val dt_f_http_fetch(dt_vm* vm) {
 #endif
 
 void dt_load_libs(dt_vm* vm) {
+
+	dt_rc_inc(dt_to_map(vm->libs));
 
 	dt_map_reg(vm, vm->globals, (dt_map_centry[]) {
 		{ "typeof", dt_to_cfunc(dt_f_typeof), },
