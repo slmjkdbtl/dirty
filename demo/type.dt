@@ -3,7 +3,7 @@
 	y: Num,
 }
 
-~ Vec2 print (x: Num, y: Num): Nil {
+~ Vec2 print () {
 	print(&.x, &.y)
 }
 
@@ -34,6 +34,6 @@
 	~> vec2(0, 0)
 }
 
-$ pos_map: Map<Vec2> = {}
+-- $ pos_map: Map<Vec2> = {}
 
 -- pos_map["12"] = Vec2::from_angle(123)

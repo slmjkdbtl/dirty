@@ -1,6 +1,6 @@
 :) 1 + N | print
 
-$ run = ~ () {
+~ run () {
 	$ err = ~ () {
 		:( "not good"
 		print("not working 12312313")
@@ -17,7 +17,7 @@ $ a = :) run() | ~ (msg, line) {
 	~> 999
 }
 
-$ badfunc = ~ () :( "oh no"
+~ badfunc () :( "oh no"
 :) badfunc() | print
 
 :) :( "123" | print
