@@ -2,8 +2,14 @@ $ a = {
 	name: "Jack"
 }
 
+{
+	$ c = a
+	$ d = a
+}
+
 $ b = "333"
 
-$ c = [ b, a ]
+$ c = [ b, d ]
+$ d = [ 3, d ]
 
-print(c)
+print(d)

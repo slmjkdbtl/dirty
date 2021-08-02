@@ -58,8 +58,8 @@
 #define D_LIB_SOCKET
 
 // #define D_NO_NANBOX
-// #define D_VM_LOG
-// #define D_GC_LOG
+#define D_VM_LOG
+#define D_GC_LOG
 // #define D_GC_STRESS
 #define D_GC_TRACE
 
@@ -2465,6 +2465,10 @@ void dt_func_mark(dt_func* func) {
 }
 
 void dt_func_free(dt_vm *vm, dt_func* func) {
+	// TODO: dec upval
+	for (int i = 0; i < func->num_upvals; i++) {
+// 		dt_rc_dec(func->upvals[i]);
+	}
 	dt_free(vm, func->upvals, sizeof(dt_val*) * func->num_upvals);
 	dt_free(vm, func, sizeof(dt_func));
 }
@@ -2747,6 +2751,7 @@ int dt_chunk_add_const(dt_chunk* c, dt_val val) {
 		// TODO: use dt_c_err()
 		dt_fail("constant overflow\n");
 	}
+	// TODO: consts shouldn't be freed?
 	dt_arr_push_weak(NULL, c->consts, val);
 	return c->consts->len - 1;
 }
@@ -2988,13 +2993,18 @@ void dt_vm_push(dt_vm* vm, dt_val val) {
 }
 
 // pop a value off the stack
-dt_val dt_vm_pop(dt_vm* vm) {
+dt_val dt_vm_pop_nodec(dt_vm* vm) {
 	if (vm->stack_top == vm->stack) {
 		dt_fail("stack underflow\n");
 		return DT_NIL;
 	}
 	vm->stack_top--;
-	dt_val val = *vm->stack_top;
+	return *vm->stack_top;
+}
+
+// pop a value off the stack
+dt_val dt_vm_pop(dt_vm* vm) {
+	dt_val val = dt_vm_pop_nodec(vm);
 	dt_rc_dec(val);
 	return val;
 }
@@ -3183,8 +3193,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				break;
 
 			case DT_OP_ADD: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_val_ty ta = dt_typeof(a);
 				dt_val_ty tb = dt_typeof(b);
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
@@ -3216,12 +3226,14 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_SUB: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_val_ty ta = dt_typeof(a);
 				dt_val_ty tb = dt_typeof(b);
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
@@ -3235,12 +3247,14 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_MUL: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_val_ty ta = dt_typeof(a);
 				dt_val_ty tb = dt_typeof(b);
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
@@ -3254,12 +3268,14 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_DIV: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_val_ty ta = dt_typeof(a);
 				dt_val_ty tb = dt_typeof(b);
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
@@ -3273,12 +3289,14 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_SPREAD: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				if (dt_typeof(a) == DT_VAL_NUM && dt_typeof(b) == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_range((dt_range) {
 						.start = dt_as_num2(a),
@@ -3293,11 +3311,13 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_NEG: {
-				dt_val a = dt_vm_pop(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				if (dt_typeof(a) == DT_VAL_NUM) {
 					dt_vm_push(vm, dt_to_num(-dt_as_num2(a)));
 				} else {
@@ -3308,11 +3328,12 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
+				dt_rc_dec(a);
 				break;
 			}
 
 			case DT_OP_NOT: {
-				dt_val a = dt_vm_pop(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				if (dt_typeof(a) == DT_VAL_BOOL) {
 					dt_vm_push(vm, dt_to_bool(!dt_as_bool2(a)));
 				} else {
@@ -3323,11 +3344,12 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
+				dt_rc_dec(a);
 				break;
 			}
 
 			case DT_OP_LEN: {
-				dt_val a = dt_vm_pop(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_val_ty t = dt_typeof(a);
 				if (t == DT_VAL_STR) {
 					dt_vm_push(vm, dt_to_num(dt_as_str2(a)->len));
@@ -3346,47 +3368,58 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_NIL);
 				}
+				dt_rc_dec(a);
 				break;
 			}
 
 			case DT_OP_EQ: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_vm_push(vm, dt_to_bool(dt_val_eq(a, b)));
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_GT: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_vm_push(vm, dt_to_bool(!dt_val_lt(a, b) && !dt_val_eq(a, b)));
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_GT_EQ: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_vm_push(vm, dt_to_bool(!dt_val_lt(a, b)));
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_LT: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_vm_push(vm, dt_to_bool(dt_val_lt(a, b)));
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_LT_EQ: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_vm_push(vm, dt_to_bool(dt_val_lt(a, b) || dt_val_eq(a, b)));
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_OR: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_val_ty ta = dt_typeof(a);
 				dt_val_ty tb = dt_typeof(b);
 				if (ta != tb) {
@@ -3403,23 +3436,27 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_FALSE);
 				}
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_NIL_OR: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				if (dt_is_nil(a)) {
 					dt_vm_push(vm, b);
 				} else {
 					dt_vm_push(vm, a);
 				}
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
 			case DT_OP_AND: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
+				dt_val b = dt_vm_pop_nodec(vm);
+				dt_val a = dt_vm_pop_nodec(vm);
 				dt_val_ty ta = dt_typeof(a);
 				dt_val_ty tb = dt_typeof(b);
 				if (ta != tb) {
@@ -3435,6 +3472,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					);
 					dt_vm_push(vm, DT_FALSE);
 				}
+				dt_rc_dec(a);
+				dt_rc_dec(b);
 				break;
 			}
 
@@ -3498,8 +3537,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_GETI: {
-				dt_val key = dt_vm_pop(vm);
-				dt_val val = dt_vm_pop(vm);
+				dt_val key = dt_vm_pop_nodec(vm);
+				dt_val val = dt_vm_pop_nodec(vm);
 				switch (dt_typeof(val)) {
 					case DT_VAL_ARR: {
 						dt_arr* arr = dt_as_arr2(val);
@@ -3609,13 +3648,15 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						dt_vm_push(vm, DT_NIL);
 						break;
 				}
+				dt_rc_dec(key);
+				dt_rc_dec(val);
 				break;
 			}
 
 			case DT_OP_SETI: {
-				dt_val val = dt_vm_pop(vm);
-				dt_val key = dt_vm_pop(vm);
-				dt_val parent = dt_vm_pop(vm);
+				dt_val val = dt_vm_pop_nodec(vm);
+				dt_val key = dt_vm_pop_nodec(vm);
+				dt_val parent = dt_vm_pop_nodec(vm);
 				switch (dt_typeof(parent)) {
 					case DT_VAL_ARR:
 						if (dt_typeof(key) == DT_VAL_NUM) {
@@ -3653,13 +3694,16 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						dt_vm_push(vm, DT_NIL);
 						break;
 				}
+				dt_rc_dec(key);
+				dt_rc_dec(val);
+				dt_rc_dec(parent);
 				break;
 			}
 
 			case DT_OP_CALL: {
 				int nargs = *vm->ip++;
-				dt_val val = dt_vm_get(vm, -nargs);
-				dt_val ret = dt_vm_call(vm, val, nargs);
+				dt_val func = dt_vm_get(vm, -nargs);
+				dt_val ret = dt_vm_call(vm, func, nargs);
 				// pop func
 				dt_vm_pop(vm);
 				dt_vm_push(vm, ret);
@@ -3671,7 +3715,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 				int nargs = *vm->ip++;
 
-				dt_str* name = dt_as_str2(dt_vm_pop(vm));
+				dt_val name = dt_vm_pop_nodec(vm);
 				dt_val val = dt_vm_get(vm, -nargs);
 				dt_map* meta = NULL;
 
@@ -3702,7 +3746,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				}
 
 				if (meta) {
-					dt_vm_push(vm, dt_vm_call(vm, dt_map_get(meta, name), nargs + 1));
+					dt_vm_push(vm, dt_vm_call(vm, dt_map_get(meta, dt_as_str2(name)), nargs + 1));
 				} else {
 					dt_throw(
 						vm,
@@ -3712,6 +3756,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_vm_push(vm, DT_NIL);
 				}
 
+				dt_rc_dec(name);
 				break;
 
 			}
@@ -3725,7 +3770,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				int len = *vm->ip++;
 				dt_arr* arr = dt_arr_new_len(vm, len);
 				for (int i = 0; i < len; i++) {
-					dt_val v = dt_vm_get(vm, 0);
+					dt_val v = dt_vm_pop_nodec(vm);
 					if (dt_typeof(v) == DT_VAL_RANGE) {
 						dt_range r = dt_as_range2(v);
 						if (r.end >= r.start) {
@@ -3740,10 +3785,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					} else {
 						dt_arr_set(vm, arr, len - 1 - i, v);
 					}
-					dt_vm_pop(vm);
+					dt_rc_dec(v);
 				}
 				dt_vm_push(vm, dt_to_arr(arr));
-				dt_vm_gc_check(vm);
 				break;
 			}
 
@@ -3751,8 +3795,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				int len = *vm->ip++;
 				dt_map* map = dt_map_new_len(vm, len);
 				for (int i = 0; i < len; i++) {
-					dt_val val = dt_vm_get(vm, 0);
-					dt_val key = dt_vm_get(vm, -1);
+					dt_val val = dt_vm_pop_nodec(vm);
+					dt_val key = dt_vm_pop_nodec(vm);
 					if (dt_typeof(key) == DT_VAL_STR) {
 						dt_map_set(vm, map, dt_as_str2(key), val);
 					} else {
@@ -3762,11 +3806,10 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_typename(dt_typeof(key))
 						);
 					}
-					dt_vm_pop(vm);
-					dt_vm_pop(vm);
+					dt_rc_dec(val);
+					dt_rc_dec(key);
 				}
 				dt_vm_push(vm, dt_to_map(map));
-				dt_vm_gc_check(vm);
 				break;
 			}
 
@@ -3810,9 +3853,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 						func->upvals[i] = vm->func->upvals[idx];
 					}
 				}
-				dt_vm_push(vm, dt_to_func(func));
 				dt_manage(vm, (dt_heaper*)func, DT_VAL_FUNC);
-				dt_vm_gc_check(vm);
+				dt_vm_push(vm, dt_to_func(func));
 				break;
 			}
 
@@ -3823,10 +3865,11 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_JMP_COND: {
 				int dis = *vm->ip++ << 8 | *vm->ip++;
-				dt_val cond = dt_vm_pop(vm);
+				dt_val cond = dt_vm_pop_nodec(vm);
 				if (!dt_val_truthy(cond)) {
 					vm->ip += dis;
 				}
+				dt_rc_dec(cond);
 				break;
 			}
 
@@ -3974,8 +4017,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_TRY: {
 				uint8_t* prev_ip = vm->ip;
-				dt_val catch = dt_vm_pop(vm);
-				dt_val try = dt_vm_pop(vm);
+				dt_val catch = dt_vm_pop_nodec(vm);
+				dt_val try = dt_vm_pop_nodec(vm);
 				if (vm->throwing) {
 					vm->throwing = false;
 					// TODO: stack trace
@@ -3994,6 +4037,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				} else {
 					dt_vm_push(vm, try);
 				}
+				dt_rc_dec(catch);
+				dt_rc_dec(try);
 				break;
 			}
 
