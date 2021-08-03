@@ -55,8 +55,8 @@
 #define D_LIB_SOCKET
 
 // #define D_NO_NANBOX
-#define D_VM_LOG
-#define D_GC_LOG
+// #define D_VM_LOG
+// #define D_GC_LOG
 
 #if defined(__APPLE__)
 	#include <TargetConditionals.h>
@@ -763,6 +763,7 @@ dt_arr*  dt_arr_sub      (dt_vm* vm, dt_arr* arr, int start, int end);
 dt_arr*  dt_arr_concat   (dt_vm* vm, dt_arr* a1, dt_arr* a2);
 dt_val   dt_arr_rand     (dt_arr* arr);
 dt_arr*  dt_arr_clone    (dt_vm* vm, dt_arr* src);
+bool     dt_arr_eq       (dt_arr* a1, dt_arr* a2);
 void     dt_arr_print    (dt_arr* arr);
 void     dt_arr_println  (dt_arr* arr);
 
@@ -788,6 +789,7 @@ dt_arr*  dt_map_keys       (dt_vm* vm, dt_map* map);
 // get an array of values
 dt_arr*  dt_map_vals       (dt_vm* vm, dt_map* map);
 dt_map*  dt_map_clone      (dt_vm* vm, dt_map* src);
+bool     dt_map_eq         (dt_map* a1, dt_map* a2);
 void     dt_map_print      (dt_map* map);
 void     dt_map_println    (dt_map* map);
 
@@ -2153,6 +2155,11 @@ dt_arr* dt_arr_clone(dt_vm* vm, dt_arr* src) {
 	return new;
 }
 
+bool dt_arr_eq(dt_arr* a1, dt_arr* a2) {
+	// TODO
+	return false;
+}
+
 dt_map* dt_map_new_len(dt_vm* vm, int len) {
 	dt_map* map = dt_malloc(vm, sizeof(dt_map));
 	map->cnt = 0;
@@ -2372,6 +2379,11 @@ dt_map* dt_map_clone(dt_vm* vm, dt_map* src) {
 		dt_map_set(vm, new, e->key, dt_val_clone(vm, e->val));
 	}
 	return new;
+}
+
+bool dt_map_eq(dt_map* m1, dt_map* m2) {
+	// TODO
+	return false;
 }
 
 void dt_map_print(dt_map* map) {
@@ -4751,14 +4763,13 @@ void dt_c_struct(dt_compiler* c) {
 void dt_c_decl(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_DOLLAR);
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
-	// TODO: after?
-	dt_c_local* l = dt_c_add_local(c, name, DT_TYPE_NIL);
 	if (dt_c_match(c, DT_TOKEN_COLON)) {
 		dt_c_typesig(c);
 	}
 	dt_c_consume(c, DT_TOKEN_EQ);
-	// TODO: need type before hand for recursive functions
-	l->type = dt_c_expr(c);
+	dt_type t = dt_c_expr(c);
+	dt_c_local* l = dt_c_add_local(c, name, DT_TYPE_NIL);
+	l->type = t;
 }
 
 void dt_c_scope_begin(dt_compiler* c, dt_block_ty ty) {
@@ -5982,6 +5993,17 @@ dt_val dt_f_arr_clone(dt_vm* vm) {
 	return dt_to_arr(dt_arr_clone(vm, arr));
 }
 
+dt_val dt_f_arr_eq(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_ARR,
+		DT_VAL_ARR
+	)) return DT_NIL;
+	dt_arr* a1 = dt_arg_arr(vm, 0);
+	dt_arr* a2 = dt_arg_arr(vm, 1);
+	return dt_to_bool(dt_arr_eq(a1, a2));
+}
+
 dt_val dt_f_arr_len(dt_vm* vm) {
 	if (!dt_check_args(vm,
 		1,
@@ -6040,6 +6062,17 @@ dt_val dt_f_map_has(dt_vm* vm) {
 	dt_map* map = dt_arg_map(vm, 0);
 	dt_str* key = dt_arg_str(vm, 1);
 	return dt_to_bool(dt_map_has(map, key));
+}
+
+dt_val dt_f_map_eq(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_MAP,
+		DT_VAL_MAP
+	)) return DT_NIL;
+	dt_map* m1 = dt_arg_map(vm, 0);
+	dt_map* m2 = dt_arg_map(vm, 1);
+	return dt_to_bool(dt_map_eq(m1, m2));
 }
 
 dt_val dt_f_map_clone(dt_vm* vm) {
@@ -7251,6 +7284,7 @@ void dt_load_libs(dt_vm* vm) {
 		{ "concat", dt_to_cfunc(dt_f_arr_concat), },
 		{ "rand", dt_to_cfunc(dt_f_arr_rand), },
 		{ "clone", dt_to_cfunc(dt_f_arr_clone), },
+		{ "eq", dt_to_cfunc(dt_f_arr_eq), },
 		{ "len", dt_to_cfunc(dt_f_arr_len), },
 		{ NULL, DT_NIL, },
 	};
@@ -7265,6 +7299,7 @@ void dt_load_libs(dt_vm* vm) {
 		{ "rm", dt_to_cfunc(dt_f_map_rm), },
 // 		{ "rm!", dt_to_cfunc(dt_f_map_rm), },
 		{ "has", dt_to_cfunc(dt_f_map_has), },
+		{ "eq", dt_to_cfunc(dt_f_map_eq), },
 		{ "clone", dt_to_cfunc(dt_f_map_clone), },
 		{ NULL, DT_NIL, },
 	};
@@ -7435,7 +7470,6 @@ dt_val dt_eval(dt_vm* vm, char* code) {
 
 	dt_val ret = dt_call(vm, dt_to_func(&func), 0);
 
-	printf("----------------------------------\n");
 	dt_compiler_free(&c);
 
 	return ret;
