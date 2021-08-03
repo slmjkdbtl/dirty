@@ -123,6 +123,7 @@ struct dt_str;
 struct dt_vm;
 struct dt_logic;
 struct dt_func;
+struct dt_upval;
 struct dt_cdata;
 
 // for easy loops and sub sections in lists
@@ -157,6 +158,7 @@ typedef struct dt_val {
 		dt_cfunc*        cfunc;
 		struct dt_cdata* cdata;
 		struct dt_cptr*  cptr;
+		struct dt_upval* upval;
 	} data;
 } dt_val;
 
@@ -1173,6 +1175,23 @@ dt_val dt_to_heap(void* ptr) {
 }
 #endif
 
+dt_heaper* dt_as_heaper(dt_val v) {
+#ifdef D_NO_NANBOX
+	switch (dt_typeof(v)) {
+		case DT_VAL_STR: return (dt_heaper*)v.data.str;
+		case DT_VAL_ARR: return (dt_heaper*)v.data.arr;
+		case DT_VAL_MAP: return (dt_heaper*)v.data.map;
+		case DT_VAL_CDATA: return (dt_heaper*)v.data.cdata;
+		case DT_VAL_FUNC: return (dt_heaper*)v.data.func;
+		case DT_VAL_UPVAL: return (dt_heaper*)v.data.upval;
+		case DT_VAL_LOGIC: return (dt_heaper*)v.data.logic;
+		default: return NULL;
+	}
+#else
+	return dt_as_ptr2(v);
+#endif
+}
+
 dt_val dt_to_str(dt_str* str) {
 #ifdef D_NO_NANBOX
 	return (dt_val) {
@@ -1449,6 +1468,34 @@ bool dt_val_eq(dt_val a, dt_val b) {
 #endif
 }
 
+// TODO
+bool dt_val_deep_eq(dt_val a, dt_val b) {
+	dt_val_ty ta = dt_typeof(a);
+	dt_val_ty tb = dt_typeof(b);
+#ifdef D_NO_NANBOX
+	if (ta != tb) {
+		return false;
+	} else if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
+		return dt_as_num2(a) == dt_as_num2(b);
+	} else if (ta == DT_VAL_BOOL && tb == DT_VAL_BOOL) {
+		return dt_as_bool2(a) == dt_as_bool2(b);
+	} else if (ta == DT_VAL_NIL && tb == DT_VAL_NIL) {
+		return true;
+	} else if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
+		return dt_str_eq(dt_as_str2(a), dt_as_str2(b));
+	} else {
+		return false;
+	}
+#else
+	// TODO: no this with str interning
+	if (ta == DT_VAL_STR && tb == DT_VAL_STR) {
+		return dt_str_eq(dt_as_str2(a), dt_as_str2(b));
+	} else {
+		return a == b;
+	}
+#endif
+}
+
 bool dt_val_lt(dt_val a, dt_val b) {
 
 	dt_val_ty ta = dt_typeof(a);
@@ -1508,7 +1555,7 @@ void dt_rc_inc(dt_val val) {
 	if (!dt_is_heap(val)) {
 		return;
 	}
-	dt_heaper* h = dt_as_ptr2(val);
+	dt_heaper* h = dt_as_heaper(val);
 	h->rc++;
 #ifdef D_GC_LOG
 	printf("++ %d (%s) ", h->rc, dt_typename(dt_typeof(val)));
@@ -1523,11 +1570,9 @@ void dt_rc_check(dt_val val) {
 	if (!dt_is_heap(val)) {
 		return;
 	}
-	dt_heaper* h = dt_as_ptr2(val);
+	dt_heaper* h = dt_as_heaper(val);
 	if (h->rc < 0) {
-		fprintf(stderr, "something went terribly wrong\n");
-		printf("- rc: %d (%s) ", h->rc, dt_typename(dt_typeof(val)));
-		dt_val_println(val);
+		fprintf(stderr, "something went terribly wrong: rc < 0\n");
 		exit(EXIT_FAILURE);
 		return;
 	}
@@ -1596,7 +1641,7 @@ void dt_rc_dec_nocheck(dt_val val) {
 	if (!dt_is_heap(val)) {
 		return;
 	}
-	dt_heaper* h = dt_as_ptr2(val);
+	dt_heaper* h = dt_as_heaper(val);
 	h->rc--;
 #ifdef D_GC_LOG
 	printf("-- %d (%s) ", h->rc, dt_typename(dt_typeof(val)));
@@ -2133,6 +2178,22 @@ dt_val dt_arr_rand(dt_arr* arr) {
 	return dt_arr_get(arr, rand() % arr->len);
 }
 
+dt_arr* dt_arr_clone(dt_vm* vm, dt_arr* src) {
+	dt_arr* new = dt_arr_new_len(vm, src->len);
+	for (int i = 0; i < src->len; i++) {
+		dt_arr_set(vm, new, i, dt_val_clone(vm, src->values[i]));
+	}
+	return new;
+}
+
+bool dt_arr_eq(dt_arr* a1, dt_arr* a2) {
+	if (a1->len != a2->len) return false;
+	for (int i = 0; i < a1->len; i++) {
+		if (!dt_val_deep_eq(a1->values[i], a2->values[i])) return false;
+	}
+	return true;
+}
+
 void dt_arr_print(dt_arr* arr) {
 	printf("[ ");
 	for (int i = 0; i < arr->len; i++) {
@@ -2145,19 +2206,6 @@ void dt_arr_print(dt_arr* arr) {
 void dt_arr_println(dt_arr* arr) {
 	dt_arr_print(arr);
 	printf("\n");
-}
-
-dt_arr* dt_arr_clone(dt_vm* vm, dt_arr* src) {
-	dt_arr* new = dt_arr_new_len(vm, src->len);
-	for (int i = 0; i < src->len; i++) {
-		dt_arr_set(vm, new, i, dt_val_clone(vm, src->values[i]));
-	}
-	return new;
-}
-
-bool dt_arr_eq(dt_arr* a1, dt_arr* a2) {
-	// TODO
-	return false;
 }
 
 dt_map* dt_map_new_len(dt_vm* vm, int len) {
@@ -2382,8 +2430,13 @@ dt_map* dt_map_clone(dt_vm* vm, dt_map* src) {
 }
 
 bool dt_map_eq(dt_map* m1, dt_map* m2) {
-	// TODO
-	return false;
+	if (m1->cnt != m2->cnt) return false;
+	dt_map_iter iter = dt_map_iter_new(m1);
+	dt_map_entry* e;
+	while ((e = dt_map_iter_nxt(&iter))) {
+		if (!dt_val_deep_eq(e->val, dt_map_get(m2, e->key))) return false;
+	}
+	return true;
 }
 
 void dt_map_print(dt_map* map) {

@@ -24,4 +24,3 @@ $ a = :) run() | ~ (msg, line) {
 :) eval("1 + ?") | print
 
 print(a)
-
