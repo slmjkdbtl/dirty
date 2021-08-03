@@ -7,7 +7,6 @@
 // TODO: threading
 // TODO: utf8
 // TODO: named func
-// TODO: binding helpers
 // TODO: expose tokenizer
 // TODO: standalone bytecode
 // TODO: type
@@ -22,12 +21,10 @@
 // TODO: iter with index
 // TODO: separate debug print / actual print
 // TODO: ordered map ?
-// TODO: incremental gc
 // TODO: disallow shadowing global var
 // TODO: member diconstructing
 // TODO: combine GT/LT and EQ
 // TODO: '?' for cond? what for nil?
-// TODO: better gc position
 // TODO: assignment in cond
 // TODO: global on root scope?
 // TODO: windows fs
@@ -58,8 +55,8 @@
 #define D_LIB_SOCKET
 
 // #define D_NO_NANBOX
-// #define D_VM_LOG
-// #define D_GC_LOG
+#define D_VM_LOG
+#define D_GC_LOG
 
 #if defined(__APPLE__)
 	#include <TargetConditionals.h>
@@ -363,6 +360,7 @@ typedef struct {
 
 // function prototype
 typedef struct dt_logic {
+	DT_HEAPER_STRUCT
 	dt_chunk chunk;
 	uint16_t nargs;
 } dt_logic;
@@ -3901,17 +3899,19 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				switch (dt_typeof(iter)) {
 					case DT_VAL_ARR:
 						if (idx < dt_as_arr2(iter)->len) {
-							*(vm->stack_top - 1) = dt_arr_get(dt_as_arr2(iter), idx);
+							dt_vm_pop(vm);
+							dt_vm_push(vm, dt_arr_get(dt_as_arr2(iter), idx));
 							vm->ip -= dis;
 						}
 						break;
 					case DT_VAL_STR:
 						if (idx < dt_as_str2(iter)->len) {
-							*(vm->stack_top - 1) = dt_to_str(dt_str_new_len(
+							dt_vm_pop(vm);
+							dt_vm_push(vm, dt_to_str(dt_str_new_len(
 								vm,
 								dt_as_str2(iter)->chars + idx,
 								1
-							));
+							)));
 							vm->ip -= dis;
 						}
 						break;
@@ -3922,7 +3922,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							}
 							if (idx < dt_as_map2(iter)->cap) {
 								dt_str* key = dt_as_map2(iter)->entries[idx].key;
-								*(vm->stack_top - 1) = dt_to_str(key);
+								dt_vm_pop(vm);
+								dt_vm_push(vm, dt_to_str(key));
 								*n = dt_to_num(idx);
 								vm->ip -= dis;
 							}
@@ -3938,10 +3939,11 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							done = idx >= end - start;
 						}
 						if (!done) {
+							dt_vm_pop(vm);
 							if (end < start) {
-								*(vm->stack_top - 1) = dt_to_num(start - idx);
+								dt_vm_push(vm, dt_to_num(start - idx));
 							} else {
-								*(vm->stack_top - 1) = dt_to_num(start + idx);
+								dt_vm_push(vm, dt_to_num(start + idx));
 							}
 							vm->ip -= dis;
 						}
@@ -4515,7 +4517,6 @@ dt_type dt_c_expr(dt_compiler* c) {
 
 dt_type dt_c_str(dt_compiler* c) {
 	dt_token str_t = dt_c_consume(c, DT_TOKEN_STR);
-	// TODO: gc manage?
 	dt_val str = dt_to_str(dt_str_new_len(
 		NULL,
 		str_t.start + 1,
@@ -5295,10 +5296,11 @@ dt_type dt_c_func_inner(dt_compiler* c) {
 
 	c->env = prev_env;
 
-	// TODO: this is never freed
-	dt_logic* logic = malloc(sizeof(dt_logic));
+	dt_logic* logic = dt_malloc(NULL, sizeof(dt_logic));
 	logic->nargs = nargs;
 	logic->chunk = env.chunk;
+	logic->rc = 0;
+	logic->type = DT_VAL_LOGIC;
 
 	dt_c_push_const(c, dt_to_logic(logic));
 
@@ -5323,6 +5325,7 @@ dt_type dt_c_func(dt_compiler* c) {
 	return dt_c_func_inner(c);
 }
 
+// TODO: store name
 dt_type dt_c_func2(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_TILDE);
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
@@ -7432,6 +7435,7 @@ dt_val dt_eval(dt_vm* vm, char* code) {
 
 	dt_val ret = dt_call(vm, dt_to_func(&func), 0);
 
+	printf("----------------------------------\n");
 	dt_compiler_free(&c);
 
 	return ret;
