@@ -1699,6 +1699,60 @@ dt_str* dt_str_fmt(char* fmt, ...) {
 	return str;
 }
 
+dt_str* dt_str_new_len_escape(dt_vm* vm, char* src, int len) {
+	dt_str* str = dt_str_alloc(vm, len);
+	char* start = src;
+	char* cur = src;
+	char* buf = str->chars;
+	while (*cur != '\0' && (cur - src) < len) {
+		if (*cur == '\\') {
+			memcpy(buf, start, cur - start);
+			buf += cur - start;
+			start = cur + 2;
+			cur++;
+			switch (*cur) {
+				case '\\':
+				case '\"':
+					start--;
+					break;
+				case 'n':
+					*buf++ = '\n';
+					break;
+				case 'r':
+					*buf++ = '\r';
+					break;
+				case 't':
+					*buf++ = '\t';
+					break;
+				case 'v':
+					*buf++ = '\v';
+					break;
+				case 'x': {
+					char hex[2] = { cur[1], cur[2] };
+					char x = strtol(hex, NULL, 16);
+					*buf++ = x;
+					cur += 2;
+					start += 2;
+					break;
+				}
+				case 'U':
+					// TODO: bound check
+					cur += 6;
+					start += 6;
+					break;
+				default:
+					break;
+			}
+		}
+		cur++;
+	}
+	memcpy(buf, start, cur - start);
+	buf += cur - start;
+	str->len = buf - str->chars;
+	str->hash = dt_hash(str->chars, str->len);
+	return str;
+}
+
 dt_str* dt_str_new_len(dt_vm* vm, char* src, int len) {
 	dt_str* str = dt_str_alloc(vm, len);
 	memcpy(str->chars, src, len);
@@ -4592,7 +4646,7 @@ dt_type dt_c_expr(dt_compiler* c) {
 
 dt_type dt_c_str(dt_compiler* c) {
 	dt_token str_t = dt_c_consume(c, DT_TOKEN_STR);
-	dt_val str = dt_to_str(dt_str_new_len(
+	dt_val str = dt_to_str(dt_str_new_len_escape(
 		NULL,
 		str_t.start + 1,
 		str_t.len - 2
@@ -6524,6 +6578,23 @@ dt_val dt_f_sys_getenv(dt_vm* vm) {
 	}
 }
 
+#define DT_GETLINE_BUFSIZE 1024
+
+dt_val dt_f_sys_getline(dt_vm* vm) {
+	static char buf[DT_GETLINE_BUFSIZE];
+	char c;
+	int pos = 0;
+	for (;;) {
+		c = getchar();
+		if (c == EOF || c == '\n') {
+			buf[pos++] = '\0';
+			break;
+		}
+		buf[pos++] = c;
+	}
+	return dt_to_str(dt_str_new_len(vm, buf, pos - 1));
+}
+
 dt_val dt_f_sys_time(dt_vm* vm) {
 	return dt_to_num(time(NULL));
 }
@@ -7501,6 +7572,7 @@ void dt_load_libs(dt_vm* vm) {
 		"sys",
 		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
 			{ "OS",  os, },
+			{ "getline", dt_to_cfunc(dt_f_sys_getline), },
 			{ "time", dt_to_cfunc(dt_f_sys_time), },
 			{ "date", dt_to_cfunc(dt_f_sys_date), },
 			{ "getenv", dt_to_cfunc(dt_f_sys_getenv), },
