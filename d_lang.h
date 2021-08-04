@@ -51,8 +51,9 @@
 // #define DT_VM_LOG
 // #define DT_GC_LOG
 
-#define DT_LIB_OS
+#define DT_LIB_SYS
 #define DT_LIB_FS
+#define DT_LIB_ANSI
 #define DT_LIB_HTTP
 
 #if defined(__APPLE__)
@@ -704,6 +705,7 @@ void      dt_val_println (dt_val v);
 // allocate empty str with len (need to manually fill and hash afterwards or the
 // content is undefined)
 dt_str*  dt_str_alloc    (dt_vm* vm, int len);
+dt_str*  dt_str_fmt      (char* fmt, ...);
 // create str from c str (until '\0')
 dt_str*  dt_str_new      (dt_vm* vm, char* src);
 // create str from c str with length
@@ -1682,6 +1684,19 @@ dt_str* dt_str_alloc(dt_vm* vm, int len) {
 
 void dt_str_hash(dt_str* str) {
 	str->hash = dt_hash(str->chars, str->len);
+}
+
+dt_str* dt_str_fmt(char* fmt, ...) {
+	va_list args;
+	va_start(args, fmt);
+	size_t size = vsnprintf(NULL, 0, fmt, args);
+	va_end(args);
+	dt_str* str = dt_str_alloc(NULL, size);
+	va_start(args, fmt);
+	vsnprintf(str->chars, size + 1, fmt, args);
+	va_end(args);
+	str->hash = dt_hash(str->chars, str->len);
+	return str;
 }
 
 dt_str* dt_str_new_len(dt_vm* vm, char* src, int len) {
@@ -2797,21 +2812,6 @@ dt_vm dt_vm_new() {
 	dt_rc_inc(dt_to_map(vm.libs));
 	dt_rc_inc(dt_to_map(vm.strs));
 	return vm;
-}
-
-char* dt_fmt(size_t* osize, char* fmt, ...) {
-	va_list args;
-	va_start(args, fmt);
-	size_t size = vsnprintf(NULL, 0, fmt, args);
-	va_end(args);
-	char* buf = malloc(size + 1);
-	va_start(args, fmt);
-	vsnprintf(buf, size + 1, fmt, args);
-	va_end(args);
-	if (osize) {
-		*osize = size;
-	}
-	return buf;
 }
 
 void dt_def_catch(dt_err* err) {
@@ -6461,25 +6461,40 @@ dt_val dt_f_math_srand(dt_vm* vm) {
 	return DT_NIL;
 }
 
-#ifdef DT_LIB_OS
+#ifdef DT_LIB_SYS
 
-dt_val dt_f_os_exit(dt_vm* vm) {
+dt_val dt_f_sys_exit(dt_vm* vm) {
 	dt_num code = dt_arg_num_or(vm, 0, EXIT_SUCCESS);
 	exit(code);
 	return DT_NIL;
 }
 
-dt_val dt_f_os_cwd(dt_vm* vm) {
+dt_val dt_f_sys_cwd(dt_vm* vm) {
 	char* path = getcwd(NULL, 0);
 	dt_str* str = dt_str_new(vm, path);
 	free(path);
 	return dt_to_str(str);
 }
 
+dt_val dt_f_sys_chdir(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
+	char* path = dt_arg_cstr(vm, 0);
+	chdir(path);
+	return DT_NIL;
+}
+
+dt_val dt_f_sys_fork(dt_vm* vm) {
+	int pid = fork();
+	return dt_to_num(pid);
+}
+
 #define DT_POPEN_SIZE 128
 
 #if !defined(DT_IOS)
-dt_val dt_f_os_exec(dt_vm* vm) {
+dt_val dt_f_sys_exec(dt_vm* vm) {
 	if (!dt_check_args(vm,
 		1,
 		DT_VAL_STR
@@ -6495,7 +6510,7 @@ dt_val dt_f_os_exec(dt_vm* vm) {
 }
 #endif
 
-dt_val dt_f_os_getenv(dt_vm* vm) {
+dt_val dt_f_sys_getenv(dt_vm* vm) {
 	if (!dt_check_args(vm,
 		1,
 		DT_VAL_STR
@@ -6509,11 +6524,11 @@ dt_val dt_f_os_getenv(dt_vm* vm) {
 	}
 }
 
-dt_val dt_f_os_time(dt_vm* vm) {
+dt_val dt_f_sys_time(dt_vm* vm) {
 	return dt_to_num(time(NULL));
 }
 
-dt_val dt_f_os_date(dt_vm* vm) {
+dt_val dt_f_sys_date(dt_vm* vm) {
 	time_t t = dt_arg_num_or(vm, 0, time(NULL));
 	struct tm tm = *localtime(&t);
 	dt_map* date = dt_map_new(vm);
@@ -6765,16 +6780,6 @@ dt_val dt_f_fs_realpath(dt_vm* vm) {
 }
 #endif
 
-dt_val dt_f_fs_cd(dt_vm* vm) {
-	if (!dt_check_args(vm,
-		1,
-		DT_VAL_STR
-	)) return DT_NIL;
-	char* path = dt_arg_cstr(vm, 0);
-	chdir(path);
-	return DT_NIL;
-}
-
 #if defined(__APPLE__)
 #import <Foundation/Foundation.h>
 #endif
@@ -6805,6 +6810,67 @@ dt_val dt_f_fs_watch(dt_vm* vm) {
 	return DT_NIL;
 }
 
+#endif
+
+#ifdef DT_LIB_ANSI
+
+#define DT_GEN_ANSI_WRAP(name, code) \
+	dt_val dt_f_ansi_##name(dt_vm* vm) { \
+		if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL; \
+		char* str = dt_arg_cstr(vm, 0); \
+		return dt_to_str(dt_str_fmt("\x1b[%dm%s\x1b[0m", code, str)); \
+	}
+
+DT_GEN_ANSI_WRAP(black,     30)
+DT_GEN_ANSI_WRAP(red,       31)
+DT_GEN_ANSI_WRAP(green,     32)
+DT_GEN_ANSI_WRAP(yellow,    33)
+DT_GEN_ANSI_WRAP(blue,      34)
+DT_GEN_ANSI_WRAP(magenta,   35)
+DT_GEN_ANSI_WRAP(cyan,      36)
+DT_GEN_ANSI_WRAP(white,     37)
+DT_GEN_ANSI_WRAP(blackbg,   40)
+DT_GEN_ANSI_WRAP(redbg,     41)
+DT_GEN_ANSI_WRAP(greenbg,   42)
+DT_GEN_ANSI_WRAP(yellowbg,  43)
+DT_GEN_ANSI_WRAP(bluebg,    44)
+DT_GEN_ANSI_WRAP(magentabg, 45)
+DT_GEN_ANSI_WRAP(cyanbg,    46)
+DT_GEN_ANSI_WRAP(whitebg,   47)
+DT_GEN_ANSI_WRAP(bold,      1)
+DT_GEN_ANSI_WRAP(dim,       2)
+DT_GEN_ANSI_WRAP(italic,    3)
+DT_GEN_ANSI_WRAP(underline, 4)
+
+dt_val dt_f_ansi_rgb(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		4,
+		DT_VAL_STR,
+		DT_VAL_NUM,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
+	char* str = dt_arg_cstr(vm, 0);
+	int r = dt_arg_num(vm, 1);
+	int g = dt_arg_num(vm, 2);
+	int b = dt_arg_num(vm, 3);
+	return dt_to_str(dt_str_fmt("\x1b[38;2;%d;%d;%dm%s\x1b[0m", r, g, b, str));
+}
+
+dt_val dt_f_ansi_rgbbg(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		4,
+		DT_VAL_STR,
+		DT_VAL_NUM,
+		DT_VAL_NUM,
+		DT_VAL_NUM
+	)) return DT_NIL;
+	char* str = dt_arg_cstr(vm, 0);
+	int r = dt_arg_num(vm, 1);
+	int g = dt_arg_num(vm, 2);
+	int b = dt_arg_num(vm, 3);
+	return dt_to_str(dt_str_fmt("\x1b[48;2;%d;%d;%dm%s\x1b[0m", r, g, b, str));
+}
 #endif
 
 #ifdef DT_LIB_HTTP
@@ -7412,7 +7478,7 @@ void dt_load_libs(dt_vm* vm) {
 	dt_map_reg(NULL, vm->math_lib, math_lib);
 	dt_map_cset(NULL, vm->libs, "math", dt_to_map(vm->math_lib));
 
-#ifdef DT_LIB_OS
+#ifdef DT_LIB_SYS
 	dt_val os = dt_to_str(dt_str_new(
 		NULL,
 #if defined(DT_MACOS)
@@ -7432,16 +7498,18 @@ void dt_load_libs(dt_vm* vm) {
 	dt_map_cset(
 		NULL,
 		vm->libs,
-		"os",
+		"sys",
 		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
-			{ "time", dt_to_cfunc(dt_f_os_time), },
-			{ "date", dt_to_cfunc(dt_f_os_date), },
-			{ "getenv", dt_to_cfunc(dt_f_os_getenv), },
-			{ "exit", dt_to_cfunc(dt_f_os_exit), },
-			{ "cwd", dt_to_cfunc(dt_f_os_cwd), },
 			{ "OS",  os, },
+			{ "time", dt_to_cfunc(dt_f_sys_time), },
+			{ "date", dt_to_cfunc(dt_f_sys_date), },
+			{ "getenv", dt_to_cfunc(dt_f_sys_getenv), },
+			{ "exit", dt_to_cfunc(dt_f_sys_exit), },
+			{ "cwd", dt_to_cfunc(dt_f_sys_cwd), },
+			{ "chdir", dt_to_cfunc(dt_f_sys_chdir), },
+			{ "fork", dt_to_cfunc(dt_f_sys_fork), },
 #if !defined(DT_IOS)
-			{ "exec", dt_to_cfunc(dt_f_os_exec), },
+			{ "exec", dt_to_cfunc(dt_f_sys_exec), },
 #endif
 			{ NULL, DT_NIL, },
 		}))
@@ -7468,13 +7536,45 @@ void dt_load_libs(dt_vm* vm) {
 			{ "lastmod", dt_to_cfunc(dt_f_fs_lastmod), },
 			{ "ext", dt_to_cfunc(dt_f_fs_ext), },
 			{ "base", dt_to_cfunc(dt_f_fs_base), },
-			{ "cd", dt_to_cfunc(dt_f_fs_cd), },
 			{ "resdir", dt_to_cfunc(dt_f_fs_resdir), },
 			{ "datadir", dt_to_cfunc(dt_f_fs_datadir), },
 			{ "watch", dt_to_cfunc(dt_f_fs_watch), },
 #if !defined(DT_WEB)
 			{ "realpath", dt_to_cfunc(dt_f_fs_realpath), },
 #endif
+			{ NULL, DT_NIL, },
+		}))
+	);
+#endif
+
+#ifdef DT_LIB_ANSI
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"ansi",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "black", dt_to_cfunc(dt_f_ansi_black), },
+			{ "red", dt_to_cfunc(dt_f_ansi_red), },
+			{ "green", dt_to_cfunc(dt_f_ansi_green), },
+			{ "yellow", dt_to_cfunc(dt_f_ansi_yellow), },
+			{ "blue", dt_to_cfunc(dt_f_ansi_blue), },
+			{ "magenta", dt_to_cfunc(dt_f_ansi_magenta), },
+			{ "cyan", dt_to_cfunc(dt_f_ansi_cyan), },
+			{ "white", dt_to_cfunc(dt_f_ansi_white), },
+			{ "blackbg", dt_to_cfunc(dt_f_ansi_blackbg), },
+			{ "redbg", dt_to_cfunc(dt_f_ansi_redbg), },
+			{ "greenbg", dt_to_cfunc(dt_f_ansi_greenbg), },
+			{ "yellowbg", dt_to_cfunc(dt_f_ansi_yellowbg), },
+			{ "bluebg", dt_to_cfunc(dt_f_ansi_bluebg), },
+			{ "magentabg", dt_to_cfunc(dt_f_ansi_magentabg), },
+			{ "cyanbg", dt_to_cfunc(dt_f_ansi_cyanbg), },
+			{ "whitebg", dt_to_cfunc(dt_f_ansi_whitebg), },
+			{ "bold", dt_to_cfunc(dt_f_ansi_bold), },
+			{ "dim", dt_to_cfunc(dt_f_ansi_dim), },
+			{ "italic", dt_to_cfunc(dt_f_ansi_italic), },
+			{ "underline", dt_to_cfunc(dt_f_ansi_underline), },
+			{ "rgb", dt_to_cfunc(dt_f_ansi_rgb), },
+			{ "rgbbg", dt_to_cfunc(dt_f_ansi_rgbbg), },
 			{ NULL, DT_NIL, },
 		}))
 	);
