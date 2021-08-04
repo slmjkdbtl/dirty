@@ -1,0 +1,6 @@
+print("\x1b[33mohhi\x1b[0m")
+print("qwe\\123")
+print("qwe\"123")
+print("123\nabc")
+print("123\tabc")
+

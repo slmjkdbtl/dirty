@@ -1711,37 +1711,28 @@ dt_str* dt_str_new_len_escape(dt_vm* vm, char* src, int len) {
 			// TODO: bound checks
 // 			if ((cur - src) >= len) goto end;
 			switch (*cur) {
-				case '\\':
-				case '\"':
-					start--;
-					break;
-				case 'n':
-					*buf++ = '\n';
-					break;
-				case 'r':
-					*buf++ = '\r';
-					break;
-				case 't':
-					*buf++ = '\t';
-					break;
-				case 'v':
-					*buf++ = '\v';
-					break;
-				case 'x': {
-					char hex[2] = { cur[1], cur[2] };
-					char x = strtol(hex, NULL, 16);
-					*buf++ = x;
+				case '\\': *buf++ = '\\'; break;
+				case '\"': *buf++ = '\"'; break;
+				case 'n':  *buf++ = '\n'; break;
+				case 'r':  *buf++ = '\r'; break;
+				case 't':  *buf++ = '\t'; break;
+				case 'v':  *buf++ = '\v'; break;
+				case 'x':
+					*buf++ = (char)strtol((char[]){cur[1], cur[2]}, NULL, 16);
 					cur += 2;
 					start += 2;
 					break;
-				}
+				case 'u':
+					// TODO
+					*buf++ = ' ';
+					cur += 4;
+					start += 4;
+					break;
 				case 'U':
 					// TODO
 					*buf++ = ' ';
 					cur += 6;
 					start += 6;
-					break;
-				default:
 					break;
 			}
 		}
@@ -1751,6 +1742,7 @@ dt_str* dt_str_new_len_escape(dt_vm* vm, char* src, int len) {
 	memcpy(buf, start, cur - start);
 	buf += cur - start;
 	str->len = buf - str->chars;
+	str->chars[str->len] = '\0';
 	str->hash = dt_hash(str->chars, str->len);
 	return str;
 }
