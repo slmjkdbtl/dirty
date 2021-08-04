@@ -15,7 +15,6 @@
 // TODO: string interpolation
 // TODO: single ctx handle
 // TODO: tail call opti
-// TODO: str escape
 // TODO: loop return val
 // TODO: switch
 // TODO: str intern
@@ -1678,7 +1677,6 @@ dt_str* dt_str_alloc(dt_vm* vm, int len) {
 	str->type = DT_VAL_STR;
 	str->chars[len] = '\0';
 	str->rc = 0;
-	str->type = DT_VAL_STR;
 	return str;
 }
 
@@ -1704,12 +1702,14 @@ dt_str* dt_str_new_len_escape(dt_vm* vm, char* src, int len) {
 	char* start = src;
 	char* cur = src;
 	char* buf = str->chars;
-	while (*cur != '\0' && (cur - src) < len) {
+	while ((cur - src) < len) {
 		if (*cur == '\\') {
 			memcpy(buf, start, cur - start);
 			buf += cur - start;
 			start = cur + 2;
 			cur++;
+			// TODO: bound checks
+// 			if ((cur - src) >= len) goto end;
 			switch (*cur) {
 				case '\\':
 				case '\"':
@@ -1736,7 +1736,8 @@ dt_str* dt_str_new_len_escape(dt_vm* vm, char* src, int len) {
 					break;
 				}
 				case 'U':
-					// TODO: bound check
+					// TODO
+					*buf++ = ' ';
 					cur += 6;
 					start += 6;
 					break;
@@ -1746,6 +1747,7 @@ dt_str* dt_str_new_len_escape(dt_vm* vm, char* src, int len) {
 		}
 		cur++;
 	}
+// end:
 	memcpy(buf, start, cur - start);
 	buf += cur - start;
 	str->len = buf - str->chars;
@@ -4275,9 +4277,7 @@ dt_token dt_scanner_scan_str(dt_scanner* s) {
 		}
 		char cur = dt_scanner_peek(s);
 		if (cur == '"') {
-			if (last == '\\') {
-				// TODO: escape
-			} else {
+			if (last != '\\') {
 				break;
 			}
 		}
