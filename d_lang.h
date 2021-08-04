@@ -1,5 +1,7 @@
 // wengwengweng
 
+// see demo/*.dt
+
 // TODO: ... to access func args
 // TODO: 'this'
 // TODO: trait
