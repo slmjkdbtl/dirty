@@ -45,9 +45,6 @@
 #define DT_ARR_INIT_SIZE 4
 #define DT_MAP_INIT_SIZE 8
 #define DT_MAP_MAX_LOAD 0.75
-#define DT_GC_THRESHOLD 1024 * 1024
-#define DT_GC_MAX 1024 * 1024 * 1024
-#define DT_GC_GROW 2
 #define DT_PI 3.14
 
 // #define DT_NO_NANBOX
