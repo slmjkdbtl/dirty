@@ -50,6 +50,7 @@
 // #define DT_GC_LOG
 
 #define DT_LIB_SYS
+#define DT_LIB_DBG
 #define DT_LIB_FS
 #define DT_LIB_TERM
 #define DT_LIB_HTTP
@@ -437,7 +438,6 @@ typedef enum {
 	DT_OP_GETI,
 	DT_OP_SETI,
 	DT_OP_CALL,
-	DT_OP_CALL2,
 	DT_OP_TRY_PREP,
 	DT_OP_TRY,
 	DT_OP_MKFUNC,
@@ -603,6 +603,8 @@ typedef struct {
 	dt_parser parser;
 	dt_funcenv base_env;
 	dt_funcenv* env;
+	// TODO: elsewhere?
+	bool currying;
 } dt_compiler;
 
 typedef dt_type (*dt_parse_fn)(dt_compiler* compiler);
@@ -2735,7 +2737,6 @@ char* dt_op_name(dt_op op) {
 		case DT_OP_GETI:      return "GETI";
 		case DT_OP_SETI:      return "SETI";
 		case DT_OP_CALL:      return "CALL";
-		case DT_OP_CALL2:     return "CALL2";
 		case DT_OP_TRY_PREP:  return "TRY_PREP";
 		case DT_OP_TRY:       return "TRY";
 		case DT_OP_MKFUNC:    return "MKFUNC";
@@ -2798,13 +2799,9 @@ int dt_chunk_peek_at(dt_chunk* c, int idx) {
 		}
 		case DT_OP_CALL: {
 			uint8_t nargs = c->code[idx + 1];
-			printf("CALL %d", nargs);
-			return idx + 2;
-		}
-		case DT_OP_CALL2: {
-			uint8_t nargs = c->code[idx + 1];
-			printf("CALL2 %d", nargs);
-			return idx + 2;
+			uint8_t curry = c->code[idx + 2];
+			printf("CALL %d %d", nargs, curry);
+			return idx + 3;
 		}
 		case DT_OP_MKFUNC: {
 			uint8_t num_upvals = c->code[idx + 1];
@@ -2957,6 +2954,13 @@ dt_val dt_vm_get(dt_vm* vm, int n) {
 		return DT_NIL;
 	} else {
 		return *pos;
+	}
+}
+
+void dt_vm_set(dt_vm* vm, int n, dt_val v) {
+	dt_val* pos = vm->stack_top - 1 + n;
+	if (pos >= vm->stack) {
+		*pos = v;
 	}
 }
 
@@ -3822,63 +3826,19 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_CALL: {
 				int nargs = *vm->ip++;
+				int curry = *vm->ip++;
+				if (curry) {
+					dt_val functmp = dt_vm_get(vm, -nargs);
+					dt_vm_set(vm, -nargs, dt_vm_get(vm, -nargs - 1));
+					dt_vm_set(vm, -nargs - 1, functmp);
+					nargs++;
+				}
 				dt_val func = dt_vm_get(vm, -nargs);
 				dt_val ret = dt_vm_call(vm, func, nargs);
 				// pop func
 				dt_vm_pop(vm);
 				dt_vm_push(vm, ret);
 				break;
-			}
-
-			// TODO: clean
-			case DT_OP_CALL2: {
-
-				int nargs = *vm->ip++;
-
-				dt_val name = dt_vm_pop_nocheck(vm);
-				dt_val val = dt_vm_get(vm, -nargs);
-				dt_map* meta = NULL;
-
-				switch (dt_typeof(val)) {
-					case DT_VAL_NUM: {
-						meta = vm->math_lib;
-						break;
-					}
-					case DT_VAL_STR: {
-						meta = vm->str_lib;
-						break;
-					}
-					case DT_VAL_ARR: {
-						meta = vm->arr_lib;
-						break;
-					}
-					case DT_VAL_MAP: {
-						meta = vm->map_lib;
-						break;
-					}
-					case DT_VAL_FUNC:
-					case DT_VAL_CFUNC: {
-						meta = vm->func_lib;
-						break;
-					}
-					default:
-						break;
-				}
-
-				if (meta) {
-					dt_vm_push(vm, dt_vm_call(vm, dt_map_get(meta, dt_as_str2(name)), nargs + 1));
-				} else {
-					dt_throw(
-						vm,
-						"no func for '%s'",
-						dt_typename(dt_typeof(val))
-					);
-					dt_vm_push(vm, DT_NIL);
-				}
-
-				dt_rc_check(name);
-				break;
-
 			}
 
 			case DT_OP_CLOSE: {
@@ -4560,6 +4520,7 @@ dt_compiler dt_compiler_new(char* code) {
 		.parser = {0},
 		.base_env = dt_funcenv_new(),
 		.env = NULL,
+		.currying = false,
 	};
 
 	c.env = &c.base_env;
@@ -5285,25 +5246,11 @@ dt_type dt_c_index2(dt_compiler* c, dt_type ty) {
 	return DT_TYPE_NIL;
 }
 
-dt_type dt_c_index3(dt_compiler* c, dt_type ty) {
-
-	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
-	dt_c_consume(c, DT_TOKEN_LPAREN);
-
-	int nargs = 0;
-
-	while (dt_c_peek(c) != DT_TOKEN_RPAREN) {
-		dt_c_expr(c);
-		nargs++;
-		dt_c_match(c, DT_TOKEN_COMMA);
-	}
-
-	dt_c_consume(c, DT_TOKEN_RPAREN);
-	dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.start, name.len)));
-	dt_c_emit2(c, DT_OP_CALL2, nargs);
-
+dt_type dt_c_curry(dt_compiler* c, dt_type ty) {
+	c->currying = true;
+	dt_c_expr(c);
+	c->currying = false;
 	return DT_TYPE_NIL;
-
 }
 
 dt_type dt_c_call(dt_compiler* c, dt_type ty) {
@@ -5317,7 +5264,8 @@ dt_type dt_c_call(dt_compiler* c, dt_type ty) {
 	}
 
 	dt_c_consume(c, DT_TOKEN_RPAREN);
-	dt_c_emit2(c, DT_OP_CALL, nargs);
+
+	dt_c_emit3(c, DT_OP_CALL, nargs, c->currying);
 
 	return DT_TYPE_NIL;
 
@@ -5562,7 +5510,7 @@ dt_parse_rule dt_expr_rules[] = {
 	[DT_TOKEN_AT_GT]         = { dt_c_break,    NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AT_CARET]      = { dt_c_continue, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE]         = { dt_c_func,     NULL,        DT_PREC_NONE },
-	[DT_TOKEN_COLON]         = { NULL,          dt_c_index3, DT_PREC_CALL },
+	[DT_TOKEN_COLON]         = { NULL,          dt_c_curry,  DT_PREC_CALL },
 	[DT_TOKEN_COLON_LPAREN]  = { dt_c_throw,    NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE_GT]      = { dt_c_return,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_COLON_RPAREN]  = { dt_c_try,      NULL,        DT_PREC_NONE } ,
@@ -6760,6 +6708,23 @@ dt_val dt_f_sys_date(dt_vm* vm) {
 
 #endif
 
+#ifdef DT_LIB_DBG
+dt_val dt_f_dbg_stacksize(dt_vm* vm) {
+	return dt_to_num(vm->stack_top - vm->stack);
+}
+
+// TODO: why not working?
+dt_val dt_f_dbg_rc(dt_vm* vm) {
+	dt_val v = dt_arg(vm, 0);
+	if (dt_is_heap(v)) {
+		return dt_to_num(-1);
+	} else {
+		dt_heaper* h = dt_as_heaper(v);
+		return dt_to_num(h->rc);
+	}
+}
+#endif
+
 #ifdef DT_LIB_FS
 dt_val dt_f_fs_readdir(dt_vm* vm) {
 
@@ -7792,6 +7757,19 @@ void dt_load_libs(dt_vm* vm) {
 #if !defined(DT_IOS)
 			{ "exec", dt_to_cfunc(dt_f_sys_exec), },
 #endif
+			{ NULL, DT_NIL, },
+		}))
+	);
+#endif
+
+#ifdef DT_LIB_DBG
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"dbg",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "stacksize", dt_to_cfunc(dt_f_dbg_stacksize), },
+			{ "rc", dt_to_cfunc(dt_f_dbg_rc), },
 			{ NULL, DT_NIL, },
 		}))
 	);

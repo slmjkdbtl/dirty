@@ -1,11 +1,12 @@
+$ arr = import("arr")
 $ lst = [1 5 3 6 4]
 
-lst:insert(1, 8)
+lst : arr.insert(1, 8)
 print(lst)
 
 lst
-	:map(~ (i) i + 1)
-	:sort()
-	:each(print)
+: arr.map(~ (i) i + 10)
+: arr.sort()
+: arr.each(print)
 
-print(lst:join(", "))
+print(lst : arr.join(", "))
