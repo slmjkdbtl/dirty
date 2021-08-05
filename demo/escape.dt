@@ -1,4 +1,4 @@
-print("\x1b[33m" + a + "\x1b[0m")
+print("\x1b[33m" + "abc" + "\x1b[0m")
 print("qwe\\123")
 print("qwe\"123")
 print("123\nabc")

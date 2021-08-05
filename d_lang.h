@@ -386,11 +386,6 @@ typedef struct dt_vm {
 	dt_val*    stack_bot;
 	dt_map*    globals;
 	dt_map*    libs;
-	dt_map*    map_lib;
-	dt_map*    arr_lib;
-	dt_map*    str_lib;
-	dt_map*    func_lib;
-	dt_map*    math_lib;
 	dt_map*    strs;
 	dt_upval*  open_upvals[UINT8_MAX];
 	int        num_upvals;
@@ -792,6 +787,7 @@ dt_arr*  dt_map_keys       (dt_vm* vm, dt_map* map);
 dt_arr*  dt_map_vals       (dt_vm* vm, dt_map* map);
 dt_map*  dt_map_clone      (dt_vm* vm, dt_map* src);
 bool     dt_map_eq         (dt_map* a1, dt_map* a2);
+char*    dt_map_serialize  (dt_map* map);
 void     dt_map_print      (dt_map* map);
 void     dt_map_println    (dt_map* map);
 
@@ -2559,6 +2555,11 @@ bool dt_map_eq(dt_map* m1, dt_map* m2) {
 	return true;
 }
 
+char* dt_map_serialize(dt_map* map) {
+	// TODO
+	return NULL;
+}
+
 void dt_map_print(dt_map* map) {
 	printf("{ ");
 // 	printf("\n");
@@ -2886,11 +2887,6 @@ dt_vm dt_vm_new() {
 		.stack_bot = NULL,
 		.globals = NULL,
 		.libs = dt_map_new(NULL),
-		.math_lib = dt_map_new(NULL),
-		.str_lib = dt_map_new(NULL),
-		.arr_lib = dt_map_new(NULL),
-		.map_lib = dt_map_new(NULL),
-		.func_lib = dt_map_new(NULL),
 		.strs = dt_map_new(NULL),
 		.open_upvals = {0},
 		.num_upvals = 0,
@@ -7598,126 +7594,130 @@ void dt_load_libs(dt_vm* vm) {
 		{ NULL, DT_NIL, },
 	});
 
-	dt_map_centry str_lib[] = {
-		{ "split", dt_to_cfunc(dt_f_str_split), },
-		{ "chars", dt_to_cfunc(dt_f_str_chars), },
-		{ "starts", dt_to_cfunc(dt_f_str_starts), },
-		{ "ends", dt_to_cfunc(dt_f_str_ends), },
-		{ "rep", dt_to_cfunc(dt_f_str_rep), },
-		{ "toupper", dt_to_cfunc(dt_f_str_toupper), },
-		{ "tolower", dt_to_cfunc(dt_f_str_tolower), },
-		{ "find", dt_to_cfunc(dt_f_str_find), },
-		{ "find_at", dt_to_cfunc(dt_f_str_find_at), },
-		{ "rfind", dt_to_cfunc(dt_f_str_rfind), },
-		{ "rfind_at", dt_to_cfunc(dt_f_str_rfind_at), },
-		{ "contains", dt_to_cfunc(dt_f_str_contains), },
-		{ "replace", dt_to_cfunc(dt_f_str_replace), },
-		{ "replace_at", dt_to_cfunc(dt_f_str_replace_at), },
-		{ "rev", dt_to_cfunc(dt_f_str_rev), },
-		{ "match", dt_to_cfunc(dt_f_str_match), },
-		{ "trim", dt_to_cfunc(dt_f_str_trim), },
-		{ "trunc", dt_to_cfunc(dt_f_str_trunc), },
-		{ "sub", dt_to_cfunc(dt_f_str_sub), },
-		{ "len", dt_to_cfunc(dt_f_str_len), },
-		{ "hash", dt_to_cfunc(dt_f_str_hash), },
-		{ "tonum", dt_to_cfunc(dt_f_str_tonum), },
-		{ "code", dt_to_cfunc(dt_f_str_code), },
-		{ NULL, DT_NIL, },
-	};
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"str",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "split", dt_to_cfunc(dt_f_str_split), },
+			{ "chars", dt_to_cfunc(dt_f_str_chars), },
+			{ "starts", dt_to_cfunc(dt_f_str_starts), },
+			{ "ends", dt_to_cfunc(dt_f_str_ends), },
+			{ "rep", dt_to_cfunc(dt_f_str_rep), },
+			{ "toupper", dt_to_cfunc(dt_f_str_toupper), },
+			{ "tolower", dt_to_cfunc(dt_f_str_tolower), },
+			{ "find", dt_to_cfunc(dt_f_str_find), },
+			{ "find_at", dt_to_cfunc(dt_f_str_find_at), },
+			{ "rfind", dt_to_cfunc(dt_f_str_rfind), },
+			{ "rfind_at", dt_to_cfunc(dt_f_str_rfind_at), },
+			{ "contains", dt_to_cfunc(dt_f_str_contains), },
+			{ "replace", dt_to_cfunc(dt_f_str_replace), },
+			{ "replace_at", dt_to_cfunc(dt_f_str_replace_at), },
+			{ "rev", dt_to_cfunc(dt_f_str_rev), },
+			{ "match", dt_to_cfunc(dt_f_str_match), },
+			{ "trim", dt_to_cfunc(dt_f_str_trim), },
+			{ "trunc", dt_to_cfunc(dt_f_str_trunc), },
+			{ "sub", dt_to_cfunc(dt_f_str_sub), },
+			{ "len", dt_to_cfunc(dt_f_str_len), },
+			{ "hash", dt_to_cfunc(dt_f_str_hash), },
+			{ "tonum", dt_to_cfunc(dt_f_str_tonum), },
+			{ "code", dt_to_cfunc(dt_f_str_code), },
+			{ NULL, DT_NIL, },
+		}))
+	);
 
-	dt_map_reg(NULL, vm->str_lib, str_lib);
-	dt_map_cset(NULL, vm->libs, "str", dt_to_map(vm->str_lib));
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"arr",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "push", dt_to_cfunc(dt_f_arr_push), },
+			{ "insert", dt_to_cfunc(dt_f_arr_insert), },
+			{ "rm", dt_to_cfunc(dt_f_arr_rm), },
+			{ "rm_all", dt_to_cfunc(dt_f_arr_rm_all), },
+			{ "find", dt_to_cfunc(dt_f_arr_find), },
+			{ "map", dt_to_cfunc(dt_f_arr_map), },
+			{ "sort", dt_to_cfunc(dt_f_arr_sort), },
+			{ "filter", dt_to_cfunc(dt_f_arr_filter), },
+			{ "each", dt_to_cfunc(dt_f_arr_each), },
+			{ "contains", dt_to_cfunc(dt_f_arr_contains), },
+			{ "join", dt_to_cfunc(dt_f_arr_join), },
+			{ "rev", dt_to_cfunc(dt_f_arr_rev), },
+			{ "pop", dt_to_cfunc(dt_f_arr_pop), },
+			{ "sub", dt_to_cfunc(dt_f_arr_sub), },
+			{ "reduce", dt_to_cfunc(dt_f_arr_reduce), },
+			{ "concat", dt_to_cfunc(dt_f_arr_concat), },
+			{ "rand", dt_to_cfunc(dt_f_arr_rand), },
+			{ "clone", dt_to_cfunc(dt_f_arr_clone), },
+			{ "eq", dt_to_cfunc(dt_f_arr_eq), },
+			{ "len", dt_to_cfunc(dt_f_arr_len), },
+			{ NULL, DT_NIL, },
+		}))
+	);
 
-	dt_map_centry arr_lib[] = {
-		{ "push", dt_to_cfunc(dt_f_arr_push), },
-// 		{ "push!", dt_to_cfunc(dt_f_arr_push), },
-		{ "insert", dt_to_cfunc(dt_f_arr_insert), },
-// 		{ "insert!", dt_to_cfunc(dt_f_arr_insert), },
-		{ "rm", dt_to_cfunc(dt_f_arr_rm), },
-// 		{ "rm!", dt_to_cfunc(dt_f_arr_rm), },
-		{ "rm_all", dt_to_cfunc(dt_f_arr_rm_all), },
-// 		{ "rm_all!", dt_to_cfunc(dt_f_arr_rm_all), },
-		{ "find", dt_to_cfunc(dt_f_arr_find), },
-		{ "map", dt_to_cfunc(dt_f_arr_map), },
-		{ "sort", dt_to_cfunc(dt_f_arr_sort), },
-		{ "filter", dt_to_cfunc(dt_f_arr_filter), },
-		{ "each", dt_to_cfunc(dt_f_arr_each), },
-		{ "contains", dt_to_cfunc(dt_f_arr_contains), },
-		{ "join", dt_to_cfunc(dt_f_arr_join), },
-		{ "rev", dt_to_cfunc(dt_f_arr_rev), },
-		{ "pop", dt_to_cfunc(dt_f_arr_pop), },
-// 		{ "pop!", dt_to_cfunc(dt_f_arr_pop), },
-		{ "sub", dt_to_cfunc(dt_f_arr_sub), },
-		{ "reduce", dt_to_cfunc(dt_f_arr_reduce), },
-		{ "concat", dt_to_cfunc(dt_f_arr_concat), },
-		{ "rand", dt_to_cfunc(dt_f_arr_rand), },
-		{ "clone", dt_to_cfunc(dt_f_arr_clone), },
-		{ "eq", dt_to_cfunc(dt_f_arr_eq), },
-		{ "len", dt_to_cfunc(dt_f_arr_len), },
-		{ NULL, DT_NIL, },
-	};
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"map",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "keys", dt_to_cfunc(dt_f_map_keys), },
+			{ "vals", dt_to_cfunc(dt_f_map_vals), },
+			{ "each", dt_to_cfunc(dt_f_map_each), },
+			{ "rm", dt_to_cfunc(dt_f_map_rm), },
+			{ "has", dt_to_cfunc(dt_f_map_has), },
+			{ "eq", dt_to_cfunc(dt_f_map_eq), },
+			{ "clone", dt_to_cfunc(dt_f_map_clone), },
+			{ NULL, DT_NIL, },
+		}))
+	);
 
-	dt_map_reg(NULL, vm->arr_lib, arr_lib);
-	dt_map_cset(NULL, vm->libs, "arr", dt_to_map(vm->arr_lib));
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"math",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "sin", dt_to_cfunc(dt_f_math_sin), },
+			{ "cos", dt_to_cfunc(dt_f_math_cos), },
+			{ "tan", dt_to_cfunc(dt_f_math_tan), },
+			{ "asin", dt_to_cfunc(dt_f_math_asin), },
+			{ "acos", dt_to_cfunc(dt_f_math_acos), },
+			{ "atan", dt_to_cfunc(dt_f_math_atan), },
+			{ "atan2", dt_to_cfunc(dt_f_math_atan2), },
+			{ "isnan", dt_to_cfunc(dt_f_math_isnan), },
+			{ "abs", dt_to_cfunc(dt_f_math_abs), },
+			{ "mod", dt_to_cfunc(dt_f_math_mod), },
+			{ "sqrt", dt_to_cfunc(dt_f_math_sqrt), },
+			{ "pow", dt_to_cfunc(dt_f_math_pow), },
+			{ "log", dt_to_cfunc(dt_f_math_log), },
+			{ "round", dt_to_cfunc(dt_f_math_round), },
+			{ "floor", dt_to_cfunc(dt_f_math_floor), },
+			{ "ceil", dt_to_cfunc(dt_f_math_ceil), },
+			{ "fract", dt_to_cfunc(dt_f_math_fract), },
+			{ "max", dt_to_cfunc(dt_f_math_max), },
+			{ "min", dt_to_cfunc(dt_f_math_min), },
+			{ "clamp", dt_to_cfunc(dt_f_math_clamp), },
+			{ "map", dt_to_cfunc(dt_f_math_map), },
+			{ "mapc", dt_to_cfunc(dt_f_math_mapc), },
+			{ "deg", dt_to_cfunc(dt_f_math_deg), },
+			{ "rad", dt_to_cfunc(dt_f_math_rad), },
+			{ "sign", dt_to_cfunc(dt_f_math_sign), },
+			{ "rand", dt_to_cfunc(dt_f_math_rand), },
+			{ "srand", dt_to_cfunc(dt_f_math_srand), },
+			{ "PI", dt_to_num(DT_PI), },
+			{ NULL, DT_NIL, },
+		}))
+	);
 
-	dt_map_centry map_lib[] = {
-		{ "keys", dt_to_cfunc(dt_f_map_keys), },
-		{ "vals", dt_to_cfunc(dt_f_map_vals), },
-		{ "each", dt_to_cfunc(dt_f_map_each), },
-		{ "rm", dt_to_cfunc(dt_f_map_rm), },
-// 		{ "rm!", dt_to_cfunc(dt_f_map_rm), },
-		{ "has", dt_to_cfunc(dt_f_map_has), },
-		{ "eq", dt_to_cfunc(dt_f_map_eq), },
-		{ "clone", dt_to_cfunc(dt_f_map_clone), },
-		{ NULL, DT_NIL, },
-	};
-
-	dt_map_reg(NULL, vm->map_lib, map_lib);
-	dt_map_cset(NULL, vm->libs, "map", dt_to_map(vm->map_lib));
-
-	dt_map_centry func_lib[] = {
-		{ "call", dt_to_cfunc(dt_f_func_call), },
-		{ "bind", dt_to_cfunc(dt_f_func_bind), },
-		{ NULL, DT_NIL, },
-	};
-
-	dt_map_reg(NULL, vm->func_lib, func_lib);
-	dt_map_cset(NULL, vm->libs, "func", dt_to_map(vm->func_lib));
-
-	dt_map_centry math_lib[] = {
-		{ "sin", dt_to_cfunc(dt_f_math_sin), },
-		{ "cos", dt_to_cfunc(dt_f_math_cos), },
-		{ "tan", dt_to_cfunc(dt_f_math_tan), },
-		{ "asin", dt_to_cfunc(dt_f_math_asin), },
-		{ "acos", dt_to_cfunc(dt_f_math_acos), },
-		{ "atan", dt_to_cfunc(dt_f_math_atan), },
-		{ "atan2", dt_to_cfunc(dt_f_math_atan2), },
-		{ "isnan", dt_to_cfunc(dt_f_math_isnan), },
-		{ "abs", dt_to_cfunc(dt_f_math_abs), },
-		{ "mod", dt_to_cfunc(dt_f_math_mod), },
-		{ "sqrt", dt_to_cfunc(dt_f_math_sqrt), },
-		{ "pow", dt_to_cfunc(dt_f_math_pow), },
-		{ "log", dt_to_cfunc(dt_f_math_log), },
-		{ "round", dt_to_cfunc(dt_f_math_round), },
-		{ "floor", dt_to_cfunc(dt_f_math_floor), },
-		{ "ceil", dt_to_cfunc(dt_f_math_ceil), },
-		{ "fract", dt_to_cfunc(dt_f_math_fract), },
-		{ "max", dt_to_cfunc(dt_f_math_max), },
-		{ "min", dt_to_cfunc(dt_f_math_min), },
-		{ "clamp", dt_to_cfunc(dt_f_math_clamp), },
-		{ "map", dt_to_cfunc(dt_f_math_map), },
-		{ "mapc", dt_to_cfunc(dt_f_math_mapc), },
-		{ "deg", dt_to_cfunc(dt_f_math_deg), },
-		{ "rad", dt_to_cfunc(dt_f_math_rad), },
-		{ "sign", dt_to_cfunc(dt_f_math_sign), },
-		{ "rand", dt_to_cfunc(dt_f_math_rand), },
-		{ "srand", dt_to_cfunc(dt_f_math_srand), },
-		{ "PI", dt_to_num(DT_PI), },
-		{ NULL, DT_NIL, },
-	};
-
-	dt_map_reg(NULL, vm->math_lib, math_lib);
-	dt_map_cset(NULL, vm->libs, "math", dt_to_map(vm->math_lib));
+	dt_map_cset(
+		NULL,
+		vm->libs,
+		"func",
+		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "call", dt_to_cfunc(dt_f_func_call), },
+			{ "bind", dt_to_cfunc(dt_f_func_bind), },
+			{ NULL, DT_NIL, },
+		}))
+	);
 
 #ifdef DT_LIB_SYS
 	dt_val os = dt_to_str(dt_str_new(
