@@ -1,0 +1,3 @@
+$ s = "123"
+
+print(s:rfind_from("123"))

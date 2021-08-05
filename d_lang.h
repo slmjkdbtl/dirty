@@ -52,7 +52,7 @@
 
 #define DT_LIB_SYS
 #define DT_LIB_FS
-#define DT_LIB_ANSI
+#define DT_LIB_TERM
 #define DT_LIB_HTTP
 
 #if defined(__APPLE__)
@@ -1862,13 +1862,38 @@ dt_str* dt_str_tolower(dt_vm* vm, dt_str* str) {
 	return dest;
 }
 
-int dt_str_find(dt_str* str, dt_str* key) {
-	char* pos = strstr(str->chars, key->chars);
+int dt_str_rfind_at(dt_str* str, dt_str* key, int idx) {
+	if (idx < 0 || idx >= str->len || key->len == 0) {
+		return -1;
+	}
+	char* cur = str->chars + idx - key->len + 1;
+	while (cur >= str->chars) {
+		if (memcmp(cur, key->chars, key->len) == 0) {
+			return cur - str->chars;
+		}
+		cur--;
+	}
+	return -1;
+}
+
+int dt_str_rfind(dt_str* str, dt_str* key) {
+	return dt_str_rfind_at(str, key, str->len - 1);
+}
+
+int dt_str_find_at(dt_str* str, dt_str* key, int idx) {
+	if (idx < 0 || idx >= str->len || key->len == 0) {
+		return -1;
+	}
+	char* pos = strstr(str->chars + idx, key->chars);
 	if (pos) {
 		return pos - str->chars;
 	} else {
 		return -1;
 	}
+}
+
+int dt_str_find(dt_str* str, dt_str* key) {
+	return dt_str_find_at(str, key, 0);
 }
 
 bool dt_str_contains(dt_str* str, dt_str* key) {
@@ -2063,6 +2088,7 @@ void dt_arr_set_weak(dt_vm* vm, dt_arr* arr, int idx, dt_val val) {
 
 }
 
+// TODO: dec if overwritten
 void dt_arr_set(dt_vm* vm, dt_arr* arr, int idx, dt_val val) {
 	dt_arr_set_weak(vm, arr, idx, val);
 	dt_rc_inc(val);
@@ -2391,6 +2417,7 @@ bool dt_map_set_weak(dt_vm* vm, dt_map* map, dt_str* key, dt_val val) {
 
 }
 
+// TODO: dec if overwritten
 void dt_map_set(dt_vm* vm, dt_map* map, dt_str* key, dt_val val) {
 	if (dt_map_set_weak(vm, map, key, val)) {
 		dt_rc_inc(dt_to_str(key));
@@ -3579,7 +3606,10 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_SETL: {
-				vm->stack_bot[*vm->ip++] = dt_vm_get(vm, 0);
+				int pos = *vm->ip++;
+				dt_rc_dec(vm->stack_bot[pos]);
+				dt_rc_inc(dt_vm_get(vm, 0));
+				vm->stack_bot[pos] = dt_vm_get(vm, 0);
 				break;
 			}
 
@@ -3682,7 +3712,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 								};
 							}
 							dt_str* str = dt_as_str2(val);
-							if (range.start >= str->len || range.end > str->len) {
+							if (range.start > str->len || range.end > str->len) {
 								dt_vm_push(vm, DT_NIL);
 							} else {
 								dt_vm_push(vm, dt_to_str(dt_str_sub(
@@ -3938,7 +3968,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				if (!dt_val_truthy(cond)) {
 					vm->ip += dis;
 				}
-				dt_rc_dec(cond);
+				dt_rc_check(cond);
 				break;
 			}
 
@@ -5737,6 +5767,15 @@ dt_val dt_f_str_tonum(dt_vm* vm) {
 	return dt_to_num(atoi(str->chars));
 }
 
+dt_val dt_f_str_code(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
+	dt_str* str = dt_arg_str(vm, 0);
+	return dt_to_num((int)str->chars[0]);
+}
+
 dt_val dt_f_str_split(dt_vm* vm) {
 	if (!dt_check_args(vm,
 		2,
@@ -5822,6 +5861,43 @@ dt_val dt_f_str_find(dt_vm* vm) {
 	dt_str* str = dt_arg_str(vm, 0);
 	dt_str* key = dt_arg_str(vm, 1);
 	return dt_to_num(dt_str_find(str, key));
+}
+
+dt_val dt_f_str_find_at(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		3,
+		DT_VAL_STR,
+		DT_VAL_STR,
+		DT_VAL_NUM
+	)) return DT_NIL;
+	dt_str* str = dt_arg_str(vm, 0);
+	dt_str* key = dt_arg_str(vm, 1);
+	int idx = dt_arg_num(vm, 2);
+	return dt_to_num(dt_str_find_at(str, key, idx));
+}
+
+dt_val dt_f_str_rfind(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
+	dt_str* str = dt_arg_str(vm, 0);
+	dt_str* key = dt_arg_str(vm, 1);
+	return dt_to_num(dt_str_rfind(str, key));
+}
+
+dt_val dt_f_str_rfind_at(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		3,
+		DT_VAL_STR,
+		DT_VAL_STR,
+		DT_VAL_NUM
+	)) return DT_NIL;
+	dt_str* str = dt_arg_str(vm, 0);
+	dt_str* key = dt_arg_str(vm, 1);
+	int idx = dt_arg_num(vm, 2);
+	return dt_to_num(dt_str_rfind_at(str, key, idx));
 }
 
 dt_val dt_f_str_contains(dt_vm* vm) {
@@ -6515,6 +6591,16 @@ dt_val dt_f_sys_exit(dt_vm* vm) {
 	return DT_NIL;
 }
 
+dt_val dt_f_sys_print(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_STR
+	)) return DT_NIL;
+	char* str = dt_arg_cstr(vm, 0);
+	fprintf(stdout, "%s", str);
+	return DT_NIL;
+}
+
 dt_val dt_f_sys_cwd(dt_vm* vm) {
 	char* path = getcwd(NULL, 0);
 	dt_str* str = dt_str_new(vm, path);
@@ -6570,7 +6656,27 @@ dt_val dt_f_sys_getenv(dt_vm* vm) {
 	}
 }
 
+dt_val dt_f_sys_setenv(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		2,
+		DT_VAL_STR,
+		DT_VAL_STR
+	)) return DT_NIL;
+	char* var = dt_arg_cstr(vm, 0);
+	char* val = dt_arg_cstr(vm, 1);
+	setenv(var, val, 1);
+	return DT_NIL;
+}
+
 #define DT_GETLINE_BUFSIZE 1024
+
+dt_val dt_f_sys_getchar(dt_vm* vm) {
+	char c = getchar();
+	if (c == EOF) {
+		return DT_NIL;
+	}
+	return dt_to_str(dt_str_new_len(vm, &c, 1));
+}
 
 dt_val dt_f_sys_getline(dt_vm* vm) {
 	static char buf[DT_GETLINE_BUFSIZE];
@@ -6585,6 +6691,16 @@ dt_val dt_f_sys_getline(dt_vm* vm) {
 		buf[pos++] = c;
 	}
 	return dt_to_str(dt_str_new_len(vm, buf, pos - 1));
+}
+
+void dt_f_sys_sigint_handler(int dummy) {
+	// TODO
+}
+
+dt_val dt_f_sys_signal(dt_vm* vm) {
+	dt_val f = dt_arg(vm, 0);
+	signal(SIGINT, dt_f_sys_sigint_handler);
+	return DT_NIL;
 }
 
 dt_val dt_f_sys_time(dt_vm* vm) {
@@ -6875,10 +6991,10 @@ dt_val dt_f_fs_watch(dt_vm* vm) {
 
 #endif
 
-#ifdef DT_LIB_ANSI
+#ifdef DT_LIB_TERM
 
 #define DT_GEN_ANSI_WRAP(name, code) \
-	dt_val dt_f_ansi_##name(dt_vm* vm) { \
+	dt_val dt_f_term_##name(dt_vm* vm) { \
 		if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL; \
 		char* str = dt_arg_cstr(vm, 0); \
 		return dt_to_str(dt_str_fmt("\x1b[%dm%s\x1b[0m", code, str)); \
@@ -6905,7 +7021,7 @@ DT_GEN_ANSI_WRAP(dim,       2)
 DT_GEN_ANSI_WRAP(italic,    3)
 DT_GEN_ANSI_WRAP(underline, 4)
 
-dt_val dt_f_ansi_rgb(dt_vm* vm) {
+dt_val dt_f_term_rgb(dt_vm* vm) {
 	if (!dt_check_args(vm,
 		4,
 		DT_VAL_STR,
@@ -6920,7 +7036,7 @@ dt_val dt_f_ansi_rgb(dt_vm* vm) {
 	return dt_to_str(dt_str_fmt("\x1b[38;2;%d;%d;%dm%s\x1b[0m", r, g, b, str));
 }
 
-dt_val dt_f_ansi_rgbbg(dt_vm* vm) {
+dt_val dt_f_term_rgbbg(dt_vm* vm) {
 	if (!dt_check_args(vm,
 		4,
 		DT_VAL_STR,
@@ -6933,6 +7049,61 @@ dt_val dt_f_ansi_rgbbg(dt_vm* vm) {
 	int g = dt_arg_num(vm, 2);
 	int b = dt_arg_num(vm, 3);
 	return dt_to_str(dt_str_fmt("\x1b[48;2;%d;%d;%dm%s\x1b[0m", r, g, b, str));
+}
+
+dt_val dt_f_term_enter_alt(dt_vm* vm) {
+	return dt_to_str(dt_str_new(vm, "\x1b[?1049h"));
+}
+
+dt_val dt_f_term_exit_alt(dt_vm* vm) {
+	return dt_to_str(dt_str_new(vm, "\x1b[?1049l"));
+}
+
+dt_val dt_f_term_move_cursor(dt_vm* vm) {
+	int col = dt_arg_num_or(vm, 0, 1);
+	int row = dt_arg_num_or(vm, 1, 1);
+	return dt_to_str(dt_str_fmt("\x1b[%d;%dH", row, col));
+}
+
+dt_val dt_f_term_move_cursor_col(dt_vm* vm) {
+	int col = dt_arg_num_or(vm, 0, 1);
+	return dt_to_str(dt_str_fmt("\x1b[%dG", col));
+}
+
+dt_val dt_f_term_save_cursor(dt_vm* vm) {
+	return dt_to_str(dt_str_new(vm, "\x1b[s"));
+}
+
+dt_val dt_f_term_restore_cursor(dt_vm* vm) {
+	return dt_to_str(dt_str_new(vm, "\x1b[u"));
+}
+
+dt_val dt_f_term_hide_cursor(dt_vm* vm) {
+	return dt_to_str(dt_str_new(vm, "\x1b[?25l"));
+}
+
+dt_val dt_f_term_show_cursor(dt_vm* vm) {
+	return dt_to_str(dt_str_new(vm, "\x1b[?25h"));
+}
+
+dt_val dt_f_term_clear_line(dt_vm* vm) {
+	int n = dt_arg_num_or(vm, 0, 2);
+	return dt_to_str(dt_str_fmt("\x1b[%dK", n));
+}
+
+dt_val dt_f_term_clear_screen(dt_vm* vm) {
+	int n = dt_arg_num_or(vm, 0, 2);
+	return dt_to_str(dt_str_fmt("\x1b[%dJ", n));
+}
+
+#include <termios.h>
+
+dt_val dt_f_term_no_echo(dt_vm* vm) {
+	struct termios attrs;
+	tcgetattr(STDIN_FILENO, &attrs);
+	attrs.c_lflag &= ~(ECHO | ICANON);
+	tcsetattr(STDIN_FILENO, TCSAFLUSH, &attrs);
+	return DT_NIL;
 }
 #endif
 
@@ -7433,6 +7604,9 @@ void dt_load_libs(dt_vm* vm) {
 		{ "toupper", dt_to_cfunc(dt_f_str_toupper), },
 		{ "tolower", dt_to_cfunc(dt_f_str_tolower), },
 		{ "find", dt_to_cfunc(dt_f_str_find), },
+		{ "find_at", dt_to_cfunc(dt_f_str_find_at), },
+		{ "rfind", dt_to_cfunc(dt_f_str_rfind), },
+		{ "rfind_at", dt_to_cfunc(dt_f_str_rfind_at), },
 		{ "contains", dt_to_cfunc(dt_f_str_contains), },
 		{ "replace", dt_to_cfunc(dt_f_str_replace), },
 		{ "replace_at", dt_to_cfunc(dt_f_str_replace_at), },
@@ -7444,6 +7618,7 @@ void dt_load_libs(dt_vm* vm) {
 		{ "len", dt_to_cfunc(dt_f_str_len), },
 		{ "hash", dt_to_cfunc(dt_f_str_hash), },
 		{ "tonum", dt_to_cfunc(dt_f_str_tonum), },
+		{ "code", dt_to_cfunc(dt_f_str_code), },
 		{ NULL, DT_NIL, },
 	};
 
@@ -7564,11 +7739,15 @@ void dt_load_libs(dt_vm* vm) {
 		"sys",
 		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
 			{ "OS",  os, },
+			{ "getchar", dt_to_cfunc(dt_f_sys_getchar), },
 			{ "getline", dt_to_cfunc(dt_f_sys_getline), },
+			{ "signal", dt_to_cfunc(dt_f_sys_signal), },
 			{ "time", dt_to_cfunc(dt_f_sys_time), },
 			{ "date", dt_to_cfunc(dt_f_sys_date), },
+			{ "setenv", dt_to_cfunc(dt_f_sys_setenv), },
 			{ "getenv", dt_to_cfunc(dt_f_sys_getenv), },
 			{ "exit", dt_to_cfunc(dt_f_sys_exit), },
+			{ "print", dt_to_cfunc(dt_f_sys_print), },
 			{ "cwd", dt_to_cfunc(dt_f_sys_cwd), },
 			{ "chdir", dt_to_cfunc(dt_f_sys_chdir), },
 			{ "fork", dt_to_cfunc(dt_f_sys_fork), },
@@ -7611,34 +7790,45 @@ void dt_load_libs(dt_vm* vm) {
 	);
 #endif
 
-#ifdef DT_LIB_ANSI
+#ifdef DT_LIB_TERM
 	dt_map_cset(
 		NULL,
 		vm->libs,
-		"ansi",
+		"term",
 		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
-			{ "black", dt_to_cfunc(dt_f_ansi_black), },
-			{ "red", dt_to_cfunc(dt_f_ansi_red), },
-			{ "green", dt_to_cfunc(dt_f_ansi_green), },
-			{ "yellow", dt_to_cfunc(dt_f_ansi_yellow), },
-			{ "blue", dt_to_cfunc(dt_f_ansi_blue), },
-			{ "magenta", dt_to_cfunc(dt_f_ansi_magenta), },
-			{ "cyan", dt_to_cfunc(dt_f_ansi_cyan), },
-			{ "white", dt_to_cfunc(dt_f_ansi_white), },
-			{ "blackbg", dt_to_cfunc(dt_f_ansi_blackbg), },
-			{ "redbg", dt_to_cfunc(dt_f_ansi_redbg), },
-			{ "greenbg", dt_to_cfunc(dt_f_ansi_greenbg), },
-			{ "yellowbg", dt_to_cfunc(dt_f_ansi_yellowbg), },
-			{ "bluebg", dt_to_cfunc(dt_f_ansi_bluebg), },
-			{ "magentabg", dt_to_cfunc(dt_f_ansi_magentabg), },
-			{ "cyanbg", dt_to_cfunc(dt_f_ansi_cyanbg), },
-			{ "whitebg", dt_to_cfunc(dt_f_ansi_whitebg), },
-			{ "bold", dt_to_cfunc(dt_f_ansi_bold), },
-			{ "dim", dt_to_cfunc(dt_f_ansi_dim), },
-			{ "italic", dt_to_cfunc(dt_f_ansi_italic), },
-			{ "underline", dt_to_cfunc(dt_f_ansi_underline), },
-			{ "rgb", dt_to_cfunc(dt_f_ansi_rgb), },
-			{ "rgbbg", dt_to_cfunc(dt_f_ansi_rgbbg), },
+			{ "black", dt_to_cfunc(dt_f_term_black), },
+			{ "red", dt_to_cfunc(dt_f_term_red), },
+			{ "green", dt_to_cfunc(dt_f_term_green), },
+			{ "yellow", dt_to_cfunc(dt_f_term_yellow), },
+			{ "blue", dt_to_cfunc(dt_f_term_blue), },
+			{ "magenta", dt_to_cfunc(dt_f_term_magenta), },
+			{ "cyan", dt_to_cfunc(dt_f_term_cyan), },
+			{ "white", dt_to_cfunc(dt_f_term_white), },
+			{ "blackbg", dt_to_cfunc(dt_f_term_blackbg), },
+			{ "redbg", dt_to_cfunc(dt_f_term_redbg), },
+			{ "greenbg", dt_to_cfunc(dt_f_term_greenbg), },
+			{ "yellowbg", dt_to_cfunc(dt_f_term_yellowbg), },
+			{ "bluebg", dt_to_cfunc(dt_f_term_bluebg), },
+			{ "magentabg", dt_to_cfunc(dt_f_term_magentabg), },
+			{ "cyanbg", dt_to_cfunc(dt_f_term_cyanbg), },
+			{ "whitebg", dt_to_cfunc(dt_f_term_whitebg), },
+			{ "bold", dt_to_cfunc(dt_f_term_bold), },
+			{ "dim", dt_to_cfunc(dt_f_term_dim), },
+			{ "italic", dt_to_cfunc(dt_f_term_italic), },
+			{ "underline", dt_to_cfunc(dt_f_term_underline), },
+			{ "rgb", dt_to_cfunc(dt_f_term_rgb), },
+			{ "rgbbg", dt_to_cfunc(dt_f_term_rgbbg), },
+			{ "enter_alt", dt_to_cfunc(dt_f_term_enter_alt), },
+			{ "exit_alt", dt_to_cfunc(dt_f_term_exit_alt), },
+			{ "move_cursor", dt_to_cfunc(dt_f_term_move_cursor), },
+			{ "move_cursor_col", dt_to_cfunc(dt_f_term_move_cursor_col), },
+			{ "hide_cursor", dt_to_cfunc(dt_f_term_hide_cursor), },
+			{ "show_cursor", dt_to_cfunc(dt_f_term_show_cursor), },
+			{ "save_cursor", dt_to_cfunc(dt_f_term_save_cursor), },
+			{ "restore_cursor", dt_to_cfunc(dt_f_term_restore_cursor), },
+			{ "clear_line", dt_to_cfunc(dt_f_term_clear_line), },
+			{ "clear_screen", dt_to_cfunc(dt_f_term_clear_screen), },
+			{ "no_echo", dt_to_cfunc(dt_f_term_no_echo), },
 			{ NULL, DT_NIL, },
 		}))
 	);

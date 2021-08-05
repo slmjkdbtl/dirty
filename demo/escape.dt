@@ -1,6 +1,12 @@
-print("\x1b[33mohhi\x1b[0m")
-print("qwe\\123")
-print("qwe\"123")
-print("123\nabc")
-print("123\tabc")
+$ a = "1"
+a += "2"
+a += "4"
+a += "abc"
 
+% (a) print(a)
+
+-- print("\x1b[33m" + a + "\x1b[0m")
+-- print("qwe\\123")
+-- print("qwe\"123")
+-- print("123\nabc")
+-- print("123\tabc")
