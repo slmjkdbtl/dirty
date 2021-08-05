@@ -6,6 +6,11 @@ $ uid = ~ () {
 	}
 } ()
 
+print(uid())
+print(uid())
+print(uid())
+print(uid())
+
 ~ vec2 (x: Num, y: Num): Vec2 {
 	~> {
 		id: uid(),

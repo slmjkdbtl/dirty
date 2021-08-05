@@ -1560,90 +1560,109 @@ void dt_val_free_rec(dt_vm* vm, dt_val v) {
 	}
 }
 
+void dt_rc_inc2(dt_heaper* h) {
+	h->rc++;
+#ifdef DT_GC_LOG
+	printf("++ %d (%s) \n", h->rc, dt_typename(h->type));
+// 	dt_val_println(val);
+#endif
+}
+
 void dt_rc_inc(dt_val val) {
 	if (!dt_is_heap(val)) {
 		return;
 	}
 	dt_heaper* h = dt_as_heaper(val);
-	h->rc++;
-#ifdef DT_GC_LOG
-	printf("++ %d (%s) ", h->rc, dt_typename(dt_typeof(val)));
-	dt_val_println(val);
-#endif
+	dt_rc_inc2(h);
 }
 
 void dt_func_println(dt_func* func);
 void dt_cdata_println(dt_cdata* cdata);
 
-void dt_rc_check(dt_val val) {
-	if (!dt_is_heap(val)) {
-		return;
+void dt_heaper_free(dt_heaper* h) {
+	switch (h->type) {
+		case DT_VAL_STR: {
+#ifdef DT_GC_LOG
+			dt_str* str = (dt_str*)h;
+			printf("FREE STR ");
+			dt_str_println(str);
+#endif
+			dt_str_free(NULL, (dt_str*)h);
+			break;
+		}
+		case DT_VAL_ARR: {
+#ifdef DT_GC_LOG
+			dt_arr* arr = (dt_arr*)h;
+			printf("FREE ARR #%d\n", arr->len);
+#endif
+			dt_arr_free(NULL, (dt_arr*)h);
+			break;
+		}
+		case DT_VAL_MAP: {
+#ifdef DT_GC_LOG
+			dt_map* map = (dt_map*)h;
+			printf("FREE MAP #%d\n", map->cnt);
+#endif
+			dt_map_free(NULL, (dt_map*)h);
+			break;
+		}
+		case DT_VAL_FUNC: {
+#ifdef DT_GC_LOG
+			dt_func* func = (dt_func*)h;
+			printf("FREE FUNC ");
+			dt_func_println(func);
+#endif
+			dt_func_free(NULL, (dt_func*)h);
+			break;
+		}
+		case DT_VAL_UPVAL: {
+#ifdef DT_GC_LOG
+			dt_upval* upval = (dt_upval*)h;
+			printf("FREE UPVAL ");
+			dt_val_println(*upval->val);
+#endif
+			dt_upval_free(NULL, (dt_upval*)h);
+			break;
+		}
+		case DT_VAL_CDATA: {
+#ifdef DT_GC_LOG
+			dt_cdata* cdata = (dt_cdata*)h;
+			printf("FREE CDATA ");
+			dt_cdata_println(cdata);
+#endif
+			dt_cdata_free(NULL, (dt_cdata*)h);
+			break;
+		}
+		default:
+			break;
 	}
-	dt_heaper* h = dt_as_heaper(val);
+}
+
+void dt_rc_check2(dt_heaper* h) {
 	if (h->rc < 0) {
 		fprintf(stderr, "something went terribly wrong: rc < 0\n");
 		exit(EXIT_FAILURE);
 		return;
 	}
 	if (h->rc == 0) {
-		// TODO: recursive dec
-		switch (dt_typeof(val)) {
-			case DT_VAL_STR: {
-#ifdef DT_GC_LOG
-				dt_str* str = (dt_str*)h;
-				printf("FREE STR ");
-				dt_str_println(str);
-#endif
-				dt_str_free(NULL, (dt_str*)h);
-				break;
-			}
-			case DT_VAL_ARR: {
-#ifdef DT_GC_LOG
-				dt_arr* arr = (dt_arr*)h;
-				printf("FREE ARR #%d\n", arr->len);
-#endif
-				dt_arr_free(NULL, (dt_arr*)h);
-				break;
-			}
-			case DT_VAL_MAP: {
-#ifdef DT_GC_LOG
-				dt_map* map = (dt_map*)h;
-				printf("FREE MAP #%d\n", map->cnt);
-#endif
-				dt_map_free(NULL, (dt_map*)h);
-				break;
-			}
-			case DT_VAL_FUNC: {
-#ifdef DT_GC_LOG
-				dt_func* func = (dt_func*)h;
-				printf("FREE FUNC ");
-				dt_func_println(func);
-#endif
-				dt_func_free(NULL, (dt_func*)h);
-				break;
-			}
-			case DT_VAL_UPVAL: {
-#ifdef DT_GC_LOG
-				dt_upval* upval = (dt_upval*)h;
-				printf("FREE UPVAL ");
-				dt_val_println(*upval->val);
-#endif
-				dt_upval_free(NULL, (dt_upval*)h);
-				break;
-			}
-			case DT_VAL_CDATA: {
-#ifdef DT_GC_LOG
-				dt_cdata* cdata = (dt_cdata*)h;
-				printf("FREE CDATA ");
-				dt_cdata_println(cdata);
-#endif
-				dt_cdata_free(NULL, (dt_cdata*)h);
-				break;
-			}
-			default:
-				break;
-		}
+		dt_heaper_free(h);
 	}
+}
+
+void dt_rc_check(dt_val val) {
+	if (!dt_is_heap(val)) {
+		return;
+	}
+	dt_heaper* h = dt_as_heaper(val);
+	dt_rc_check2(h);
+}
+
+void dt_rc_dec2_nocheck(dt_heaper* h) {
+	h->rc--;
+#ifdef DT_GC_LOG
+	printf("-- %d (%s) \n", h->rc, dt_typename(h->type));
+// 	dt_val_println(val);
+#endif
 }
 
 void dt_rc_dec_nocheck(dt_val val) {
@@ -1651,16 +1670,17 @@ void dt_rc_dec_nocheck(dt_val val) {
 		return;
 	}
 	dt_heaper* h = dt_as_heaper(val);
-	h->rc--;
-#ifdef DT_GC_LOG
-	printf("-- %d (%s) ", h->rc, dt_typename(dt_typeof(val)));
-	dt_val_println(val);
-#endif
+	dt_rc_dec2_nocheck(h);
 }
 
 void dt_rc_dec(dt_val val) {
 	dt_rc_dec_nocheck(val);
 	dt_rc_check(val);
+}
+
+void dt_rc_dec2(dt_heaper* h) {
+	dt_rc_dec2_nocheck(h);
+	dt_rc_check2(h);
 }
 
 uint32_t dt_hash(char* key, int len) {
@@ -2577,7 +2597,7 @@ void dt_upval_free(dt_vm* vm, dt_upval* upval) {
 void dt_func_free(dt_vm *vm, dt_func* func) {
 	// TODO: dec upval
 	for (int i = 0; i < func->num_upvals; i++) {
-// 		dt_rc_dec(func->upvals[i]);
+		dt_rc_dec2((dt_heaper*)func->upvals[i]);
 	}
 	dt_free(vm, func->upvals, sizeof(dt_val*) * func->num_upvals);
 	dt_free(vm, func, sizeof(dt_func));
@@ -3620,7 +3640,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 			}
 
 			case DT_OP_SETU: {
-				*vm->func->upvals[*vm->ip++]->val = dt_vm_get(vm, 0);
+				int pos = *vm->ip++;
+				dt_rc_inc(dt_vm_get(vm, 0));
+				*vm->func->upvals[pos]->val = dt_vm_get(vm, 0);
 				break;
 			}
 
@@ -3936,6 +3958,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							if (vm->open_upvals[j]->val == vm->stack_bot + idx) {
 								found = true;
 								func->upvals[i] = vm->open_upvals[j];
+								dt_rc_inc2((dt_heaper*)func->upvals[i]);
 								break;
 							}
 						}
@@ -3943,13 +3966,15 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							dt_upval* upval = dt_malloc(vm, sizeof(dt_upval));
 							upval->val = vm->stack_bot + idx;
 							upval->captured = false;
-							vm->open_upvals[vm->num_upvals++] = upval;
 							upval->rc = 0;
 							upval->type = DT_VAL_UPVAL;
 							func->upvals[i] = upval;
+							vm->open_upvals[vm->num_upvals++] = upval;
+							dt_rc_inc2((dt_heaper*)upval);
 						}
 					} else {
 						func->upvals[i] = vm->func->upvals[idx];
+						dt_rc_inc2((dt_heaper*)func->upvals[i]);
 					}
 				}
 				func->rc = 0;
@@ -7887,6 +7912,9 @@ dt_val dt_eval(dt_vm* vm, char* code) {
 
 	dt_val ret = dt_call(vm, dt_to_func(&func), 0);
 
+#ifdef DT_GC_LOG
+	printf("compiler cleanup: ---------------------------------------------\n");
+#endif
 	dt_compiler_free(&c);
 
 	return ret;
