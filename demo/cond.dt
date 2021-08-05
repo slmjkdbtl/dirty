@@ -1,22 +1,17 @@
 $ a = 11
-$ b = % (a == 11) 22 | 33
+$ b = ? (a == 11) 22 | 33
 
-% (b >= 123) {
+? (b >= 123) {
 	print("no")
 }
 
-% (b >= 22) print(b)
+? (b >= 22) print(b)
 
 print(a b)
 
-% (a == 1) {
-	print("ohyes!")
-} | (a == 11) {
-	print("hmm...")
-} | (a == 111) {
-	print(fread("Makefile"))
-	print("wow...")
-} | {
-	print("ohno!")
-}
+? (a == 1) print("ohyes!")
+| (a == 11) print("hmm...")
+| (a == 111) print("wow...")
+| print("ohno!")
+
 print("done")

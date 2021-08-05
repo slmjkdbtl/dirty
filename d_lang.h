@@ -25,7 +25,6 @@
 // TODO: disallow shadowing global var
 // TODO: member diconstructing
 // TODO: combine GT/LT and EQ
-// TODO: '?' for cond? what for nil?
 // TODO: assignment in cond
 // TODO: global on root scope?
 // TODO: windows fs
@@ -516,6 +515,7 @@ typedef enum {
 	DT_TOKEN_STR,
 	DT_TOKEN_NUM,
 	// key
+	DT_TOKEN_N,
 	DT_TOKEN_T,
 	DT_TOKEN_F,
 	// util
@@ -899,6 +899,7 @@ char* dt_token_name(dt_token_ty ty) {
 		case DT_TOKEN_IDENT: return "IDENT";
 		case DT_TOKEN_STR: return "STR";
 		case DT_TOKEN_NUM: return "NUM";
+		case DT_TOKEN_N: return "N";
 		case DT_TOKEN_T: return "T";
 		case DT_TOKEN_F: return "F";
 		case DT_TOKEN_ERR: return "ERR";
@@ -4679,7 +4680,7 @@ dt_type dt_c_str(dt_compiler* c) {
 
 dt_type dt_c_lit(dt_compiler* c) {
 	switch (dt_c_nxt(c).type) {
-		case DT_TOKEN_QUESTION: dt_c_emit(c, DT_OP_NIL); return DT_TYPE_NIL;
+		case DT_TOKEN_N: dt_c_emit(c, DT_OP_NIL); return DT_TYPE_NIL;
 		case DT_TOKEN_T: dt_c_emit(c, DT_OP_TRUE); return DT_TYPE_BOOL;
 		case DT_TOKEN_F: dt_c_emit(c, DT_OP_FALSE); return DT_TYPE_BOOL;
 		default: dt_c_err(c, "cannot process as literal\n"); return DT_TYPE_NIL;
@@ -4958,7 +4959,7 @@ int dt_c_block(dt_compiler* c, dt_block_ty ty) {
 // for parsing following cond without % only |
 dt_type dt_c_cond_inner(dt_compiler* c) {
 
-	// TODO: don't require paren
+	// TODO: don't require paren?
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 	dt_c_expr(c);
 	dt_c_consume(c, DT_TOKEN_RPAREN);
@@ -5021,10 +5022,21 @@ dt_type dt_c_cond_inner(dt_compiler* c) {
 }
 
 // conditionals
-// % (<bool>) <block> | (<bool>)? <block>
+// ? (<bool>) <block> | (<bool>)? <block>
 dt_type dt_c_cond(dt_compiler* c) {
-	dt_c_consume(c, DT_TOKEN_PERCENT);
+	dt_c_consume(c, DT_TOKEN_QUESTION);
 	return dt_c_cond_inner(c);
+}
+
+// TODO
+// pattern matching
+dt_type dt_c_patmatch(dt_compiler* c) {
+	// TODO: don't require paren?
+	dt_c_consume(c, DT_TOKEN_PERCENT);
+	dt_c_consume(c, DT_TOKEN_LPAREN);
+	dt_c_expr(c);
+	dt_c_consume(c, DT_TOKEN_RPAREN);
+	return DT_TYPE_NIL;
 }
 
 void dt_c_add_break(dt_compiler* c, bool cont) {
@@ -5515,14 +5527,13 @@ dt_parse_rule dt_expr_rules[] = {
 	[DT_TOKEN_STR]           = { dt_c_str,      NULL,        DT_PREC_NONE },
 	[DT_TOKEN_NUM]           = { dt_c_num,      NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AND]           = { dt_c_this,     NULL,        DT_PREC_NONE },
+	[DT_TOKEN_N]             = { dt_c_lit,      NULL,        DT_PREC_NONE },
 	[DT_TOKEN_T]             = { dt_c_lit,      NULL,        DT_PREC_NONE },
 	[DT_TOKEN_F]             = { dt_c_lit,      NULL,        DT_PREC_NONE },
-	[DT_TOKEN_QUESTION]      = { dt_c_lit,      NULL,        DT_PREC_NONE },
+	[DT_TOKEN_QUESTION]      = { dt_c_cond,     NULL,        DT_PREC_NONE },
 	[DT_TOKEN_QUESTION_Q]    = { NULL,          dt_c_binary, DT_PREC_LOGIC },
-	[DT_TOKEN_ERR]           = { NULL,          NULL,        DT_PREC_NONE },
-	[DT_TOKEN_END]           = { NULL,          NULL,        DT_PREC_NONE },
+	[DT_TOKEN_PERCENT]       = { dt_c_patmatch, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AT]            = { dt_c_loop,     NULL,        DT_PREC_NONE },
-	[DT_TOKEN_PERCENT]       = { dt_c_cond,     NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AT_GT]         = { dt_c_break,    NULL,        DT_PREC_NONE },
 	[DT_TOKEN_AT_CARET]      = { dt_c_continue, NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE]         = { dt_c_func,     NULL,        DT_PREC_NONE },
@@ -5530,6 +5541,8 @@ dt_parse_rule dt_expr_rules[] = {
 	[DT_TOKEN_COLON_LPAREN]  = { dt_c_throw,    NULL,        DT_PREC_NONE },
 	[DT_TOKEN_TILDE_GT]      = { dt_c_return,   NULL,        DT_PREC_NONE },
 	[DT_TOKEN_COLON_RPAREN]  = { dt_c_try,      NULL,        DT_PREC_NONE } ,
+	[DT_TOKEN_ERR]           = { NULL,          NULL,        DT_PREC_NONE },
+	[DT_TOKEN_END]           = { NULL,          NULL,        DT_PREC_NONE },
 };
 
 dt_type dt_c_prec(dt_compiler* c, dt_prec prec) {

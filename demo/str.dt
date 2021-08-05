@@ -1,3 +1,3 @@
-$ s = "123"
+$ s = "12 34 56789"
 
-print(s:rfind_from("123"))
+print(s:rfind_from(" ", 2))
