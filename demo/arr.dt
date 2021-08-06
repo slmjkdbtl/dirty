@@ -10,3 +10,21 @@ lst
 : arr.each(print)
 
 print(lst : arr.join(", "))
+
+
+
+
+-- what if
+
+-- $ arr = import("arr")
+-- $ lst (arr) = [1 5 3 6 4]
+
+-- lst:insert(1, 8)
+-- print(lst)
+
+-- lst
+-- : map(~ (i) i + 10)
+-- : sort()
+-- : each(print)
+
+-- print(lst:join(", "))

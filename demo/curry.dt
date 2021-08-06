@@ -1,0 +1,14 @@
+$ arr = import("arr")
+-- following this will get parsed as index
+-- [ "a" "b" ]
+
+$ lst = [ 2 4 ]
+
+~ test (a, b, c) {
+	print(a, b, c)
+}
+
+lst
+: arr.each (~ (i) {
+	test(5, 5, 5)
+})

@@ -1,8 +1,14 @@
+#!/usr/bin/env dirty
+
+$ str = import("str")
+$ arr = import("arr")
+$ map = import("map")
 $ http = import("http")
 $ fs = import("fs")
-$ os = import("os")
+$ sys = import("sys")
+$ term = import("term")
 -- TODO: verbose
-$ port = % (os.getenv("PORT")) os.getenv("PORT"):tonum() | 8000
+$ port = ? (sys.getenv("PORT")) sys.getenv("PORT") : str.tonum() | 8000
 
 print("http://localhost:" + port)
 
@@ -44,11 +50,11 @@ $ www = {}
 
 www.tag = ~ (tag, attrs, children) {
 	$ html = "<" + tag
-	attrs:each(~ (k, v) html += " " + k + "=" + v)
-	% (children) {
-		% (typeof(children) == "arr") {
+	attrs : map.each(~ (k, v) html += " " + k + "=" + v)
+	? (children) {
+		? (typeof(children) == "arr") {
 			html += ">"
-			children:each(~ (c) html += c)
+			children : arr.each(~ (c) html += c)
 			html += "</" + tag + ">"
 		} | html += ">" + children + "</" + tag + ">"
 	} | html += " />"
@@ -62,7 +68,7 @@ www.styles = ~ (list) {
 	$ compile_sheet = ~ (sheet) {
 		$ code = "{"
 		@ (key \ sheet) {
-			% (typeof(sheet[key]) == "str") {
+			? (typeof(sheet[key]) == "str") {
 				code += key + ":" + sheet[key] + ";"
 			} | {
 				:( "cannot have a " + typeof(sheet[key]) + "here"
@@ -76,10 +82,10 @@ www.styles = ~ (list) {
 		$ style = list[sel]
 		css += sel + "{"
 		@ (key \ style) {
-			% (typeof(style[key]) == "str") {
+			? (typeof(style[key]) == "str") {
 				css += key + ":" + style[key] + ";"
 			} | (typeof(style[key]) == "map") {
-				% (key[0] == ":") {
+				? (key[0] == ":") {
 					post += sel + key + compile_sheet(style[key])
 				}
 			}
@@ -94,12 +100,12 @@ www.styles = ~ (list) {
 $ t = www.tag
 
 www.static = ~ (path) {
-	$ rpath = os.cwd() + path
-	% (fs.isfile(rpath)) {
+	$ rpath = sys.cwd() + path
+	? (fs.isfile(rpath)) {
 		$ ext = fs.ext(rpath)
 		$ mime = mimes[ext]
 		$ headers = {}
-		% (mime) headers["Content-Type"] = mime
+		? (mime) headers["Content-Type"] = mime
 		~> {
 			status: 200
 			headers: headers
@@ -136,18 +142,19 @@ www.static = ~ (path) {
 							}
 						},
 					}))
-				]),
+				])
 				t("body", {}, fs.readdir(rpath)
-					:filter(~ (p) p[0] != ".")
-					:sort()
-					:sort(~ (a, b) fs.isdir(a))
-					:map(~ (name) {
+					: arr.filter(~ (p) p[0] != ".")
+					: arr.sort()
+					: arr.sort(~ (a, b) fs.isdir(a))
+					: arr.map(~ (name) {
 						~> t("li", {}, [
 							t("a", {
-								href: % (path == "/") path + name | path + "/" + name
+								href: ? (path == "/") path + name | path + "/" + name
 							}, name)
 						])
-					})),
+					})
+				)
 			])
 		}
 	} | {
@@ -158,10 +165,9 @@ www.static = ~ (path) {
 	}
 }
 
--- TODO: err handling in here
 http.serve(port, ~ (req) {
-	~> :) www.static(req.path) | ~ (e) {
-		print("line #" + e.line + ": " + e.msg)
+	~> :) www.static(req.path) | ~ (msg, line) {
+		print(term.red("line #" + line + ": " + msg))
 		~> {
 			status: 500
 			body: "err"

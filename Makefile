@@ -188,6 +188,10 @@ $(BIN_PATH)/dirty: dirty.c *.h
 runscript: $(BIN_PATH)/dirty
 	$< $(ARGS)
 
+.PHONY: debugscript
+debugscript: $(BIN_PATH)/dirty
+	lldb -- $< $(ARGS)
+
 .PHONY: install
 install: $(BIN_PATH)/dirty
 	install $< /usr/local/bin/dirty
