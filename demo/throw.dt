@@ -21,6 +21,6 @@ $ a = :) run() | ~ (msg, line) {
 :) badfunc() | print
 
 :) :( "123" | print
-:) eval("1 + ?") | print
+:) eval("1 + T") | print
 
 print(a)
