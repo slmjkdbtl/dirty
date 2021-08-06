@@ -2095,6 +2095,10 @@ dt_val dt_arr_get(dt_arr* arr, int idx) {
 
 void dt_arr_set(dt_vm* vm, dt_arr* arr, int idx, dt_val val) {
 
+	if (idx < arr->len) {
+		dt_rc_dec(arr->values[idx]);
+	}
+
 	// expand
 	if (idx >= arr->cap) {
 		size_t old_cap = arr->cap;
@@ -2116,7 +2120,6 @@ void dt_arr_set(dt_vm* vm, dt_arr* arr, int idx, dt_val val) {
 		}
 	}
 
-	dt_rc_dec(arr->values[idx]);
 	arr->values[idx] = val;
 	dt_rc_inc(val);
 
@@ -2143,6 +2146,7 @@ void dt_arr_insert(dt_vm* vm, dt_arr* arr, int idx, dt_val val) {
 	memcpy(arr->values + idx + 1, arr->values + idx, sizeof(dt_val) * (arr->len - idx));
 	arr->len++;
 	arr->values[idx] = val;
+	dt_rc_inc(val);
 
 }
 
@@ -2451,12 +2455,13 @@ void dt_map_set(dt_vm* vm, dt_map* map, dt_str* key, dt_val val) {
 
 	dt_map_entry* e = &map->entries[idx];
 
+	dt_rc_inc(val);
+
 	if (e->key) {
 		dt_rc_dec(e->val);
 		e->val = val;
 	} else {
 		dt_rc_inc2((dt_heaper*)key);
-		dt_rc_inc(val);
 		e->key = key;
 		e->val = val;
 		map->cnt++;
@@ -4188,14 +4193,13 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 }
 
 void dt_vm_free(dt_vm* vm) {
-// 	dt_gc_sweep(vm);
 	dt_rc_dec(dt_to_map(vm->libs));
 	dt_rc_dec(dt_to_map(vm->strs));
 	memset(vm, 0, sizeof(dt_vm));
 	if (vm->throwing) {
 		free(vm->err.msg);
 	}
-	printf("mem: %zu\n", dt_mem);
+// 	printf("mem: %zu\n", dt_mem);
 }
 
 dt_scanner dt_scanner_new(char* src) {

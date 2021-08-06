@@ -1,12 +1,14 @@
 $ fs = import("fs")
-$ os = import("os")
+$ str = import("str")
+$ arr = import("arr")
+$ sys = import("sys")
 
 $ lst = fs.readdir(".")
-	:sort()
-	:sort(~ (a, b) fs.isdir(a))
-	:filter(~ (p) p[0] != ".")
-	:each(~ (p) {
-		% (fs.isdir(p)) {
+	: arr.sort()
+	: arr.sort(~ (a, b) fs.isdir(a))
+	: arr.filter(~ (p) p[0] != ".")
+	: arr.each(~ (p) {
+		? (fs.isdir(p)) {
 			print("D " + p)
 		} | {
 			print("  " + p)
@@ -14,7 +16,7 @@ $ lst = fs.readdir(".")
 	})
 
 fs.readdir("demo")
-	:filter(~ (p) p:ends(".dt"))
-	:each(print)
+	: arr.filter(~ (p) p : str.ends(".dt"))
+	: arr.each(print)
 
-print(os.date(fs.lastmod("Makefile")))
+print(sys.date(fs.lastmod("Makefile")))

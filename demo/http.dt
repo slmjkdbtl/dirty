@@ -112,6 +112,12 @@ www.static = ~ (path) {
 			body: fs.read(rpath)
 		}
 	} | (fs.isdir(rpath)) {
+
+		$ entries = fs.readdir(".")
+			: arr.filter(~ (p) p[0] != ".")
+			: arr.sort()
+			: arr.sort(~ (a, b) fs.isdir(a))
+
 		~> {
 			status: 200
 			headers: {
@@ -143,10 +149,7 @@ www.static = ~ (path) {
 						},
 					}))
 				])
-				t("body", {}, fs.readdir(rpath)
-					: arr.filter(~ (p) p[0] != ".")
-					: arr.sort()
-					: arr.sort(~ (a, b) fs.isdir(a))
+				t("body", {}, entries
 					: arr.map(~ (name) {
 						~> t("li", {}, [
 							t("a", {
