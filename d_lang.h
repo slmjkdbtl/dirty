@@ -2134,7 +2134,11 @@ dt_str* dt_val_to_str(dt_vm* vm, dt_val val);
 dt_str* dt_arr_join(dt_vm* vm, dt_arr* arr, dt_str* sep) {
 	dt_str* s = dt_str_new(vm, "");
 	for (int i = 0; i < arr->len; i++) {
-		s = dt_str_concat(vm, s, dt_val_to_str(vm, arr->values[i]));
+		if (dt_typeof(arr->values[i]) != DT_VAL_STR) {
+			dt_throw(vm, "arr cointains non str");
+			return NULL;
+		}
+		s = dt_str_concat(vm, s, dt_as_str2(arr->values[i]));
 		if (i < arr->len - 1) {
 			s = dt_str_concat(vm, s, sep);
 		}
@@ -3357,16 +3361,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 			case DT_OP_NOT: {
 				dt_val a = dt_vm_pop(vm);
-				if (dt_typeof(a) == DT_VAL_BOOL) {
-					dt_vm_push(vm, dt_to_bool(!dt_as_bool2(a)));
-				} else {
-					dt_throw(
-						vm,
-						"cannot not a '%s'",
-						dt_typename(dt_typeof(a))
-					);
-					dt_vm_push(vm, DT_NIL);
-				}
+				dt_vm_push(vm, dt_to_bool(!dt_val_truthy(a)));
 				break;
 			}
 
@@ -3431,22 +3426,14 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 			case DT_OP_OR: {
 				dt_val b = dt_vm_pop(vm);
 				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_typeof(a);
-				dt_val_ty tb = dt_typeof(b);
-				if (ta != tb) {
-					dt_vm_push(vm, DT_FALSE);
-				} else if (ta == DT_VAL_BOOL && tb == DT_VAL_BOOL) {
-					dt_vm_push(vm, dt_to_bool(dt_as_bool2(a) || dt_as_bool2(b)));
-				} else {
-					// TODO: eval to the later operand?
-					dt_throw(
-						vm,
-						"cannot || a '%s' with '%s'",
-						dt_typename(ta),
-						dt_typename(tb)
-					);
-					dt_vm_push(vm, DT_FALSE);
-				}
+				dt_vm_push(vm, dt_to_bool(dt_val_truthy(a) || dt_val_truthy(b)));
+				break;
+			}
+
+			case DT_OP_AND: {
+				dt_val b = dt_vm_pop(vm);
+				dt_val a = dt_vm_pop(vm);
+				dt_vm_push(vm, dt_to_bool(dt_val_truthy(a) && dt_val_truthy(b)));
 				break;
 			}
 
@@ -3457,27 +3444,6 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_vm_push(vm, b);
 				} else {
 					dt_vm_push(vm, a);
-				}
-				break;
-			}
-
-			case DT_OP_AND: {
-				dt_val b = dt_vm_pop(vm);
-				dt_val a = dt_vm_pop(vm);
-				dt_val_ty ta = dt_typeof(a);
-				dt_val_ty tb = dt_typeof(b);
-				if (ta != tb) {
-					dt_vm_push(vm, DT_FALSE);
-				} else if (ta == DT_VAL_BOOL && tb == DT_VAL_BOOL) {
-					dt_vm_push(vm, dt_to_bool(dt_as_bool2(a) && dt_as_bool2(b)));
-				} else {
-					dt_throw(
-						vm,
-						"cannot && a '%s' with '%s'",
-						dt_typename(ta),
-						dt_typename(tb)
-					);
-					dt_vm_push(vm, DT_FALSE);
 				}
 				break;
 			}
