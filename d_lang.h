@@ -367,6 +367,7 @@ typedef struct dt_logic {
 	DT_HEAPER_STRUCT
 	dt_chunk chunk;
 	uint16_t nargs;
+	char* name;
 } dt_logic;
 
 // function
@@ -2509,6 +2510,7 @@ void dt_func_mark(dt_func* func) {
 		return;
 	}
 	func->marked = true;
+	func->logic->marked = true;
 	for (int i = 0; i < func->num_upvals; i++) {
 		func->upvals[i]->marked = true;
 	}
@@ -3003,6 +3005,14 @@ dt_map* dt_arg_map(dt_vm* vm, int idx) {
 	return dt_as_map2(dt_arg(vm, idx));
 }
 
+dt_map* dt_arg_map_or(dt_vm* vm, int idx, dt_map* map) {
+	if (dt_arg_exists(vm, idx)) {
+		return dt_arg_map(vm, idx);
+	} else {
+		return map;
+	}
+}
+
 dt_arr* dt_arg_arr(dt_vm* vm, int idx) {
 	return dt_as_arr2(dt_arg(vm, idx));
 }
@@ -3145,7 +3155,6 @@ dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 
 	if (vm->throwing) {
 		// TODO: add stack trace here
-		// TODO: somtimes vm->ip is NULL for single depth stuff
 		if (vm->func != vm->trying) {
 			while (*vm->ip != DT_OP_STOP) vm->ip++;
 		}
@@ -3236,9 +3245,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					if (a_str == NULL || b_str == NULL) {
 						dt_throw(
 							vm,
-							"cannot add a '%s' with '%s'",
-							dt_typename(ta),
-							dt_typename(tb)
+							"invalid str"
 						);
 						dt_vm_push(vm, DT_NIL);
 					} else {
@@ -3991,6 +3998,7 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					// TODO: restore previous
 					vm->trying = NULL;
 				} else {
+					vm->trying = NULL;
 					dt_vm_push(vm, try);
 				}
 				break;
@@ -5404,7 +5412,7 @@ dt_type dt_c_unary(dt_compiler* c) {
 	}
 }
 
-dt_type dt_c_func_inner(dt_compiler* c) {
+dt_type dt_c_func_inner(dt_compiler* c, char* name) {
 
 	dt_c_consume(c, DT_TOKEN_LPAREN);
 
@@ -5454,6 +5462,7 @@ dt_type dt_c_func_inner(dt_compiler* c) {
 	dt_logic* logic = dt_malloc(NULL, sizeof(dt_logic));
 	logic->nargs = nargs;
 	logic->chunk = env.chunk;
+	logic->name = name;
 
 	dt_c_push_const(c, dt_to_logic(logic));
 
@@ -5473,9 +5482,24 @@ dt_type dt_c_func_inner(dt_compiler* c) {
 
 }
 
+char* dt_strndup(char* src, size_t n) {
+	char* buf = malloc(n + 1);
+	memcpy(buf, src, n);
+	buf[n] = '\0';
+	return buf;
+}
+
+char* dt_strdup(char* src) {
+	return dt_strndup(src, strlen(src));
+}
+
+char* dt_token_str(dt_token t) {
+	return dt_strndup(t.start, t.len);
+}
+
 dt_type dt_c_func(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_TILDE);
-	return dt_c_func_inner(c);
+	return dt_c_func_inner(c, dt_strdup("(unamed)"));
 }
 
 // TODO: store name
@@ -5483,7 +5507,7 @@ dt_type dt_c_func2(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_TILDE);
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 	dt_c_add_local(c, name, DT_TYPE_NIL);
-	return dt_c_func_inner(c);
+	return dt_c_func_inner(c, dt_token_str(name));
 }
 
 dt_parse_rule dt_expr_rules[] = {
@@ -5721,15 +5745,33 @@ dt_val dt_f_assert(dt_vm* vm) {
 // TODO: compiletime error as runtime error here
 dt_val dt_f_eval(dt_vm* vm) {
 	if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL;
+	dt_map* g = dt_arg_map_or(vm, 1, NULL);
+	if (g) {
+		// TODO
+	}
 	return dt_eval(vm, dt_arg_cstr(vm, 0));
 }
 
 dt_val dt_f_dofile(dt_vm* vm) {
-	if (!dt_check_args(vm,
-		1,
-		DT_VAL_STR
-	)) return DT_NIL;
-	return dt_dofile(vm, dt_arg_cstr(vm, 0));
+	if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL;
+	dt_map* g = dt_arg_map_or(vm, 1, NULL);
+	// TODO
+	if (g) {
+		dt_map_iter iter = dt_map_iter_new(g);
+		dt_map_entry* e;
+		while ((e = dt_map_iter_nxt(&iter))) {
+			dt_map_set(vm, vm->globals, e->key, e->val);
+		}
+	}
+	dt_val ret = dt_dofile(vm, dt_arg_cstr(vm, 0));
+	if (g) {
+		dt_map_iter iter = dt_map_iter_new(g);
+		dt_map_entry* e;
+		while ((e = dt_map_iter_nxt(&iter))) {
+			dt_map_rm(vm->globals, e->key);
+		}
+	}
+	return ret;
 }
 
 dt_val dt_f_str_replace(dt_vm* vm) {
@@ -7936,6 +7978,7 @@ dt_val dt_eval(dt_vm* vm, char* code) {
 		.logic = &(dt_logic) {
 			.chunk = c.env->chunk,
 			.nargs = 0,
+			.name = dt_strdup("<root>"),
 		},
 		.upvals = NULL,
 		.num_upvals = 0,
