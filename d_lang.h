@@ -45,14 +45,13 @@
 #define DT_MAP_INIT_SIZE 8
 #define DT_MAP_MAX_LOAD 0.75
 #define DT_GC_THRESHOLD 1024 * 1024
-#define DT_GC_MAX 1024 * 1024 * 1024
-#define DT_GC_GROW 2
+#define DT_GC_GROW 10
 #define DT_PI 3.14
 
 // #define DT_NO_NANBOX
 // #define DT_VM_LOG
-#define DT_GC_LOG
-#define DT_GC_STRESS
+// #define DT_GC_LOG
+// #define DT_GC_STRESS
 
 #define DT_LIB_SYS
 #define DT_LIB_DBG
@@ -398,7 +397,7 @@ typedef struct dt_vm {
 	int        num_upvals;
 	dt_heaper* heaper;
 	size_t     mem;
-	size_t     next_gc;
+	size_t     gc_next;
 	dt_func*   trying;
 	bool       throwing;
 	dt_err     err;
@@ -1587,9 +1586,7 @@ uint32_t dt_hash(char* key, int len) {
 	return hash;
 }
 
-void dt_manage(dt_vm* vm, dt_heaper* h, uint8_t ty) {
-	h->type = ty;
-	h->marked = false;
+void dt_manage(dt_vm* vm, dt_heaper* h) {
 	h->nxt = vm->heaper;
 	vm->heaper = h;
 }
@@ -1599,8 +1596,9 @@ dt_str* dt_str_alloc(dt_vm* vm, int len) {
 	str->len = len;
 	str->chars[len] = '\0';
 	str->type = DT_VAL_STR;
+	str->marked = false;
 	if (vm) {
-		dt_manage(vm, (dt_heaper*)str, DT_VAL_STR);
+		dt_manage(vm, (dt_heaper*)str);
 	}
 	return str;
 }
@@ -1957,8 +1955,9 @@ dt_arr* dt_arr_new_len(dt_vm* vm, int len) {
 	arr->cap = len > DT_ARR_INIT_SIZE ? dt_nxt_pow2(len) : DT_ARR_INIT_SIZE;
 	arr->values = dt_malloc(vm, arr->cap * sizeof(dt_val));
 	arr->type = DT_VAL_ARR;
+	arr->marked = false;
 	if (vm) {
-		dt_manage(vm, (dt_heaper*)arr, DT_VAL_ARR);
+		dt_manage(vm, (dt_heaper*)arr);
 	}
 	return arr;
 }
@@ -2025,7 +2024,7 @@ void dt_arr_insert(dt_vm* vm, dt_arr* arr, int idx, dt_val val) {
 
 	if (arr->len >= arr->cap) {
 		size_t old_cap = arr->cap;
-		arr->cap *= 2;
+		arr->cap = dt_nxt_pow2(arr->cap + 1);
 		arr->values = dt_realloc(
 			vm,
 			arr->values,
@@ -2210,6 +2209,7 @@ void dt_arr_mark(dt_arr* arr) {
 		dt_val_mark(arr->values[i]);
 	}
 }
+
 bool dt_arr_eq(dt_arr* a1, dt_arr* a2) {
 	if (a1->len != a2->len) return false;
 	for (int i = 0; i < a1->len; i++) {
@@ -2240,8 +2240,9 @@ dt_map* dt_map_new_len(dt_vm* vm, int len) {
 	map->entries = dt_malloc(vm, entries_size);
 	memset(map->entries, 0, entries_size);
 	map->type = DT_VAL_MAP;
+	map->marked = false;
 	if (vm) {
-		dt_manage(vm, (dt_heaper*)map, DT_VAL_MAP);
+		dt_manage(vm, (dt_heaper*)map);
 	}
 	return map;
 }
@@ -2538,8 +2539,9 @@ dt_cdata* dt_cdata_new(dt_vm* vm, void* data, size_t size) {
 	memcpy(cdata->data, data, size);
 	cdata->size = size;
 	cdata->type = DT_VAL_CDATA;
+	cdata->marked = false;
 	if (vm) {
-		dt_manage(vm, (dt_heaper*)cdata, DT_VAL_CDATA);
+		dt_manage(vm, (dt_heaper*)cdata);
 	}
 	return cdata;
 }
@@ -2810,7 +2812,7 @@ dt_vm dt_vm_new() {
 		.num_upvals = 0,
 		.heaper = NULL,
 		.mem = 0,
-		.next_gc = DT_GC_THRESHOLD,
+		.gc_next = DT_GC_THRESHOLD,
 		.trying = NULL,
 		.throwing = false,
 	};
@@ -3736,7 +3738,6 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					}
 				}
 				dt_vm_push(vm, dt_to_arr(arr));
-				dt_vm_gc_check(vm);
 				break;
 			}
 
@@ -3757,7 +3758,6 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					}
 				}
 				dt_vm_push(vm, dt_to_map(map));
-				dt_vm_gc_check(vm);
 				break;
 			}
 
@@ -3795,8 +3795,9 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 							upval->val = vm->stack_bot + idx;
 							upval->captured = false;
 							upval->type = DT_VAL_UPVAL;
+							upval->marked = false;
 							vm->open_upvals[vm->num_upvals++] = upval;
-							dt_manage(vm, (dt_heaper*)upval, DT_VAL_UPVAL);
+							dt_manage(vm, (dt_heaper*)upval);
 							func->upvals[i] = upval;
 						}
 					} else {
@@ -3805,8 +3806,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				}
 				dt_vm_push(vm, dt_to_func(func));
 				func->type = DT_VAL_FUNC;
-				dt_manage(vm, (dt_heaper*)func, DT_VAL_FUNC);
-				dt_vm_gc_check(vm);
+				func->marked = false;
+				dt_manage(vm, (dt_heaper*)func);
 				break;
 			}
 
@@ -4013,6 +4014,8 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 
 		}
 
+// 		dt_vm_gc_check(vm);
+
 	}
 
 }
@@ -4165,10 +4168,9 @@ void dt_vm_gc_check(dt_vm* vm) {
 #ifdef DT_GC_STRESS
 	dt_gc_run(vm);
 #else
-	if (vm->mem >= vm->next_gc) {
+	if (vm->mem >= vm->gc_next) {
 		dt_gc_run(vm);
-		vm->next_gc *= DT_GC_GROW;
-		if (vm->next_gc > DT_GC_MAX) vm->next_gc = DT_GC_MAX;
+		vm->gc_next = vm->mem * DT_GC_GROW;
 	}
 #endif
 }
@@ -6725,11 +6727,26 @@ dt_val dt_f_sys_date(dt_vm* vm) {
 	return dt_to_map(date);
 }
 
+dt_val dt_f_sys_sleep(dt_vm* vm) {
+	if (!dt_check_args(vm,
+		1,
+		DT_VAL_NUM
+	)) return DT_NIL;
+	int n = dt_arg_num(vm, 0);
+	sleep(n);
+	return DT_NIL;
+}
+
 #endif
 
 #ifdef DT_LIB_DBG
 dt_val dt_f_dbg_stacksize(dt_vm* vm) {
 	return dt_to_num(vm->stack_top - vm->stack);
+}
+
+dt_val dt_f_dbg_collect(dt_vm* vm) {
+	dt_gc_run(vm);
+	return DT_NIL;
 }
 #endif
 
@@ -7004,118 +7021,130 @@ dt_val dt_f_fs_watch(dt_vm* vm) {
 
 #ifdef DT_LIB_TERM
 
-#define DT_GEN_ANSI_WRAP(name, code) \
+#define DT_GEN_ANSI_STR0(name, code) \
 	dt_val dt_f_term_##name(dt_vm* vm) { \
-		if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL; \
-		char* str = dt_arg_cstr(vm, 0); \
-		return dt_to_str(dt_str_fmt(vm, "\x1b[%dm%s\x1b[0m", code, str)); \
+		return dt_to_str(dt_str_new(vm, code)); \
 	}
 
-DT_GEN_ANSI_WRAP(black,     30)
-DT_GEN_ANSI_WRAP(red,       31)
-DT_GEN_ANSI_WRAP(green,     32)
-DT_GEN_ANSI_WRAP(yellow,    33)
-DT_GEN_ANSI_WRAP(blue,      34)
-DT_GEN_ANSI_WRAP(magenta,   35)
-DT_GEN_ANSI_WRAP(cyan,      36)
-DT_GEN_ANSI_WRAP(white,     37)
-DT_GEN_ANSI_WRAP(blackbg,   40)
-DT_GEN_ANSI_WRAP(redbg,     41)
-DT_GEN_ANSI_WRAP(greenbg,   42)
-DT_GEN_ANSI_WRAP(yellowbg,  43)
-DT_GEN_ANSI_WRAP(bluebg,    44)
-DT_GEN_ANSI_WRAP(magentabg, 45)
-DT_GEN_ANSI_WRAP(cyanbg,    46)
-DT_GEN_ANSI_WRAP(whitebg,   47)
-DT_GEN_ANSI_WRAP(bold,      1)
-DT_GEN_ANSI_WRAP(dim,       2)
-DT_GEN_ANSI_WRAP(italic,    3)
-DT_GEN_ANSI_WRAP(underline, 4)
+#define DT_GEN_ANSI_STR3(name, code) \
+	dt_val dt_f_term_##name(dt_vm* vm) { \
+		if (!dt_check_args(vm, \
+			3, \
+			DT_VAL_NUM, \
+			DT_VAL_NUM, \
+			DT_VAL_NUM \
+		)) return DT_NIL; \
+		int a1 = dt_arg_num(vm, 0); \
+		int a2 = dt_arg_num(vm, 1); \
+		int a3 = dt_arg_num(vm, 2); \
+		return dt_to_str(dt_str_fmt(vm, code, a1, a2, a3)); \
+	}
 
-dt_val dt_f_term_rgb(dt_vm* vm) {
-	if (!dt_check_args(vm,
-		4,
-		DT_VAL_STR,
-		DT_VAL_NUM,
-		DT_VAL_NUM,
-		DT_VAL_NUM
-	)) return DT_NIL;
-	char* str = dt_arg_cstr(vm, 0);
-	int r = dt_arg_num(vm, 1);
-	int g = dt_arg_num(vm, 2);
-	int b = dt_arg_num(vm, 3);
-	return dt_to_str(dt_str_fmt(vm, "\x1b[38;2;%d;%d;%dm%s\x1b[0m", r, g, b, str));
-}
+#define DT_GEN_ANSI_PRINT0(name, code) \
+	dt_val dt_f_term_##name(dt_vm* vm) { \
+		printf(code); \
+		return DT_NIL; \
+	}
 
-dt_val dt_f_term_rgbbg(dt_vm* vm) {
-	if (!dt_check_args(vm,
-		4,
-		DT_VAL_STR,
-		DT_VAL_NUM,
-		DT_VAL_NUM,
-		DT_VAL_NUM
-	)) return DT_NIL;
-	char* str = dt_arg_cstr(vm, 0);
-	int r = dt_arg_num(vm, 1);
-	int g = dt_arg_num(vm, 2);
-	int b = dt_arg_num(vm, 3);
-	return dt_to_str(dt_str_fmt(vm, "\x1b[48;2;%d;%d;%dm%s\x1b[0m", r, g, b, str));
-}
+#define DT_GEN_ANSI_PRINT1(name, code) \
+	dt_val dt_f_term_##name(dt_vm* vm) { \
+		if (!dt_check_args(vm, \
+			1, \
+			DT_VAL_NUM \
+		)) return DT_NIL; \
+		int a1 = dt_arg_num(vm, 0); \
+		printf(code, a1); \
+		return DT_NIL; \
+	}
 
-dt_val dt_f_term_enter_alt(dt_vm* vm) {
-	return dt_to_str(dt_str_new(vm, "\x1b[?1049h"));
-}
+#define DT_GEN_ANSI_PRINT2(name, code) \
+	dt_val dt_f_term_##name(dt_vm* vm) { \
+		if (!dt_check_args(vm, \
+			2, \
+			DT_VAL_NUM, \
+			DT_VAL_NUM \
+		)) return DT_NIL; \
+		int a1 = dt_arg_num(vm, 0); \
+		int a2 = dt_arg_num(vm, 1); \
+		printf(code, a1, a2); \
+		return DT_NIL; \
+	}
 
-dt_val dt_f_term_exit_alt(dt_vm* vm) {
-	return dt_to_str(dt_str_new(vm, "\x1b[?1049l"));
-}
+#define DT_GEN_ANSI_PRINTB(name, code1, code2) \
+	dt_val dt_f_term_##name(dt_vm* vm) { \
+		if (!dt_check_args(vm, \
+			1, \
+			DT_VAL_BOOL \
+		)) return DT_NIL; \
+		bool b = dt_arg_bool(vm, 0); \
+		printf(b ? code1 : code2); \
+		return DT_NIL; \
+	}
 
-dt_val dt_f_term_move_cursor(dt_vm* vm) {
-	int col = dt_arg_num_or(vm, 0, 1);
-	int row = dt_arg_num_or(vm, 1, 1);
-	return dt_to_str(dt_str_fmt(vm, "\x1b[%d;%dH", row, col));
-}
+DT_GEN_ANSI_STR0(reset,     "\x1b[0m")
+DT_GEN_ANSI_STR0(black,     "\x1b[30m")
+DT_GEN_ANSI_STR0(red,       "\x1b[31m")
+DT_GEN_ANSI_STR0(green,     "\x1b[32m")
+DT_GEN_ANSI_STR0(yellow,    "\x1b[33m")
+DT_GEN_ANSI_STR0(blue,      "\x1b[34m")
+DT_GEN_ANSI_STR0(magenta,   "\x1b[35m")
+DT_GEN_ANSI_STR0(cyan,      "\x1b[36m")
+DT_GEN_ANSI_STR0(white,     "\x1b[37m")
+DT_GEN_ANSI_STR0(blackbg,   "\x1b[40m")
+DT_GEN_ANSI_STR0(redbg,     "\x1b[41m")
+DT_GEN_ANSI_STR0(greenbg,   "\x1b[42m")
+DT_GEN_ANSI_STR0(yellowbg,  "\x1b[43m")
+DT_GEN_ANSI_STR0(bluebg,    "\x1b[44m")
+DT_GEN_ANSI_STR0(magentabg, "\x1b[45m")
+DT_GEN_ANSI_STR0(cyanbg,    "\x1b[46m")
+DT_GEN_ANSI_STR0(whitebg,   "\x1b[47m")
+DT_GEN_ANSI_STR0(bold,      "\x1b[1m")
+DT_GEN_ANSI_STR0(dim,       "\x1b[2m")
+DT_GEN_ANSI_STR0(italic,    "\x1b[3m")
+DT_GEN_ANSI_STR0(underline, "\x1b[4m")
+DT_GEN_ANSI_STR3(rgb,   "\x1b[38;2;%d;%d;%dm")
+DT_GEN_ANSI_STR3(rgbbg, "\x1b[48;2;%d;%d;%dm")
 
-dt_val dt_f_term_move_cursor_col(dt_vm* vm) {
-	int col = dt_arg_num_or(vm, 0, 1);
-	return dt_to_str(dt_str_fmt(vm, "\x1b[%dG", col));
-}
+DT_GEN_ANSI_PRINT0(cur0,     "\x0d")
+DT_GEN_ANSI_PRINT2(curxy,    "\x1b[%d;%dH")
+DT_GEN_ANSI_PRINT1(curx,     "\x1b[%dG")
+DT_GEN_ANSI_PRINT0(curup,    "\x1b[A")
+DT_GEN_ANSI_PRINT0(curdown,  "\x1b[B")
+DT_GEN_ANSI_PRINT0(curright, "\x1b[C")
+DT_GEN_ANSI_PRINT0(curleft,  "\x1b[D")
+DT_GEN_ANSI_PRINT0(cursave,  "\x1b[s")
+DT_GEN_ANSI_PRINT0(curload,  "\x1b[u")
+DT_GEN_ANSI_PRINTB(curshow,  "\x1b[?25h", "\x1b[?25l")
 
-dt_val dt_f_term_save_cursor(dt_vm* vm) {
-	return dt_to_str(dt_str_new(vm, "\x1b[s"));
-}
-
-dt_val dt_f_term_restore_cursor(dt_vm* vm) {
-	return dt_to_str(dt_str_new(vm, "\x1b[u"));
-}
-
-dt_val dt_f_term_hide_cursor(dt_vm* vm) {
-	return dt_to_str(dt_str_new(vm, "\x1b[?25l"));
-}
-
-dt_val dt_f_term_show_cursor(dt_vm* vm) {
-	return dt_to_str(dt_str_new(vm, "\x1b[?25h"));
-}
-
-dt_val dt_f_term_clear_line(dt_vm* vm) {
-	int n = dt_arg_num_or(vm, 0, 2);
-	return dt_to_str(dt_str_fmt(vm, "\x1b[%dK", n));
-}
-
-dt_val dt_f_term_clear_screen(dt_vm* vm) {
-	int n = dt_arg_num_or(vm, 0, 2);
-	return dt_to_str(dt_str_fmt(vm, "\x1b[%dJ", n));
-}
+DT_GEN_ANSI_PRINT0(clrln,   "\x1b[2K")
+// TODO: better names
+DT_GEN_ANSI_PRINT0(clrln0,  "\x1b[0K")
+DT_GEN_ANSI_PRINT0(clrln1,  "\x1b[1K")
+DT_GEN_ANSI_PRINT0(clrscr,  "\x1b[2J")
+DT_GEN_ANSI_PRINT0(clrscr0, "\x1b[0J")
+DT_GEN_ANSI_PRINT0(clrscr1, "\x1b[1J")
+DT_GEN_ANSI_PRINTB(altmode, "\x1b[?1049h", "\x1b[?1049l")
 
 #include <termios.h>
 
-dt_val dt_f_term_no_echo(dt_vm* vm) {
+dt_val dt_f_term_noecho(dt_vm* vm) {
 	struct termios attrs;
 	tcgetattr(STDIN_FILENO, &attrs);
 	attrs.c_lflag &= ~(ECHO | ICANON);
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &attrs);
 	return DT_NIL;
 }
+
+// dt_val dt_f_term_size(dt_vm* vm) {
+// 	int tw = w;
+// 	int th = h;
+// 	struct winsize term_size;
+
+// 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &term_size) != -1 && term_size.ws_col != 0) {
+// 		tw = mini(w, term_size.ws_col);
+// 		th = mini(h, term_size.ws_row * 2 - 2);
+// 	}
+// }
 #endif
 
 #ifdef DT_LIB_HTTP
@@ -7759,6 +7788,7 @@ void dt_load_libs(dt_vm* vm) {
 			{ "signal", dt_to_cfunc(dt_f_sys_signal), },
 			{ "time", dt_to_cfunc(dt_f_sys_time), },
 			{ "date", dt_to_cfunc(dt_f_sys_date), },
+			{ "sleep", dt_to_cfunc(dt_f_sys_sleep), },
 			{ "setenv", dt_to_cfunc(dt_f_sys_setenv), },
 			{ "getenv", dt_to_cfunc(dt_f_sys_getenv), },
 			{ "exit", dt_to_cfunc(dt_f_sys_exit), },
@@ -7780,6 +7810,7 @@ void dt_load_libs(dt_vm* vm) {
 		vm->libs,
 		"dbg",
 		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "collect", dt_to_cfunc(dt_f_dbg_collect), },
 			{ "stacksize", dt_to_cfunc(dt_f_dbg_stacksize), },
 			{ NULL, DT_NIL, },
 		}))
@@ -7823,6 +7854,7 @@ void dt_load_libs(dt_vm* vm) {
 		vm->libs,
 		"term",
 		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+			{ "reset", dt_to_cfunc(dt_f_term_reset), },
 			{ "black", dt_to_cfunc(dt_f_term_black), },
 			{ "red", dt_to_cfunc(dt_f_term_red), },
 			{ "green", dt_to_cfunc(dt_f_term_green), },
@@ -7845,17 +7877,25 @@ void dt_load_libs(dt_vm* vm) {
 			{ "underline", dt_to_cfunc(dt_f_term_underline), },
 			{ "rgb", dt_to_cfunc(dt_f_term_rgb), },
 			{ "rgbbg", dt_to_cfunc(dt_f_term_rgbbg), },
-			{ "enter_alt", dt_to_cfunc(dt_f_term_enter_alt), },
-			{ "exit_alt", dt_to_cfunc(dt_f_term_exit_alt), },
-			{ "move_cursor", dt_to_cfunc(dt_f_term_move_cursor), },
-			{ "move_cursor_col", dt_to_cfunc(dt_f_term_move_cursor_col), },
-			{ "hide_cursor", dt_to_cfunc(dt_f_term_hide_cursor), },
-			{ "show_cursor", dt_to_cfunc(dt_f_term_show_cursor), },
-			{ "save_cursor", dt_to_cfunc(dt_f_term_save_cursor), },
-			{ "restore_cursor", dt_to_cfunc(dt_f_term_restore_cursor), },
-			{ "clear_line", dt_to_cfunc(dt_f_term_clear_line), },
-			{ "clear_screen", dt_to_cfunc(dt_f_term_clear_screen), },
-			{ "no_echo", dt_to_cfunc(dt_f_term_no_echo), },
+			{ "altmode", dt_to_cfunc(dt_f_term_altmode), },
+			{ "curxy", dt_to_cfunc(dt_f_term_curxy), },
+			{ "curx", dt_to_cfunc(dt_f_term_curx), },
+			{ "cur0", dt_to_cfunc(dt_f_term_cur0), },
+			{ "curup", dt_to_cfunc(dt_f_term_curup), },
+			{ "curdown", dt_to_cfunc(dt_f_term_curdown), },
+			{ "curleft", dt_to_cfunc(dt_f_term_curleft), },
+			{ "curright", dt_to_cfunc(dt_f_term_curright), },
+			{ "curright", dt_to_cfunc(dt_f_term_curright), },
+			{ "curshow", dt_to_cfunc(dt_f_term_curshow), },
+			{ "cursave", dt_to_cfunc(dt_f_term_cursave), },
+			{ "curload", dt_to_cfunc(dt_f_term_curload), },
+			{ "clrln", dt_to_cfunc(dt_f_term_clrln), },
+			{ "clrln0", dt_to_cfunc(dt_f_term_clrln0), },
+			{ "clrln1", dt_to_cfunc(dt_f_term_clrln1), },
+			{ "clrscr", dt_to_cfunc(dt_f_term_clrscr), },
+			{ "clrscr0", dt_to_cfunc(dt_f_term_clrscr0), },
+			{ "clrscr1", dt_to_cfunc(dt_f_term_clrscr1), },
+			{ "noecho", dt_to_cfunc(dt_f_term_noecho), },
 			{ NULL, DT_NIL, },
 		}))
 	);

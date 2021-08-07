@@ -1,12 +1,14 @@
 #!/usr/bin/env dirty
 
+-- TODO: url encode
+
 $ str = import("str")
 $ arr = import("arr")
 $ map = import("map")
 $ http = import("http")
 $ fs = import("fs")
 $ sys = import("sys")
-$ term = import("term")
+$ ansi = import("ansi")
 -- TODO: verbose
 $ port = ? (sys.getenv("PORT")) sys.getenv("PORT") : str.tonum() | 8000
 
@@ -112,12 +114,6 @@ www.static = ~ (path) {
 			body: fs.read(rpath)
 		}
 	} | (fs.isdir(rpath)) {
-
-		$ entries = fs.readdir(".")
-			: arr.filter(~ (p) p[0] != ".")
-			: arr.sort()
-			: arr.sort(~ (a, b) fs.isdir(a))
-
 		~> {
 			status: 200
 			headers: {
@@ -149,7 +145,10 @@ www.static = ~ (path) {
 						},
 					}))
 				])
-				t("body", {}, entries
+				t("body", {}, fs.readdir(rpath)
+					: arr.filter(~ (p) p[0] != ".")
+					: arr.sort()
+					: arr.sort(~ (a, b) fs.isdir(a))
 					: arr.map(~ (name) {
 						~> t("li", {}, [
 							t("a", {
@@ -170,7 +169,7 @@ www.static = ~ (path) {
 
 http.serve(port, ~ (req) {
 	~> :) www.static(req.path) | ~ (msg, line) {
-		print(term.red("line #" + line + ": " + msg))
+		print(ansi.red() + "line #" + line + ": " + msg + ansi.reset())
 		~> {
 			status: 500
 			body: "err"
