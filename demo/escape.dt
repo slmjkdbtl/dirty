@@ -3,7 +3,3 @@ print("qwe\\123")
 print("qwe\"123")
 print("123\nabc")
 print("123\tabc")
-
-$ term = import("term")
-
-print(term.red() + "12")

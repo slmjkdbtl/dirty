@@ -1641,7 +1641,7 @@ dt_str* dt_str_new_len_escape(dt_vm* vm, char* src, int len) {
 				case 't':  *buf++ = '\t'; break;
 				case 'v':  *buf++ = '\v'; break;
 				case 'x':
-					*buf++ = (char)strtol((char[]){cur[1], cur[2]}, NULL, 16);
+					*buf++ = strtol((char[]){cur[1], cur[2], '\0'}, NULL, 16);
 					cur += 2;
 					start += 2;
 					break;
@@ -4364,13 +4364,10 @@ dt_token_ty dt_scanner_ident_type(dt_scanner* s) {
 }
 
 dt_token dt_scanner_scan_ident(dt_scanner* s) {
-
 	while (dt_is_alpha(dt_scanner_peek(s)) || dt_is_digit(dt_scanner_peek(s))) {
 		dt_scanner_nxt(s);
 	}
-
 	return dt_scanner_make_token(s, dt_scanner_ident_type(s));
-
 }
 
 dt_token dt_scanner_scan(dt_scanner* s) {
@@ -6737,7 +6734,7 @@ dt_val dt_f_sys_sleep(dt_vm* vm) {
 	struct timespec ts;
 	ts.tv_sec = m / 1000;
 	ts.tv_nsec = (m % 1000) * 1000000;
-	nanosleep(&ts, &ts);
+	nanosleep(&ts, NULL);
 	return DT_NIL;
 }
 
@@ -7076,11 +7073,7 @@ dt_val dt_f_fs_watch(dt_vm* vm) {
 
 #define DT_GEN_ANSI_PRINTB(name, code1, code2) \
 	dt_val dt_f_term_##name(dt_vm* vm) { \
-		if (!dt_check_args(vm, \
-			1, \
-			DT_VAL_BOOL \
-		)) return DT_NIL; \
-		bool b = dt_arg_bool(vm, 0); \
+		bool b = dt_arg_bool_or(vm, 0, true); \
 		printf(b ? code1 : code2); \
 		return DT_NIL; \
 	}
@@ -7106,8 +7099,8 @@ DT_GEN_ANSI_STR0(bold,      "\x1b[1m")
 DT_GEN_ANSI_STR0(dim,       "\x1b[2m")
 DT_GEN_ANSI_STR0(italic,    "\x1b[3m")
 DT_GEN_ANSI_STR0(underline, "\x1b[4m")
-DT_GEN_ANSI_STR3(rgb,   "\x1b[38;2;%d;%d;%dm")
-DT_GEN_ANSI_STR3(rgbbg, "\x1b[48;2;%d;%d;%dm")
+DT_GEN_ANSI_STR3(rgb,       "\x1b[38;2;%d;%d;%dm")
+DT_GEN_ANSI_STR3(rgbbg,     "\x1b[48;2;%d;%d;%dm")
 
 DT_GEN_ANSI_PRINT0(cur0,     "\x0d")
 DT_GEN_ANSI_PRINT2(curxy,    "\x1b[%d;%dH")
@@ -7131,10 +7124,15 @@ DT_GEN_ANSI_PRINTB(altmode, "\x1b[?1049h", "\x1b[?1049l")
 
 #include <termios.h>
 
-dt_val dt_f_term_noecho(dt_vm* vm) {
+dt_val dt_f_term_rawmode(dt_vm* vm) {
+	bool b = dt_arg_bool_or(vm, 0, true);
 	struct termios attrs;
 	tcgetattr(STDIN_FILENO, &attrs);
-	attrs.c_lflag &= ~(ECHO | ICANON);
+	if (b) {
+		attrs.c_lflag &= ~(ECHO | ICANON);
+	} else {
+		attrs.c_lflag |= (ECHO | ICANON);
+	}
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &attrs);
 	return DT_NIL;
 }
@@ -7899,7 +7897,7 @@ void dt_load_libs(dt_vm* vm) {
 			{ "clrscr", dt_to_cfunc(dt_f_term_clrscr), },
 			{ "clrscr0", dt_to_cfunc(dt_f_term_clrscr0), },
 			{ "clrscr1", dt_to_cfunc(dt_f_term_clrscr1), },
-			{ "noecho", dt_to_cfunc(dt_f_term_noecho), },
+			{ "rawmode", dt_to_cfunc(dt_f_term_rawmode), },
 			{ NULL, DT_NIL, },
 		}))
 	);
