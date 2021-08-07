@@ -57,7 +57,6 @@
 #define DT_LIB_DBG
 #define DT_LIB_FS
 #define DT_LIB_TERM
-#define DT_LIB_KEY
 #define DT_LIB_HTTP
 
 #if defined(__APPLE__)
@@ -4853,13 +4852,6 @@ dt_c_local* dt_c_add_local(dt_compiler* c, dt_token name, dt_type type) {
 		dt_c_err(c, "too many local variables in one scope\n");
 		return NULL;
 	}
-	if (
-		dt_c_find_local(c, &name) != -1
-		|| dt_c_find_upval(c, &name) != -1)
-	{
-		// TODO: allow
-		dt_c_err(c, "duplicate decl '%.*s'\n", name.len, name.start);
-	}
 	dt_c_local* l = &c->env->locals[c->env->num_locals++];
 	l->name = name;
 	l->depth = c->env->cur_depth;
@@ -7213,88 +7205,6 @@ dt_val dt_f_term_rawmode(dt_vm* vm) {
 // }
 #endif
 
-#ifdef DT_LIB_KEY
-typedef enum {
-	DT_KEY_NONE,
-	DT_KEY_Q,
-	DT_KEY_W,
-	DT_KEY_E,
-	DT_KEY_R,
-	DT_KEY_T,
-	DT_KEY_Y,
-	DT_KEY_U,
-	DT_KEY_I,
-	DT_KEY_O,
-	DT_KEY_P,
-	DT_KEY_A,
-	DT_KEY_S,
-	DT_KEY_D,
-	DT_KEY_F,
-	DT_KEY_G,
-	DT_KEY_H,
-	DT_KEY_J,
-	DT_KEY_K,
-	DT_KEY_L,
-	DT_KEY_Z,
-	DT_KEY_X,
-	DT_KEY_C,
-	DT_KEY_V,
-	DT_KEY_B,
-	DT_KEY_N,
-	DT_KEY_M,
-	DT_KEY_1,
-	DT_KEY_2,
-	DT_KEY_3,
-	DT_KEY_4,
-	DT_KEY_5,
-	DT_KEY_6,
-	DT_KEY_7,
-	DT_KEY_8,
-	DT_KEY_9,
-	DT_KEY_0,
-	DT_KEY_F1,
-	DT_KEY_F2,
-	DT_KEY_F3,
-	DT_KEY_F4,
-	DT_KEY_F5,
-	DT_KEY_F6,
-	DT_KEY_F7,
-	DT_KEY_F8,
-	DT_KEY_F9,
-	DT_KEY_F10,
-	DT_KEY_F11,
-	DT_KEY_F12,
-	DT_KEY_MINUS,
-	DT_KEY_EQUAL,
-	DT_KEY_COMMA,
-	DT_KEY_DOT,
-	DT_KEY_GRAVES,
-	DT_KEY_SLASH,
-	DT_KEY_BACKSLASH,
-	DT_KEY_SEMICOLON,
-	DT_KEY_QUOTE,
-	DT_KEY_UP,
-	DT_KEY_DOWN,
-	DT_KEY_LEFT,
-	DT_KEY_RIGHT,
-	DT_KEY_ESC,
-	DT_KEY_TAB,
-	DT_KEY_SPACE,
-	DT_KEY_BACKSPACE,
-	DT_KEY_RETURN,
-	DT_KEY_LBRACKET,
-	DT_KEY_RBRACKET,
-	DT_KEY_LSHIFT,
-	DT_KEY_RSHIFT,
-	DT_KEY_LALT,
-	DT_KEY_RALT,
-	DT_KEY_LMETA,
-	DT_KEY_RMETA,
-	DT_KEY_LCTRL,
-	DT_KEY_RCTRL,
-} dt_key;
-#endif
-
 #ifdef DT_LIB_HTTP
 
 #include <netdb.h>
@@ -8045,96 +7955,6 @@ void dt_load_libs(dt_vm* vm) {
 			{ "clrscr0", dt_to_cfunc(dt_f_term_clrscr0), },
 			{ "clrscr1", dt_to_cfunc(dt_f_term_clrscr1), },
 			{ "rawmode", dt_to_cfunc(dt_f_term_rawmode), },
-			{ NULL, DT_NIL, },
-		}))
-	);
-#endif
-
-#ifdef DT_LIB_KEY
-	dt_map_cset(
-		NULL,
-		vm->libs,
-		"key",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
-			{ "q", dt_to_num(DT_KEY_Q) },
-			{ "w", dt_to_num(DT_KEY_W) },
-			{ "e", dt_to_num(DT_KEY_E) },
-			{ "r", dt_to_num(DT_KEY_R) },
-			{ "t", dt_to_num(DT_KEY_T) },
-			{ "y", dt_to_num(DT_KEY_Y) },
-			{ "u", dt_to_num(DT_KEY_U) },
-			{ "i", dt_to_num(DT_KEY_I) },
-			{ "o", dt_to_num(DT_KEY_O) },
-			{ "p", dt_to_num(DT_KEY_P) },
-			{ "a", dt_to_num(DT_KEY_A) },
-			{ "s", dt_to_num(DT_KEY_S) },
-			{ "d", dt_to_num(DT_KEY_D) },
-			{ "f", dt_to_num(DT_KEY_F) },
-			{ "g", dt_to_num(DT_KEY_G) },
-			{ "h", dt_to_num(DT_KEY_H) },
-			{ "j", dt_to_num(DT_KEY_J) },
-			{ "k", dt_to_num(DT_KEY_K) },
-			{ "l", dt_to_num(DT_KEY_L) },
-			{ "z", dt_to_num(DT_KEY_Z) },
-			{ "x", dt_to_num(DT_KEY_X) },
-			{ "c", dt_to_num(DT_KEY_C) },
-			{ "v", dt_to_num(DT_KEY_V) },
-			{ "b", dt_to_num(DT_KEY_B) },
-			{ "n", dt_to_num(DT_KEY_N) },
-			{ "m", dt_to_num(DT_KEY_M) },
-			{ "1", dt_to_num(DT_KEY_1) },
-			{ "2", dt_to_num(DT_KEY_2) },
-			{ "3", dt_to_num(DT_KEY_3) },
-			{ "4", dt_to_num(DT_KEY_4) },
-			{ "5", dt_to_num(DT_KEY_5) },
-			{ "6", dt_to_num(DT_KEY_6) },
-			{ "7", dt_to_num(DT_KEY_7) },
-			{ "8", dt_to_num(DT_KEY_8) },
-			{ "9", dt_to_num(DT_KEY_9) },
-			{ "0", dt_to_num(DT_KEY_0) },
-			{ "f1", dt_to_num(DT_KEY_F1) },
-			{ "f2", dt_to_num(DT_KEY_F2) },
-			{ "f3", dt_to_num(DT_KEY_F3) },
-			{ "f4", dt_to_num(DT_KEY_F4) },
-			{ "f5", dt_to_num(DT_KEY_F5) },
-			{ "f6", dt_to_num(DT_KEY_F6) },
-			{ "f7", dt_to_num(DT_KEY_F7) },
-			{ "f8", dt_to_num(DT_KEY_F8) },
-			{ "f9", dt_to_num(DT_KEY_F9) },
-			{ "f10", dt_to_num(DT_KEY_F10) },
-			{ "f11", dt_to_num(DT_KEY_F11) },
-			{ "f12", dt_to_num(DT_KEY_F12) },
-			{ "-", dt_to_num(DT_KEY_MINUS) },
-			{ "=", dt_to_num(DT_KEY_EQUAL) },
-			{ ",", dt_to_num(DT_KEY_COMMA) },
-			{ ".", dt_to_num(DT_KEY_DOT) },
-			{ "`", dt_to_num(DT_KEY_GRAVES) },
-			{ "/", dt_to_num(DT_KEY_SLASH) },
-			{ "\\", dt_to_num(DT_KEY_BACKSLASH) },
-			{ ";", dt_to_num(DT_KEY_SEMICOLON) },
-			{ "'", dt_to_num(DT_KEY_QUOTE) },
-			{ "up", dt_to_num(DT_KEY_UP) },
-			{ "down", dt_to_num(DT_KEY_DOWN) },
-			{ "left", dt_to_num(DT_KEY_LEFT) },
-			{ "right", dt_to_num(DT_KEY_RIGHT) },
-			{ "esc", dt_to_num(DT_KEY_ESC) },
-			{ "escape", dt_to_num(DT_KEY_ESC) },
-			{ "tab", dt_to_num(DT_KEY_TAB) },
-			{ "space", dt_to_num(DT_KEY_SPACE) },
-			{ " ", dt_to_num(DT_KEY_SPACE) },
-			{ "backspace", dt_to_num(DT_KEY_BACKSPACE) },
-			{ "bksp", dt_to_num(DT_KEY_BACKSPACE) },
-			{ "return", dt_to_num(DT_KEY_RETURN) },
-			{ "[", dt_to_num(DT_KEY_LBRACKET) },
-			{ "]", dt_to_num(DT_KEY_RBRACKET) },
-			{ "lshift", dt_to_num(DT_KEY_LSHIFT) },
-			{ "rshift", dt_to_num(DT_KEY_RSHIFT) },
-			{ "lalt", dt_to_num(DT_KEY_LALT) },
-			{ "ralt", dt_to_num(DT_KEY_RALT) },
-			{ "lmeta", dt_to_num(DT_KEY_LMETA) },
-			{ "rmeta", dt_to_num(DT_KEY_RMETA) },
-			{ "lctrl", dt_to_num(DT_KEY_LCTRL) },
-			{ "rctrl", dt_to_num(DT_KEY_RCTRL) },
 			{ NULL, DT_NIL, },
 		}))
 	);
