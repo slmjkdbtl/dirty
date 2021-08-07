@@ -6732,8 +6732,12 @@ dt_val dt_f_sys_sleep(dt_vm* vm) {
 		1,
 		DT_VAL_NUM
 	)) return DT_NIL;
-	int n = dt_arg_num(vm, 0);
-	sleep(n);
+	int m = dt_arg_num(vm, 0);
+	if (m < 0) return DT_NIL;
+	struct timespec ts;
+	ts.tv_sec = m / 1000;
+	ts.tv_nsec = (m % 1000) * 1000000;
+	nanosleep(&ts, &ts);
 	return DT_NIL;
 }
 
