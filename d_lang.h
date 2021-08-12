@@ -36,6 +36,7 @@
 // TODO: try func table instead of switch
 // TODO: require ! postfix for mut funcs
 // TODO: pass global list to run()
+// TODO: unpack arr / map in creations
 
 #ifndef D_LANG_H
 #define D_LANG_H
@@ -192,6 +193,7 @@ typedef uint64_t dt_val;
 #define DT_SMASK_RANGE 0x00000000ffffffff
 #define DT_SMASK_PSTR  0x0000ffffffffffff
 
+// TODO: don't use 2 tmask for bool
 // value type
 #define DT_TMASK_NAN    0x0000000000000000
 #define DT_TMASK_FALSE  0x0001000000000000
@@ -455,6 +457,7 @@ typedef enum {
 	DT_OP_ITER_PREP,
 	DT_OP_ITER,
 	DT_OP_ARGS,
+	DT_OP_UNPACK,
 } dt_op;
 
 // tokens
@@ -541,10 +544,14 @@ typedef enum {
 } dt_prec;
 
 typedef struct {
-	dt_token_ty type;
 	char* start;
 	int len;
+} dt_fstr;
+
+typedef struct {
+	dt_token_ty type;
 	int line;
+	dt_fstr str;
 } dt_token;
 
 typedef struct {
@@ -731,6 +738,7 @@ dt_str*  dt_str_rep      (dt_vm* vm, dt_str* str, int times);
 dt_str*  dt_str_toupper  (dt_vm* vm, dt_str* str);
 dt_str*  dt_str_tolower  (dt_vm* vm, dt_str* str);
 int      dt_str_find     (dt_str* str, dt_str* key);
+int      dt_str_find_at  (dt_str* str, dt_str* key, int idx);
 bool     dt_str_contains (dt_str* str, dt_str* key);
 dt_str*  dt_str_rev      (dt_vm* vm, dt_str* str);
 dt_map*  dt_str_match    (dt_vm* vm, dt_str* str, dt_str* pat);
@@ -918,10 +926,10 @@ char* dt_token_name(dt_token_ty ty) {
 }
 
 bool dt_token_eq(dt_token* t1, dt_token* t2) {
-	if (t1->len != t2->len) {
+	if (t1->str.len != t2->str.len) {
 		return false;
 	}
-	return memcmp(t1->start, t2->start, t1->len) == 0;
+	return memcmp(t1->str.start, t2->str.start, t1->str.len) == 0;
 }
 
 dt_val_ty dt_typeof(dt_val v) {
@@ -1645,6 +1653,9 @@ dt_str* dt_str_new_len_escape(dt_vm* vm, char* src, int len) {
 				case 'r':  *buf++ = '\r'; break;
 				case 't':  *buf++ = '\t'; break;
 				case 'v':  *buf++ = '\v'; break;
+				case 'b':  *buf++ = '\b'; break;
+				case 'f':  *buf++ = '\f'; break;
+				case 'e':  *buf++ = '\x1b'; break;
 				case 'x':
 					*buf++ = strtol((char[]){cur[1], cur[2], '\0'}, NULL, 16);
 					cur += 2;
@@ -1773,16 +1784,50 @@ dt_arr* dt_str_split(dt_vm* vm, dt_str* str, dt_str* sep) {
 		return dt_str_chars(vm, str);
 	}
 	dt_arr* arr = dt_arr_new(vm);
-	int last = 0;
-	int i = 0;
-	for (; i < str->len; i++) {
-		if (memcmp(str->chars + i, sep->chars, sep->len) == 0) {
-			dt_arr_push(vm, arr, dt_to_str(dt_str_new_len(vm, str->chars + last, i - last)));
-			i += sep->len - 1;
-			last = i + 1;
+	int cur = 0;
+	int idx = -1;
+	while ((idx = dt_str_find_at(str, sep, cur)) != -1) {
+		dt_arr_push(vm, arr, dt_to_str(dt_str_new_len(vm, str->chars + cur, idx - cur)));
+		cur = idx + sep->len;
+	}
+	dt_arr_push(vm, arr, dt_to_str(dt_str_new_len(vm, str->chars + cur, str->len - cur)));
+	return arr;
+}
+
+// TODO
+dt_arr* dt_str_split2(dt_vm* vm, dt_str* str, dt_arr* seps) {
+	if (seps->len == 0) {
+		return dt_str_chars(vm, str);
+	}
+	dt_arr* arr = dt_arr_new(vm);
+	for (int i = 0; i < seps->len; i++) {
+		if (dt_typeof(seps->values[i]) != DT_VAL_STR) {
+			// TODO: throw
+			return arr;
 		}
 	}
-	dt_arr_push(vm, arr, dt_to_str(dt_str_new_len(vm, str->chars + last, i - last)));
+	int cur = 0;
+	for (;;) {
+		int idx = -1;
+		int sep_len = 0;
+		for (int i = 0; i < seps->len; i++) {
+			dt_str* sep = dt_as_str2(seps->values[i]);
+			int idx2 = dt_str_find_at(str, sep, cur);
+			if (idx2 != -1) {
+				if (idx == -1 || idx2 < idx) {
+					idx = idx2;
+					sep_len = sep->len;
+				}
+			}
+		}
+		if (idx != -1) {
+			dt_arr_push(vm, arr, dt_to_str(dt_str_new_len(vm, str->chars + cur, idx - cur)));
+			cur = idx + sep_len;
+			continue;
+		}
+		break;
+	}
+	dt_arr_push(vm, arr, dt_to_str(dt_str_new_len(vm, str->chars + cur, str->len - cur)));
 	return arr;
 }
 
@@ -1818,10 +1863,37 @@ int dt_str_rfind_at(dt_str* str, dt_str* key, int idx) {
 	if (idx < 0 || idx >= str->len || key->len == 0) {
 		return -1;
 	}
-	char* cur = str->chars + idx - key->len + 1;
+	char* cur = str->chars + idx;
 	while (cur >= str->chars) {
 		if (memcmp(cur, key->chars, key->len) == 0) {
 			return cur - str->chars;
+		}
+		cur--;
+	}
+	return -1;
+}
+
+int dt_str_rfind_at2(dt_str* str, dt_arr* keys, int idx) {
+	if (idx < 0 || idx >= str->len) {
+		return -1;
+	}
+	if (keys->len == 0) {
+		return -1;
+	}
+	for (int i = 0; i < keys->len; i++) {
+		if (dt_typeof(keys->values[i]) != DT_VAL_STR) {
+			// TODO: throw
+			return -1;
+		}
+	}
+	char* cur = str->chars + idx;
+	while (cur >= str->chars) {
+		for (int i = 0; i < keys->len; i++) {
+			dt_str* key = dt_as_str2(keys->values[i]);
+			// TODO: know which key?
+			if (memcmp(cur, key->chars, key->len) == 0) {
+				return cur - str->chars;
+			}
 		}
 		cur--;
 	}
@@ -1844,12 +1916,47 @@ int dt_str_find_at(dt_str* str, dt_str* key, int idx) {
 	}
 }
 
+int dt_str_find_at2(dt_str* str, dt_arr* keys, int idx) {
+	if (idx < 0 || idx >= str->len) {
+		return -1;
+	}
+	if (keys->len == 0) {
+		return -1;
+	}
+	for (int i = 0; i < keys->len; i++) {
+		if (dt_typeof(keys->values[i]) != DT_VAL_STR) {
+			// TODO: throw
+			return -1;
+		}
+	}
+	char* cur = str->chars + idx;
+	while (cur < str->chars + str->len) {
+		for (int i = 0; i < keys->len; i++) {
+			dt_str* key = dt_as_str2(keys->values[i]);
+			// TODO: know which key?
+			if (memcmp(cur, key->chars, key->len) == 0) {
+				return cur - str->chars;
+			}
+		}
+		cur++;
+	}
+	return -1;
+}
+
 int dt_str_find(dt_str* str, dt_str* key) {
 	return dt_str_find_at(str, key, 0);
 }
 
+int dt_str_find2(dt_str* str, dt_arr* keys) {
+	return dt_str_find_at2(str, keys, 0);
+}
+
 bool dt_str_contains(dt_str* str, dt_str* key) {
 	return dt_str_find(str, key) != -1;
+}
+
+bool dt_str_contains2(dt_str* str, dt_arr* keys) {
+	return dt_str_find2(str, keys) != -1;
 }
 
 dt_str* dt_str_rev(dt_vm* vm, dt_str* str) {
@@ -2140,7 +2247,7 @@ dt_arr* dt_arr_filter(dt_vm* vm, dt_arr* arr, dt_val f) {
 	return new;
 }
 
-dt_val dt_arr_reduce(dt_vm* vm, dt_arr* arr, dt_val state, dt_val f) {
+dt_val dt_arr_fold(dt_vm* vm, dt_arr* arr, dt_val state, dt_val f) {
 	for (int i = 0; i < arr->len; i++) {
 		state = dt_call(vm, f, 3, state, arr->values[i], dt_to_num(i));
 	}
@@ -2158,7 +2265,7 @@ dt_str* dt_arr_join(dt_vm* vm, dt_arr* arr, dt_str* sep) {
 	dt_str* s = dt_str_new(vm, "");
 	for (int i = 0; i < arr->len; i++) {
 		if (dt_typeof(arr->values[i]) != DT_VAL_STR) {
-			dt_throw(vm, "arr cointains non str");
+			dt_throw(vm, "arr contains non str");
 			return NULL;
 		}
 		s = dt_str_concat(vm, s, dt_as_str2(arr->values[i]));
@@ -2503,6 +2610,7 @@ bool dt_map_eq(dt_map* m1, dt_map* m2) {
 	return true;
 }
 
+// TODO: a bit too many allocations.. any better way?
 dt_str* dt_map_ser(dt_vm* vm, dt_map* map) {
 	dt_str* s = dt_str_new(vm, "{");
 	dt_map_iter iter = dt_map_iter_new(map);
@@ -2724,6 +2832,7 @@ char* dt_op_name(dt_op op) {
 		case DT_OP_ITER_PREP: return "ITER_PREP";
 		case DT_OP_ITER:      return "ITER";
 		case DT_OP_ARGS:      return "ARGS";
+		case DT_OP_UNPACK:    return "UNPACK";
 	}
 }
 
@@ -3139,6 +3248,12 @@ void dt_vm_stack_println(dt_vm* vm) {
 
 void dt_vm_run(dt_vm* vm, dt_func* func);
 
+// expected stack state
+// [
+//   ...
+//   func
+//   ...nargs
+// ]
 // call a dt_func
 dt_val dt_vm_call(dt_vm* vm, dt_val val, int nargs) {
 
@@ -3359,7 +3474,13 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 				dt_val_ty ta = dt_typeof(a);
 				dt_val_ty tb = dt_typeof(b);
 				if (ta == DT_VAL_NUM && tb == DT_VAL_NUM) {
-					dt_vm_push(vm, dt_to_num(dt_as_num2(a) / dt_as_num2(b)));
+					dt_num bb = dt_as_num2(b);
+					if (bb == 0) {
+						dt_throw(vm, "cannot div a 0");
+						dt_vm_push(vm, DT_NIL);
+					} else {
+						dt_vm_push(vm, dt_to_num(dt_as_num2(a) / bb));
+					}
 				} else {
 					dt_throw(
 						vm,
@@ -3555,6 +3676,33 @@ void dt_vm_run(dt_vm* vm, dt_func* func) {
 					dt_arr_push(vm, args, vm->stack_bot[i]);
 				}
 				dt_vm_push(vm, dt_to_arr(args));
+				break;
+			}
+
+			case DT_OP_UNPACK: {
+				dt_val v = dt_vm_pop(vm);
+				switch (dt_typeof(v)) {
+					case DT_VAL_ARR: {
+						dt_arr* arr = dt_as_arr2(v);
+						for (int i = 0; i < arr->len; i++) {
+							dt_vm_push(vm, arr->values[i]);
+						}
+						break;
+					}
+					case DT_VAL_MAP: {
+						dt_map* map = dt_as_map2(v);
+						dt_map_iter iter = dt_map_iter_new(map);
+						dt_map_entry* e;
+						while ((e = dt_map_iter_nxt(&iter))) {
+							dt_vm_push(vm, dt_to_str(e->key));
+							dt_vm_push(vm, e->val);
+						}
+						break;
+					}
+					default:
+						dt_throw(vm, "cannot unpack a '%s'", dt_typeof(v));
+						break;
+				}
 				break;
 			}
 
@@ -4223,9 +4371,11 @@ bool dt_scanner_ended(dt_scanner* s) {
 dt_token dt_scanner_make_token(dt_scanner* s, dt_token_ty type) {
 	return (dt_token) {
 		.type = type,
-		.start = s->start,
-		.len = (int)(s->cur - s->start),
 		.line = s->line,
+		.str = (dt_fstr) {
+			.start = s->start,
+			.len = (int)(s->cur - s->start),
+		},
 	};
 }
 
@@ -4682,8 +4832,8 @@ dt_type dt_c_this(dt_compiler* c) {
 }
 
 dt_type dt_c_num(dt_compiler* c) {
-	dt_c_consume(c, DT_TOKEN_NUM);
-	dt_val num = dt_to_num(strtof(c->parser.prev.start, NULL));
+	dt_token t = dt_c_consume(c, DT_TOKEN_NUM);
+	dt_val num = dt_to_num(strtof(t.str.start, NULL));
 	dt_c_push_const(c, num);
 	return DT_TYPE_NUM;
 }
@@ -4699,8 +4849,8 @@ dt_type dt_c_str(dt_compiler* c) {
 	dt_token str_t = dt_c_consume(c, DT_TOKEN_STR);
 	dt_val str = dt_to_str(dt_str_new_len_escape(
 		NULL,
-		str_t.start + 1,
-		str_t.len - 2
+		str_t.str.start + 1,
+		str_t.str.len - 2
 	));
 	dt_c_push_const(c, str);
 	return DT_TYPE_STR;
@@ -4729,18 +4879,24 @@ dt_type dt_c_arr(dt_compiler* c) {
 	dt_type inner = DT_TYPE_NIL;
 
 	while (dt_c_peek(c) != DT_TOKEN_RBRACKET) {
-		dt_type t = dt_c_expr(c);
-// 		if (!dt_type_eq(&inner, &t) && len > 0) {
-// 			dt_c_err(
-// 				c,
-// 				"inconsistent arr type: %s vs %s\n",
-// 				dt_typename(inner.type),
-// 				dt_typename(t.type)
-// 			);
-// 		}
-		inner = t;
-		len++;
-		dt_c_match(c, DT_TOKEN_COMMA);
+		if (dt_c_match(c, DT_TOKEN_DOT_DOT)) {
+			// TODO: how to tell MKARR len of this?
+			dt_c_expr(c);
+			dt_c_emit(c, DT_OP_UNPACK);
+		} else {
+			dt_type t = dt_c_expr(c);
+// 			if (!dt_type_eq(&inner, &t) && len > 0) {
+// 				dt_c_err(
+// 					c,
+// 					"inconsistent arr type: %s vs %s\n",
+// 					dt_typename(inner.type),
+// 					dt_typename(t.type)
+// 				);
+// 			}
+			inner = t;
+			len++;
+			dt_c_match(c, DT_TOKEN_COMMA);
+		}
 	}
 
 	dt_c_consume(c, DT_TOKEN_RBRACKET);
@@ -4764,7 +4920,7 @@ dt_type dt_c_map(dt_compiler* c) {
 		if (dt_c_peek(c) == DT_TOKEN_IDENT) {
 			dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 			// TODO
-			dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.start, name.len)));
+			dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.str.start, name.str.len)));
 		} else if (dt_c_peek(c) == DT_TOKEN_STR) {
 			dt_c_str(c);
 		}
@@ -4883,9 +5039,11 @@ void dt_c_skip_local(dt_compiler* c) {
 	dt_c_local* l = &c->env->locals[c->env->num_locals++];
 	l->name = (dt_token) {
 		.type = DT_TOKEN_IDENT,
-		.start = NULL,
-		.len = 0,
 		.line = 0,
+		.str = (dt_fstr) {
+			.start = NULL,
+			.len = 0,
+		},
 	};
 	l->depth = c->env->cur_depth;
 	l->captured = false;
@@ -4907,7 +5065,7 @@ void dt_c_struct(dt_compiler* c) {
 
 	dt_struct_def ty = {0};
 
-	strncpy(ty.name, name.start, name.len);
+	strncpy(ty.name, name.str.start, name.str.len);
 
 	while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
 		int mem_idx = ty.num_mems++;
@@ -4915,7 +5073,7 @@ void dt_c_struct(dt_compiler* c) {
 		dt_c_consume(c, DT_TOKEN_COLON);
 		dt_c_typesig(c);
 		dt_c_match(c, DT_TOKEN_COMMA);
-		strncpy(ty.mem_names[mem_idx], mem_name.start, mem_name.len);
+		strncpy(ty.mem_names[mem_idx], mem_name.str.start, mem_name.str.len);
 	}
 
 	dt_c_consume(c, DT_TOKEN_RBRACE);
@@ -5272,7 +5430,7 @@ dt_type dt_c_index(dt_compiler* c, dt_type ty) {
 dt_type dt_c_index2(dt_compiler* c, dt_type ty) {
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 	// TODO
-	dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.start, name.len)));
+	dt_c_push_const(c, dt_to_str(dt_str_new_len(NULL, name.str.start, name.str.len)));
 	if (dt_c_match(c, DT_TOKEN_EQ)) {
 		dt_c_expr(c);
 		dt_c_emit(c, DT_OP_SETI);
@@ -5349,7 +5507,7 @@ dt_type dt_c_ident(dt_compiler* c) {
 		} else {
 			get_op = DT_OP_GETG;
 			set_op = DT_OP_SETG;
-			dt_str* str = dt_str_new_len(NULL, name.start, name.len);
+			dt_str* str = dt_str_new_len(NULL, name.str.start, name.str.len);
 			idx = dt_chunk_add_const(&c->env->chunk, dt_to_str(str));
 		}
 
@@ -5503,15 +5661,16 @@ char* dt_strdup(char* src) {
 }
 
 char* dt_token_str(dt_token t) {
-	return dt_strndup(t.start, t.len);
+	return dt_strndup(t.str.start, t.str.len);
 }
 
+// TODO: allow name
 dt_type dt_c_func(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_TILDE);
 	return dt_c_func_inner(c, dt_strdup("(unamed)"));
 }
 
-// TODO: store name
+// TODO: accept SETI
 dt_type dt_c_func2(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_TILDE);
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
@@ -5744,9 +5903,9 @@ dt_val dt_f_import(dt_vm* vm) {
 
 dt_val dt_f_assert(dt_vm* vm) {
 	dt_val v = dt_arg(vm, 0);
-	dt_str* msg = dt_arg_str(vm, 1);
+	char* msg = dt_arg_cstr_or(vm, 1, "assert fail");
 	if (!dt_val_truthy(v)) {
-		dt_throw(vm, "%s", msg->chars);
+		dt_throw(vm, "%s", msg);
 	}
 	return DT_NIL;
 }
@@ -5852,13 +6011,28 @@ dt_val dt_f_str_code(dt_vm* vm) {
 
 dt_val dt_f_str_split(dt_vm* vm) {
 	if (!dt_check_args(vm,
-		2,
-		DT_VAL_STR,
+		1,
 		DT_VAL_STR
 	)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
-	dt_str* sep = dt_arg_str(vm, 1);
-	return dt_to_arr(dt_str_split(vm, str, sep));
+	dt_val sep = dt_arg(vm, 1);
+	switch (dt_typeof(sep)) {
+		case DT_VAL_STR:
+			return dt_to_arr(dt_str_split(vm, str, dt_as_str2(sep)));
+		case DT_VAL_ARR:
+			return dt_to_arr(dt_str_split2(vm, str, dt_as_arr2(sep)));
+		default:
+			// TODO: abstract this msg
+			dt_throw(
+				vm,
+				"expected a '%s' or a '%s' at %d, found '%s'",
+				dt_typename(DT_VAL_STR),
+				dt_typename(DT_VAL_ARR),
+				1,
+				dt_typename(dt_typeof(sep))
+			);
+			return DT_NIL;
+	}
 }
 
 dt_val dt_f_str_chars(dt_vm* vm) {
@@ -5927,51 +6101,51 @@ dt_val dt_f_str_tolower(dt_vm* vm) {
 }
 
 dt_val dt_f_str_find(dt_vm* vm) {
-	if (!dt_check_args(vm,
-		2,
-		DT_VAL_STR,
-		DT_VAL_STR
-	)) return DT_NIL;
+	if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
-	dt_str* key = dt_arg_str(vm, 1);
-	return dt_to_num(dt_str_find(str, key));
-}
-
-dt_val dt_f_str_find_at(dt_vm* vm) {
-	if (!dt_check_args(vm,
-		3,
-		DT_VAL_STR,
-		DT_VAL_STR,
-		DT_VAL_NUM
-	)) return DT_NIL;
-	dt_str* str = dt_arg_str(vm, 0);
-	dt_str* key = dt_arg_str(vm, 1);
-	int idx = dt_arg_num(vm, 2);
-	return dt_to_num(dt_str_find_at(str, key, idx));
+	dt_val key = dt_arg(vm, 1);
+	dt_num idx = dt_arg_num_or(vm, 2, 0);
+	switch (dt_typeof(key)) {
+		case DT_VAL_STR:
+			return dt_to_num(dt_str_find_at(str, dt_as_str2(key), idx));
+		case DT_VAL_ARR:
+			return dt_to_num(dt_str_find_at2(str, dt_as_arr2(key), idx));
+		default:
+			// TODO: abstract this msg
+			dt_throw(
+				vm,
+				"expected a '%s' or a '%s' at %d, found '%s'",
+				dt_typename(DT_VAL_STR),
+				dt_typename(DT_VAL_ARR),
+				1,
+				dt_typename(dt_typeof(key))
+			);
+			return dt_to_num(-1);
+	}
 }
 
 dt_val dt_f_str_rfind(dt_vm* vm) {
-	if (!dt_check_args(vm,
-		2,
-		DT_VAL_STR,
-		DT_VAL_STR
-	)) return DT_NIL;
+	if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL;
 	dt_str* str = dt_arg_str(vm, 0);
-	dt_str* key = dt_arg_str(vm, 1);
-	return dt_to_num(dt_str_rfind(str, key));
-}
-
-dt_val dt_f_str_rfind_at(dt_vm* vm) {
-	if (!dt_check_args(vm,
-		3,
-		DT_VAL_STR,
-		DT_VAL_STR,
-		DT_VAL_NUM
-	)) return DT_NIL;
-	dt_str* str = dt_arg_str(vm, 0);
-	dt_str* key = dt_arg_str(vm, 1);
-	int idx = dt_arg_num(vm, 2);
-	return dt_to_num(dt_str_rfind_at(str, key, idx));
+	dt_val key = dt_arg(vm, 1);
+	dt_num idx = dt_arg_num_or(vm, 2, str->len - 1);
+	switch (dt_typeof(key)) {
+		case DT_VAL_STR:
+			return dt_to_num(dt_str_rfind_at(str, dt_as_str2(key), idx));
+		case DT_VAL_ARR:
+			return dt_to_num(dt_str_rfind_at2(str, dt_as_arr2(key), idx));
+		default:
+			// TODO: abstract this msg
+			dt_throw(
+				vm,
+				"expected a '%s' or a '%s' at %d, found '%s'",
+				dt_typename(DT_VAL_STR),
+				dt_typename(DT_VAL_ARR),
+				1,
+				dt_typename(dt_typeof(key))
+			);
+			return dt_to_num(-1);
+	}
 }
 
 dt_val dt_f_str_contains(dt_vm* vm) {
@@ -6159,7 +6333,7 @@ dt_val dt_f_arr_filter(dt_vm* vm) {
 	return dt_to_arr(dt_arr_filter(vm, arr, f));
 }
 
-dt_val dt_f_arr_reduce(dt_vm* vm) {
+dt_val dt_f_arr_fold(dt_vm* vm) {
 	if (!dt_check_args(vm,
 		1,
 		DT_VAL_ARR
@@ -6167,7 +6341,7 @@ dt_val dt_f_arr_reduce(dt_vm* vm) {
 	dt_arr* arr = dt_arg_arr(vm, 0);
 	dt_val init = dt_arg(vm, 1);
 	dt_val f = dt_arg(vm, 2);
-	return dt_arr_reduce(vm, arr, init, f);
+	return dt_arr_fold(vm, arr, init, f);
 }
 
 dt_val dt_f_arr_contains(dt_vm* vm) {
@@ -6782,21 +6956,6 @@ dt_val dt_f_sys_ctrlc(dt_vm* vm) {
 	return DT_NIL;
 }
 
-// TODO: is there better rway
-dt_vm* atexit_vm;
-dt_val atexit_func;
-
-void dt_atexit_handler() {
-	dt_call(atexit_vm, atexit_func, 0);
-}
-
-dt_val dt_f_sys_atexit(dt_vm* vm) {
-	atexit_vm = vm;
-	atexit_func = dt_arg(vm, 0);
-	atexit(dt_atexit_handler);
-	return DT_NIL;
-}
-
 dt_val dt_f_sys_time(dt_vm* vm) {
 	return dt_to_num(time(NULL));
 }
@@ -7218,6 +7377,7 @@ dt_val dt_f_term_rawmode(dt_vm* vm) {
 	bool b = dt_arg_bool_or(vm, 0, true);
 	struct termios attrs;
 	tcgetattr(STDIN_FILENO, &attrs);
+	// TODO: ISIG?
 	if (b) {
 		attrs.c_lflag &= ~(ECHO | ICANON);
 	} else {
@@ -7721,6 +7881,7 @@ void dt_load_libs(dt_vm* vm) {
 		{ "typeof", dt_to_cfunc(dt_f_typeof), },
 		{ "print", dt_to_cfunc(dt_f_print), },
 		{ "import", dt_to_cfunc(dt_f_import), },
+		{ "assert", dt_to_cfunc(dt_f_assert), },
 		{ "ser", dt_to_cfunc(dt_f_ser), },
 		{ NULL, DT_NIL, },
 	});
@@ -7751,9 +7912,7 @@ void dt_load_libs(dt_vm* vm) {
 			{ "toupper", dt_to_cfunc(dt_f_str_toupper), },
 			{ "tolower", dt_to_cfunc(dt_f_str_tolower), },
 			{ "find", dt_to_cfunc(dt_f_str_find), },
-			{ "find_at", dt_to_cfunc(dt_f_str_find_at), },
 			{ "rfind", dt_to_cfunc(dt_f_str_rfind), },
-			{ "rfind_at", dt_to_cfunc(dt_f_str_rfind_at), },
 			{ "contains", dt_to_cfunc(dt_f_str_contains), },
 			{ "replace", dt_to_cfunc(dt_f_str_replace), },
 			{ "replace_at", dt_to_cfunc(dt_f_str_replace_at), },
@@ -7789,7 +7948,7 @@ void dt_load_libs(dt_vm* vm) {
 			{ "rev", dt_to_cfunc(dt_f_arr_rev), },
 			{ "pop", dt_to_cfunc(dt_f_arr_pop), },
 			{ "sub", dt_to_cfunc(dt_f_arr_sub), },
-			{ "reduce", dt_to_cfunc(dt_f_arr_reduce), },
+			{ "fold", dt_to_cfunc(dt_f_arr_fold), },
 			{ "concat", dt_to_cfunc(dt_f_arr_concat), },
 			{ "rand", dt_to_cfunc(dt_f_arr_rand), },
 			{ "clone", dt_to_cfunc(dt_f_arr_clone), },
@@ -7889,7 +8048,6 @@ void dt_load_libs(dt_vm* vm) {
 			{ "getchar", dt_to_cfunc(dt_f_sys_getchar), },
 			{ "getline", dt_to_cfunc(dt_f_sys_getline), },
 			{ "ctrlc", dt_to_cfunc(dt_f_sys_ctrlc), },
-			{ "atexit", dt_to_cfunc(dt_f_sys_atexit), },
 			{ "time", dt_to_cfunc(dt_f_sys_time), },
 			{ "date", dt_to_cfunc(dt_f_sys_date), },
 			{ "sleep", dt_to_cfunc(dt_f_sys_sleep), },

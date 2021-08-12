@@ -8,7 +8,7 @@ $ map = import("map")
 $ http = import("http")
 $ fs = import("fs")
 $ sys = import("sys")
-$ ansi = import("ansi")
+$ term = import("term")
 -- TODO: verbose
 $ port = ? (sys.getenv("PORT")) sys.getenv("PORT") : str.tonum() | 8000
 
@@ -169,7 +169,7 @@ www.static = ~ (path) {
 
 http.serve(port, ~ (req) {
 	~> :) www.static(req.path) | ~ (msg, line) {
-		print(ansi.red() + "line #" + line + ": " + msg + ansi.reset())
+		print(term.red() + "line #" + line + ": " + msg + term.reset())
 		~> {
 			status: 500
 			body: "err"

@@ -1,3 +1,42 @@
-$ s = "12 34 56789"
+$ str = import("str")
+$ arr = import("arr")
 
-print(s:rfind_from(" ", 2))
+{
+
+	$ s = "12 34 56789"
+
+	assert(str.find(s, " ", 0) == 2)
+	assert(str.find(s, " ", 2) == 2)
+	assert(str.find(s, " ", 3) == 5)
+	assert(str.find(s, " 3", 1) == 2)
+	assert(str.find(s, [ " " "6" ], 6) == 7)
+
+	assert(str.rfind(s, " ", 3) == 2)
+	assert(str.rfind(s, " ", 2) == 2)
+	assert(str.rfind(s, " ", 5) == 5)
+	assert(str.rfind(s, " ", 6) == 5)
+	assert(str.rfind(s, "34", 4) == 3)
+	assert(str.rfind(s, "34", 3) == 3)
+
+}
+
+{
+
+	$ s = "watch dev/dirty_test -force"
+
+	assert(arr.eq(str.split(s, " "), [ "watch" "dev/dirty_test" "-force" ]))
+	assert(arr.eq(str.split(s, [ " " "_" "/" ]), [ "watch" "dev" "dirty" "test" "-force" ]))
+
+}
+
+{
+
+	$ s = "ohHi"
+
+	assert(str.toupper(s), "OHHI")
+	assert(str.tolower(s), "ohhi")
+
+}
+
+
+print("CORRECT")

@@ -9,7 +9,6 @@ lst
 : arr.sort()
 : arr.each(print)
 
-print(lst : arr.join(", "))
 
 
 
