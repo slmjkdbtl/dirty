@@ -1750,25 +1750,33 @@ dt_str* dt_val_ser(dt_vm* vm, dt_val v) {
 	}
 }
 
-// TODO: replace all
 dt_str* dt_str_replace(dt_vm* vm, dt_str* src, dt_str* old, dt_str* new) {
-	char* start = strstr(src->chars, old->chars);
-	if (!start) {
+	int num = 0;
+	char* f = strstr(src->chars, old->chars);
+	while (f) {
+		f = strstr(f + 1, old->chars);
+		num++;
+	}
+	if (num == 0) {
 		return src;
 	}
-	int offset = start - src->chars;
-	int len = src->len - old->len + new->len;
-	// TODO: malloc
-	char* chars = malloc(len + 1);
-	memcpy(chars, src->chars, offset);
-	memcpy(chars + offset, new->chars, new->len);
-	memcpy(
-		chars + offset + new->len,
-		src->chars + offset + old->len,
-		src->len - offset - old->len
-	);
-	chars[len] = '\0';
-	return dt_str_new_len(vm, chars, len);
+	dt_str* out = dt_str_alloc(vm, src->len + (new->len - old->len) * num);
+	f = strstr(src->chars, old->chars);
+	char* srccur = src->chars;
+	char* cur = out->chars;
+	while (f) {
+		int len = f - srccur;
+		memcpy(cur, srccur, len);
+		cur += len;
+		srccur += len;
+		memcpy(cur, new->chars, new->len);
+		cur += new->len;
+		srccur += old->len;
+		f = strstr(f + 1, old->chars);
+	}
+	memcpy(cur, srccur, src->chars + src->len - srccur);
+	dt_str_hash(out);
+	return out;
 }
 
 dt_arr* dt_str_chars(dt_vm* vm, dt_str* str) {
@@ -5080,6 +5088,7 @@ void dt_c_struct(dt_compiler* c) {
 
 }
 
+// TODO: arr / map destructor
 void dt_c_decl(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_DOLLAR);
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
@@ -7882,7 +7891,6 @@ void dt_load_libs(dt_vm* vm) {
 		{ "print", dt_to_cfunc(dt_f_print), },
 		{ "import", dt_to_cfunc(dt_f_import), },
 		{ "assert", dt_to_cfunc(dt_f_assert), },
-		{ "ser", dt_to_cfunc(dt_f_ser), },
 		{ NULL, DT_NIL, },
 	});
 
@@ -7895,6 +7903,7 @@ void dt_load_libs(dt_vm* vm) {
 			{ "runfile", dt_to_cfunc(dt_f_runfile), },
 			{ "load", dt_to_cfunc(dt_f_load), },
 			{ "loadfile", dt_to_cfunc(dt_f_loadfile), },
+			{ "ser", dt_to_cfunc(dt_f_ser), },
 			{ NULL, DT_NIL, },
 		}))
 	);
