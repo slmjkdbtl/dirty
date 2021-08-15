@@ -42,6 +42,7 @@ $ arr = import("arr")
 
 	assert(str.replace("123ab3ac", "3a", "123") == "12123b123c")
 	assert(str.replace("abccc123", "c", "cc") == "abcccccc123")
+	assert(str.replace("abccc123", "ddd", "cc") == "abccc123")
 
 }
 

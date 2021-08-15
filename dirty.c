@@ -30,9 +30,9 @@ int main(int argc, char** argv) {
 
 	if (target) {
 		if (eval) {
-			dt_run(&vm, target);
+			dt_run(&vm, target, NULL);
 		} else {
-			dt_runfile(&vm, target);
+			dt_runfile(&vm, target, NULL);
 		}
 	}
 

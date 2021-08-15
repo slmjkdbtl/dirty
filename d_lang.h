@@ -409,7 +409,7 @@ typedef struct dt_vm {
 typedef struct {
 	char*  name;
 	dt_val val;
-} dt_map_centry;
+} dt_reg;
 
 // op codes
 typedef enum {
@@ -568,9 +568,9 @@ typedef struct {
 // compile time local variable representation
 // TODO: store type
 typedef struct {
-	dt_token name;
-	bool captured;
-	int depth;
+	dt_fstr name;
+	bool    captured;
+	int     depth;
 	dt_type type;
 } dt_c_local;
 
@@ -631,8 +631,8 @@ dt_vm     dt_vm_new    ();
 void      dt_vm_free   (dt_vm* vm);
 
 // running code
-dt_val    dt_run          (dt_vm* vm, char* src);
-dt_val    dt_runfile      (dt_vm* vm, char* path);
+dt_val    dt_run          (dt_vm* vm, char* code, dt_map* lib);
+dt_val    dt_runfile      (dt_vm* vm, char* path, dt_map* lib);
 dt_val    dt_load         (dt_vm* vm, char* src);
 dt_val    dt_loadfile     (dt_vm* vm, char* path);
 
@@ -788,7 +788,7 @@ void     dt_arr_println  (dt_arr* arr);
 dt_map*  dt_map_new      (dt_vm* vm);
 // create hashmap with capacity
 dt_map*  dt_map_new_len    (dt_vm* vm, int len);
-dt_map*  dt_map_new_reg    (dt_vm* vm, dt_map_centry* table);
+dt_map*  dt_map_new_reg    (dt_vm* vm, dt_reg* table);
 void     dt_map_free       (dt_vm* vm, dt_map* map);
 void     dt_map_free_rec   (dt_vm* vm, dt_map* map);
 dt_val   dt_map_get        (dt_map* map, dt_str* key);
@@ -797,7 +797,7 @@ void     dt_map_each       (dt_vm* vm, dt_map* map, dt_val f);
 // get / set from c str
 dt_val   dt_map_cget       (dt_vm* vm, dt_map* map, char* key);
 void     dt_map_cset       (dt_vm* vm, dt_map* map, char* key, dt_val val);
-void     dt_map_reg        (dt_vm* vm, dt_map* map, dt_map_centry* table);
+void     dt_map_reg        (dt_vm* vm, dt_map* map, dt_reg* table);
 bool     dt_map_has        (dt_map* map, dt_str* key);
 bool     dt_map_chas       (dt_vm* vm, dt_map* map, char* key);
 dt_val   dt_map_rm         (dt_map* map, dt_str* key);
@@ -2407,7 +2407,7 @@ dt_map* dt_map_new(dt_vm* vm) {
 	return dt_map_new_len(vm, DT_MAP_INIT_SIZE);
 }
 
-dt_map* dt_map_new_reg(dt_vm* vm, dt_map_centry* table) {
+dt_map* dt_map_new_reg(dt_vm* vm, dt_reg* table) {
 	dt_map* map = dt_map_new(vm);
 	dt_map_reg(vm, map, table);
 	return map;
@@ -2572,8 +2572,8 @@ void dt_map_cset(dt_vm* vm, dt_map* map, char* key, dt_val val) {
 	dt_map_set(vm, map, dt_str_new(vm, key), val);
 }
 
-void dt_map_reg(dt_vm* vm, dt_map* map, dt_map_centry* table) {
-	for (dt_map_centry* entry = table; entry->name != NULL; entry++) {
+void dt_map_reg(dt_vm* vm, dt_map* map, dt_reg* table) {
+	for (dt_reg* entry = table; entry->name != NULL; entry++) {
 		dt_map_cset(vm, map, entry->name, entry->val);
 	}
 }
@@ -4956,13 +4956,17 @@ dt_type dt_c_map(dt_compiler* c) {
 
 }
 
-int dt_c_find_local(dt_compiler* c, dt_token* name) {
+bool dt_fstr_eq(dt_fstr* s1, dt_fstr* s2) {
+	return s1->len == s2->len && memcmp(s1->start, s2->start, s1->len) == 0;
+}
+
+int dt_c_find_local(dt_compiler* c, dt_fstr* name) {
 
 	dt_funcenv* e = c->env;
 
 	for (int i = e->num_locals - 1; i >= 0; i--) {
 		dt_c_local* val = &e->locals[i];
-		if (dt_token_eq(name, &val->name)) {
+		if (dt_fstr_eq(name, &val->name)) {
 			return i;
 		}
 	}
@@ -4996,7 +5000,7 @@ int dt_c_add_upval(dt_compiler* c, int idx, bool local) {
 
 }
 
-int dt_c_find_upval(dt_compiler* c, dt_token* name) {
+int dt_c_find_upval(dt_compiler* c, dt_fstr* name) {
 
 	dt_funcenv* cur_env = c->env;
 
@@ -5026,7 +5030,7 @@ int dt_c_find_upval(dt_compiler* c, dt_token* name) {
 
 }
 
-dt_c_local* dt_c_add_local(dt_compiler* c, dt_token name, dt_type type) {
+dt_c_local* dt_c_add_local(dt_compiler* c, dt_fstr name, dt_type type) {
 	if (c->env->num_locals >= UINT8_MAX) {
 		dt_c_err(c, "too many local variables in one scope\n");
 		return NULL;
@@ -5045,13 +5049,9 @@ void dt_c_skip_local(dt_compiler* c) {
 		return;
 	}
 	dt_c_local* l = &c->env->locals[c->env->num_locals++];
-	l->name = (dt_token) {
-		.type = DT_TOKEN_IDENT,
-		.line = 0,
-		.str = (dt_fstr) {
-			.start = NULL,
-			.len = 0,
-		},
+	l->name = (dt_fstr) {
+		.start = NULL,
+		.len = 0,
 	};
 	l->depth = c->env->cur_depth;
 	l->captured = false;
@@ -5097,7 +5097,7 @@ void dt_c_decl(dt_compiler* c) {
 	}
 	dt_c_consume(c, DT_TOKEN_EQ);
 	dt_type t = dt_c_expr(c);
-	dt_c_local* l = dt_c_add_local(c, name, DT_TYPE_NIL);
+	dt_c_local* l = dt_c_add_local(c, name.str, DT_TYPE_NIL);
 	l->type = t;
 }
 
@@ -5284,6 +5284,7 @@ void dt_c_patch_breaks(dt_compiler* c, int depth, bool cont) {
 	}
 }
 
+// TODO: accept single expr as while
 // TODO: accept expr
 dt_type dt_c_loop(dt_compiler* c) {
 
@@ -5306,7 +5307,7 @@ dt_type dt_c_loop(dt_compiler* c) {
 		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
 		dt_c_skip_local(c);
 		dt_c_skip_local(c);
-		dt_c_add_local(c, name, DT_TYPE_NIL);
+		dt_c_add_local(c, name.str, DT_TYPE_NIL);
 		dt_c_consume(c, DT_TOKEN_BACKSLASH);
 		dt_c_expr(c);
 		dt_c_consume(c, DT_TOKEN_RPAREN);
@@ -5507,10 +5508,10 @@ dt_type dt_c_ident(dt_compiler* c) {
 		dt_op get_op;
 		int idx;
 
-		if ((idx = dt_c_find_local(c, &name)) != -1) {
+		if ((idx = dt_c_find_local(c, &name.str)) != -1) {
 			get_op = DT_OP_GETL;
 			set_op = DT_OP_SETL;
-		} else if ((idx = dt_c_find_upval(c, &name)) != -1) {
+		} else if ((idx = dt_c_find_upval(c, &name.str)) != -1) {
 			get_op = DT_OP_GETU;
 			set_op = DT_OP_SETU;
 		} else {
@@ -5603,7 +5604,7 @@ dt_type dt_c_func_inner(dt_compiler* c, char* name) {
 	while (dt_c_peek(c) != DT_TOKEN_RPAREN) {
 
 		dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
-		dt_c_add_local(c, name, DT_TYPE_NIL);
+		dt_c_add_local(c, name.str, DT_TYPE_NIL);
 		nargs++;
 
 		// arg type
@@ -5683,7 +5684,7 @@ dt_type dt_c_func(dt_compiler* c) {
 dt_type dt_c_func2(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_TILDE);
 	dt_token name = dt_c_consume(c, DT_TOKEN_IDENT);
-	dt_c_add_local(c, name, DT_TYPE_NIL);
+	dt_c_add_local(c, name.str, DT_TYPE_NIL);
 	return dt_c_func_inner(c, dt_token_str(name));
 }
 
@@ -5905,7 +5906,7 @@ dt_val dt_f_import(dt_vm* vm) {
 	dt_str* name = dt_arg_str(vm, 0);
 	dt_val lib = dt_map_get(vm->libs, name);
 	if (dt_is_nil(lib)) {
-		return dt_runfile(vm, dt_arg_cstr(vm, 0));
+		return dt_runfile(vm, dt_arg_cstr(vm, 0), NULL);
 	}
 	return lib;
 }
@@ -5945,28 +5946,13 @@ dt_val dt_f_run(dt_vm* vm) {
 	if (g) {
 		// TODO
 	}
-	return dt_run(vm, dt_arg_cstr(vm, 0));
+	return dt_run(vm, dt_arg_cstr(vm, 0), NULL);
 }
 
 dt_val dt_f_runfile(dt_vm* vm) {
 	if (!dt_check_args(vm, 1, DT_VAL_STR)) return DT_NIL;
 	dt_map* g = dt_arg_map_or(vm, 1, NULL);
-	// TODO
-	if (g) {
-		dt_map_iter iter = dt_map_iter_new(g);
-		dt_map_entry* e;
-		while ((e = dt_map_iter_nxt(&iter))) {
-			dt_map_set(vm, vm->globals, e->key, e->val);
-		}
-	}
-	dt_val ret = dt_runfile(vm, dt_arg_cstr(vm, 0));
-	if (g) {
-		dt_map_iter iter = dt_map_iter_new(g);
-		dt_map_entry* e;
-		while ((e = dt_map_iter_nxt(&iter))) {
-			dt_map_rm(vm->globals, e->key);
-		}
-	}
+	dt_val ret = dt_runfile(vm, dt_arg_cstr(vm, 0), g);
 	return ret;
 }
 
@@ -7886,7 +7872,7 @@ dt_val dt_f_http_fetch(dt_vm* vm) {
 
 void dt_load_libs(dt_vm* vm) {
 
-	dt_map_reg(vm, vm->globals, (dt_map_centry[]) {
+	dt_map_reg(vm, vm->globals, (dt_reg[]) {
 		{ "typeof", dt_to_cfunc(dt_f_typeof), },
 		{ "print", dt_to_cfunc(dt_f_print), },
 		{ "import", dt_to_cfunc(dt_f_import), },
@@ -7898,7 +7884,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"dirty",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "run", dt_to_cfunc(dt_f_run), },
 			{ "runfile", dt_to_cfunc(dt_f_runfile), },
 			{ "load", dt_to_cfunc(dt_f_load), },
@@ -7912,7 +7898,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"str",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "split", dt_to_cfunc(dt_f_str_split), },
 			{ "chars", dt_to_cfunc(dt_f_str_chars), },
 			{ "starts", dt_to_cfunc(dt_f_str_starts), },
@@ -7942,7 +7928,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"arr",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "push", dt_to_cfunc(dt_f_arr_push), },
 			{ "insert", dt_to_cfunc(dt_f_arr_insert), },
 			{ "rm", dt_to_cfunc(dt_f_arr_rm), },
@@ -7971,7 +7957,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"map",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "keys", dt_to_cfunc(dt_f_map_keys), },
 			{ "vals", dt_to_cfunc(dt_f_map_vals), },
 			{ "each", dt_to_cfunc(dt_f_map_each), },
@@ -7987,7 +7973,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"math",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "sin", dt_to_cfunc(dt_f_math_sin), },
 			{ "cos", dt_to_cfunc(dt_f_math_cos), },
 			{ "tan", dt_to_cfunc(dt_f_math_tan), },
@@ -8024,7 +8010,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"func",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "call", dt_to_cfunc(dt_f_func_call), },
 			{ "bind", dt_to_cfunc(dt_f_func_bind), },
 			{ NULL, DT_NIL, },
@@ -8052,7 +8038,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"sys",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "OS",  os, },
 			{ "getchar", dt_to_cfunc(dt_f_sys_getchar), },
 			{ "getline", dt_to_cfunc(dt_f_sys_getline), },
@@ -8080,7 +8066,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"dbg",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "collect", dt_to_cfunc(dt_f_dbg_collect), },
 			{ "stacksize", dt_to_cfunc(dt_f_dbg_stacksize), },
 			{ NULL, DT_NIL, },
@@ -8093,7 +8079,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"fs",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "read", dt_to_cfunc(dt_f_fs_read), },
 			{ "write", dt_to_cfunc(dt_f_fs_write), },
 			{ "readdir", dt_to_cfunc(dt_f_fs_readdir), },
@@ -8124,7 +8110,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"term",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "reset", dt_to_cfunc(dt_f_term_reset), },
 			{ "black", dt_to_cfunc(dt_f_term_black), },
 			{ "red", dt_to_cfunc(dt_f_term_red), },
@@ -8177,7 +8163,7 @@ void dt_load_libs(dt_vm* vm) {
 		NULL,
 		vm->libs,
 		"http",
-		dt_to_map(dt_map_new_reg(NULL, (dt_map_centry[]) {
+		dt_to_map(dt_map_new_reg(NULL, (dt_reg[]) {
 			{ "serve", dt_to_cfunc(dt_f_http_serve), },
 			{ "fetch", dt_to_cfunc(dt_f_http_fetch), },
 			{ NULL, DT_NIL, },
@@ -8187,10 +8173,22 @@ void dt_load_libs(dt_vm* vm) {
 
 }
 
-// TODO: pass args
-dt_val dt_run(dt_vm* vm, char* code) {
+dt_val dt_run(dt_vm* vm, char* code, dt_map* ilb) {
 
 	dt_compiler c = dt_compiler_new(code);
+
+	if (ilb) {
+		dt_map_iter iter = dt_map_iter_new(ilb);
+		dt_map_entry* e;
+		while ((e = dt_map_iter_nxt(&iter))) {
+			dt_c_add_local(&c, (dt_fstr) {
+				.start = e->key->chars,
+				.len = e->key->len,
+			}, DT_TYPE_NIL);
+			dt_c_push_const(&c, e->val);
+		}
+	}
+
 	dt_c_nxt(&c);
 
 	while (c.parser.cur.type != DT_TOKEN_END) {
@@ -8213,6 +8211,28 @@ dt_val dt_run(dt_vm* vm, char* code) {
 
 	dt_val ret = dt_call(vm, dt_to_func(&func), 0);
 	dt_compiler_free(&c);
+
+	return ret;
+
+}
+
+dt_val dt_runfile(dt_vm* vm, char* path, dt_map* lib) {
+
+	char* code = dt_read_file(path, NULL);
+	char* start = code;
+
+	if (!code) {
+		dt_throw(vm, "failed to read file '%s'", path);
+		return DT_NIL;
+	}
+
+	// shebang
+	if (start[0] == '#' && start[1] == '!') {
+		while (*start != '\n') start++;
+	}
+
+	dt_val ret = dt_run(vm, start, lib);
+	free(code);
 
 	return ret;
 
@@ -8253,28 +8273,6 @@ dt_val dt_loadfile(dt_vm* vm, char* path) {
 	}
 
 	dt_val ret = dt_load(vm, code);
-	free(code);
-
-	return ret;
-
-}
-
-dt_val dt_runfile(dt_vm* vm, char* path) {
-
-	char* code = dt_read_file(path, NULL);
-	char* start = code;
-
-	if (!code) {
-		dt_throw(vm, "failed to read file '%s'", path);
-		return DT_NIL;
-	}
-
-	// shebang
-	if (start[0] == '#' && start[1] == '!') {
-		while (*start != '\n') start++;
-	}
-
-	dt_val ret = dt_run(vm, start);
 	free(code);
 
 	return ret;
