@@ -1,5 +1,3 @@
-// wengwengweng
-
 #define D_MATH_IMPL
 #include <d_math.h>
 

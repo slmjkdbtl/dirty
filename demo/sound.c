@@ -1,5 +1,3 @@
-// wengwengweng
-
 #define D_IMPL
 #include <d_plat.h>
 #include <d_fs.h>

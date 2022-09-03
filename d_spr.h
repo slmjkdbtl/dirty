@@ -1,5 +1,3 @@
-// wengwengweng
-
 // dirty sprite format
 //  -----------------------------------
 // | magic      u8[11] (d1Rty$pR1te)   |

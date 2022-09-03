@@ -1,5 +1,3 @@
-// wengwengweng
-
 // TODO: u16 #chars
 // TODO: utf8
 

@@ -1,5 +1,3 @@
-// wengwengweng
-
 // TODO: split to d_app.h and d_blit.h
 
 #ifndef D_APP_H

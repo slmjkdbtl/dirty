@@ -1,5 +1,3 @@
-// wengwengweng
-
 #ifndef D_MATH_H
 #define D_MATH_H
 

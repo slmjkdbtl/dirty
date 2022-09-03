@@ -1,5 +1,3 @@
-// wengwengweng
-
 #ifndef D_COL_H
 #define D_COL_H
 

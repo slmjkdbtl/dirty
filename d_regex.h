@@ -1,5 +1,3 @@
-// wengwengweng
-
 // url: <protocal>://<host>/<path>
 
 #ifndef D_REGEX_H
@@ -44,8 +42,6 @@ dr_res dr_match(char* regex, char* txt) {
 		if (*r == '\0') {
 			break;
 		}
-// 		printf("r: %s\n", r);
-// 		printf("t: %s\n", t);
 		if (*r == '<') {
 			char* name_start = r + 1;
 			while (*r != '>') r++;

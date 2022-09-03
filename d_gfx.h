@@ -1,5 +1,3 @@
-// wengwengweng
-
 #ifndef D_GFX_H
 #define D_GFX_H
 

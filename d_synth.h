@@ -1,5 +1,3 @@
-// wengwengweng
-
 #ifndef D_SYNTH_H
 #define D_SYNTH_H
 

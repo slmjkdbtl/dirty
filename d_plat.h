@@ -1,5 +1,3 @@
-// wengwengweng
-
 #ifndef D_PLAT_H
 #define D_PLAT_H
 
