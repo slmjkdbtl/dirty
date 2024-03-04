@@ -108,7 +108,7 @@ float d_rng_gen(d_rng* rng);
 float randf(float, float);
 
 vec2 vec2f(float, float);
-vec2 vec2u();
+vec2 vec2u(void);
 vec2 vec2_add(vec2, vec2);
 vec2 vec2_sub(vec2, vec2);
 vec2 vec2_scale(vec2, float);
@@ -129,7 +129,7 @@ bool vec2_eq(vec2, vec2);
 void vec2_swap(vec2*, vec2*);
 
 vec3 vec3f(float, float, float);
-vec3 vec3u();
+vec3 vec3u(void);
 vec3 vec3_add(vec3, vec3);
 vec3 vec3_sub(vec3, vec3);
 vec3 vec3_scale(vec3, float);
@@ -148,7 +148,7 @@ bool vec3_eq(vec3, vec3);
 void vec3_swap(vec3*, vec3*);
 
 vec4 vec4f(float, float, float, float);
-vec4 vec4u();
+vec4 vec4u(void);
 
 color colori(uint8_t, uint8_t, uint8_t, uint8_t);
 color colorf(float, float, float, float);
@@ -156,7 +156,7 @@ color colorx(uint32_t hex);
 color color_mix(color c1, color c2);
 color color_darken(color c, int d);
 color color_lighten(color c, int l);
-color coloru();
+color coloru(void);
 bool color_eq(color, color);
 color color_lerp(color from, color to, float t);
 
@@ -166,8 +166,8 @@ mat4 mat4f(
 	float, float, float, float,
 	float, float, float, float
 );
-mat4 mat4u();
-mat4 mat4_identity();
+mat4 mat4u(void);
+mat4 mat4_identity(void);
 mat4 mat4_mult(mat4, mat4);
 vec4 mat4_mult_vec4(mat4, vec4);
 vec3 mat4_mult_vec3(mat4, vec3);
@@ -185,11 +185,11 @@ mat4 mat4_rot_quat(quat);
 mat4 mat4_lerp(mat4 m1, mat4 m2, float t);
 
 quat quatf(float, float, float, float);
-quat quatu();
+quat quatu(void);
 quat quat_mult(quat q1, quat q2);
 
 quad quadf(float, float, float, float);
-quad quadu();
+quad quadu(void);
 
 rect rectf(vec2, vec2);
 box boxf(vec3, vec3);
@@ -239,7 +239,7 @@ vec2 vec2f(float x, float y) {
 	};
 }
 
-vec2 vec2u() {
+vec2 vec2u(void) {
 	return vec2f(0.0, 0.0);
 }
 
@@ -355,7 +355,7 @@ vec3 vec3f(float x, float y, float z) {
 	};
 }
 
-vec3 vec3u() {
+vec3 vec3u(void) {
 	return vec3f(0.0, 0.0, 0.0);
 }
 
@@ -478,7 +478,7 @@ vec4 vec4f(float x, float y, float z, float w) {
 	};
 }
 
-vec4 vec4u() {
+vec4 vec4u(void) {
 	return vec4f(0.0, 0.0, 0.0, 1.0);
 }
 
@@ -509,7 +509,7 @@ color colorx(uint32_t hex) {
 	};
 }
 
-color coloru() {
+color coloru(void) {
 	return (color) {
 		.r = 255,
 		.g = 255,
@@ -569,11 +569,11 @@ mat4 mat4f(
 	};
 }
 
-mat4 mat4u() {
+mat4 mat4u(void) {
 	return mat4_identity();
 }
 
-mat4 mat4_identity() {
+mat4 mat4_identity(void) {
 	return (mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
@@ -823,7 +823,7 @@ quat quatf(float x, float y, float z, float w) {
 	};
 }
 
-quat quatu() {
+quat quatu(void) {
 	return quatf(0.0, 0.0, 0.0, 1.0);
 }
 
@@ -845,7 +845,7 @@ quad quadf(float x, float y, float w, float h) {
 	};
 }
 
-quad quadu() {
+quad quadu(void) {
 	return quadf(0.0, 0.0, 1.0, 1.0);
 }
 

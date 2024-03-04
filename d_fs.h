@@ -14,9 +14,9 @@ bool        d_is_file(char* path);
 bool        d_is_dir(char* path);
 char*       d_extname(char* path);
 char*       d_basename(char* path);
-const char* d_res_dir();
+const char* d_res_dir(void);
 char*       d_res_path(char* path);
-char*       d_data_dir();
+char*       d_data_dir(void);
 
 #endif
 
@@ -113,7 +113,7 @@ char* d_basename(char* path) {
 	return buf;
 }
 
-const char* d_res_dir() {
+const char* d_res_dir(void) {
 #if defined(__APPLE__)
 	@autoreleasepool {
 		return [[[NSBundle mainBundle] resourcePath] UTF8String];
@@ -143,7 +143,7 @@ char* d_res_path(char* path) {
 	}
 }
 
-char* d_data_dir() {
+char* d_data_dir(void) {
 #if defined(__APPLE__)
 	const char* home = getenv("HOME");
 	if (home) {

@@ -5,7 +5,7 @@
 #include <d_app.h>
 #include <d_gfx.h>
 
-void init() {
+void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = 480,
 		.height = 480,
@@ -13,7 +13,7 @@ void init() {
 	});
 }
 
-void frame() {
+void frame(void) {
 
 	if (d_app_key_pressed(D_KEY_ESC)) {
 		d_app_quit();
@@ -26,7 +26,7 @@ void frame() {
 
 }
 
-int main() {
+int main(void) {
 	d_app_run((d_app_desc) {
 		.title = "line",
 		.init = init,

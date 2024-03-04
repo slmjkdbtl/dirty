@@ -2,7 +2,7 @@
 #define D_AUDIO_H
 
 typedef struct {
-	float (*stream)();
+	float (*stream)(void);
 } d_audio_desc;
 
 // a static sound
@@ -64,12 +64,12 @@ float d_playback_time(d_playback* pb);
 // SYNTH
 void d_synth_play(int note);
 void d_synth_release(int note);
-d_envelope* d_synth_envelope();
+d_envelope* d_synth_envelope(void);
 void d_synth_wav(float (*func)(float freq, float t));
 float d_synth_peek(int n);
 
 // voice
-d_voice d_voice_new();
+d_voice d_voice_new(void);
 void d_voice_process(d_voice* v, d_envelope* e, float dt);
 
 // built in wave forms
@@ -130,20 +130,20 @@ typedef struct {
 	float (*wav_func)(float freq, float t);
 } d_synth;
 
-d_synth d_synth_new();
-float d_synth_next();
+d_synth d_synth_new(void);
+float d_synth_next(void);
 
 typedef struct {
 	d_playback playbacks[D_MAX_PLAYBACKS];
 	int num_playbacks;
 	float volume;
-	float (*user_stream)();
+	float (*user_stream)(void);
 	d_synth synth;
 } d_audio_ctx;
 
 static d_audio_ctx d_audio;
 
-static float d_audio_next() {
+static float d_audio_next(void) {
 
 	float frame = 0.0;
 
@@ -201,7 +201,7 @@ static void d_ca_stream(void* udata, AudioQueueRef queue, AudioQueueBufferRef bu
 
 }
 
-static void d_ca_init() {
+static void d_ca_init(void) {
 
 	AudioStreamBasicDescription fmt = {
 		.mSampleRate = D_SAMPLE_RATE,
@@ -362,7 +362,7 @@ d_sound d_sound_parse(uint8_t* bytes) {
 
 }
 
-d_sound d_sound_empty() {
+d_sound d_sound_empty(void) {
 	return (d_sound) {
 		.num_frames = 0,
 		.frames = malloc(0),
@@ -463,7 +463,7 @@ float d_wav_noise(float freq, float t) {
 	return randf(-1.0, 1.0);
 }
 
-d_synth d_synth_new() {
+d_synth d_synth_new(void) {
 	return (d_synth) {
 		.notes = {0},
 		.volume = 0.5,
@@ -479,7 +479,7 @@ d_synth d_synth_new() {
 	};
 }
 
-d_voice d_voice_new() {
+d_voice d_voice_new(void) {
 	return (d_voice) {
 		.active = true,
 		.life = 0.0,
@@ -551,7 +551,7 @@ void d_voice_process(d_voice* v, d_envelope* e, float dt) {
 
 }
 
-float d_synth_next() {
+float d_synth_next(void) {
 
 	d_synth* synth = &d_audio.synth;
 	float frame = 0.0;
@@ -599,7 +599,7 @@ float d_synth_peek(int n) {
 	return synth->buf[idx];
 }
 
-d_envelope* d_synth_envelope() {
+d_envelope* d_synth_envelope(void) {
 	return &d_audio.synth.envelope;
 }
 

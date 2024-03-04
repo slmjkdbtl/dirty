@@ -11,7 +11,7 @@ void *load(void *arg) {
 	loaded = true;
 }
 
-int main() {
+int main(void) {
 	d_texec(load, NULL);
 	printf("start loading\n");
 	while (!loaded) {

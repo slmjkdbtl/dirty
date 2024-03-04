@@ -118,9 +118,9 @@ typedef enum {
 } d_scale_mode;
 
 typedef struct {
-	void (*init)();
-	void (*frame)();
-	void (*quit)();
+	void (*init)(void);
+	void (*frame)(void);
+	void (*quit)(void);
 	char* title;
 	int width;
 	int height;
@@ -133,50 +133,50 @@ typedef struct {
 typedef uint8_t d_touch;
 
 void d_app_run(d_app_desc desc);
-void d_app_quit();
+void d_app_quit(void);
 void d_app_present(int w, int h, color* buf);
 
-bool d_app_fullscreen();
+bool d_app_fullscreen(void);
 void d_app_set_fullscreen(bool b);
 
-bool d_app_mouse_locked();
+bool d_app_mouse_locked(void);
 void d_app_set_mouse_locked(bool b);
 
-bool d_app_mouse_hidden();
+bool d_app_mouse_hidden(void);
 void d_app_set_mouse_hidden(bool b);
 
 void d_app_set_title(char* title);
 
-bool d_app_keyboard_shown();
+bool d_app_keyboard_shown(void);
 void d_app_set_keyboard_shown(bool b);
 
-int d_app_width();
-int d_app_height();
+int d_app_width(void);
+int d_app_height(void);
 
-float d_app_time();
-float d_app_dt();
-int d_app_fps();
+float d_app_time(void);
+float d_app_dt(void);
+int d_app_fps(void);
 
 bool d_app_key_pressed(d_key k);
 bool d_app_key_rpressed(d_key k);
 bool d_app_key_released(d_key k);
 bool d_app_mouse_pressed(d_mouse m);
 bool d_app_mouse_released(d_mouse m);
-bool d_app_mouse_moved();
+bool d_app_mouse_moved(void);
 bool d_app_touch_pressed(d_touch t);
 bool d_app_touch_released(d_touch t);
 bool d_app_touch_moved(d_touch t);
-bool d_app_scrolled();
-vec2 d_app_wheel();
-bool d_app_resized();
-char d_app_input();
-bool d_app_active();
+bool d_app_scrolled(void);
+vec2 d_app_wheel(void);
+bool d_app_resized(void);
+char d_app_input(void);
+bool d_app_active(void);
 
 bool d_app_mouse_down(d_mouse m);
 bool d_app_key_down(d_key k);
 bool d_app_key_mod(d_kmod kmod);
-vec2 d_app_mouse_pos();
-vec2 d_app_mouse_dpos();
+vec2 d_app_mouse_pos(void);
+vec2 d_app_mouse_dpos(void);
 vec2 d_app_touch_pos(d_touch t);
 vec2 d_app_touch_dpos(d_touch t);
 
@@ -375,13 +375,13 @@ static void process_btn(d_btn_state* b) {
 	}
 }
 
-static void d_app_init() {
+static void d_app_init(void) {
 	if (d_app.desc.init) {
 		d_app.desc.init();
 	}
 }
 
-static void d_app_frame() {
+static void d_app_frame(void) {
 
 	if (d_app.desc.frame) {
 		d_app.desc.frame();
@@ -1160,7 +1160,7 @@ static void d_uikit_run(d_app_desc* desc) {
 #include <signal.h>
 #include <sys/ioctl.h>
 
-static void d_term_cleanup() {
+static void d_term_cleanup(void) {
 	// clear
 	printf("\x1b[3J");
 	// exit alternate screen
@@ -1170,6 +1170,10 @@ static void d_term_cleanup() {
 	// reset color
 	printf("\x1b[0m");
 	exit(EXIT_SUCCESS);
+}
+
+static void d_term_signal(int sig) {
+	d_term_cleanup();
 }
 
 static d_key d_term_key(char* c, int size) {
@@ -1268,7 +1272,7 @@ static void d_term_run(d_app_desc* desc) {
 	// hide cursor
 	printf("\x1b[?25l");
 	atexit(d_term_cleanup);
-	signal(SIGINT, d_term_cleanup);
+	signal(SIGINT, d_term_signal);
 
 	struct pollfd pfd = {
 		.fd = STDIN_FILENO,
@@ -1822,19 +1826,19 @@ void d_app_run(d_app_desc desc) {
 
 }
 
-void d_app_quit() {
+void d_app_quit(void) {
 	d_app.quit = true;
 }
 
-float d_app_time() {
+float d_app_time(void) {
 	return d_app.time;
 }
 
-float d_app_dt() {
+float d_app_dt(void) {
 	return d_app.dt;
 }
 
-int d_app_fps() {
+int d_app_fps(void) {
 	return d_app.fps;
 }
 
@@ -1850,7 +1854,7 @@ void d_app_set_fullscreen(bool b) {
 #endif
 }
 
-bool d_app_fullscreen() {
+bool d_app_fullscreen(void) {
 #if defined(D_COCOA)
 	return [d_app.window styleMask] & NSWindowStyleMaskFullScreen;
 #elif defined(D_UIKIT)
@@ -1866,7 +1870,7 @@ void d_app_set_mouse_locked(bool b) {
 }
 
 // TODO
-bool d_app_mouse_locked() {
+bool d_app_mouse_locked(void) {
 	return false;
 }
 
@@ -1875,7 +1879,7 @@ void d_app_set_mouse_hidden(bool b) {
 }
 
 // TODO
-bool d_app_mouse_hidden() {
+bool d_app_mouse_hidden(void) {
 	return false;
 }
 
@@ -1891,7 +1895,7 @@ void d_app_set_title(char* title) {
 #endif
 }
 
-bool d_app_keyboard_shown() {
+bool d_app_keyboard_shown(void) {
 	// TODO
 	return false;
 }
@@ -1954,23 +1958,23 @@ bool d_app_mouse_down(d_mouse k) {
 		|| d_app.mouse_states[k] == D_BTN_PRESSED;
 }
 
-int d_app_width() {
+int d_app_width(void) {
 	return d_app.width;
 }
 
-int d_app_height() {
+int d_app_height(void) {
 	return d_app.height;
 }
 
-vec2 d_app_mouse_pos() {
+vec2 d_app_mouse_pos(void) {
 	return d_app.mouse_pos;
 }
 
-vec2 d_app_mouse_dpos() {
+vec2 d_app_mouse_dpos(void) {
 	return d_app.mouse_dpos;
 }
 
-bool d_app_mouse_moved() {
+bool d_app_mouse_moved(void) {
 	return d_app.mouse_dpos.x != 0.0 || d_app.mouse_dpos.y != 0.0;
 }
 
@@ -2014,23 +2018,23 @@ vec2 d_app_touch_dpos(d_touch t) {
 	return d_app.touches[t].dpos;
 }
 
-bool d_app_resized() {
+bool d_app_resized(void) {
 	return d_app.resized;
 }
 
-bool d_app_scrolled() {
+bool d_app_scrolled(void) {
 	return d_app.wheel.x != 0.0 || d_app.wheel.y != 0.0;
 }
 
-vec2 d_app_wheel() {
+vec2 d_app_wheel(void) {
 	return d_app.wheel;
 }
 
-char d_app_input() {
+char d_app_input(void) {
 	return d_app.char_input;
 }
 
-bool d_app_active() {
+bool d_app_active(void) {
 #if defined(D_COCOA)
 	return [d_app.window isMainWindow];
 #endif

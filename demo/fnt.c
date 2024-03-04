@@ -7,7 +7,7 @@
 #include <d_fnt.h>
 #include <d_fs.h>
 
-int main() {
+int main(void) {
 	size_t size;
 	uint8_t* bytes = d_fnt_encode_from_png("proggy_7x13.png", 7, 13, " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~", &size);
 	d_write_bytes("proggy.df", bytes, size);

@@ -4,7 +4,7 @@
 #include <d_math.h>
 #include <d_audio.h>
 
-int main() {
+int main(void) {
 	d_audio_init((d_audio_desc) {0});
 	d_sound snd = d_sound_load(d_res_path("res/yo.dsnd"));
 	d_play(&snd);

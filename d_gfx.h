@@ -131,13 +131,13 @@ typedef color(*d_gfx_shader)(color);
 
 void d_gfx_init(d_gfx_desc);
 #ifdef D_APP_H
-void d_gfx_present();
-vec2 d_gfx_mouse_pos();
-vec2 d_gfx_mouse_dpos();
+void d_gfx_present(void);
+vec2 d_gfx_mouse_pos(void);
+vec2 d_gfx_mouse_dpos(void);
 #endif
 
-int d_gfx_width();
-int d_gfx_height();
+int d_gfx_width(void);
+int d_gfx_height(void);
 
 d_img d_img_new(int w, int h);
 d_img d_img_parse(uint8_t* bytes, size_t size);
@@ -184,7 +184,7 @@ d_model d_model_load(char* path);
 void d_model_gen_bbox(d_model* model);
 void d_model_free(d_model* model);
 
-void d_gfx_clear();
+void d_gfx_clear(void);
 void d_gfx_set_blend(d_blend b);
 void d_gfx_set_wrap(d_wrap w);
 void d_gfx_draw_pixel(int x, int y, int z, color c);
@@ -192,7 +192,7 @@ void d_gfx_blit_pixel(int x, int y, color c);
 color d_gfx_get(int x, int y);
 void d_blit_img(d_img* img, vec2 pos);
 void d_blit_text(char* text, vec2 pos, color c, bool bold, bool italic);
-void d_blit_bg();
+void d_blit_bg(void);
 void d_blit_rect(vec2 p1, vec2 p2, color c);
 void d_blit_circle(vec2 center, float r, color c);
 void d_blit_line(vec2 p1, vec2 p2, color c);
@@ -206,8 +206,8 @@ void d_draw_line3(vec3 p1, vec3 p2, color c);
 void d_draw_mesh(d_mesh* mesh, d_img* tex);
 void d_draw_model(d_model* model);
 void d_draw_bbox(box bbox, color c);
-void d_gfx_t_push();
-void d_gfx_t_pop();
+void d_gfx_t_push(void);
+void d_gfx_t_pop(void);
 void d_gfx_t_use(mat4 m);
 void d_gfx_t_move(vec2 p);
 void d_gfx_t_move3(vec3 p);
@@ -219,14 +219,14 @@ void d_gfx_t_rot_z(float a);
 vec2 d_gfx_t_apply_vec2(vec2 p);
 vec3 d_gfx_t_apply_vec3(vec3 p);
 void d_gfx_drawon(d_img* img);
-d_img* d_gfx_canvas();
+d_img* d_gfx_canvas(void);
 void d_gfx_set_shader(d_gfx_shader func);
 void d_gfx_set_backface_cull(bool b);
 void d_gfx_set_depth_test(bool b);
 void d_gfx_set_bbuf_write(bool b);
 void d_gfx_set_bbuf_test(bool b);
 bool d_gfx_bbuf_get(int x, int y);
-void d_gfx_bbuf_clear();
+void d_gfx_bbuf_clear(void);
 
 #endif // #ifndef D_GFX_H
 
@@ -391,7 +391,7 @@ void d_gfx_init(d_gfx_desc desc) {
 
 #ifdef D_APP_H
 
-vec2 d_gfx_mouse_pos() {
+vec2 d_gfx_mouse_pos(void) {
 	vec2 mpos = d_app_mouse_pos();
 	return vec2f(
 		mpos.x * d_gfx_width() / d_app_width(),
@@ -399,7 +399,7 @@ vec2 d_gfx_mouse_pos() {
 	);
 }
 
-vec2 d_gfx_mouse_dpos() {
+vec2 d_gfx_mouse_dpos(void) {
 	vec2 mdpos = d_app_mouse_dpos();
 	return vec2f(
 		mdpos.x * d_gfx_width() / d_app_width(),
@@ -407,7 +407,7 @@ vec2 d_gfx_mouse_dpos() {
 	);
 }
 
-void d_gfx_present() {
+void d_gfx_present(void) {
 	d_img* c = d_gfx.cur_canvas;
 	d_app_present(c->width, c->height, c->pixels);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
@@ -415,11 +415,11 @@ void d_gfx_present() {
 
 #endif // #ifdef D_APP_H
 
-int d_gfx_width() {
+int d_gfx_width(void) {
 	return d_gfx.cur_canvas->width;
 }
 
-int d_gfx_height() {
+int d_gfx_height(void) {
 	return d_gfx.cur_canvas->height;
 }
 
@@ -517,7 +517,7 @@ d_img d_img_new(int w, int h) {
 	};
 }
 
-d_img d_img_empty() {
+d_img d_img_empty(void) {
 	return (d_img) {
 		.width = 0,
 		.height = 0,
@@ -639,7 +639,7 @@ d_font d_font_parse(uint8_t* bytes) {
 
 }
 
-d_font d_font_empty() {
+d_font d_font_empty(void) {
 	return (d_font) {
 		.gw = 0,
 		.gh = 0,
@@ -667,12 +667,12 @@ void d_font_free(d_font* f) {
 	memset(f, 0, sizeof(d_font));
 }
 
-void d_gfx_clear() {
+void d_gfx_clear(void) {
 	d_img_fill(d_gfx.cur_canvas, d_gfx.clear_color);
 	d_ibuf_clear(&d_gfx.depth_buf, -INT_MAX);
 }
 
-void d_gfx_bbuf_clear() {
+void d_gfx_bbuf_clear(void) {
 	d_bbuf_clear(&d_gfx.bbuf, false);
 }
 
@@ -795,7 +795,7 @@ void d_blit_img(d_img* img, vec2 pos) {
 	}
 }
 
-void d_blit_bg() {
+void d_blit_bg(void) {
 	color c1 = colori(128, 128, 128, 255);
 	color c2 = colori(191, 191, 191, 255);
 	int s = 32;
@@ -1164,7 +1164,7 @@ void d_draw_line2(vec2 p1, vec2 p2, int w, color c) {
 	);
 }
 
-void d_gfx_t_push() {
+void d_gfx_t_push(void) {
 	if (d_gfx.tstack_len >= D_MAX_TSTACK) {
 		fprintf(stderr, "tstack overflow\n");
 		return;
@@ -1172,7 +1172,7 @@ void d_gfx_t_push() {
 	d_gfx.tstack[d_gfx.tstack_len++] = d_gfx.t;
 }
 
-void d_gfx_t_pop() {
+void d_gfx_t_pop(void) {
 	if (d_gfx.tstack_len <= 0) {
 		fprintf(stderr, "tstack underflow\n");
 		return;
@@ -1325,7 +1325,7 @@ void d_gfx_drawon(d_img* img) {
 	}
 }
 
-d_img* d_gfx_canvas() {
+d_img* d_gfx_canvas(void) {
 	return d_gfx.cur_canvas;
 }
 
@@ -1407,7 +1407,7 @@ static void d_free_model_node(d_model_node* node) {
 	memset(node, 0, sizeof(d_model_node));
 }
 
-static d_model d_model_empty() {
+static d_model d_model_empty(void) {
 	return (d_model) {
 		.nodes = malloc(0),
 		.num_nodes = 0,

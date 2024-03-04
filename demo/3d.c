@@ -44,7 +44,7 @@ model models[NUM_MODELS];
 vec3 rot;
 bool show_bbox;
 
-void init() {
+void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
@@ -82,7 +82,7 @@ void init() {
 
 }
 
-void frame() {
+void frame(void) {
 
 	if (d_app_key_pressed(D_KEY_ESC)) {
 		d_app_quit();
@@ -128,7 +128,7 @@ void frame() {
 
 }
 
-int main() {
+int main(void) {
 	d_app_run((d_app_desc) {
 		.title = "3d",
 		.init = init,

@@ -625,7 +625,7 @@ typedef struct {
 } dt_parse_rule;
 
 // vm creation / destruction
-dt_vm     dt_vm_new    ();
+dt_vm     dt_vm_new    (void);
 void      dt_vm_free   (dt_vm* vm);
 
 // running code
@@ -2754,7 +2754,7 @@ dt_str* dt_val_to_str(dt_vm* vm, dt_val val) {
 	}
 }
 
-dt_chunk dt_chunk_new() {
+dt_chunk dt_chunk_new(void) {
 	return (dt_chunk) {
 		.cnt = 0,
 		.cap = 0,
@@ -2966,7 +2966,7 @@ int dt_chunk_add_const(dt_chunk* c, dt_val val) {
 	return c->consts->len - 1;
 }
 
-dt_vm dt_vm_new() {
+dt_vm dt_vm_new(void) {
 	dt_vm vm = (dt_vm) {
 		.func = NULL,
 		.ip = NULL,
@@ -4691,7 +4691,7 @@ dt_token dt_scanner_scan(dt_scanner* s) {
 
 }
 
-dt_funcenv dt_funcenv_new() {
+dt_funcenv dt_funcenv_new(void) {
 	return (dt_funcenv) {
 		.parent = NULL,
 		.chunk = dt_chunk_new(),
@@ -4882,7 +4882,7 @@ dt_type dt_c_arr(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_LBRACKET);
 
 	int len = 0;
-	dt_type inner = DT_TYPE_NIL;
+	// dt_type inner = DT_TYPE_NIL;
 
 	while (dt_c_peek(c) != DT_TOKEN_RBRACKET) {
 		if (dt_c_match(c, DT_TOKEN_DOT_DOT)) {
@@ -4899,7 +4899,7 @@ dt_type dt_c_arr(dt_compiler* c) {
 // 					dt_typename(t.type)
 // 				);
 // 			}
-			inner = t;
+			// inner = t;
 			len++;
 			dt_c_match(c, DT_TOKEN_COMMA);
 		}
@@ -4920,7 +4920,7 @@ dt_type dt_c_map(dt_compiler* c) {
 	dt_c_consume(c, DT_TOKEN_LBRACE);
 
 	int len = 0;
-	dt_type inner = DT_TYPE_NIL;
+	// dt_type inner = DT_TYPE_NIL;
 
 	while (dt_c_peek(c) != DT_TOKEN_RBRACE) {
 		if (dt_c_peek(c) == DT_TOKEN_IDENT) {
@@ -4940,7 +4940,7 @@ dt_type dt_c_map(dt_compiler* c) {
 // 				dt_typename(t.type)
 // 			);
 // 		}
-		inner = t;
+		// inner = t;
 		len++;
 		dt_c_match(c, DT_TOKEN_COMMA);
 	}
@@ -5166,16 +5166,16 @@ dt_type dt_c_cond_inner(dt_compiler* c) {
 	if (dt_c_match(c, DT_TOKEN_OR)) {
 
 		int pos = dt_c_emit_jmp_empty(c, DT_OP_JMP);
-		dt_type type2 = DT_TYPE_NIL;
+		// dt_type type2 = DT_TYPE_NIL;
 
 		if (dt_c_peek(c) == DT_TOKEN_LPAREN) {
-			type2 = dt_c_cond_inner(c);
+			// type2 = dt_c_cond_inner(c);
 		} else {
 			if (dt_c_peek(c) == DT_TOKEN_LBRACE) {
 				dt_c_block(c, DT_BLOCK_COND);
 				dt_c_emit(c, DT_OP_NIL);
 			} else {
-				type2 = dt_c_expr(c);
+				// type2 = dt_c_expr(c);
 			}
 		}
 
@@ -7017,6 +7017,8 @@ dt_val dt_f_fs_readdir(dt_vm* vm) {
 			dt_arr_push(vm, list, dt_to_str(dt_str_new(vm, entry->d_name)));
 		}
 	}
+
+	closedir(dir);
 
 	return dt_to_arr(list);
 

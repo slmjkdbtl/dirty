@@ -7,7 +7,7 @@
 
 d_img img;
 
-void init() {
+void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = 240,
 		.height = 240,
@@ -16,7 +16,7 @@ void init() {
 	img = d_img_new(d_gfx_width(), d_gfx_height());
 }
 
-void frame() {
+void frame(void) {
 
 	if (d_app_key_pressed(D_KEY_ESC)) {
 		d_app_quit();
@@ -42,7 +42,7 @@ void frame() {
 
 }
 
-int main() {
+int main(void) {
 	d_app_run((d_app_desc) {
 		.title = "shader",
 		.init = init,

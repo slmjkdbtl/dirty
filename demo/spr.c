@@ -7,7 +7,7 @@
 #include <d_spr.h>
 #include <d_fs.h>
 
-int main() {
+int main(void) {
 	size_t size;
 	size_t png_size;
 	uint8_t* png_bytes = d_read_bytes("proggy_7x13.png", &png_size);
