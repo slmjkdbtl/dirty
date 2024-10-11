@@ -124,7 +124,7 @@ default: run
 run: $(BIN_PATH)/$(DEMO)
 ifeq ($(TARGET),web)
 	cd $(BIN_PATH); \
-		PORT=8000 fserv
+		python3 -m http.server 8000
 else ifeq ($(TARGET),iossim)
 	$(MAKE) bundle
 	xcrun simctl boot $(SIMULATOR)
@@ -166,8 +166,8 @@ else ifeq ($(TARGET),ios)
 	cp $< $<.app/
 	cp -r $(BIN_PATH)/res $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
-# 	cp $(PROFILE) $<.app/embedded.mobileprovision
-# 	codesign -s "$(CODESIGN)" $<.app
+	# cp $(PROFILE) $<.app/embedded.mobileprovision
+	# codesign -s "$(CODESIGN)" $<.app
 endif
 
 $(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h

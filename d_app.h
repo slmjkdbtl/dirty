@@ -465,7 +465,7 @@ static const char* fs_src =
 "}"
 ;
 
-static void d_gl_init() {
+static void d_gl_init(void) {
 
 	// program
 	GLchar info_log[512];
@@ -615,7 +615,7 @@ static char* shader_src =
 "}"
 ;
 
-static void d_mtl_init() {
+static void d_mtl_init(void) {
 
 	id<MTLDevice> dev = MTLCreateSystemDefaultDevice();
 	id<MTLCommandQueue> queue = [dev newCommandQueue];
@@ -839,6 +839,9 @@ void d_cocoa_present(int w, int h, color* buf) {
 @implementation DAppDelegate
 - (void)applicationDidFinishLaunching:(NSNotification*)noti {
 
+	DView* view = [[DView alloc] init];
+	d_app.view = view;
+
 	NSWindow* window = [[NSWindow alloc]
 		initWithContentRect:NSMakeRect(0, 0, d_app.width, d_app.height)
 		styleMask:
@@ -858,13 +861,15 @@ void d_cocoa_present(int w, int h, color* buf) {
 	}
 
 	[window setAcceptsMouseMovedEvents:YES];
+	[window setRestorable:YES];
 	[window center];
 	[window setDelegate:[[DWindowDelegate alloc] init]];
-	DView* view = [[DView alloc] init];
-	d_app.view = view;
 	[window setContentView:view];
 	[window makeFirstResponder:view];
 	[window makeKeyAndOrderFront:nil];
+
+	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+	[NSApp activateIgnoringOtherApps:YES];
 
 #if defined(D_GL)
 
@@ -982,8 +987,6 @@ void d_cocoa_present(int w, int h, color* buf) {
 static void d_cocoa_run(d_app_desc* desc) {
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:[[DAppDelegate alloc] init]];
-	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-	[NSApp activateIgnoringOtherApps:YES];
 	[NSApp run];
 }
 
@@ -1664,11 +1667,11 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_key_release(char* key, int loc) {
 	d_app.key_states[k] = D_BTN_RELEASED;
 }
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_press() {
+EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_press(void) {
 	d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_PRESSED;
 }
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_release() {
+EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_release(void) {
 	d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_RELEASED;
 }
 
@@ -1688,7 +1691,7 @@ EM_JS(void, d_js_set_fullscreen, (bool b), {
 	}
 })
 
-EM_JS(bool, d_js_fullscreen, (), {
+EM_JS(bool, d_js_fullscreen, (void), {
 	return dirty.fullscreen;
 })
 
@@ -1763,7 +1766,7 @@ EM_JS(void, d_js_canvas_init, (char* root, int w, int h), {
 
 })
 
-EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame() {
+EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame(void) {
 	d_app_frame();
 }
 
@@ -1783,7 +1786,7 @@ EM_JS(void, d_canvas_present, (int w, int h, color* buf), {
 
 })
 
-EM_JS(void, d_js_run_loop, (), {
+EM_JS(void, d_js_run_loop, (void), {
 
 	function frame() {
 		_d_cjs_app_frame();
@@ -1796,6 +1799,7 @@ EM_JS(void, d_js_run_loop, (), {
 
 static void d_canvas_run(d_app_desc* desc) {
 	d_js_canvas_init(desc->canvas_root, d_app.width, d_app.height);
+	d_js_set_title(desc->title);
 	d_app_init();
 	d_js_run_loop();
 }
