@@ -1,5 +1,3 @@
-# wengwengweng
-
 # setting default targets
 ifeq ($(OS),Windows_NT)
 TARGET := windows
@@ -135,7 +133,8 @@ else ifeq ($(TARGET),ios)
 	$(MAKE) bundle
 # 	ios-deploy --debug --bundle $<.app
 else
-	./$< $(ARGS)
+	cd $(BIN_PATH); \
+		./$(DEMO) $(ARGS)
 endif
 
 .PHONY: debug

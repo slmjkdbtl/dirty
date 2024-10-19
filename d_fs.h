@@ -14,7 +14,7 @@ bool        d_is_file(char* path);
 bool        d_is_dir(char* path);
 char*       d_extname(char* path);
 char*       d_basename(char* path);
-const char* d_res_dir(void);
+char*       d_res_dir(void);
 char*       d_res_path(char* path);
 char*       d_data_dir(void);
 
@@ -113,15 +113,6 @@ char* d_basename(char* path) {
 	return buf;
 }
 
-const char* d_res_dir(void) {
-#if defined(__APPLE__)
-	@autoreleasepool {
-		return [[[NSBundle mainBundle] resourcePath] UTF8String];
-	}
-#endif
-	return "";
-}
-
 char* d_fmt(char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
@@ -134,13 +125,25 @@ char* d_fmt(char* fmt, ...) {
 	return buf;
 }
 
-char* d_res_path(char* path) {
-	const char* res_dir = d_res_dir();
-	if (res_dir[0] == '\0') {
-		return d_fmt("%s", path);
-	} else {
-		return d_fmt("%s/%s", res_dir, path);
+char* d_res_dir(void) {
+#if defined(__APPLE__)
+	@autoreleasepool {
+		return strdup([[[NSBundle mainBundle] resourcePath] UTF8String]);
 	}
+#endif
+	return strdup("");
+}
+
+char* d_res_path(char* path) {
+	char* res_dir = d_res_dir();
+	char* rpath;
+	if (res_dir[0] == '\0') {
+		rpath = d_fmt("%s", path);
+	} else {
+		rpath = d_fmt("%s/%s", res_dir, path);
+	}
+	free(res_dir);
+	return rpath;
 }
 
 char* d_data_dir(void) {
