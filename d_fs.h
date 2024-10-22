@@ -1,9 +1,8 @@
 #ifndef D_FS_H
 #define D_FS_H
 
-#include <stdint.h>
-#include <stdbool.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 char*       d_read_text(char* path, size_t* osize);
 uint8_t*    d_read_bytes(char* path, size_t* osize);
@@ -128,10 +127,10 @@ char* d_fmt(char* fmt, ...) {
 char* d_res_dir(void) {
 #if defined(__APPLE__)
 	@autoreleasepool {
-		return strdup([[[NSBundle mainBundle] resourcePath] UTF8String]);
+		return d_fmt("%s", [[[NSBundle mainBundle] resourcePath] UTF8String]);
 	}
 #endif
-	return strdup("");
+	return d_fmt("");
 }
 
 char* d_res_path(char* path) {

@@ -1,0 +1,8 @@
+-Wall
+-Werror
+-pedantic
+-std=c99
+-I.
+-Iext
+-Wno-unused-function
+-Wno-unused-variable

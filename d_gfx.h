@@ -1,8 +1,10 @@
+// TODO: QOI image
+
 #ifndef D_GFX_H
 #define D_GFX_H
 
 #ifndef D_MATH_H
-#error 'd_gfx.h' requires 'd_math.h'
+#include "d_math.h"
 #endif
 
 typedef struct d_gfx_desc {

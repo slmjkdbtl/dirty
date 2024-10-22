@@ -19,6 +19,8 @@
 #ifndef D_FNT_H
 #define D_FNT_H
 
+#include <stdlib.h>
+
 void d_fnt_decode_to_png(uint8_t* bytes, char* path);
 
 uint8_t* d_fnt_encode_from_png(

@@ -1,5 +1,9 @@
+// TODO: QOI audio
+
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
+
+#include <stdlib.h>
 
 typedef struct {
 	float (*stream)(void);
@@ -92,14 +96,16 @@ float d_wav_noise(float freq, float t);
 #include <limits.h>
 #include <math.h>
 
-#if defined(D_MACOS) || defined(D_IOS)
+#if defined(__APPLE__)
 	#define D_COREAUDIO
-#elif defined(D_LINUX)
-	#define D_ALSA
-#elif defined(D_ANDROID)
-	#define D_AAUDIO
-#elif defined(D_WEB)
+#elif defined(__EMSCRIPTEN__)
 	#define D_WEBAUDIO
+#elif defined(_WIN32) || defined(_WIN64)
+	#define D_WASAPI
+#elif defined(__ANDROID__)
+	#define D_AAUDIO
+#elif defined(__linux__) || defined(__unix__)
+	#define D_ALSA
 #endif
 
 #if defined(D_COREAUDIO)
@@ -310,8 +316,8 @@ static void d_webaudio_init() {
 #if defined(D_ALSA)
 
 static void d_alsa_init() {
-// 	snd_pcm_t* dev = NULL;
-// 	snd_pcm_open(dev, "default", SND_PCM_STREAM_PLAYBACK, 0);
+	// snd_pcm_t* dev = NULL;
+	// snd_pcm_open(dev, "default", SND_PCM_STREAM_PLAYBACK, 0);
 	// TODO
 }
 

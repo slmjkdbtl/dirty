@@ -311,7 +311,7 @@ typedef struct dt_cdata {
 // upvalue (runtime)
 // - captured: already allocated to the heap
 // - not captured: points to a stack slot, must lift when it gets popped
-typedef struct {
+typedef struct dt_upval {
 	DT_HEAPER_STRUCT
 	bool    captured;
 	dt_val* val;
@@ -675,11 +675,11 @@ dt_bool   dt_as_bool     (dt_vm* vm, dt_val v);
 dt_bool   dt_as_bool_or  (dt_vm* vm, dt_val v, dt_bool b);
 dt_range  dt_as_range    (dt_vm* vm, dt_val v);
 dt_str*   dt_as_str      (dt_vm* vm, dt_val v);
-dt_str*   dt_as_str_or   (dt_vm* vm, dt_val v, dt_str* new);
+dt_str*   dt_as_str_or   (dt_vm* vm, dt_val v, dt_str* s);
 dt_arr*   dt_as_arr      (dt_vm* vm, dt_val v);
-dt_arr*   dt_as_arr_or   (dt_vm* vm, dt_val v, dt_arr* new);
+dt_arr*   dt_as_arr_or   (dt_vm* vm, dt_val v, dt_arr* s);
 dt_map*   dt_as_map      (dt_vm* vm, dt_val v);
-dt_map*   dt_as_map_or   (dt_vm* vm, dt_val v, dt_map* new);
+dt_map*   dt_as_map_or   (dt_vm* vm, dt_val v, dt_map* s);
 dt_func*  dt_as_func     (dt_vm* vm, dt_val v);
 dt_cfunc* dt_as_cfunc    (dt_vm* vm, dt_val v);
 dt_num    dt_as_num2     (dt_val v);
@@ -729,7 +729,7 @@ void     dt_str_hash     (dt_str* str);
 char*    dt_str_cstr     (dt_str* str);
 bool     dt_str_eq       (dt_str* a, dt_str* b);
 dt_str*  dt_str_concat   (dt_vm* vm, dt_str* a, dt_str* b);
-dt_str*  dt_str_replace  (dt_vm* vm, dt_str* src, dt_str* old, dt_str* new);
+dt_str*  dt_str_replace  (dt_vm* vm, dt_str* src, dt_str* from, dt_str* to);
 dt_arr*  dt_str_chars    (dt_vm* vm, dt_str* src);
 dt_arr*  dt_str_split    (dt_vm* vm, dt_str* str, dt_str* sep);
 dt_str*  dt_str_rep      (dt_vm* vm, dt_str* str, int times);

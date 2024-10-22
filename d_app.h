@@ -3,12 +3,25 @@
 #ifndef D_APP_H
 #define D_APP_H
 
-#ifndef D_PLAT_H
-#error 'd_app.h' requires 'd_plat.h'
+#if defined(__APPLE__)
+	#include <TargetConditionals.h>
+	#if TARGET_OS_OSX
+		#define D_MACOS
+	#elif TARGET_OS_IOS
+		#define D_IOS
+	#endif
+#elif defined(__EMSCRIPTEN__)
+	#define D_WEB
+#elif defined(_WIN32) || defined(_WIN64)
+	#define D_WINDOWS
+#elif defined(__ANDROID__)
+	#define D_ANDROID
+#elif defined(__linux__) || defined(__unix__)
+	#define D_LINUX
 #endif
 
 #ifndef D_MATH_H
-#error 'd_app.h' requires 'd_math.h'
+#include "d_math.h"
 #endif
 
 #include <stdbool.h>
@@ -2065,5 +2078,5 @@ void d_app_present(int w, int h, color* buf) {
 #endif
 }
 
-#endif
-#endif
+#endif // #ifndef D_APP_IMPL_ONCE
+#endif // #ifdef D_APP_IMPL

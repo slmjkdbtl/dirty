@@ -2,7 +2,7 @@
 #define D_COL_H
 
 #ifndef D_MATH_H
-#error 'd_col.h' requires 'd_math.h'
+#include "d_math.h"
 #endif
 
 bool d_col_pt_rect(vec2 pt, rect r);
