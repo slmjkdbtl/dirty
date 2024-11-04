@@ -4,7 +4,6 @@
 #include <cgltf.h>
 
 #define D_IMPL
-#define D_TERM
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_fs.h>

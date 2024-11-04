@@ -209,7 +209,7 @@ vec2 d_app_touch_dpos(d_touch t);
 #include <sys/time.h>
 
 #if !defined(D_CPU) && !defined(D_GL) && !defined(D_METAL) && !defined(D_TERM)
-	#error "must define a present method (D_CPU, D_GL, D_METAL, D_TERM)"
+	#define D_CPU
 #endif
 
 #if defined(D_METAL) && !defined(D_MACOS) && !defined(D_IOS)
@@ -1161,7 +1161,9 @@ void d_uikit_present(int w, int h, color* buf) {
 @end
 
 static void d_uikit_run(d_app_desc* desc) {
-	UIApplicationMain(0, nil, nil, NSStringFromClass([DAppDelegate class]));
+	static int argc = 1;
+	static char* argv[] = { (char*)"dirty" };
+	UIApplicationMain(argc, argv, nil, NSStringFromClass([DAppDelegate class]));
 }
 
 #endif // D_UIKIT
