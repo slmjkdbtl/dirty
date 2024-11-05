@@ -48,7 +48,7 @@ void frame(void) {
 	d_blit_bg();
 
 	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(WIDTH / 2, HEIGHT / 2, 0));
+	d_gfx_t_move3(vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
 	d_gfx_t_rot_y(d_app_time());
 	d_gfx_t_rot_z(d_app_time() / 2);
 	d_gfx_t_scale3(vec3f(3, -3, 3));

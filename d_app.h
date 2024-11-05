@@ -219,6 +219,7 @@ vec2 d_app_touch_dpos(d_touch t);
 #if \
 	!defined(D_COCOA) && \
 	!defined(D_UIKIT) && \
+	!defined(D_WIN32) && \
 	!defined(D_X11) && \
 	!defined(D_CANVAS) && \
 	!defined(D_TERM)
@@ -226,6 +227,8 @@ vec2 d_app_touch_dpos(d_touch t);
 		#define D_COCOA
 	#elif defined(D_IOS)
 		#define D_UIKIT
+	#elif defined(D_WINDOWS)
+		#define D_WIN32
 	#elif defined(D_LINUX)
 		#define D_X11
 	#elif defined(D_WEB)
@@ -385,12 +388,6 @@ static void process_btn(d_btn_state* b) {
 		*b = D_BTN_DOWN;
 	} else if (*b == D_BTN_RELEASED) {
 		*b = D_BTN_IDLE;
-	}
-}
-
-static void d_app_init(void) {
-	if (d_app.desc.init) {
-		d_app.desc.init();
 	}
 }
 
@@ -905,8 +902,6 @@ void d_cocoa_present(int w, int h, color* buf) {
 	d_mtl_init();
 #endif
 
-	d_app_init();
-
 	if (d_app.desc.fullscreen) {
 		d_app_set_fullscreen(true);
 	}
@@ -1142,8 +1137,6 @@ void d_uikit_present(int w, int h, color* buf) {
 	d_mtl_init();
 #endif
 
-	d_app_init();
-
 	[NSTimer
 		scheduledTimerWithTimeInterval:0.001
 		target:self
@@ -1187,11 +1180,11 @@ static void d_term_cleanup(void) {
 	printf("\x1b[?25h");
 	// reset color
 	printf("\x1b[0m");
-	exit(EXIT_SUCCESS);
 }
 
 static void d_term_signal(int sig) {
 	d_term_cleanup();
+	exit(EXIT_SUCCESS);
 }
 
 static d_key d_term_key(char* c, int size) {
@@ -1296,8 +1289,6 @@ static void d_term_run(d_app_desc* desc) {
 		.fd = STDIN_FILENO,
 		.events = POLLIN,
 	};
-
-	d_app_init();
 
 	while (!d_app.quit) {
 
@@ -1498,8 +1489,6 @@ static void d_x11_run(d_app_desc* desc) {
 	d_app.gc = gc;
 
 #endif
-
-	d_app_init();
 
 	while (!d_app.quit) {
 
@@ -1747,7 +1736,12 @@ EM_JS(void, d_js_canvas_init, (char* root, int w, int h), {
 
 	document.addEventListener("mousemove", (e) => {
 		const rect = canvas.getBoundingClientRect();
-		_d_cjs_set_mouse_pos(e.pageX - rect.left, e.pageY - rect.top);
+		ccall(
+			"d_cjs_set_mouse_pos",
+			"void",
+			[ "number", "number" ],
+			[ e.pageX - rect.left, e.pageY - rect.top ]
+		);
 	});
 
 	document.addEventListener("keydown", (e) => {
@@ -1755,28 +1749,28 @@ EM_JS(void, d_js_canvas_init, (char* root, int w, int h), {
 			e.preventDefault();
 		}
 		ccall(
-			'd_cjs_key_press',
-			'void',
-			[ 'string', 'number', 'bool' ],
+			"d_cjs_key_press",
+			"void",
+			[ "string", "number", "bool" ],
 			[ e.key, e.location, e.repeat ]
 		);
 	});
 
 	document.addEventListener("keyup", (e) => {
 		ccall(
-			'd_cjs_key_release',
-			'void',
-			[ 'string', 'number' ],
+			"d_cjs_key_release",
+			"void",
+			[ "string", "number" ],
 			[ e.key, e.location ]
 		);
 	});
 
 	document.addEventListener("mousedown", (e) => {
-		_d_cjs_mouse_press();
+		ccall("d_cjs_mouse_press", "void");
 	});
 
 	document.addEventListener("mouseup", (e) => {
-		_d_cjs_mouse_release();
+		ccall("d_cjs_mouse_release", "void");
 	});
 
 })
@@ -1791,7 +1785,12 @@ EM_JS(void, d_canvas_present, (int w, int h, color* buf), {
 	const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
 	const img = new ImageData(pixels, w, h);
 
-	_d_cjs_set_size(canvas.width, canvas.height);
+	ccall(
+		"d_cjs_set_size",
+		"void",
+		[ "number", "number" ],
+		[ canvas.width, canvas.height ]
+	);
 
 	const ctx = canvas.getContext("2d");
 
@@ -1802,20 +1801,16 @@ EM_JS(void, d_canvas_present, (int w, int h, color* buf), {
 })
 
 EM_JS(void, d_js_run_loop, (void), {
-
 	function frame() {
-		_d_cjs_app_frame();
+		ccall("d_cjs_app_frame", "void");
 		requestAnimationFrame(frame);
 	}
-
 	requestAnimationFrame(frame);
-
 })
 
 static void d_canvas_run(d_app_desc* desc) {
 	d_js_canvas_init(desc->canvas_root, d_app.width, d_app.height);
 	d_js_set_title(desc->title);
-	d_app_init();
 	d_js_run_loop();
 }
 
@@ -1830,6 +1825,10 @@ void d_app_run(d_app_desc desc) {
 	d_app.height = d_app.height;
 	d_app.scale_mode = D_SCALEMODE_STRETCH;
 	gettimeofday(&d_app.start_time, NULL);
+
+	if (d_app.desc.init) {
+		d_app.desc.init();
+	}
 
 #if defined(D_COCOA)
 	d_cocoa_run(&desc);

@@ -1,9 +1,11 @@
 // TODO: QOI audio
+// TODO: 2 channels
 
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 typedef struct {
 	float (*stream)(void);
@@ -15,13 +17,13 @@ typedef struct {
 	int num_frames;
 } d_sound;
 
-// sound play config
+// sound play options
 typedef struct {
 	bool loop;
 	float volume;
 	bool paused;
 	float time;
-} d_play_conf;
+} d_play_opts;
 
 // sound playback control handle
 typedef struct {
@@ -49,10 +51,11 @@ typedef struct {
 } d_voice;
 
 void d_audio_init(d_audio_desc);
+void d_audio_cleanup(void);
 
 // SOUND
 d_sound d_sound_new(short* frames, int num_frames);
-d_sound d_sound_parse(uint8_t* bytes);
+d_sound d_sound_parse(uint8_t* bytes, size_t size);
 #ifdef D_FS_H
 d_sound d_sound_load(char* path);
 #endif
@@ -61,7 +64,7 @@ float d_sound_len(d_sound* snd);
 void d_sound_free(d_sound* sound);
 // play a sound, returning a handle for control
 d_playback* d_play(d_sound* sound);
-d_playback* d_play_ex(d_sound* sound, d_play_conf conf);
+d_playback* d_play_ex(d_sound* sound, d_play_opts opts);
 void d_playback_seek(d_playback* pb, float time);
 float d_playback_time(d_playback* pb);
 
@@ -118,7 +121,7 @@ float d_wav_noise(float freq, float t);
 #define D_SAMPLE_RATE 44100
 #define D_NUM_CHANNELS 1
 #define D_BUFFER_FRAMES 1024
-#define D_MAX_PLAYBACKS 256
+#define D_MAX_PLAYBACKS 1024
 #define D_A4_FREQ 440
 #define D_A4_NOTE 69
 #define D_SYNTH_NOTES 128
@@ -140,6 +143,7 @@ d_synth d_synth_new(void);
 float d_synth_next(void);
 
 typedef struct {
+	AudioQueueRef queue;
 	d_playback playbacks[D_MAX_PLAYBACKS];
 	int num_playbacks;
 	float volume;
@@ -153,6 +157,7 @@ static float d_audio_next(void) {
 
 	float frame = 0.0;
 
+	// TODO: remove done playbacks
 	for (int j = 0; j < d_audio.num_playbacks; j++) {
 
 		d_playback* p = &d_audio.playbacks[j];
@@ -250,6 +255,8 @@ static void d_ca_init(void) {
 
 	AudioQueueStart(queue, NULL);
 
+	d_audio.queue = queue;
+
 }
 
 #endif // D_COREAUDIO
@@ -336,13 +343,10 @@ void d_audio_init(d_audio_desc desc) {
 #endif
 }
 
-#define D_SND_HEADER_SIZE \
-	sizeof(uint32_t) \
-
-typedef struct {
-	uint32_t num_frames;
-	int16_t* frames;
-} d_snd_bin;
+void d_audio_cleanup(void) {
+	AudioQueueStop(d_audio.queue, true);
+	AudioQueueDispose(d_audio.queue, true);
+}
 
 d_sound d_sound_new(short* frames, int num_frames) {
 	int size = sizeof(short) * num_frames;
@@ -354,25 +358,46 @@ d_sound d_sound_new(short* frames, int num_frames) {
 	};
 }
 
-d_sound d_sound_parse(uint8_t* bytes) {
-
-	d_snd_bin* data = (d_snd_bin*)bytes;
-	int size = sizeof(int16_t) * data->num_frames;
-	int16_t* frames = malloc(size);
-	memcpy(frames, (int16_t*)(bytes + D_SND_HEADER_SIZE), size);
-
-	return (d_sound) {
-		.frames = frames,
-		.num_frames = data->num_frames,
-	};
-
-}
-
 d_sound d_sound_empty(void) {
 	return (d_sound) {
 		.num_frames = 0,
 		.frames = malloc(0),
 	};
+}
+
+static uint8_t ogg_sig[] = { 0x4f, 0x67, 0x67, 0x53 };
+static uint8_t wav_sig[] = { 0x52, 0x49, 0x46, 0x46 };
+
+d_sound d_sound_parse(uint8_t* bytes, size_t size) {
+	if (memcmp(bytes, ogg_sig, sizeof(ogg_sig)) == 0) {
+#ifdef STB_VORBIS_IMPLEMENTATION
+		d_sound snd = d_sound_empty();
+		int channels, sample_rate;
+		short *output;
+		snd.num_frames = stb_vorbis_decode_memory(
+			bytes,
+			size,
+			&channels,
+			&sample_rate,
+			&snd.frames
+		);
+		if (sample_rate != D_SAMPLE_RATE) {
+			// TODO: convert sample rate and channels
+		}
+		if (snd.num_frames < 0) {
+			fprintf(stderr, "failed to decode\n");
+			d_sound_free(&snd);
+			return d_sound_empty();
+		}
+		return snd;
+#else
+		fprintf(stderr, "ogg support requires 'stb_vorbis.c' and STB_VORBIS_IMPLEMENTATION flag\n");
+		return d_sound_empty();
+#endif // #ifdef STB_VORBIS_IMPLEMENTATION
+	} else {
+		fprintf(stderr, "unsupported audio format\n");
+		return d_sound_empty();
+	}
 }
 
 #ifdef D_FS_H
@@ -383,7 +408,7 @@ d_sound d_sound_load(char* path) {
 		fprintf(stderr, "failed to load sound from '%s'\n", path);
 		return d_sound_empty();
 	}
-	d_sound snd = d_sound_parse(bytes);
+	d_sound snd = d_sound_parse(bytes, size);
 	free(bytes);
 	return snd;
 }
@@ -404,37 +429,25 @@ void d_sound_free(d_sound* snd) {
 }
 
 d_playback* d_play(d_sound* snd) {
-	return d_play_ex(snd, (d_play_conf) {
+	return d_play_ex(snd, (d_play_opts) {
 		.loop = false,
 		.paused = false,
 		.volume = 1.0,
 	});
 }
 
-d_playback* d_play_ex(d_sound* snd, d_play_conf conf) {
-
-	int pos = clampi((int)(conf.time * D_SAMPLE_RATE), 0, snd->num_frames - 1);
-
+d_playback* d_play_ex(d_sound* snd, d_play_opts opts) {
+	int pos = clampi((int)(opts.time * D_SAMPLE_RATE), 0, snd->num_frames - 1);
 	d_playback src = (d_playback) {
 		.src = snd,
 		.pos = pos,
-		.loop = conf.loop,
-		.paused = conf.paused,
-		.volume = conf.volume,
+		.loop = opts.loop,
+		.paused = opts.paused,
+		.volume = opts.volume,
 		.done = false,
 	};
-
-	for (int i = 0; i < d_audio.num_playbacks; i++) {
-		if (d_audio.playbacks[i].done) {
-			d_audio.playbacks[i] = src;
-			return &d_audio.playbacks[i];
-		}
-	}
-
 	d_audio.playbacks[d_audio.num_playbacks] = src;
-
 	return &d_audio.playbacks[d_audio.num_playbacks++];
-
 }
 
 void d_playback_seek(d_playback* pb, float time) {

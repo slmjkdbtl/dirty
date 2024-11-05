@@ -2,7 +2,6 @@
 #include <stb_image.h>
 
 #define D_IMPL
-#define D_CPU
 #include <d_plat.h>
 #include <d_fs.h>
 #include <d_math.h>

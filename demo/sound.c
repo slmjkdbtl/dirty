@@ -1,3 +1,6 @@
+#define STB_VORBIS_IMPLEMENTATION
+#include <stb_vorbis.c>
+
 #define D_IMPL
 #include <d_plat.h>
 #include <d_fs.h>
@@ -6,7 +9,7 @@
 
 int main(void) {
 	d_audio_init((d_audio_desc) {0});
-	d_sound snd = d_sound_load(d_res_path("res/yo.dsnd"));
+	d_sound snd = d_sound_load(d_res_path("res/bark.ogg"));
 	d_play(&snd);
 	sleep(snd.num_frames / D_SAMPLE_RATE);
 }

@@ -62,7 +62,8 @@ CFLAGS += -arch x86_64
 endif
 
 ifeq ($(TARGET),web)
-CFLAGS += -s ALLOW_MEMORY_GROWTH=1
+CFLAGS += -s "ALLOW_MEMORY_GROWTH=1"
+CFLAGS += -s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']"
 endif
 
 ifeq ($(TARGET),macos)
@@ -124,6 +125,10 @@ ifeq ($(TARGET),web)
 	cd $(BIN_PATH); \
 		python3 -m http.server 8000
 else ifeq ($(TARGET),iossim)
+	@if [ -z "$(SIMULATOR)" ]; then \
+		echo "SIMULATOR not set"; \
+		exit 1; \
+	fi
 	$(MAKE) bundle
 	xcrun simctl boot $(SIMULATOR)
 	xcrun simctl install $(SIMULATOR) $<.app
@@ -131,7 +136,7 @@ else ifeq ($(TARGET),iossim)
 	xcrun simctl launch --console $(SIMULATOR) xyz.space55.$(DEMO)
 else ifeq ($(TARGET),ios)
 	$(MAKE) bundle
-# 	ios-deploy --debug --bundle $<.app
+	# ios-deploy --debug --bundle $<.app
 else
 	cd $(BIN_PATH); \
 		./$(DEMO) $(ARGS)
