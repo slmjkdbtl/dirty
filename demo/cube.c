@@ -1,5 +1,4 @@
 #define D_IMPL
-#define D_CPU
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_app.h>
@@ -110,14 +109,14 @@ void frame(void) {
 
 	d_gfx_clear();
 	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(d_gfx_width() / 2, d_gfx_height() / 2, 0));
-// 	d_gfx_t_rot_x(d_app_time());
-// 	d_gfx_t_rot_y(d_app_time());
-// 	d_gfx_t_rot_z(d_app_time());
+	d_gfx_t_move3(vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
+	// d_gfx_t_rot_x(d_app_time());
+	// d_gfx_t_rot_y(d_app_time());
+	// d_gfx_t_rot_z(d_app_time());
 	d_gfx_t_rot_x(rot.x);
 	d_gfx_t_rot_y(rot.y);
 	d_gfx_t_scale3(vec3f(s, -s, s));
-// 	d_gfx_t_rot_z(d_app_time());
+	// d_gfx_t_rot_z(d_app_time());
 	d_draw_mesh(&cube, NULL);
 	d_gfx_t_pop();
 	d_gfx_present();

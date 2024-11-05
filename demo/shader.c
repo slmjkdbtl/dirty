@@ -1,5 +1,4 @@
 #define D_IMPL
-#define D_CPU
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_app.h>

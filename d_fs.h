@@ -130,13 +130,13 @@ char* d_res_dir(void) {
 		return d_fmt("%s", [[[NSBundle mainBundle] resourcePath] UTF8String]);
 	}
 #endif
-	return d_fmt("");
+	return NULL;
 }
 
 char* d_res_path(char* path) {
 	char* res_dir = d_res_dir();
 	char* rpath;
-	if (res_dir[0] == '\0') {
+	if (res_dir == NULL) {
 		rpath = d_fmt("%s", path);
 	} else {
 		rpath = d_fmt("%s/%s", res_dir, path);

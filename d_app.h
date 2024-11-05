@@ -149,18 +149,18 @@ void d_app_run(d_app_desc desc);
 void d_app_quit(void);
 void d_app_present(int w, int h, color* buf);
 
-bool d_app_fullscreen(void);
+bool d_app_is_fullscreen(void);
 void d_app_set_fullscreen(bool b);
 
-bool d_app_mouse_locked(void);
+bool d_app_is_mouse_locked(void);
 void d_app_set_mouse_locked(bool b);
 
-bool d_app_mouse_hidden(void);
+bool d_app_is_mouse_hidden(void);
 void d_app_set_mouse_hidden(bool b);
 
 void d_app_set_title(char* title);
 
-bool d_app_keyboard_shown(void);
+bool d_app_is_keyboard_shown(void);
 void d_app_set_keyboard_shown(bool b);
 
 int d_app_width(void);
@@ -340,6 +340,7 @@ typedef struct {
 	float dt;
 	int width;
 	int height;
+	// TODO: use int
 	vec2 mouse_pos;
 	vec2 mouse_dpos;
 	vec2 wheel;
@@ -1305,7 +1306,7 @@ static void d_term_run(d_app_desc* desc) {
 
 		d_app_frame();
 		// TODO: sleep based on dt
-		usleep(16000);
+		usleep(16666);
 
 	}
 
@@ -1695,7 +1696,7 @@ EM_JS(void, d_js_set_fullscreen, (bool b), {
 	}
 })
 
-EM_JS(bool, d_js_fullscreen, (void), {
+EM_JS(bool, d_js_is_fullscreen, (void), {
 	return dirty.fullscreen;
 })
 
@@ -1766,12 +1767,20 @@ EM_JS(void, d_js_canvas_init, (char* root, int w, int h), {
 	});
 
 	document.addEventListener("mousedown", (e) => {
-		ccall("d_cjs_mouse_press", "void");
+		ccall("d_cjs_mouse_press");
 	});
 
 	document.addEventListener("mouseup", (e) => {
-		ccall("d_cjs_mouse_release", "void");
+		ccall("d_cjs_mouse_release");
 	});
+
+	// TODO: use js native time?
+	function frame() {
+		ccall("d_cjs_app_frame");
+		requestAnimationFrame(frame);
+	}
+
+	requestAnimationFrame(frame);
 
 })
 
@@ -1800,18 +1809,9 @@ EM_JS(void, d_canvas_present, (int w, int h, color* buf), {
 
 })
 
-EM_JS(void, d_js_run_loop, (void), {
-	function frame() {
-		ccall("d_cjs_app_frame", "void");
-		requestAnimationFrame(frame);
-	}
-	requestAnimationFrame(frame);
-})
-
 static void d_canvas_run(d_app_desc* desc) {
 	d_js_canvas_init(desc->canvas_root, d_app.width, d_app.height);
 	d_js_set_title(desc->title);
-	d_js_run_loop();
 }
 
 #endif // D_CANVAS
@@ -1862,7 +1862,7 @@ int d_app_fps(void) {
 
 void d_app_set_fullscreen(bool b) {
 #if defined(D_COCOA)
-	if (b != d_app_fullscreen()) {
+	if (b != d_app_is_fullscreen()) {
 		[d_app.window toggleFullScreen:nil];
 	}
 #elif defined(D_X11)
@@ -1872,13 +1872,13 @@ void d_app_set_fullscreen(bool b) {
 #endif
 }
 
-bool d_app_fullscreen(void) {
+bool d_app_is_fullscreen(void) {
 #if defined(D_COCOA)
 	return [d_app.window styleMask] & NSWindowStyleMaskFullScreen;
 #elif defined(D_UIKIT)
 	return true;
 #elif defined(D_CANVAS)
-	return d_js_fullscreen();
+	return d_js_is_fullscreen();
 #endif
 	return false;
 }
@@ -1888,7 +1888,7 @@ void d_app_set_mouse_locked(bool b) {
 }
 
 // TODO
-bool d_app_mouse_locked(void) {
+bool d_app_is_mouse_locked(void) {
 	return false;
 }
 
@@ -1897,7 +1897,7 @@ void d_app_set_mouse_hidden(bool b) {
 }
 
 // TODO
-bool d_app_mouse_hidden(void) {
+bool d_app_is_mouse_hidden(void) {
 	return false;
 }
 
@@ -1913,7 +1913,7 @@ void d_app_set_title(char* title) {
 #endif
 }
 
-bool d_app_keyboard_shown(void) {
+bool d_app_is_keyboard_shown(void) {
 	// TODO
 	return false;
 }

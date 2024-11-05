@@ -58,7 +58,6 @@ endif
 
 ifeq ($(TARGET),iossim)
 CFLAGS += -ObjC
-CFLAGS += -arch x86_64
 endif
 
 ifeq ($(TARGET),web)

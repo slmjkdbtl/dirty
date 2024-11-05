@@ -954,9 +954,9 @@ void d_draw_prim_tri(
 	int y3 = p3.y;
 	int z3 = p3.z;
 
-// 	vec3 n1 = vec3_unit(d_gfx_t_apply_vec3(v1.normal));
-// 	vec3 n2 = vec3_unit(d_gfx_t_apply_vec3(v2.normal));
-// 	vec3 n3 = vec3_unit(d_gfx_t_apply_vec3(v3.normal));
+	// vec3 n1 = vec3_unit(d_gfx_t_apply_vec3(v1.normal));
+	// vec3 n2 = vec3_unit(d_gfx_t_apply_vec3(v2.normal));
+	// vec3 n3 = vec3_unit(d_gfx_t_apply_vec3(v3.normal));
 
 	int gw = d_gfx_width();
 	int gh = d_gfx_height();
@@ -993,10 +993,10 @@ void d_draw_prim_tri(
 			: vec2_lerp(v2.uv, v3.uv, ty2);
 		vec2 uv_end = vec2_lerp(v1.uv, v3.uv, ty3);
 
-// 		vec3 normal_start = prebend
-// 			? vec3_lerp(n1, n2, ty1)
-// 			: vec3_lerp(n2, n3, ty2);
-// 		vec3 normal_end = vec3_lerp(n1, n3, ty3);
+		// vec3 normal_start = prebend
+			// ? vec3_lerp(n1, n2, ty1)
+			// : vec3_lerp(n2, n3, ty2);
+		// vec3 normal_end = vec3_lerp(n1, n3, ty3);
 
 		bool same_color = color_eq(col_start, col_end);
 		int x_len = x_end - x_start;
