@@ -1172,18 +1172,24 @@ static void d_uikit_run(d_app_desc* desc) {
 #include <signal.h>
 #include <sys/ioctl.h>
 
+#define CSI "\x1b["
+#define TERM_SHOW_CURSOR              CSI "?25h"
+#define TERM_HIDE_CURSOR              CSI "?25l"
+#define TERM_RESET_CURSOR             CSI "H"
+#define TERM_RESET_COLOR              CSI "0m"
+#define TERM_CLEAR_SCREEN             CSI "2J"
+#define TERM_CLEAR_LINE               CSI "2K"
+#define TERM_ENTER_ALTERNATIVE_SCREEN CSI "?1049h"
+#define TERM_EXIT_ALTERNATIVE_SCREEN  CSI "?1049l"
+
 static void d_term_cleanup(void) {
-	// clear
-	printf("\x1b[3J");
-	// exit alternate screen
-	printf("\x1b[?1049l");
-	// show cursor
-	printf("\x1b[?25h");
-	// reset color
-	printf("\x1b[0m");
+	printf(TERM_CLEAR_SCREEN);
+	printf(TERM_EXIT_ALTERNATIVE_SCREEN);
+	printf(TERM_SHOW_CURSOR);
+	printf(TERM_RESET_COLOR);
 }
 
-static void d_term_signal(int sig) {
+static void d_term_sigint(int sig) {
 	d_term_cleanup();
 	exit(EXIT_SUCCESS);
 }
@@ -1279,12 +1285,10 @@ static void d_term_run(d_app_desc* desc) {
 	tcgetattr(STDIN_FILENO, &attrs);
 	attrs.c_lflag &= ~(ECHO | ICANON);
 	tcsetattr(STDIN_FILENO, TCSAFLUSH, &attrs);
-	// alternate screen
-	printf("\x1b[?1049h");
-	// hide cursor
-	printf("\x1b[?25l");
+	printf(TERM_ENTER_ALTERNATIVE_SCREEN);
+	printf(TERM_HIDE_CURSOR);
 	atexit(d_term_cleanup);
-	signal(SIGINT, d_term_signal);
+	signal(SIGINT, d_term_sigint);
 
 	struct pollfd pfd = {
 		.fd = STDIN_FILENO,
@@ -1314,10 +1318,8 @@ static void d_term_run(d_app_desc* desc) {
 
 static void d_term_present(int w, int h, color* buf) {
 
-	// clear
-	printf("\x1b[3J");
-	// cursor
-	printf("\x1b[H");
+	printf(TERM_CLEAR_SCREEN);
+	printf(TERM_RESET_CURSOR);
 
 	int tw = w;
 	int th = h;
@@ -1337,15 +1339,15 @@ static void d_term_present(int w, int h, color* buf) {
 			color c2 = buf[(y + 1) * w + x];
 			if (!color_eq(c1, prev_c1)) {
 				printf(
-					"\x1b[38;2;%d;%d;%dm",
-					c1.r, c1.g, c1.b
+					"%s38;2;%d;%d;%dm",
+					CSI, c1.r, c1.g, c1.b
 				);
 				prev_c1 = c1;
 			}
 			if (!color_eq(c2, prev_c2)) {
 				printf(
-					"\x1b[48;2;%d;%d;%dm",
-					c2.r, c2.g, c2.b
+					"%s48;2;%d;%d;%dm",
+					CSI, c2.r, c2.g, c2.b
 				);
 				prev_c2 = c2;
 			}
@@ -1354,7 +1356,7 @@ static void d_term_present(int w, int h, color* buf) {
 		printf("\n");
 	}
 
-	printf("\x1b[0m");
+	printf(TERM_RESET_COLOR);
 
 }
 
