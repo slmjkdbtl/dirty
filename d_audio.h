@@ -157,12 +157,18 @@ static float d_audio_next(void) {
 
 	float frame = 0.0;
 
-	// TODO: remove done playbacks
-	for (int j = 0; j < d_audio.num_playbacks; j++) {
+	for (int i = 0; i < d_audio.num_playbacks; i++) {
 
-		d_playback* p = &d_audio.playbacks[j];
+		d_playback* p = &d_audio.playbacks[i];
 
-		if (p->paused || p->done) {
+		if (p->done) {
+			d_audio.playbacks[i] = d_audio.playbacks[d_audio.num_playbacks - 1];
+			d_audio.num_playbacks--;
+			i--;
+			continue;
+		}
+
+		if (p->paused) {
 			continue;
 		}
 
@@ -275,42 +281,42 @@ EM_JS(void, d_js_webaudio_init, (), {
 
 	dirty.audioCtx = ctx;
 
-// 	const buf = ctx.createBuffer(1, 1024, 44100);
+//	const buf = ctx.createBuffer(1, 1024, 44100);
 
-// 	const loop = () => {
+//	const loop = () => {
 
-// 		for (let i = 0; i < buf.numberOfChannels; i++) {
-// 			const dest = buf.getChannelData(i);
-// 			for (let j = 0; j < dest.length; j++) {
-// 				dest[j] = _d_cjs_audio_next();
-// 			}
-// 		}
+//		for (let i = 0; i < buf.numberOfChannels; i++) {
+//			const dest = buf.getChannelData(i);
+//			for (let j = 0; j < dest.length; j++) {
+//				dest[j] = _d_cjs_audio_next();
+//			}
+//		}
 
-// 		const src = ctx.createBufferSource();
+//		const src = ctx.createBufferSource();
 
-// 		src.buffer = buf;
-// 		src.onended = loop;
-// 		src.connect(ctx.destination);
-// 		src.start();
+//		src.buffer = buf;
+//		src.onended = loop;
+//		src.connect(ctx.destination);
+//		src.start();
 
-// 	};
+//	};
 
-// 	loop();
+//	loop();
 
-// 	const processor = ctx.createScriptProcessor(1024, 0, 1);
+//	const processor = ctx.createScriptProcessor(1024, 0, 1);
 
-// 	processor.onaudioprocess = (e) => {
-// 		var num_frames = e.outputBuffer.length;
-// 		var num_channels = e.outputBuffer.numberOfChannels;
-// 		for (let chn = 0; chn < num_channels; chn++) {
-// 			let chan = e.outputBuffer.getChannelData(chn);
-// 			for (let i = 0; i < num_frames; i++) {
-// 				chan[i] = _d_cjs_audio_next();
-// 			}
-// 		}
-// 	};
+//	processor.onaudioprocess = (e) => {
+//		var num_frames = e.outputBuffer.length;
+//		var num_channels = e.outputBuffer.numberOfChannels;
+//		for (let chn = 0; chn < num_channels; chn++) {
+//			let chan = e.outputBuffer.getChannelData(chn);
+//			for (let i = 0; i < num_frames; i++) {
+//				chan[i] = _d_cjs_audio_next();
+//			}
+//		}
+//	};
 
-// 	processor.connect(ctx.destination);
+//	processor.connect(ctx.destination);
 
 })
 
@@ -365,6 +371,50 @@ d_sound d_sound_empty(void) {
 	};
 }
 
+static short *stereo_to_mono(const short *input, int input_len, int *output_len) {
+	*output_len = input_len / 2;
+	short *output = malloc(sizeof(short) * *output_len);
+	for (int i = 0; i < input_len; i += 2) {
+		output[i / 2] = (input[i] + input[i + 1]) / 2;
+	}
+	return output;
+}
+
+static short *resample(
+	const short *input,
+	int input_len,
+	int input_rate,
+	int output_rate,
+	int *output_len
+) {
+	double ratio = (double) input_rate / output_rate;
+	*output_len = input_len / ratio;
+	short *output = malloc(sizeof(short) * *output_len);
+	for (int i = 0; i < *output_len; i++) {
+		// Find the corresponding position in the input buffer
+		double src_pos = i * ratio;
+		int index = (int)src_pos;
+		double frac = src_pos - index;
+
+		// Linear interpolation with boundary check
+		int interp_val;
+		if (index + 1 < input_len) {
+			// Interpolate between two neighboring samples
+			interp_val = (int)((1.0 - frac) * input[index] + frac * input[index + 1]);
+		} else {
+			// Use the last sample if we're at the end of the input
+			interp_val = input[index];
+		}
+
+		// Clamp the value to fit within the range of a 16-bit signed integer
+		if (interp_val > SHRT_MAX) interp_val = SHRT_MAX;
+		if (interp_val < SHRT_MIN) interp_val = SHRT_MIN;
+
+		output[i] = (short)interp_val;
+	}
+	return output;
+}
+
 static uint8_t ogg_sig[] = { 0x4f, 0x67, 0x67, 0x53 };
 static uint8_t wav_sig[] = { 0x52, 0x49, 0x46, 0x46 };
 
@@ -372,24 +422,43 @@ d_sound d_sound_parse(uint8_t* bytes, size_t size) {
 	if (memcmp(bytes, ogg_sig, sizeof(ogg_sig)) == 0) {
 #ifdef STB_VORBIS_IMPLEMENTATION
 		d_sound snd = d_sound_empty();
-		int channels, sample_rate;
-		short *output;
-		snd.num_frames = stb_vorbis_decode_memory(
+		int num_channels, sample_rate;
+		short *frames;
+		int num_frames = stb_vorbis_decode_memory(
 			bytes,
 			size,
-			&channels,
+			&num_channels,
 			&sample_rate,
-			&snd.frames
+			&frames
 		);
-		if (sample_rate != D_SAMPLE_RATE) {
-			// TODO: convert sample rate and channels
-		}
-		if (snd.num_frames < 0) {
-			fprintf(stderr, "failed to decode\n");
-			d_sound_free(&snd);
+		if (num_frames < 0) {
+			fprintf(stderr, "failed to decode audio\n");
 			return d_sound_empty();
 		}
-		return snd;
+		if (num_channels == 2 && D_NUM_CHANNELS == 1) {
+			short *new_frames = stereo_to_mono(
+				frames,
+				num_frames,
+				&num_frames
+			);
+			free(frames);
+			frames = new_frames;
+		}
+		if (sample_rate != D_SAMPLE_RATE) {
+			short *new_frames = resample(
+				frames,
+				num_frames,
+				sample_rate,
+				D_SAMPLE_RATE,
+				&num_frames
+			);
+			free(frames);
+			frames = new_frames;
+		}
+		return (d_sound) {
+			.num_frames = num_frames,
+			.frames = frames,
+		};
 #else
 		fprintf(stderr, "ogg support requires 'stb_vorbis.c' and STB_VORBIS_IMPLEMENTATION flag\n");
 		return d_sound_empty();
