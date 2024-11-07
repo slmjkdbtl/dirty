@@ -281,6 +281,9 @@ vec2 d_app_touch_dpos(d_touch t);
 #endif
 
 #define D_MAX_TOUCHES 8
+#define D_DEF_WIDTH 256
+#define D_DEF_HEIGHT 256
+#define D_DEF_SCALEMODE D_SCALEMODE_STRETCH
 
 #if defined(D_COCOA)
 
@@ -321,8 +324,8 @@ typedef enum {
 	D_BTN_IDLE,
 	D_BTN_PRESSED,
 	D_BTN_RPRESSED,
-	D_BTN_RELEASED,
 	D_BTN_DOWN,
+	D_BTN_RELEASED,
 } d_btn_state;
 
 typedef struct {
@@ -340,9 +343,9 @@ typedef struct {
 	float dt;
 	int width;
 	int height;
-	// TODO: use int
 	vec2 mouse_pos;
 	vec2 mouse_dpos;
+	bool touching;
 	vec2 wheel;
 	d_btn_state key_states[_D_NUM_KEYS];
 	d_btn_state mouse_states[_D_NUM_MOUSE];
@@ -392,6 +395,12 @@ static void process_btn(d_btn_state* b) {
 	}
 }
 
+static void d_app_init(void) {
+	if (d_app.desc.init) {
+		d_app.desc.init();
+	}
+}
+
 static void d_app_frame(void) {
 
 	if (d_app.desc.frame) {
@@ -428,6 +437,7 @@ static void d_app_frame(void) {
 			d_app.touches[i] = d_app.touches[d_app.num_touches - 1];
 			d_app.num_touches--;
 			i--;
+			continue;
 		}
 	}
 
@@ -907,6 +917,8 @@ void d_cocoa_present(int w, int h, color* buf) {
 		d_app_set_fullscreen(true);
 	}
 
+	d_app_init();
+
 	[NSTimer
 		scheduledTimerWithTimeInterval:0.001
 		target:self
@@ -1013,10 +1025,19 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*>* tset, UIEvent* eve
 		UITouch* t = touches[0];
 		CGPoint pos = [t locationInView:[t view]];
 		d_app.mouse_states[D_MOUSE_LEFT] = state;
-		d_app.mouse_pos = vec2f(
+		vec2 mpos = vec2f(
 			pos.x * d_app.width / d_app.width,
 			pos.y * d_app.height / d_app.height
 		);
+		if (d_app.touching) {
+			d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
+		}
+		d_app.mouse_pos = mpos;
+		if (state == D_BTN_PRESSED || state == D_BTN_RPRESSED || state == D_BTN_DOWN) {
+			d_app.touching = true;
+		} else if (state == D_BTN_RELEASED) {
+			d_app.touching = false;
+		}
 	}
 
 	for (UITouch* touch in touches) {
@@ -1138,6 +1159,8 @@ void d_uikit_present(int w, int h, color* buf) {
 	d_mtl_init();
 #endif
 
+	d_app_init();
+
 	[NSTimer
 		scheduledTimerWithTimeInterval:0.001
 		target:self
@@ -1155,9 +1178,12 @@ void d_uikit_present(int w, int h, color* buf) {
 @end
 
 static void d_uikit_run(d_app_desc* desc) {
-	static int argc = 1;
-	static char* argv[] = { (char*)"dirty" };
-	UIApplicationMain(argc, argv, nil, NSStringFromClass([DAppDelegate class]));
+	UIApplicationMain(
+		0,
+		(char*[]){0},
+		nil,
+		NSStringFromClass([DAppDelegate class])
+	);
 }
 
 #endif // D_UIKIT
@@ -1181,6 +1207,8 @@ static void d_uikit_run(d_app_desc* desc) {
 #define TERM_CLEAR_LINE               CSI "2K"
 #define TERM_ENTER_ALTERNATIVE_SCREEN CSI "?1049h"
 #define TERM_EXIT_ALTERNATIVE_SCREEN  CSI "?1049l"
+#define TERM_TRUE_COLOR_FG            CSI "38;2;%d;%d;%dm"
+#define TERM_TRUE_COLOR_BG            CSI "48;2;%d;%d;%dm"
 
 static void d_term_cleanup(void) {
 	printf(TERM_CLEAR_SCREEN);
@@ -1338,17 +1366,11 @@ static void d_term_present(int w, int h, color* buf) {
 			color c1 = buf[y * w + x];
 			color c2 = buf[(y + 1) * w + x];
 			if (!color_eq(c1, prev_c1)) {
-				printf(
-					"%s38;2;%d;%d;%dm",
-					CSI, c1.r, c1.g, c1.b
-				);
+				printf(TERM_TRUE_COLOR_FG, c1.r, c1.g, c1.b);
 				prev_c1 = c1;
 			}
 			if (!color_eq(c2, prev_c2)) {
-				printf(
-					"%s48;2;%d;%d;%dm",
-					CSI, c2.r, c2.g, c2.b
-				);
+				printf(TERM_TRUE_COLOR_BG, c2.r, c2.g, c2.b);
 				prev_c2 = c2;
 			}
 			printf("\u2580");
@@ -1492,6 +1514,8 @@ static void d_x11_run(d_app_desc* desc) {
 	d_app.gc = gc;
 
 #endif
+
+	d_app_init();
 
 	while (!d_app.quit) {
 
@@ -1814,6 +1838,7 @@ EM_JS(void, d_canvas_present, (int w, int h, color* buf), {
 static void d_canvas_run(d_app_desc* desc) {
 	d_js_canvas_init(desc->canvas_root, d_app.width, d_app.height);
 	d_js_set_title(desc->title);
+	d_app_init();
 }
 
 #endif // D_CANVAS
@@ -1821,16 +1846,15 @@ static void d_canvas_run(d_app_desc* desc) {
 void d_app_run(d_app_desc desc) {
 
 	d_app.desc = desc;
-	d_app.width = desc.width ? desc.width : 256;
-	d_app.height = desc.height ? desc.height : 256;
-	d_app.width = d_app.width;
-	d_app.height = d_app.height;
-	d_app.scale_mode = D_SCALEMODE_STRETCH;
+	d_app.width = desc.width ? desc.width : D_DEF_WIDTH;
+	d_app.height = desc.height ? desc.height : D_DEF_HEIGHT;
+	d_app.scale_mode = D_DEF_SCALEMODE;
+	d_app.time = 0.0;
+	d_app.dt = 0.0;
+	d_app.mouse_pos = vec2f(0.0, 0.0);
+	d_app.mouse_dpos = vec2f(0.0, 0.0);
+	d_app.wheel = vec2f(0.0, 0.0);
 	gettimeofday(&d_app.start_time, NULL);
-
-	if (d_app.desc.init) {
-		d_app.desc.init();
-	}
 
 #if defined(D_COCOA)
 	d_cocoa_run(&desc);
