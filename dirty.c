@@ -6,7 +6,6 @@
 int main(int argc, char** argv) {
 
 	char* target = NULL;
-	int args_start = -1;
 	bool eval = false;
 
 	for (int i = 1 ; i < argc; i++) {
@@ -20,7 +19,6 @@ int main(int argc, char** argv) {
 			}
 		} else if (arg[0] != '-') {
 			target = arg;
-			args_start = i + 1;
 			break;
 		}
 	}

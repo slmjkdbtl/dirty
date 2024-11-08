@@ -63,6 +63,7 @@ endif
 ifeq ($(TARGET),web)
 CFLAGS += -s "ALLOW_MEMORY_GROWTH=1"
 CFLAGS += -s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']"
+CFLAGS += -s "PRECISE_F32=1"
 endif
 
 ifeq ($(TARGET),macos)
@@ -110,13 +111,8 @@ endif
 
 # files
 DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
-DEMOS := $(patsubst $(DEMO_PATH)/%.c, %, $(DEMO_FILES))
 DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(BIN_PATH)/%, $(DEMO_FILES))
-
 PREFIX := /usr/local
-
-.PHONY: default
-default: run
 
 .PHONY: run
 run: $(BIN_PATH)/$(DEMO)
@@ -130,12 +126,12 @@ else ifeq ($(TARGET),iossim)
 	fi
 	$(MAKE) bundle
 	xcrun simctl boot $(SIMULATOR)
-	xcrun simctl install $(SIMULATOR) $<.app
+	xcrun simctl install booted $<.app
 	open -a Simulator --args -CurrentDeviceUDID $(SIMULATOR)
-	xcrun simctl launch --console $(SIMULATOR) xyz.space55.$(DEMO)
+	xcrun simctl launch --console-pty booted xyz.space55.$(DEMO)
 else ifeq ($(TARGET),ios)
 	$(MAKE) bundle
-	# ios-deploy --debug --bundle $<.app
+	ios-deploy --debug --bundle $<.app
 else
 	cd $(BIN_PATH); \
 		./$(DEMO) $(ARGS)
@@ -169,8 +165,12 @@ else ifeq ($(TARGET),ios)
 	cp $< $<.app/
 	cp -r $(BIN_PATH)/res $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
-	# cp $(PROFILE) $<.app/embedded.mobileprovision
-	# codesign -s "$(CODESIGN)" $<.app
+	@if [ -z "$(PROVISION)" ] || [ -z "$(CODESIGN)" ]; then \
+		echo "PROVISION and CODESIGN required"; \
+		exit 1; \
+	fi
+	cp $(PROVISION) $<.app/embedded.mobileprovision
+	codesign -s "$(CODESIGN)" $<.app
 endif
 
 $(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
@@ -197,7 +197,7 @@ debugscript: $(BIN_PATH)/dirty
 
 .PHONY: install
 install: $(BIN_PATH)/dirty
-	install $< /usr/local/bin/dirty
+	install $< $(PREFIX)/bin/dirty
 
 .PHONY: clean
 clean:

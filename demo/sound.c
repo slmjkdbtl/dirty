@@ -11,5 +11,5 @@ int main(void) {
 	d_audio_init((d_audio_desc) {0});
 	d_sound snd = d_sound_load(d_res_path("res/bark.ogg"));
 	d_play(&snd);
-	sleep(snd.num_frames / D_SAMPLE_RATE);
+	usleep((float)snd.num_frames / (float)D_SAMPLE_RATE * 1000000);
 }

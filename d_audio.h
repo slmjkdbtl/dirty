@@ -21,6 +21,7 @@ typedef struct {
 typedef struct {
 	bool loop;
 	float volume;
+	float pitch;
 	bool paused;
 	float time;
 } d_play_opts;
@@ -31,6 +32,7 @@ typedef struct {
 	int pos;
 	bool loop;
 	float volume;
+	float pitch;
 	bool paused;
 	bool done;
 } d_playback;
@@ -51,7 +53,7 @@ typedef struct {
 } d_voice;
 
 void d_audio_init(d_audio_desc);
-void d_audio_cleanup(void);
+void d_audio_dispose(void);
 
 // SOUND
 d_sound d_sound_new(short* frames, int num_frames);
@@ -120,7 +122,7 @@ float d_wav_noise(float freq, float t);
 
 #define D_SAMPLE_RATE 44100
 #define D_NUM_CHANNELS 1
-#define D_BUFFER_FRAMES 1024
+#define D_BUFFER_FRAMES 2048
 #define D_MAX_PLAYBACKS 1024
 #define D_A4_FREQ 440
 #define D_A4_NOTE 69
@@ -143,12 +145,14 @@ d_synth d_synth_new(void);
 float d_synth_next(void);
 
 typedef struct {
-	AudioQueueRef queue;
 	d_playback playbacks[D_MAX_PLAYBACKS];
 	int num_playbacks;
 	float volume;
 	float (*user_stream)(void);
 	d_synth synth;
+#if defined(D_COREAUDIO)
+	AudioQueueRef queue;
+#endif
 } d_audio_ctx;
 
 static d_audio_ctx d_audio;
@@ -265,70 +269,53 @@ static void d_ca_init(void) {
 
 }
 
+static void d_ca_dispose(void) {
+	AudioQueueStop(d_audio.queue, true);
+	AudioQueueDispose(d_audio.queue, true);
+}
+
 #endif // D_COREAUDIO
 
 #if defined(D_WEBAUDIO)
 
-EMSCRIPTEN_KEEPALIVE float d_cjs_audio_next() {
+EMSCRIPTEN_KEEPALIVE float d_cjs_audio_next(void) {
 	return d_audio_next();
 }
 
-EM_JS(void, d_js_webaudio_init, (), {
+EM_JS(void, d_js_webaudio_init, (int sample_rate, int buf_size), {
 
 	const ctx = new (window.AudioContext || window.webkitAudioContext)({
-		sampleRate: 44100,
+		sampleRate: sample_rate,
 	});
 
 	dirty.audioCtx = ctx;
 
-//	const buf = ctx.createBuffer(1, 1024, 44100);
+	const scriptNode = ctx.createScriptProcessor(buf_size, 1, 1);
 
-//	const loop = () => {
+	// TODO: has artifact
+	scriptNode.addEventListener("audioprocess", (e) => {
+		const output = e.outputBuffer.getChannelData(0);
+		for (let i = 0; i < buf_size; i++) {
+			output[i] = _d_cjs_audio_next();
+		}
+	});
 
-//		for (let i = 0; i < buf.numberOfChannels; i++) {
-//			const dest = buf.getChannelData(i);
-//			for (let j = 0; j < dest.length; j++) {
-//				dest[j] = _d_cjs_audio_next();
-//			}
-//		}
-
-//		const src = ctx.createBufferSource();
-
-//		src.buffer = buf;
-//		src.onended = loop;
-//		src.connect(ctx.destination);
-//		src.start();
-
-//	};
-
-//	loop();
-
-//	const processor = ctx.createScriptProcessor(1024, 0, 1);
-
-//	processor.onaudioprocess = (e) => {
-//		var num_frames = e.outputBuffer.length;
-//		var num_channels = e.outputBuffer.numberOfChannels;
-//		for (let chn = 0; chn < num_channels; chn++) {
-//			let chan = e.outputBuffer.getChannelData(chn);
-//			for (let i = 0; i < num_frames; i++) {
-//				chan[i] = _d_cjs_audio_next();
-//			}
-//		}
-//	};
-
-//	processor.connect(ctx.destination);
+	scriptNode.connect(ctx.destination);
+	ctx.resume();
+	document.addEventListener("click", () => ctx.resume());
+	document.addEventListener("keydown", () => ctx.resume());
 
 })
 
-static void d_webaudio_init() {
-	d_js_webaudio_init();
+static void d_webaudio_init(void) {
+	d_js_webaudio_init(D_SAMPLE_RATE, D_BUFFER_FRAMES);
 }
 
 #endif
 
 #if defined(D_ALSA)
 
-static void d_alsa_init() {
+static void d_alsa_init(void) {
 	// snd_pcm_t* dev = NULL;
 	// snd_pcm_open(dev, "default", SND_PCM_STREAM_PLAYBACK, 0);
 	// TODO
@@ -349,9 +336,10 @@ void d_audio_init(d_audio_desc desc) {
 #endif
 }
 
-void d_audio_cleanup(void) {
-	AudioQueueStop(d_audio.queue, true);
-	AudioQueueDispose(d_audio.queue, true);
+void d_audio_dispose(void) {
+#if defined(D_COREAUDIO)
+	d_ca_dispose();
+#endif
 }
 
 d_sound d_sound_new(short* frames, int num_frames) {
@@ -371,7 +359,11 @@ d_sound d_sound_empty(void) {
 	};
 }
 
-static short *stereo_to_mono(const short *input, int input_len, int *output_len) {
+static short *stereo_to_mono(
+	const short *input,
+	int input_len,
+	int *output_len
+) {
 	*output_len = input_len / 2;
 	short *output = malloc(sizeof(short) * *output_len);
 	for (int i = 0; i < input_len; i += 2) {
@@ -391,25 +383,21 @@ static short *resample(
 	*output_len = input_len / ratio;
 	short *output = malloc(sizeof(short) * *output_len);
 	for (int i = 0; i < *output_len; i++) {
-		// Find the corresponding position in the input buffer
+		// find the corresponding position in the input buffer
 		double src_pos = i * ratio;
 		int index = (int)src_pos;
 		double frac = src_pos - index;
-
-		// Linear interpolation with boundary check
+		// linear interpolation with boundary check
 		int interp_val;
 		if (index + 1 < input_len) {
-			// Interpolate between two neighboring samples
+			// interpolate between two neighboring samples
 			interp_val = (int)((1.0 - frac) * input[index] + frac * input[index + 1]);
 		} else {
-			// Use the last sample if we're at the end of the input
+			// use the last sample if we're at the end of the input
 			interp_val = input[index];
 		}
-
-		// Clamp the value to fit within the range of a 16-bit signed integer
 		if (interp_val > SHRT_MAX) interp_val = SHRT_MAX;
 		if (interp_val < SHRT_MIN) interp_val = SHRT_MIN;
-
 		output[i] = (short)interp_val;
 	}
 	return output;
@@ -424,6 +412,7 @@ d_sound d_sound_parse(uint8_t* bytes, size_t size) {
 		d_sound snd = d_sound_empty();
 		int num_channels, sample_rate;
 		short *frames;
+		// TODO: has some wrong frames on web
 		int num_frames = stb_vorbis_decode_memory(
 			bytes,
 			size,
@@ -436,24 +425,22 @@ d_sound d_sound_parse(uint8_t* bytes, size_t size) {
 			return d_sound_empty();
 		}
 		if (num_channels == 2 && D_NUM_CHANNELS == 1) {
-			short *new_frames = stereo_to_mono(
+			free(frames);
+			frames = stereo_to_mono(
 				frames,
 				num_frames,
 				&num_frames
 			);
-			free(frames);
-			frames = new_frames;
 		}
 		if (sample_rate != D_SAMPLE_RATE) {
-			short *new_frames = resample(
+			free(frames);
+			frames = resample(
 				frames,
 				num_frames,
 				sample_rate,
 				D_SAMPLE_RATE,
 				&num_frames
 			);
-			free(frames);
-			frames = new_frames;
 		}
 		return (d_sound) {
 			.num_frames = num_frames,
@@ -502,6 +489,7 @@ d_playback* d_play(d_sound* snd) {
 		.loop = false,
 		.paused = false,
 		.volume = 1.0,
+		.pitch = 1.0,
 	});
 }
 
@@ -513,6 +501,7 @@ d_playback* d_play_ex(d_sound* snd, d_play_opts opts) {
 		.loop = opts.loop,
 		.paused = opts.paused,
 		.volume = opts.volume,
+		.pitch = opts.pitch,
 		.done = false,
 	};
 	d_audio.playbacks[d_audio.num_playbacks] = src;
