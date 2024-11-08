@@ -63,7 +63,6 @@ endif
 ifeq ($(TARGET),web)
 CFLAGS += -s "ALLOW_MEMORY_GROWTH=1"
 CFLAGS += -s "EXPORTED_RUNTIME_METHODS=['ccall', 'cwrap']"
-CFLAGS += -s "PRECISE_F32=1"
 endif
 
 ifeq ($(TARGET),macos)

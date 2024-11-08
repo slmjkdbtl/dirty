@@ -365,7 +365,7 @@ static short *stereo_to_mono(
 	int *output_len
 ) {
 	*output_len = input_len / 2;
-	short *output = malloc(sizeof(short) * *output_len);
+	short *output = malloc(*output_len * sizeof(short));
 	for (int i = 0; i < input_len; i += 2) {
 		output[i / 2] = (input[i] + input[i + 1]) / 2;
 	}
@@ -381,7 +381,7 @@ static short *resample(
 ) {
 	double ratio = (double) input_rate / output_rate;
 	*output_len = input_len / ratio;
-	short *output = malloc(sizeof(short) * *output_len);
+	short *output = malloc(*output_len * sizeof(short));
 	for (int i = 0; i < *output_len; i++) {
 		// find the corresponding position in the input buffer
 		double src_pos = i * ratio;
@@ -412,7 +412,6 @@ d_sound d_sound_parse(uint8_t* bytes, size_t size) {
 		d_sound snd = d_sound_empty();
 		int num_channels, sample_rate;
 		short *frames;
-		// TODO: has some wrong frames on web
 		int num_frames = stb_vorbis_decode_memory(
 			bytes,
 			size,
@@ -425,22 +424,24 @@ d_sound d_sound_parse(uint8_t* bytes, size_t size) {
 			return d_sound_empty();
 		}
 		if (num_channels == 2 && D_NUM_CHANNELS == 1) {
-			free(frames);
-			frames = stereo_to_mono(
+			short *new_frames = stereo_to_mono(
 				frames,
 				num_frames,
 				&num_frames
 			);
+			free(frames);
+			frames = new_frames;
 		}
 		if (sample_rate != D_SAMPLE_RATE) {
-			free(frames);
-			frames = resample(
+			short *new_frames = resample(
 				frames,
 				num_frames,
 				sample_rate,
 				D_SAMPLE_RATE,
 				&num_frames
 			);
+			free(frames);
+			frames = new_frames;
 		}
 		return (d_sound) {
 			.num_frames = num_frames,
