@@ -65,9 +65,11 @@ void frame(void) {
 	d_gfx_t_scale3(vec3f(3, -3, 3));
 	d_gfx_t_move3(vec3_scale(btfly.center, -1));
 	d_draw_model(&btfly);
+
 	if (show_bbox) {
 		d_draw_bbox(btfly.bbox, colorx(0x0000ffff));
 	}
+
 	d_gfx_t_pop();
 
 	d_gfx_present();

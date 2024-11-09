@@ -783,6 +783,7 @@ color d_gfx_get(int x, int y) {
 			return img->pixels[yy * img->width + xx];
 		}
 	}
+	return colorx(0x00000000);
 }
 
 void d_blit_img(d_img* img, vec2 pos) {

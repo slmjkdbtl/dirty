@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 char*       d_read_text(char* path, size_t* osize);
 uint8_t*    d_read_bytes(char* path, size_t* osize);

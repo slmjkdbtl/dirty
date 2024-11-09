@@ -116,6 +116,7 @@ float d_wav_noise(float freq, float t);
 #if defined(D_COREAUDIO)
 	#include <AudioToolbox/AudioToolbox.h>
 #elif defined(D_ALSA)
+	#include <alsa/asoundlib.h>
 #elif defined(D_WEBAUDIO)
 	#include <emscripten/emscripten.h>
 #endif
@@ -282,17 +283,21 @@ EMSCRIPTEN_KEEPALIVE float d_cjs_audio_next(void) {
 	return d_audio_next();
 }
 
-EM_JS(void, d_js_webaudio_init, (int sample_rate, int buf_size), {
+EM_JS(void, d_js_webaudio_init, (
+	int sample_rate,
+	int num_channels,
+	int buf_size
+), {
 
-	const ctx = new (window.AudioContext || window.webkitAudioContext)({
+	window.dAudio = {};
+
+	dAudio.ctx = new (window.AudioContext || window.webkitAudioContext)({
 		sampleRate: sample_rate,
 	});
 
-	dirty.audioCtx = ctx;
+	// TODO: try AudioWorklet?
+	const scriptNode = dAudio.ctx.createScriptProcessor(buf_size, 0, num_channels);
 
-	const scriptNode = ctx.createScriptProcessor(buf_size, 1, 1);
-
-	// TODO: has artifact
 	scriptNode.addEventListener("audioprocess", (e) => {
 		const output = e.outputBuffer.getChannelData(0);
 		for (let i = 0; i < buf_size; i++) {
@@ -300,15 +305,24 @@ EM_JS(void, d_js_webaudio_init, (int sample_rate, int buf_size), {
 		}
 	});
 
-	scriptNode.connect(ctx.destination);
-	ctx.resume();
-	document.addEventListener("click", () => ctx.resume());
-	document.addEventListener("keydown", () => ctx.resume());
+	scriptNode.connect(dAudio.ctx.destination);
+	dAudio.ctx.resume();
+	document.addEventListener("click", () => dAudio.ctx.resume(), { once: true });
+	document.addEventListener("keydown", () => dAudio.ctx.resume(), { once: true });
+	document.addEventListener("touchend", () => dAudio.ctx.resume(), { once: true });
 
 })
 
+EM_JS(void, d_js_webaudio_dispose, (void), {
+	dAudio.ctx.close();
+})
+
 static void d_webaudio_init(void) {
-	d_js_webaudio_init(D_SAMPLE_RATE, D_BUFFER_FRAMES);
+	d_js_webaudio_init(D_SAMPLE_RATE, D_NUM_CHANNELS, D_BUFFER_FRAMES);
+}
+
+static void d_webaudio_dispose(void) {
+	d_js_webaudio_dispose();
 }
 
 #endif
@@ -318,6 +332,10 @@ static void d_webaudio_init(void) {
 static void d_alsa_init(void) {
 	// snd_pcm_t* dev = NULL;
 	// snd_pcm_open(dev, "default", SND_PCM_STREAM_PLAYBACK, 0);
+	// TODO
+}
+
+static void d_alsa_dispose(void) {
 	// TODO
 }
 
@@ -339,6 +357,10 @@ void d_audio_init(d_audio_desc desc) {
 void d_audio_dispose(void) {
 #if defined(D_COREAUDIO)
 	d_ca_dispose();
+#elif defined(D_WEBAUDIO)
+	d_webaudio_dispose();
+#elif defined(D_ALSA)
+	d_alsa_dispose();
 #endif
 }
 
@@ -495,6 +517,9 @@ d_playback* d_play(d_sound* snd) {
 }
 
 d_playback* d_play_ex(d_sound* snd, d_play_opts opts) {
+	if (d_audio.num_playbacks >= D_MAX_PLAYBACKS) {
+		// TODO
+	}
 	int pos = clampi((int)(opts.time * D_SAMPLE_RATE), 0, snd->num_frames - 1);
 	d_playback src = (d_playback) {
 		.src = snd,

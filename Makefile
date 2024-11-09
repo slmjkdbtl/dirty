@@ -26,6 +26,10 @@ ifeq ($(TARGET),iossim)
 CC := xcrun -sdk iphonesimulator clang
 endif
 
+ifeq ($(TARGET),windows)
+CC := x86_64-w64-mingw32-gcc
+endif
+
 DEMO := hi
 BIN_PATH := build/$(TARGET)
 DEMO_PATH := demo
@@ -39,6 +43,7 @@ CFLAGS += -I.
 CFLAGS += -Iext
 CFLAGS += -Wno-unused-function
 CFLAGS += -Wno-unused-variable
+CFLAGS += -Wno-unused-but-set-variable
 
 ifdef DEBUG
 CFLAGS += -O0 -g
@@ -95,6 +100,10 @@ LDFLAGS += -framework MetalKit
 LDFLAGS += -framework AudioToolbox
 endif
 
+ifeq ($(TARGET),windows)
+LDFLAGS += -mwindows
+endif
+
 ifeq ($(TARGET),linux)
 LDFLAGS += -lx11
 LDFLAGS += -lGL
@@ -131,6 +140,9 @@ else ifeq ($(TARGET),iossim)
 else ifeq ($(TARGET),ios)
 	$(MAKE) bundle
 	ios-deploy --debug --bundle $<.app
+else ifeq ($(TARGET),windows)
+	cd $(BIN_PATH); \
+		wine $(DEMO).exe $(ARGS)
 else
 	cd $(BIN_PATH); \
 		./$(DEMO) $(ARGS)

@@ -271,6 +271,8 @@ vec2 d_app_touch_dpos(d_touch t);
 	#import <UIKit/UIKit.h>
 #elif defined(D_CANVAS)
 	#include <emscripten/emscripten.h>
+#elif defined(D_WIN32)
+	#include <windows.h>
 #elif defined(D_X11)
 	#include <X11/Xlib.h>
 	#if defined(D_GL)
@@ -364,6 +366,8 @@ typedef struct {
 #elif defined(D_UIKIT)
 	UIWindow* window;
 	DView* view;
+#elif defined(D_WIN32)
+	HWND window;
 #elif defined(D_X11)
 	Display* display;
 	Visual* visual;
@@ -947,7 +951,7 @@ void d_cocoa_present(int w, int h, color* buf) {
 
 @implementation DView
 // - (BOOL)isOpaque {
-// 	return YES;
+//	return YES;
 // }
 - (BOOL)canBecomeKeyView {
 	return YES;
@@ -1179,8 +1183,8 @@ void d_uikit_present(int w, int h, color* buf) {
 
 static void d_uikit_run(d_app_desc* desc) {
 	UIApplicationMain(
-		0,
-		(char*[]){0},
+		1,
+		(char*[]){ "dirty" },
 		nil,
 		NSStringFromClass([DAppDelegate class])
 	);
@@ -1571,6 +1575,118 @@ static void d_x11_run(d_app_desc* desc) {
 #endif // D_X11
 
 // -------------------------------------------------------------
+// Windows
+#if defined(D_WIN32)
+
+static void d_win32_present(int w, int h, color *buf) {
+
+	PAINTSTRUCT ps;
+	HDC hdc = BeginPaint(d_app.window, &ps);
+
+	BITMAPINFO bmi = {0};
+	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+	bmi.bmiHeader.biWidth = w;
+	bmi.bmiHeader.biHeight = -h;
+	bmi.bmiHeader.biPlanes = 1;
+	bmi.bmiHeader.biBitCount = 32;
+	bmi.bmiHeader.biCompression = BI_RGB;
+
+	StretchDIBits(
+		hdc,
+		0, 0, d_app.width, d_app.height,
+		0, 0, w, h,
+		(unsigned char*)buf, &bmi,
+		DIB_RGB_COLORS, SRCCOPY
+	);
+
+	EndPaint(d_app.window, &ps);
+
+}
+
+LRESULT CALLBACK d_win32_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	switch (uMsg) {
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			return 0;
+		case WM_PAINT: {
+			d_app_frame();
+			return 0;
+		}
+	}
+	return DefWindowProc(hwnd, uMsg, wParam, lParam);
+}
+
+static void d_win32_run(d_app_desc* desc) {
+
+	char CLASS_NAME[] = "dirty";
+
+	HINSTANCE mod = GetModuleHandle(NULL);
+
+	WNDCLASS wc = {
+		.lpfnWndProc = d_win32_proc,
+		.style = CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
+		.hInstance = mod,
+		.hCursor = LoadCursor(NULL, IDC_ARROW),
+		.hIcon = LoadIcon(NULL, IDI_WINLOGO),
+		.lpszClassName = CLASS_NAME,
+	};
+
+	RegisterClass(&wc);
+
+	d_app.window = CreateWindowEx(
+		0,
+		CLASS_NAME,
+		desc->title,
+		WS_OVERLAPPEDWINDOW,
+		CW_USEDEFAULT, CW_USEDEFAULT,
+		d_app.width, d_app.height,
+		NULL, NULL, mod, NULL
+	);
+
+	if (d_app.window == NULL) {
+		return;
+	}
+
+	// center the window
+	int screen_width = GetSystemMetrics(SM_CXSCREEN);
+	int screen_height = GetSystemMetrics(SM_CYSCREEN);
+	int window_x = (screen_width - d_app.width) / 2;
+	int window_y = (screen_height - d_app.height) / 2;
+
+	SetWindowPos(
+		d_app.window,
+		NULL,
+		window_x, window_y,
+		0, 0,
+		SWP_NOZORDER | SWP_NOSIZE
+	);
+
+	ShowWindow(d_app.window, SW_SHOW);
+	DragAcceptFiles(d_app.window, 1);
+
+	d_app_init();
+
+    bool done = false;
+
+	while (!d_app.quit && !done) {
+		MSG msg;
+		while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+			if (WM_QUIT == msg.message) {
+				done = true;
+				continue;
+			} else {
+				TranslateMessage(&msg);
+				DispatchMessageW(&msg);
+			}
+		}
+        d_app_frame();
+	}
+
+}
+
+#endif // D_WIN32
+
+// -------------------------------------------------------------
 // Web
 #if defined(D_CANVAS)
 
@@ -1707,23 +1823,23 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_release(void) {
 }
 
 EM_JS(void, d_js_set_fullscreen, (bool b), {
-	const canvas = dirty.canvas;
+	const canvas = dApp.canvas;
 	if (b) {
 		// TODO: becomes blurry
-		dirty.originWidth = canvas.width;
-		dirty.originHeight = canvas.height;
+		dApp.originWidth = canvas.width;
+		dApp.originHeight = canvas.height;
 		canvas.width = window.innerWidth;
 		canvas.height = window.innerHeight;
-		dirty.fullscreen = true;
+		dApp.isFullscreen = true;
 	} else {
-		canvas.width = dirty.originWidth || canvas.width;
-		canvas.height = dirty.originHeight || canvas.height;
-		dirty.fullscreen = false;
+		canvas.width = dApp.originWidth || canvas.width;
+		canvas.height = dApp.originHeight || canvas.height;
+		dApp.isFullscreen = false;
 	}
 })
 
 EM_JS(bool, d_js_is_fullscreen, (void), {
-	return dirty.fullscreen;
+	return dApp.isFullscreen;
 })
 
 EM_JS(bool, d_js_set_title, (char* title), {
@@ -1732,11 +1848,11 @@ EM_JS(bool, d_js_set_title, (char* title), {
 
 EM_JS(void, d_js_canvas_init, (char* root, int w, int h), {
 
-	window.dirty = {};
+	window.dApp = {};
 
 	const name = UTF8ToString(root);
 	const canvas = document.createElement("canvas");
-	dirty.canvas = canvas;
+	dApp.canvas = canvas;
 	canvas.width = w;
 	canvas.height = h;
 	canvas.id = "dirty";
@@ -1816,7 +1932,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame(void) {
 
 EM_JS(void, d_canvas_present, (int w, int h, color* buf), {
 
-	const canvas = dirty.canvas;
+	const canvas = dApp.canvas;
 	const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
 	const img = new ImageData(pixels, w, h);
 
@@ -1862,6 +1978,8 @@ void d_app_run(d_app_desc desc) {
 	d_uikit_run(&desc);
 #elif defined(D_X11)
 	d_x11_run(&desc);
+#elif defined(D_WIN32)
+	d_win32_run(&desc);
 #elif defined(D_CANVAS)
 	d_canvas_run(&desc);
 #elif defined(D_TERM)
@@ -2097,6 +2215,8 @@ void d_app_present(int w, int h, color* buf) {
 		d_cocoa_present(w, h, buf);
 	#elif defined(D_UIKIT)
 		d_uikit_present(w, h, buf);
+	#elif defined(D_WIN32)
+		d_win32_present(w, h, buf);
 	#elif defined(D_X11)
 		d_x11_present(w, h, buf);
 	#elif defined(D_CANVAS)
