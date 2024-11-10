@@ -291,7 +291,7 @@ EM_JS(void, d_js_webaudio_init, (
 
 	window.dAudio = {};
 
-	dAudio.ctx = new (window.AudioContext || window.webkitAudioContext)({
+	dAudio.ctx = new AudioContext({
 		sampleRate: sample_rate,
 	});
 

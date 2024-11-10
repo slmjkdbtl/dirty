@@ -79,12 +79,12 @@ typedef enum {
 	D_KEY_MINUS,
 	D_KEY_EQUAL,
 	D_KEY_COMMA,
-	D_KEY_DOT,
-	D_KEY_GRAVES,
+	D_KEY_PERIOD,
+	D_KEY_GRAVE,
 	D_KEY_SLASH,
 	D_KEY_BACKSLASH,
 	D_KEY_SEMICOLON,
-	D_KEY_QUOTE,
+	D_KEY_APOS,
 	D_KEY_UP,
 	D_KEY_DOWN,
 	D_KEY_LEFT,
@@ -93,7 +93,13 @@ typedef enum {
 	D_KEY_TAB,
 	D_KEY_SPACE,
 	D_KEY_BACKSPACE,
+	D_KEY_DELETE,
 	D_KEY_RETURN,
+	D_KEY_INSERT,
+	D_KEY_MENU,
+	D_KEY_HOME,
+	D_KEY_PAGE_UP,
+	D_KEY_PAGE_DOWN,
 	D_KEY_LBRACKET,
 	D_KEY_RBRACKET,
 	D_KEY_LPAREN,
@@ -273,6 +279,7 @@ vec2 d_app_touch_dpos(d_touch t);
 	#include <emscripten/emscripten.h>
 #elif defined(D_WIN32)
 	#include <windows.h>
+    #include <windowsx.h>
 #elif defined(D_X11)
 	#include <X11/Xlib.h>
 	#if defined(D_GL)
@@ -783,14 +790,14 @@ static d_key d_cocoa_key(unsigned short k) {
 		case 0x07: return D_KEY_X;
 		case 0x10: return D_KEY_Y;
 		case 0x06: return D_KEY_Z;
-		case 0x27: return D_KEY_QUOTE;
+		case 0x27: return D_KEY_APOS;
 		case 0x2A: return D_KEY_BACKSLASH;
 		case 0x2B: return D_KEY_COMMA;
 		case 0x18: return D_KEY_EQUAL;
-		case 0x32: return D_KEY_GRAVES;
+		case 0x32: return D_KEY_GRAVE;
 		case 0x21: return D_KEY_LBRACKET;
 		case 0x1B: return D_KEY_MINUS;
-		case 0x2F: return D_KEY_DOT;
+		case 0x2F: return D_KEY_PERIOD;
 		case 0x1E: return D_KEY_RBRACKET;
 		case 0x29: return D_KEY_SEMICOLON;
 		case 0x2C: return D_KEY_SLASH;
@@ -827,7 +834,7 @@ static d_key d_cocoa_key(unsigned short k) {
 	return D_KEY_NONE;
 }
 
-void d_cocoa_present(int w, int h, color* buf) {
+static void d_cocoa_present(int w, int h, color* buf) {
 
 	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
@@ -962,11 +969,7 @@ void d_cocoa_present(int w, int h, color* buf) {
 - (void)keyDown:(NSEvent*)event {
 	d_key k = d_cocoa_key(event.keyCode);
 	if (k) {
-		if (event.ARepeat) {
-			d_app.key_states[k] = D_BTN_RPRESSED;
-		} else {
-			d_app.key_states[k] = D_BTN_PRESSED;
-		}
+		d_app.key_states[k] = event.ARepeat ? D_BTN_RPRESSED: D_BTN_PRESSED;
 	}
 }
 - (void)keyUp:(NSEvent*)event {
@@ -1083,7 +1086,7 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*>* tset, UIEvent* eve
 
 }
 
-void d_uikit_present(int w, int h, color* buf) {
+static void d_uikit_present(int w, int h, color* buf) {
 
 	CGContextRef ctx = UIGraphicsGetCurrentContext();
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
@@ -1286,15 +1289,15 @@ static d_key d_term_key(char* c, int size) {
 				case '8': return D_KEY_8;
 				case '9': return D_KEY_9;
 				case '0': return D_KEY_0;
-				case '`': return D_KEY_GRAVES;
+				case '`': return D_KEY_GRAVE;
 				case ',': return D_KEY_COMMA;
-				case '.': return D_KEY_DOT;
+				case '.': return D_KEY_PERIOD;
 				case '=': return D_KEY_EQUAL;
 				case '-': return D_KEY_MINUS;
 				case '/': return D_KEY_SLASH;
 				case ';': return D_KEY_SEMICOLON;
 				case '\\': return D_KEY_BACKSLASH;
-				case '\'': return D_KEY_QUOTE;
+				case '\'': return D_KEY_APOS;
 				case '[': return D_KEY_LBRACKET;
 				case ']': return D_KEY_RBRACKET;
 				case '(': return D_KEY_LPAREN;
@@ -1583,13 +1586,22 @@ static void d_win32_present(int w, int h, color *buf) {
 	PAINTSTRUCT ps;
 	HDC hdc = BeginPaint(d_app.window, &ps);
 
-	BITMAPINFO bmi = {0};
-	bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-	bmi.bmiHeader.biWidth = w;
-	bmi.bmiHeader.biHeight = -h;
-	bmi.bmiHeader.biPlanes = 1;
-	bmi.bmiHeader.biBitCount = 32;
-	bmi.bmiHeader.biCompression = BI_RGB;
+	BITMAPINFO bmi = {
+		.bmiHeader = {
+			.biSize = sizeof(BITMAPINFOHEADER),
+			.biWidth = w,
+			.biHeight = -h,
+			.biPlanes = 1,
+			.biBitCount = 32,
+			.biCompression = BI_BITFIELDS,
+		},
+	};
+
+	DWORD* cmask = (DWORD*)bmi.bmiColors;
+
+	cmask[0] = 0x000000FF;
+	cmask[1] = 0x0000FF00;
+	cmask[2] = 0x00FF0000;
 
 	StretchDIBits(
 		hdc,
@@ -1603,17 +1615,159 @@ static void d_win32_present(int w, int h, color *buf) {
 
 }
 
-LRESULT CALLBACK d_win32_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	switch (uMsg) {
+static d_key d_win32_key(int k) {
+	switch (k) {
+		case 0x00B: return D_KEY_0;
+		case 0x002: return D_KEY_1;
+		case 0x003: return D_KEY_2;
+		case 0x004: return D_KEY_3;
+		case 0x005: return D_KEY_4;
+		case 0x006: return D_KEY_5;
+		case 0x007: return D_KEY_6;
+		case 0x008: return D_KEY_7;
+		case 0x009: return D_KEY_8;
+		case 0x00A: return D_KEY_9;
+		case 0x01E: return D_KEY_A;
+		case 0x030: return D_KEY_B;
+		case 0x02E: return D_KEY_C;
+		case 0x020: return D_KEY_D;
+		case 0x012: return D_KEY_E;
+		case 0x021: return D_KEY_F;
+		case 0x022: return D_KEY_G;
+		case 0x023: return D_KEY_H;
+		case 0x017: return D_KEY_I;
+		case 0x024: return D_KEY_J;
+		case 0x025: return D_KEY_K;
+		case 0x026: return D_KEY_L;
+		case 0x032: return D_KEY_M;
+		case 0x031: return D_KEY_N;
+		case 0x018: return D_KEY_O;
+		case 0x019: return D_KEY_P;
+		case 0x010: return D_KEY_Q;
+		case 0x013: return D_KEY_R;
+		case 0x01F: return D_KEY_S;
+		case 0x014: return D_KEY_T;
+		case 0x016: return D_KEY_U;
+		case 0x02F: return D_KEY_V;
+		case 0x011: return D_KEY_W;
+		case 0x02D: return D_KEY_X;
+		case 0x015: return D_KEY_Y;
+		case 0x02C: return D_KEY_Z;
+		case 0x028: return D_KEY_APOS;
+		case 0x02B: return D_KEY_BACKSLASH;
+		case 0x033: return D_KEY_COMMA;
+		case 0x00D: return D_KEY_EQUAL;
+		case 0x029: return D_KEY_GRAVE;
+		case 0x01A: return D_KEY_LBRACKET;
+		case 0x00C: return D_KEY_MINUS;
+		case 0x034: return D_KEY_PERIOD;
+		case 0x01B: return D_KEY_RBRACKET;
+		case 0x027: return D_KEY_SEMICOLON;
+		case 0x035: return D_KEY_SLASH;
+		case 0x00E: return D_KEY_BACKSPACE;
+		case 0x153: return D_KEY_DELETE;
+		case 0x01C: return D_KEY_RETURN;
+		case 0x001: return D_KEY_ESC;
+		case 0x147: return D_KEY_HOME;
+		case 0x152: return D_KEY_INSERT;
+		case 0x15D: return D_KEY_MENU;
+		case 0x151: return D_KEY_PAGE_DOWN;
+		case 0x149: return D_KEY_PAGE_UP;
+		case 0x039: return D_KEY_SPACE;
+		case 0x00F: return D_KEY_TAB;
+		case 0x03B: return D_KEY_F1;
+		case 0x03C: return D_KEY_F2;
+		case 0x03D: return D_KEY_F3;
+		case 0x03E: return D_KEY_F4;
+		case 0x03F: return D_KEY_F5;
+		case 0x040: return D_KEY_F6;
+		case 0x041: return D_KEY_F7;
+		case 0x042: return D_KEY_F8;
+		case 0x043: return D_KEY_F9;
+		case 0x044: return D_KEY_F10;
+		case 0x057: return D_KEY_F11;
+		case 0x058: return D_KEY_F12;
+		case 0x038: return D_KEY_LALT;
+		case 0x01D: return D_KEY_LCTRL;
+		case 0x02A: return D_KEY_LSHIFT;
+		case 0x15B: return D_KEY_LMETA;
+		case 0x138: return D_KEY_RALT;
+		case 0x11D: return D_KEY_RCTRL;
+		case 0x036: return D_KEY_RSHIFT;
+		case 0x136: return D_KEY_RSHIFT;
+		case 0x15C: return D_KEY_RMETA;
+		case 0x150: return D_KEY_DOWN;
+		case 0x14B: return D_KEY_LEFT;
+		case 0x14D: return D_KEY_RIGHT;
+		case 0x148: return D_KEY_UP;
+	}
+	return D_KEY_NONE;
+}
+
+LRESULT CALLBACK d_win32_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+	switch (msg) {
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			return 0;
-		case WM_PAINT: {
-			d_app_frame();
-			return 0;
+		case WM_KEYDOWN:
+		case WM_SYSKEYDOWN: {
+			int code = (int)(HIWORD(lParam) & 0x1FF);
+			bool repeat = !!(lParam & 0x40000000);
+			d_key k = d_win32_key(code);
+			if (k) {
+				d_app.key_states[k] = repeat ? D_BTN_RPRESSED : D_BTN_PRESSED;
+			}
+			break;
 		}
+		case WM_KEYUP:
+		case WM_SYSKEYUP: {
+			int code = (int)(HIWORD(lParam) & 0x1FF);
+			d_key k = d_win32_key(code);
+			if (k) {
+				d_app.key_states[k] = D_BTN_RELEASED;
+			}
+			break;
+		}
+		case WM_LBUTTONDOWN:
+			d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_PRESSED;
+			break;
+		case WM_RBUTTONDOWN:
+			d_app.mouse_states[D_MOUSE_RIGHT] = D_BTN_PRESSED;
+			break;
+		case WM_MBUTTONDOWN:
+			d_app.mouse_states[D_MOUSE_MIDDLE] = D_BTN_PRESSED;
+			break;
+		case WM_LBUTTONUP:
+			d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_RELEASED;
+			break;
+		case WM_RBUTTONUP:
+			d_app.mouse_states[D_MOUSE_RIGHT] = D_BTN_RELEASED;
+			break;
+		case WM_MBUTTONUP:
+			d_app.mouse_states[D_MOUSE_MIDDLE] = D_BTN_RELEASED;
+			break;
+		case WM_MOUSEMOVE: {
+			vec2 mpos = vec2f(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+			d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
+			d_app.mouse_pos = mpos;
+			d_app_frame();
+			break;
+		}
+		case WM_INPUT:
+			// TODO
+			break;
+		case WM_CHAR:
+			// TODO
+			break;
+		case WM_MOUSEWHEEL:
+			// TODO
+			break;
+		case WM_TIMER:
+			InvalidateRect(d_app.window, NULL, TRUE);
+			d_app_frame();
+			break;
 	}
-	return DefWindowProc(hwnd, uMsg, wParam, lParam);
+	return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
 static void d_win32_run(d_app_desc* desc) {
@@ -1664,14 +1818,17 @@ static void d_win32_run(d_app_desc* desc) {
 	ShowWindow(d_app.window, SW_SHOW);
 	DragAcceptFiles(d_app.window, 1);
 
+	SetTimer(d_app.window, 1, USER_TIMER_MINIMUM, NULL);
+
 	d_app_init();
+	d_app_frame();
 
     bool done = false;
 
 	while (!d_app.quit && !done) {
 		MSG msg;
-		while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
-			if (WM_QUIT == msg.message) {
+		while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+			if (msg.message == WM_QUIT) {
 				done = true;
 				continue;
 			} else {
@@ -1736,7 +1893,7 @@ static d_key d_web_key(char* k, int loc) {
 	else if (streq(k, "=")) return D_KEY_EQUAL;
 	else if (streq(k, " ")) return D_KEY_SPACE;
 	else if (streq(k, ",")) return D_KEY_COMMA;
-	else if (streq(k, ".")) return D_KEY_DOT;
+	else if (streq(k, ".")) return D_KEY_PERIOD;
 	else if (streq(k, "/")) return D_KEY_SLASH;
 	else if (streq(k, "[")) return D_KEY_LBRACKET;
 	else if (streq(k, "]")) return D_KEY_RBRACKET;
@@ -1746,8 +1903,8 @@ static d_key d_web_key(char* k, int loc) {
 	else if (streq(k, "Escape")) return D_KEY_ESC;
 	else if (streq(k, "Backspace")) return D_KEY_BACKSPACE;
 	else if (streq(k, "Tab")) return D_KEY_TAB;
-	else if (streq(k, "'")) return D_KEY_QUOTE;
-	else if (streq(k, "`")) return D_KEY_GRAVES;
+	else if (streq(k, "'")) return D_KEY_APOS;
+	else if (streq(k, "`")) return D_KEY_GRAVE;
 	else if (streq(k, "F1")) return D_KEY_F1;
 	else if (streq(k, "F2")) return D_KEY_F2;
 	else if (streq(k, "F3")) return D_KEY_F3;
@@ -1799,11 +1956,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(char* key, int loc, bool rep) {
 	if (!k) {
 		return;
 	}
-	if (rep) {
-		d_app.key_states[k] = D_BTN_RPRESSED;
-	} else {
-		d_app.key_states[k] = D_BTN_PRESSED;
-	}
+	d_app.key_states[k] = rep ? D_BTN_RPRESSED : D_BTN_PRESSED;
 }
 
 EMSCRIPTEN_KEEPALIVE void d_cjs_key_release(char* key, int loc) {

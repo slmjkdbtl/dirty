@@ -1,15 +1,17 @@
-# setting default targets
+# finding host and default targets
 ifeq ($(OS),Windows_NT)
-TARGET := windows
+HOST := windows
 endif
 
 ifeq ($(shell uname -s),Darwin)
-TARGET := macos
+HOST := macos
 endif
 
 ifeq ($(shell uname -s),Linux)
-TARGET := linux
+HOST := linux
 endif
+
+TARGET := $(HOST)
 
 # programs / paths
 CC := cc
@@ -141,8 +143,13 @@ else ifeq ($(TARGET),ios)
 	$(MAKE) bundle
 	ios-deploy --debug --bundle $<.app
 else ifeq ($(TARGET),windows)
+ifeq ($(HOST), windows)
+	cd $(BIN_PATH); \
+		$(DEMO).exe $(ARGS)
+else
 	cd $(BIN_PATH); \
 		wine $(DEMO).exe $(ARGS)
+endif
 else
 	cd $(BIN_PATH); \
 		./$(DEMO) $(ARGS)
