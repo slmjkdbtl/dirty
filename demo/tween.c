@@ -15,6 +15,7 @@
 #define HEIGHT 120
 #define SCALE 4
 
+d_tweener tweener;
 d_model btfly;
 vec2 pos;
 bool active;
@@ -30,6 +31,7 @@ void init(void) {
 
 	pos = vec2f(d_gfx_width() / 2.0, d_gfx_height() / 2.0);
 	btfly = d_model_load(d_res_path("res/btfly.glb"));
+	tweener = d_tweener_new(128);
 
 }
 
@@ -50,15 +52,14 @@ void frame(void) {
 	if (d_app_mouse_pressed(D_MOUSE_LEFT)) {
 		active = true;
 		vec2 mpos = d_gfx_mouse_pos();
-		d_tween_add_vec2(pos, mpos, 1, &pos, d_ease_out_elastic);
+		d_tweener_add_vec2(&tweener, pos, mpos, 1, &pos, d_ease_out_elastic);
 	}
 
 	float dt = d_app_dt();
 
-	d_tween_update_all(dt);
+	d_tweener_update(&tweener, dt);
 
 	d_gfx_clear();
-
 	d_blit_bg();
 
 	d_gfx_t_push();
