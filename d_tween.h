@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+#define D_MAX_TWEENS 1024
+
 typedef float (*d_ease_func)(float);
 
 typedef struct {
@@ -16,27 +18,39 @@ typedef struct {
 	float duration;
 	d_ease_func easing_func;
 	float val;
+	float* src_val;
 	float elapsed;
 	bool paused;
+	bool done;
 } d_tween;
 
-typedef struct {
-	vec2 from;
-	vec2 to;
-	float duration;
-	d_ease_func easing_func;
-	vec2 val;
-	float elapsed;
-	bool paused;
-} d_tween_vec2;
+d_tween d_tween_new(
+	float from,
+	float to,
+	float duration,
+	float* src_val,
+	d_ease_func func
+);
 
-d_tween d_tween_new(float from, float to, float duration, d_ease_func func);
-float d_tween_update(d_tween *tween, float dt);
-bool d_tween_done(d_tween *tween);
+void d_tween_update(d_tween *tween, float dt, float* val);
 
-d_tween_vec2 d_tween_vec2_new(vec2 from, vec2 to, float duration, d_ease_func func);
-vec2 d_tween_vec2_update(d_tween_vec2 *tween, float dt);
-bool d_tween_vec2_done(d_tween_vec2 *tween);
+void d_tween_update_all(float dt);
+
+void d_tween_add_number(
+	float from,
+	float to,
+	float duration,
+	float* src_val,
+	d_ease_func func
+);
+
+void d_tween_add_vec2(
+	vec2 from,
+	vec2 to,
+	float duration,
+	vec2* src_val,
+	d_ease_func func
+);
 
 float d_ease_linear(float t);
 float d_ease_in_sine(float t);
@@ -89,55 +103,86 @@ float d_ease_in_out_bounce(float t);
 #define C4 (2 * D_PI) / 3
 #define C5 (2 * D_PI) / 4.5
 
-d_tween d_tween_new(float from, float to, float duration, d_ease_func func) {
+typedef struct {
+	d_tween tweens[D_MAX_TWEENS];
+	int num_tweens;
+} d_tween_man;
+
+static d_tween_man ctx;
+
+d_tween* d_tween_add(d_tween t) {
+	int idx = ctx.num_tweens;
+	ctx.tweens[ctx.num_tweens++] = t;
+	// a bit pointer magic to cancel all previous tween on the value
+	for (int i = 0; i < idx; i++) {
+		d_tween* t2 = &ctx.tweens[i];
+		if (t2->src_val != NULL && t2->src_val == t.src_val) {
+			t2->done = true;
+		}
+	}
+	return &ctx.tweens[idx];
+}
+
+void d_tween_add_vec2(
+	vec2 from,
+	vec2 to,
+	float duration,
+	vec2* src_val,
+	d_ease_func func
+) {
+	d_tween t1 = d_tween_new(from.x, to.x, duration, &src_val->x, func);
+	d_tween t2 = d_tween_new(from.y, to.y, duration, &src_val->y, func);
+	d_tween_add(t1);
+	d_tween_add(t2);
+}
+
+void d_tween_update_all(float dt) {
+	for (int i = 0; i < ctx.num_tweens; i++) {
+		d_tween* t = &ctx.tweens[i];
+		if (t->done) {
+			ctx.tweens[i] = ctx.tweens[--ctx.num_tweens];
+			i--;
+			continue;
+		}
+		d_tween_update(t, dt, NULL);
+	}
+}
+
+d_tween d_tween_new(
+	float from,
+	float to,
+	float duration,
+	float* src_val,
+	d_ease_func func
+) {
 	return (d_tween) {
 		.from = from,
 		.to = to,
 		.duration = duration,
 		.easing_func = func == NULL ? d_ease_linear: func,
 		.val = from,
+		.src_val = src_val,
 		.elapsed = 0.0,
 		.paused = false,
+		.done = false,
 	};
 }
 
-float d_tween_update(d_tween *tween, float dt) {
-	if (tween->paused) return tween->val;
+void d_tween_update(d_tween *tween, float dt, float* val) {
+	if (tween->paused || tween->done) return;
 	tween->elapsed += dt;
 	float t = tween->elapsed / tween->duration;
-	if (t > 1.0f) return tween->to;
+	if (t >= 1.0f) {
+		tween->val = tween->to;
+		tween->elapsed = tween->duration;
+		tween->done = true;
+		if (tween->src_val) *tween->src_val = tween->to;
+		if (val) *val = tween->to;
+		return;
+	}
 	tween->val = lerpf(tween->from, tween->to, tween->easing_func(t));
-	return tween->val;
-}
-
-bool d_tween_done(d_tween *tween) {
-	return tween->elapsed >= tween->duration;
-}
-
-d_tween_vec2 d_tween_vec2_new(vec2 from, vec2 to, float duration, d_ease_func func) {
-	return (d_tween_vec2) {
-		.from = from,
-		.to = to,
-		.duration = duration,
-		.easing_func = func == NULL ? d_ease_linear: func,
-		.val = from,
-		.elapsed = 0.0,
-		.paused = false,
-	};
-}
-
-vec2 d_tween_vec2_update(d_tween_vec2 *tween, float dt) {
-	if (tween->paused) return tween->val;
-	tween->elapsed += dt;
-	float t = tween->elapsed / tween->duration;
-	if (t > 1.0f) return tween->to;
-	tween->val.x = lerpf(tween->from.x, tween->to.x, tween->easing_func(t));
-	tween->val.y = lerpf(tween->from.y, tween->to.y, tween->easing_func(t));
-	return tween->val;
-}
-
-bool d_tween_vec2_done(d_tween_vec2 *tween) {
-	return tween->elapsed >= tween->duration;
+	if (tween->src_val) *tween->src_val = tween->val;
+	if (val) *val = tween->val;
 }
 
 float d_ease_linear(float t) {

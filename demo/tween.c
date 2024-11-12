@@ -17,7 +17,6 @@
 
 d_model btfly;
 vec2 pos;
-d_tween_vec2 tween;
 bool active;
 bool show_bbox;
 
@@ -51,14 +50,12 @@ void frame(void) {
 	if (d_app_mouse_pressed(D_MOUSE_LEFT)) {
 		active = true;
 		vec2 mpos = d_gfx_mouse_pos();
-		tween = d_tween_vec2_new(pos, mpos, 1, d_ease_out_elastic);
+		d_tween_add_vec2(pos, mpos, 1, &pos, d_ease_out_elastic);
 	}
 
 	float dt = d_app_dt();
 
-	if (active) {
-		pos = d_tween_vec2_update(&tween, dt);
-	}
+	d_tween_update_all(dt);
 
 	d_gfx_clear();
 
