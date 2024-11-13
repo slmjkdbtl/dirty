@@ -1,3 +1,5 @@
+// 2024-11-11 i don't understand a single line now
+
 // see demo/*.dt
 
 // TODO: ... to access func args

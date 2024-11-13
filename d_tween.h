@@ -202,8 +202,8 @@ void d_tweener_update(d_tweener* tweener, float dt) {
 #define C1 1.70158
 #define C2 (C1 * 1.525)
 #define C3 (C1 + 1)
-#define C4 (2 * D_PI) / 3
-#define C5 (2 * D_PI) / 4.5
+#define C4 ((2 * D_PI) / 3)
+#define C5 ((2 * D_PI) / 4.5)
 
 float d_ease_linear(float t) {
 	return t;
@@ -345,23 +345,21 @@ float d_ease_in_bounce(float t) {
 	return 1 - d_ease_out_bounce(1 - t);
 }
 
-// TODO: bugged
 float d_ease_out_bounce(float t) {
 	float n1 = 7.5625;
 	float d1 = 2.75;
 	if (t < 1 / d1) {
 		return n1 * t * t;
 	} else if (t < 2 / d1) {
-		t -= 1.5;
-		return n1 * (t / d1) * t + 0.75;
+		t -= 1.5 / d1;
+		return n1 * t * t + 0.75;
 	} else if (t < 2.5 / d1) {
-		t -= 2.25;
-		return n1 * (t / d1) * t + 0.9375;
+		t -= 2.25 / d1;
+		return n1 * t * t + 0.9375;
 	} else {
-		t -= 2.625;
-		return n1 * (t / d1) * t + 0.984375;
+		t -= 2.625 / d1;
+		return n1 * t * t + 0.984375;
 	}
-
 }
 
 float d_ease_in_out_bounce(float t) {

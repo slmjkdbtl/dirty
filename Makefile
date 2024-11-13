@@ -104,6 +104,9 @@ endif
 
 ifeq ($(TARGET),windows)
 LDFLAGS += -mwindows
+LDFLAGS += -lole32
+LDFLAGS += -lavrt
+LDFLAGS += -lwinmm
 endif
 
 ifeq ($(TARGET),linux)
@@ -194,10 +197,10 @@ endif
 $(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
 	@mkdir -p $(BIN_PATH)
 ifeq ($(TARGET),web)
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@.js $<
+	$(CC) $(CFLAGS) -o $@.js $< $(LDFLAGS)
 	sed 's/{{name}}/$*/' misc/web.html > $(BIN_PATH)/index.html
 else
-	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 endif
 	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
 

@@ -1,4 +1,4 @@
-// TODO: split to d_app.h and d_blit.h
+// TODO: gamepad
 
 #ifndef D_APP_H
 #define D_APP_H
@@ -189,7 +189,7 @@ bool d_app_scrolled(void);
 vec2 d_app_wheel(void);
 bool d_app_resized(void);
 char d_app_input(void);
-bool d_app_active(void);
+bool d_app_has_focus(void);
 
 bool d_app_mouse_down(d_mouse m);
 bool d_app_key_down(d_key k);
@@ -360,6 +360,7 @@ typedef struct {
 	d_btn_state mouse_states[_D_NUM_MOUSE];
 	d_touch_state touches[D_MAX_TOUCHES];
 	int num_touches;
+	bool has_focus;
 	bool resized;
 	char char_input;
 	float fps_timer;
@@ -1750,19 +1751,30 @@ LRESULT CALLBACK d_win32_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			vec2 mpos = vec2f(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
 			d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
 			d_app.mouse_pos = mpos;
-			d_app_frame();
 			break;
 		}
-		case WM_INPUT:
-			// TODO
+		case WM_MOUSEWHEEL:
+			d_app.wheel.y = (float)((SHORT)HIWORD(wParam));
+			break;
+		case WM_MOUSEHWHEEL:
+			d_app.wheel.x = -(float)((SHORT)HIWORD(wParam));
 			break;
 		case WM_CHAR:
-			// TODO
+			d_app.char_input = (char)wParam;
 			break;
-		case WM_MOUSEWHEEL:
-			// TODO
+		case WM_SIZE:
+			d_app.width = LOWORD(lParam);
+			d_app.height = HIWORD(lParam);
+			d_app.resized = true;
+			break;
+		case WM_SETFOCUS:
+			d_app.has_focus = true;
+			break;
+		case WM_KILLFOCUS:
+			d_app.has_focus = false;
 			break;
 		case WM_TIMER:
+			// TODO: should we use WM_PAINT?
 			InvalidateRect(d_app.window, NULL, TRUE);
 			d_app_frame();
 			break;
@@ -1798,6 +1810,7 @@ static void d_win32_run(d_app_desc* desc) {
 	);
 
 	if (d_app.window == NULL) {
+		fprintf(stderr, "failed to create window\n");
 		return;
 	}
 
@@ -1818,6 +1831,7 @@ static void d_win32_run(d_app_desc* desc) {
 	ShowWindow(d_app.window, SW_SHOW);
 	DragAcceptFiles(d_app.window, 1);
 
+	// TODO: too fast
 	SetTimer(d_app.window, 1, USER_TIMER_MINIMUM, NULL);
 
 	d_app_init();
@@ -1975,6 +1989,10 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_mouse_release(void) {
 	d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_RELEASED;
 }
 
+EMSCRIPTEN_KEEPALIVE void d_cjs_set_focus(bool f) {
+	d_app.has_focus = f;
+}
+
 EM_JS(void, d_js_set_fullscreen, (bool b), {
 	const canvas = dApp.canvas;
 	if (b) {
@@ -2069,6 +2087,25 @@ EM_JS(void, d_js_canvas_init, (char* root, int w, int h), {
 		ccall("d_cjs_mouse_release");
 	});
 
+	document.addEventListener("visibilitychange", () => {
+		if (document.visibilityState === "visible") {
+			ccall(
+				"d_cjs_set_focus",
+				"void",
+				[ "bool" ],
+				[ true ]
+			);
+		} else {
+			ccall(
+				"d_cjs_set_focus",
+				"void",
+				[ "bool" ],
+				[ false ]
+			);
+		}
+	});
+
+
 	// TODO: use js native time?
 	function frame() {
 		ccall("d_cjs_app_frame");
@@ -2123,6 +2160,7 @@ void d_app_run(d_app_desc desc) {
 	d_app.mouse_pos = vec2f(0.0, 0.0);
 	d_app.mouse_dpos = vec2f(0.0, 0.0);
 	d_app.wheel = vec2f(0.0, 0.0);
+	d_app.has_focus = true;
 	gettimeofday(&d_app.start_time, NULL);
 
 #if defined(D_COCOA)
@@ -2205,6 +2243,8 @@ void d_app_set_title(char* title) {
 	}
 #elif defined(D_X11)
 	XStoreName(d_app.display, d_app.window, title);
+#elif defined(D_WIN32)
+	SetWindowText(d_app.window, title);
 #elif defined(D_CANVAS)
 	d_js_set_title(title);
 #endif
@@ -2349,11 +2389,11 @@ char d_app_input(void) {
 	return d_app.char_input;
 }
 
-bool d_app_active(void) {
+bool d_app_has_focus(void) {
 #if defined(D_COCOA)
 	return [d_app.window isMainWindow];
 #endif
-	return true;
+	return d_app.has_focus;
 }
 
 void d_app_present(int w, int h, color* buf) {

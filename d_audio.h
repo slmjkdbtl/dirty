@@ -1,5 +1,5 @@
-// TODO: QOI audio
-// TODO: 2 channels
+// TODO: QOA audio
+// TODO: 2 channels?
 
 #ifndef D_AUDIO_H
 #define D_AUDIO_H
@@ -117,6 +117,9 @@ float d_wav_noise(float freq, float t);
 	#include <AudioToolbox/AudioToolbox.h>
 #elif defined(D_ALSA)
 	#include <alsa/asoundlib.h>
+#elif defined(D_WASAPI)
+	#include <audioclient.h>
+	#include <mmdeviceapi.h>
 #elif defined(D_WEBAUDIO)
 	#include <emscripten/emscripten.h>
 #endif
@@ -277,6 +280,25 @@ static void d_ca_dispose(void) {
 
 #endif // D_COREAUDIO
 
+// -------------------------------------------------------------
+// Windows
+#if defined(D_WASAPI)
+
+static void d_wasapi_init(void) {
+	IMMDeviceEnumerator *pEnumerator = NULL;
+	IMMDevice *pDevice = NULL;
+	IAudioClient *pAudioClient = NULL;
+	IAudioRenderClient *pRenderClient = NULL;
+	WAVEFORMATEX *pwfx = NULL;
+	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	if (FAILED(hr)) {
+		fprintf(stderr, "failed to initialize com\n");
+		return;
+	}
+}
+
+#endif // D_WASAPI
+
 #if defined(D_WEBAUDIO)
 
 EMSCRIPTEN_KEEPALIVE float d_cjs_audio_next(void) {
@@ -349,6 +371,8 @@ void d_audio_init(d_audio_desc desc) {
 	d_ca_init();
 #elif defined(D_WEBAUDIO)
 	d_webaudio_init();
+#elif defined(D_WASAPI)
+	d_wasapi_init();
 #elif defined(D_ALSA)
 	d_alsa_init();
 #endif

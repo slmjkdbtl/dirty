@@ -1,3 +1,4 @@
+// TODO: resize
 // TODO: QOI image
 
 #ifndef D_GFX_H
@@ -149,7 +150,7 @@ d_img d_img_load(char* path);
 void d_img_set(d_img* img, int x, int y, color c);
 color d_img_get(d_img* img, int x, int y);
 void d_img_fill(d_img* img, color c);
-void d_img_save(d_img* img, char* path);
+void d_img_save_png(d_img* img, char* path);
 d_img d_img_clone(d_img* img);
 void d_img_free(d_img* img);
 
@@ -582,8 +583,7 @@ void d_img_fill(d_img* img, color c) {
 	}
 }
 
-void d_img_save(d_img* img, char* path) {
-
+void d_img_save_png(d_img* img, char* path) {
 #ifdef STB_IMAGE_WRITE_IMPLEMENTATION
 	stbi_write_png(
 		path,
@@ -596,7 +596,6 @@ void d_img_save(d_img* img, char* path) {
 #else
 	fprintf(stderr, "image save only available with 'stb_image_write.h'\n");
 #endif // #ifdef STB_IMAGE_WRITE_IMPLEMENTATION
-
 }
 
 d_img d_img_clone(d_img* img) {
@@ -801,7 +800,7 @@ void d_blit_img(d_img* img, vec2 pos) {
 void d_blit_bg(void) {
 	color c1 = colori(128, 128, 128, 255);
 	color c2 = colori(191, 191, 191, 255);
-	int s = 32;
+	int s = 16;
 	for (int x = 0; x < d_gfx_width(); x++) {
 		for (int y = 0; y < d_gfx_height(); y++) {
 			color c = (x / s % 2 + y / s % 2) == 1 ? c1 : c2;
