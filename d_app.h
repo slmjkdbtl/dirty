@@ -153,7 +153,7 @@ typedef uint8_t d_touch;
 
 void d_app_run(d_app_desc desc);
 void d_app_quit(void);
-void d_app_present(int w, int h, color* buf);
+void d_app_present(int w, int h, d_color* buf);
 
 bool d_app_is_fullscreen(void);
 void d_app_set_fullscreen(bool b);
@@ -186,7 +186,7 @@ bool d_app_touch_pressed(d_touch t);
 bool d_app_touch_released(d_touch t);
 bool d_app_touch_moved(d_touch t);
 bool d_app_scrolled(void);
-vec2 d_app_wheel(void);
+d_vec2 d_app_wheel(void);
 bool d_app_resized(void);
 char d_app_input(void);
 bool d_app_has_focus(void);
@@ -194,10 +194,10 @@ bool d_app_has_focus(void);
 bool d_app_mouse_down(d_mouse m);
 bool d_app_key_down(d_key k);
 bool d_app_key_mod(d_kmod kmod);
-vec2 d_app_mouse_pos(void);
-vec2 d_app_mouse_dpos(void);
-vec2 d_app_touch_pos(d_touch t);
-vec2 d_app_touch_dpos(d_touch t);
+d_vec2 d_app_mouse_pos(void);
+d_vec2 d_app_mouse_dpos(void);
+d_vec2 d_app_touch_pos(d_touch t);
+d_vec2 d_app_touch_dpos(d_touch t);
 
 #endif
 
@@ -339,8 +339,8 @@ typedef enum {
 
 typedef struct {
 	uintptr_t id;
-	vec2 pos;
-	vec2 dpos;
+	d_vec2 pos;
+	d_vec2 dpos;
 	d_btn_state state;
 } d_touch_state;
 
@@ -352,10 +352,10 @@ typedef struct {
 	float dt;
 	int width;
 	int height;
-	vec2 mouse_pos;
-	vec2 mouse_dpos;
+	d_vec2 mouse_pos;
+	d_vec2 mouse_dpos;
 	bool touching;
-	vec2 wheel;
+	d_vec2 wheel;
 	d_btn_state key_states[_D_NUM_KEYS];
 	d_btn_state mouse_states[_D_NUM_MOUSE];
 	d_touch_state touches[D_MAX_TOUCHES];
@@ -456,7 +456,7 @@ static void d_app_frame(void) {
 	d_app.wheel.x = 0.0;
 	d_app.wheel.y = 0.0;
 	d_app.resized = false;
-	d_app.mouse_dpos = vec2f(0.0, 0.0);
+	d_app.mouse_dpos = d_vec2f(0.0, 0.0);
 	d_app.char_input = 0;
 
 }
@@ -565,7 +565,7 @@ static void d_gl_init(void) {
 
 }
 
-static void d_gl_present(int w, int h, color* buf) {
+static void d_gl_present(int w, int h, d_color* buf) {
 
 	glBindBuffer(GL_ARRAY_BUFFER, d_app.gl_vbuf);
 	glUseProgram(d_app.gl_prog);
@@ -686,7 +686,7 @@ static void d_mtl_init(void) {
 
 }
 
-static void d_mtl_present(int w, int h, color* buf) {
+static void d_mtl_present(int w, int h, d_color* buf) {
 
 	id<MTLCommandBuffer> cmd_buf = [d_app.mtl_queue commandBuffer];
 	MTLRenderPassDescriptor* desc = [d_app.view currentRenderPassDescriptor];
@@ -835,7 +835,7 @@ static d_key d_cocoa_key(unsigned short k) {
 	return D_KEY_NONE;
 }
 
-static void d_cocoa_present(int w, int h, color* buf) {
+static void d_cocoa_present(int w, int h, d_color* buf) {
 
 	CGContextRef ctx = [[NSGraphicsContext currentContext] CGContext];
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
@@ -992,16 +992,16 @@ static void d_cocoa_present(int w, int h, color* buf) {
 	d_app.mouse_states[D_MOUSE_RIGHT] = D_BTN_RELEASED;
 }
 - (void)scrollWheel:(NSEvent*)event {
-	d_app.wheel = vec2f(event.scrollingDeltaX, event.scrollingDeltaY);
+	d_app.wheel = d_vec2f(event.scrollingDeltaX, event.scrollingDeltaY);
 }
 - (void)drawRect:(NSRect)rect {
 
 	NSPoint ompos = [d_app.window mouseLocationOutsideOfEventStream];
-	vec2 mpos = vec2f(
+	d_vec2 mpos = d_vec2f(
 		ompos.x,
 		d_app.height - ompos.y
 	);
-	d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
+	d_app.mouse_dpos = d_vec2_sub(mpos, d_app.mouse_pos);
 	d_app.mouse_pos = mpos;
 
 	d_app_frame();
@@ -1033,12 +1033,12 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*>* tset, UIEvent* eve
 		UITouch* t = touches[0];
 		CGPoint pos = [t locationInView:[t view]];
 		d_app.mouse_states[D_MOUSE_LEFT] = state;
-		vec2 mpos = vec2f(
+		d_vec2 mpos = d_vec2f(
 			pos.x * d_app.width / d_app.width,
 			pos.y * d_app.height / d_app.height
 		);
 		if (d_app.touching) {
-			d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
+			d_app.mouse_dpos = d_vec2_sub(mpos, d_app.mouse_pos);
 		}
 		d_app.mouse_pos = mpos;
 		if (state == D_BTN_PRESSED || state == D_BTN_RPRESSED || state == D_BTN_DOWN) {
@@ -1051,14 +1051,14 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*>* tset, UIEvent* eve
 	for (UITouch* touch in touches) {
 		uintptr_t id = (uintptr_t)touch;
 		CGPoint cpos = [touch locationInView:[touch view]];
-		vec2 pos = vec2f(cpos.x, cpos.y);
+		d_vec2 pos = d_vec2f(cpos.x, cpos.y);
 		switch (state) {
 			case D_BTN_PRESSED:
 				if (d_app.num_touches < D_MAX_TOUCHES) {
 					d_app.touches[d_app.num_touches++] = (d_touch_state) {
 						.id = id,
 						.pos = pos,
-						.dpos = vec2f(0.0, 0.0),
+						.dpos = d_vec2f(0.0, 0.0),
 						.state = D_BTN_PRESSED,
 					};
 				}
@@ -1067,7 +1067,7 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*>* tset, UIEvent* eve
 				for (int i = 0; i < d_app.num_touches; i++) {
 					d_touch_state* t = &d_app.touches[i];
 					if (t->id == id) {
-						t->dpos = vec2_sub(pos, t->pos);
+						t->dpos = d_vec2_sub(pos, t->pos);
 						t->pos = pos;
 					}
 				}
@@ -1087,7 +1087,7 @@ static void d_uikit_touch(d_btn_state state, NSSet<UITouch*>* tset, UIEvent* eve
 
 }
 
-static void d_uikit_present(int w, int h, color* buf) {
+static void d_uikit_present(int w, int h, d_color* buf) {
 
 	CGContextRef ctx = UIGraphicsGetCurrentContext();
 	CGContextSetInterpolationQuality(ctx, kCGInterpolationNone);
@@ -1352,7 +1352,7 @@ static void d_term_run(d_app_desc* desc) {
 
 }
 
-static void d_term_present(int w, int h, color* buf) {
+static void d_term_present(int w, int h, d_color* buf) {
 
 	printf(TERM_CLEAR_SCREEN);
 	printf(TERM_RESET_CURSOR);
@@ -1366,18 +1366,18 @@ static void d_term_present(int w, int h, color* buf) {
 		th = mini(h, term_size.ws_row * 2 - 2);
 	}
 
-	color prev_c1 = colorx(0x00000000);
-	color prev_c2 = colorx(0x00000000);
+	d_color prev_c1 = d_colorx(0x00000000);
+	d_color prev_c2 = d_colorx(0x00000000);
 
 	for (int y = 0; y < th; y += 2) {
 		for (int x = 0; x < tw; x++) {
-			color c1 = buf[y * w + x];
-			color c2 = buf[(y + 1) * w + x];
-			if (!color_eq(c1, prev_c1)) {
+			d_color c1 = buf[y * w + x];
+			d_color c2 = buf[(y + 1) * w + x];
+			if (!d_color_eq(c1, prev_c1)) {
 				printf(TERM_TRUE_COLOR_FG, c1.r, c1.g, c1.b);
 				prev_c1 = c1;
 			}
-			if (!color_eq(c2, prev_c2)) {
+			if (!d_color_eq(c2, prev_c2)) {
 				printf(TERM_TRUE_COLOR_BG, c2.r, c2.g, c2.b);
 				prev_c2 = c2;
 			}
@@ -1404,17 +1404,17 @@ static d_key d_x11_key(unsigned short k) {
 }
 
 // TODO: better way to scale?
-static void d_x11_present(int w, int h, color* buf) {
+static void d_x11_present(int w, int h, d_color* buf) {
 
-	color* buf2 = malloc(d_app.width * d_app.height * sizeof(color));
+	d_color* buf2 = malloc(d_app.width * d_app.height * sizeof(d_color));
 
 	for (int x = 0; x < d_app.width; x++) {
 		for (int y = 0; y < d_app.height; y++) {
 			int xx = x * w / d_app.width;
 			int yy = y * h / d_app.height;
-			color c = buf[yy * w + xx];
+			d_color c = buf[yy * w + xx];
 			// TODO: it's drawing in BGRA
-			buf2[y * d_app.width + x] = colori(c.b, c.g, c.r, c.a);
+			buf2[y * d_app.width + x] = d_colori(c.b, c.g, c.r, c.a);
 		}
 	}
 
@@ -1556,7 +1556,7 @@ static void d_x11_run(d_app_desc* desc) {
 					d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_RELEASED;
 					break;
 				case MotionNotify:
-					d_app.mouse_pos = vec2f(
+					d_app.mouse_pos = d_vec2f(
 						event.xmotion.x * d_app.width / d_app.width,
 						event.xmotion.y * d_app.height / d_app.height
 					);
@@ -1582,7 +1582,7 @@ static void d_x11_run(d_app_desc* desc) {
 // Windows
 #if defined(D_WIN32)
 
-static void d_win32_present(int w, int h, color *buf) {
+static void d_win32_present(int w, int h, d_color *buf) {
 
 	PAINTSTRUCT ps;
 	HDC hdc = BeginPaint(d_app.window, &ps);
@@ -1748,8 +1748,8 @@ LRESULT CALLBACK d_win32_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			d_app.mouse_states[D_MOUSE_MIDDLE] = D_BTN_RELEASED;
 			break;
 		case WM_MOUSEMOVE: {
-			vec2 mpos = vec2f(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-			d_app.mouse_dpos = vec2_sub(mpos, d_app.mouse_pos);
+			d_vec2 mpos = d_vec2f(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
+			d_app.mouse_dpos = d_vec2_sub(mpos, d_app.mouse_pos);
 			d_app.mouse_pos = mpos;
 			break;
 		}
@@ -1961,8 +1961,8 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_set_size(int w, int h) {
 }
 
 EMSCRIPTEN_KEEPALIVE void d_cjs_set_mouse_pos(float x, float y) {
-	d_app.mouse_dpos = vec2_sub(vec2f(x, y), d_app.mouse_pos);
-	d_app.mouse_pos = vec2f(x, y);
+	d_app.mouse_dpos = d_vec2_sub(d_vec2f(x, y), d_app.mouse_pos);
+	d_app.mouse_pos = d_vec2f(x, y);
 }
 
 EMSCRIPTEN_KEEPALIVE void d_cjs_key_press(char* key, int loc, bool rep) {
@@ -2120,7 +2120,7 @@ EMSCRIPTEN_KEEPALIVE void d_cjs_app_frame(void) {
 	d_app_frame();
 }
 
-EM_JS(void, d_canvas_present, (int w, int h, color* buf), {
+EM_JS(void, d_canvas_present, (int w, int h, d_color* buf), {
 
 	const canvas = dApp.canvas;
 	const pixels = new Uint8ClampedArray(HEAPU8.buffer, buf, w * h * 4);
@@ -2157,9 +2157,9 @@ void d_app_run(d_app_desc desc) {
 	d_app.scale_mode = D_DEF_SCALEMODE;
 	d_app.time = 0.0;
 	d_app.dt = 0.0;
-	d_app.mouse_pos = vec2f(0.0, 0.0);
-	d_app.mouse_dpos = vec2f(0.0, 0.0);
-	d_app.wheel = vec2f(0.0, 0.0);
+	d_app.mouse_pos = d_vec2f(0.0, 0.0);
+	d_app.mouse_dpos = d_vec2f(0.0, 0.0);
+	d_app.wheel = d_vec2f(0.0, 0.0);
 	d_app.has_focus = true;
 	gettimeofday(&d_app.start_time, NULL);
 
@@ -2321,11 +2321,11 @@ int d_app_height(void) {
 	return d_app.height;
 }
 
-vec2 d_app_mouse_pos(void) {
+d_vec2 d_app_mouse_pos(void) {
 	return d_app.mouse_pos;
 }
 
-vec2 d_app_mouse_dpos(void) {
+d_vec2 d_app_mouse_dpos(void) {
 	return d_app.mouse_dpos;
 }
 
@@ -2357,18 +2357,18 @@ bool d_app_touch_moved(d_touch t) {
 	return d_app.touches[t].dpos.x != 0.0 || d_app.touches[t].dpos.x != 0.0;
 }
 
-vec2 d_app_touch_pos(d_touch t) {
+d_vec2 d_app_touch_pos(d_touch t) {
 	if (t >= D_MAX_TOUCHES) {
 		fprintf(stderr, "touch not found: %d\n", t);
-		return vec2f(0, 0);
+		return d_vec2f(0, 0);
 	}
 	return d_app.touches[t].pos;
 }
 
-vec2 d_app_touch_dpos(d_touch t) {
+d_vec2 d_app_touch_dpos(d_touch t) {
 	if (t >= D_MAX_TOUCHES) {
 		fprintf(stderr, "touch not found: %d\n", t);
-		return vec2f(0, 0);
+		return d_vec2f(0, 0);
 	}
 	return d_app.touches[t].dpos;
 }
@@ -2381,7 +2381,7 @@ bool d_app_scrolled(void) {
 	return d_app.wheel.x != 0.0 || d_app.wheel.y != 0.0;
 }
 
-vec2 d_app_wheel(void) {
+d_vec2 d_app_wheel(void) {
 	return d_app.wheel;
 }
 
@@ -2396,7 +2396,7 @@ bool d_app_has_focus(void) {
 	return d_app.has_focus;
 }
 
-void d_app_present(int w, int h, color* buf) {
+void d_app_present(int w, int h, d_color* buf) {
 #if defined(D_GL)
 	d_gl_present(w, h, buf);
 #elif defined(D_METAL)

@@ -28,14 +28,14 @@ static char* fmt(char *fmt, ...) {
 }
 
 d_img img;
-vec2 pos;
+d_vec2 pos;
 
 void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
-		.clear_color = colori(0, 0, 0, 255),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
 	img = d_img_load(d_res_path("res/wizard.png"));
@@ -58,13 +58,13 @@ void frame(void) {
 
 	d_gfx_clear();
 
-	vec2 mpos = d_gfx_mouse_pos();
+	d_vec2 mpos = d_gfx_mouse_pos();
 
 	d_blit_bg();
 
 	d_blit_img(&img, pos);
-	d_blit_circle(mpos, 3, colorx(0xffffffff));
-	d_blit_text("oh hi", pos, colorx(0xffffffff), false, false);
+	d_blit_circle(mpos, 3, d_colorx(0xffffffff));
+	d_blit_text("oh hi", pos, d_colorx(0xffffffff), false, false);
 
 	d_gfx_present();
 

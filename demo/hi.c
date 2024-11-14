@@ -8,7 +8,7 @@ void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = 240,
 		.height = 240,
-		.clear_color = colori(0, 0, 0, 255),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 }
 
@@ -18,7 +18,7 @@ void frame(void) {
 		d_app_quit();
 	}
 
-	d_blit_text("123abc", vec2f(10, 10), colori(255, 255, 255, 255), false, false);
+	d_blit_text("123abc", d_vec2f(10, 10), d_colori(255, 255, 255, 255), false, false);
 	d_gfx_present();
 
 }

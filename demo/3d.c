@@ -30,16 +30,16 @@ static char* fmt(char *fmt, ...) {
 }
 
 typedef struct {
-	vec3 pos;
-	vec3 rot;
-	vec3 scale;
+	d_vec3 pos;
+	d_vec3 rot;
+	d_vec3 scale;
 	d_model model;
 } model;
 
 #define NUM_MODELS 4
 
 model models[NUM_MODELS];
-vec3 rot;
+d_vec3 rot;
 bool show_bbox;
 
 void init(void) {
@@ -47,34 +47,34 @@ void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
-		.clear_color = colori(0, 0, 0, 255),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
 	models[0] = (model) {
-		.pos = vec3f(60, 80, 0),
-		.rot = vec3f(0.24, 0.48, 0),
-		.scale = vec3f(6, -6, 6),
+		.pos = d_vec3f(60, 80, 0),
+		.rot = d_vec3f(0.24, 0.48, 0),
+		.scale = d_vec3f(6, -6, 6),
 		.model = d_model_load(d_res_path("res/btfly.glb")),
 	};
 
 	models[1] = (model) {
-		.pos = vec3f(160, 140, 0),
-		.rot = vec3f(0.2, 0.3, 0.2),
-		.scale = vec3f(1, -1, 1),
+		.pos = d_vec3f(160, 140, 0),
+		.rot = d_vec3f(0.2, 0.3, 0.2),
+		.scale = d_vec3f(1, -1, 1),
 		.model = d_model_load(d_res_path("res/tv.glb")),
 	};
 
 	models[2] = (model) {
-		.pos = vec3f(160, 60, 0),
-		.rot = vec3f(0.5, -0.5, 0),
-		.scale = vec3f(1, -1, 1),
+		.pos = d_vec3f(160, 60, 0),
+		.rot = d_vec3f(0.5, -0.5, 0),
+		.scale = d_vec3f(1, -1, 1),
 		.model = d_model_load(d_res_path("res/flower.glb")),
 	};
 
 	models[3] = (model) {
-		.pos = vec3f(40, 190, 0),
-		.rot = vec3f(0.5, -0.5, 0),
-		.scale = vec3f(1, -1, 1),
+		.pos = d_vec3f(40, 190, 0),
+		.rot = d_vec3f(0.5, -0.5, 0),
+		.scale = d_vec3f(1, -1, 1),
 		.model = d_model_load(d_res_path("res/sprayer.glb")),
 	};
 
@@ -94,7 +94,7 @@ void frame(void) {
 		show_bbox = !show_bbox;
 	}
 
-	vec2 mdpos = d_gfx_mouse_dpos();
+	d_vec2 mdpos = d_gfx_mouse_dpos();
 
 	if (d_app_mouse_down(D_MOUSE_LEFT)) {
 		rot.x += mdpos.y / 100;
@@ -112,10 +112,10 @@ void frame(void) {
 		d_gfx_t_rot_x(m->rot.x + rot.x);
 		d_gfx_t_rot_z(m->rot.z);
 		d_gfx_t_scale3(m->scale);
-		d_gfx_t_move3(vec3_scale(m->model.center, -1));
+		d_gfx_t_move3(d_vec3_scale(m->model.center, -1));
 		d_draw_model(&m->model);
 		if (show_bbox) {
-			d_draw_bbox(m->model.bbox, colorx(0x0000ffff));
+			d_draw_bbox(m->model.bbox, d_colorx(0x0000ffff));
 		}
 		d_gfx_t_pop();
 	}

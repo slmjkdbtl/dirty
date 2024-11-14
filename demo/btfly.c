@@ -26,7 +26,7 @@ void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
-		.clear_color = colori(0, 0, 0, 255),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
 	d_audio_init((d_audio_desc) {0});
@@ -59,15 +59,15 @@ void frame(void) {
 	d_blit_bg();
 
 	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
+	d_gfx_t_move3(d_vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
 	d_gfx_t_rot_y(d_app_time());
 	d_gfx_t_rot_z(d_app_time() / 2);
-	d_gfx_t_scale3(vec3f(3, -3, 3));
-	d_gfx_t_move3(vec3_scale(btfly.center, -1));
+	d_gfx_t_scale3(d_vec3f(3, -3, 3));
+	d_gfx_t_move3(d_vec3_scale(btfly.center, -1));
 	d_draw_model(&btfly);
 
 	if (show_bbox) {
-		d_draw_bbox(btfly.bbox, colorx(0x0000ffff));
+		d_draw_bbox(btfly.bbox, d_colorx(0x0000ffff));
 	}
 
 	d_gfx_t_pop();

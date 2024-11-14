@@ -14,7 +14,7 @@ typedef struct d_gfx_desc {
 	bool no_depth_test;
 	bool no_backface_cull;
 	bool anti_alias;
-	color clear_color;
+	d_color clear_color;
 } d_gfx_desc;
 
 typedef enum {
@@ -44,7 +44,7 @@ typedef enum {
 typedef struct {
 	int width;
 	int height;
-	color* pixels;
+	d_color* pixels;
 } d_img;
 
 typedef struct {
@@ -79,10 +79,10 @@ typedef struct {
 } d_font;
 
 typedef struct {
-	vec3 pos;
-	vec2 uv;
-	vec3 normal;
-	color color;
+	d_vec3 pos;
+	d_vec2 uv;
+	d_vec3 normal;
+	d_color color;
 } d_vertex;
 
 typedef uint32_t d_index;
@@ -95,13 +95,13 @@ typedef struct {
 } d_mesh;
 
 typedef struct {
-	vec3 pos;
-	quat rot;
-	vec3 scale;
+	d_vec3 pos;
+	d_quat rot;
+	d_vec3 scale;
 } d_transform;
 
 typedef struct {
-	mat4 transform;
+	d_mat4 transform;
 	float time;
 } d_model_anim_frame;
 
@@ -112,7 +112,7 @@ typedef struct {
 } d_model_anim;
 
 typedef struct d_model_node {
-	mat4 t;
+	d_mat4 t;
 	struct d_model_node* children;
 	int num_children;
 	d_mesh* meshes;
@@ -126,17 +126,17 @@ typedef struct {
 	int num_nodes;
 	d_img* images;
 	int num_images;
-	box bbox;
-	vec3 center;
+	d_box bbox;
+	d_vec3 center;
 } d_model;
 
-typedef color(*d_gfx_shader)(color);
+typedef d_color(*d_gfx_shader)(d_color);
 
 void d_gfx_init(d_gfx_desc);
 #ifdef D_APP_H
 void d_gfx_present(void);
-vec2 d_gfx_mouse_pos(void);
-vec2 d_gfx_mouse_dpos(void);
+d_vec2 d_gfx_mouse_pos(void);
+d_vec2 d_gfx_mouse_dpos(void);
 #endif
 
 int d_gfx_width(void);
@@ -147,9 +147,9 @@ d_img d_img_parse(uint8_t* bytes, size_t size);
 #ifdef D_FS_H
 d_img d_img_load(char* path);
 #endif
-void d_img_set(d_img* img, int x, int y, color c);
-color d_img_get(d_img* img, int x, int y);
-void d_img_fill(d_img* img, color c);
+void d_img_set(d_img* img, int x, int y, d_color c);
+d_color d_img_get(d_img* img, int x, int y);
+void d_img_fill(d_img* img, d_color c);
 void d_img_save_png(d_img* img, char* path);
 d_img d_img_clone(d_img* img);
 void d_img_free(d_img* img);
@@ -190,37 +190,37 @@ void d_model_free(d_model* model);
 void d_gfx_clear(void);
 void d_gfx_set_blend(d_blend b);
 void d_gfx_set_wrap(d_wrap w);
-void d_gfx_draw_pixel(int x, int y, int z, color c);
-void d_gfx_blit_pixel(int x, int y, color c);
-color d_gfx_get(int x, int y);
-void d_blit_img(d_img* img, vec2 pos);
-void d_blit_text(char* text, vec2 pos, color c, bool bold, bool italic);
+void d_gfx_draw_pixel(int x, int y, int z, d_color c);
+void d_gfx_blit_pixel(int x, int y, d_color c);
+d_color d_gfx_get(int x, int y);
+void d_blit_img(d_img* img, d_vec2 pos);
+void d_blit_text(char* text, d_vec2 pos, d_color c, bool bold, bool italic);
 void d_blit_bg(void);
-void d_blit_rect(vec2 p1, vec2 p2, color c);
-void d_blit_circle(vec2 center, float r, color c);
-void d_blit_line(vec2 p1, vec2 p2, color c);
+void d_blit_rect(d_vec2 p1, d_vec2 p2, d_color c);
+void d_blit_circle(d_vec2 center, float r, d_color c);
+void d_blit_line(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img* tex);
 void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img* tex);
-void d_draw_img(d_img* img, vec2 pos);
-void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c);
-void d_draw_rect(vec2 p1, vec2 p2, color c);
-void d_draw_line(vec2 p1, vec2 p2, color c);
-void d_draw_line3(vec3 p1, vec3 p2, color c);
+void d_draw_img(d_img* img, d_vec2 pos);
+void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c);
+void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c);
+void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c);
+void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c);
 void d_draw_mesh(d_mesh* mesh, d_img* tex);
 void d_draw_model(d_model* model);
-void d_draw_bbox(box bbox, color c);
+void d_draw_bbox(d_box bbox, d_color c);
 void d_gfx_t_push(void);
 void d_gfx_t_pop(void);
-void d_gfx_t_use(mat4 m);
-void d_gfx_t_move(vec2 p);
-void d_gfx_t_move3(vec3 p);
-void d_gfx_t_scale(vec2 s);
-void d_gfx_t_scale3(vec3 s);
+void d_gfx_t_use(d_mat4 m);
+void d_gfx_t_move(d_vec2 p);
+void d_gfx_t_move3(d_vec3 p);
+void d_gfx_t_scale(d_vec2 s);
+void d_gfx_t_scale3(d_vec3 s);
 void d_gfx_t_rot_x(float a);
 void d_gfx_t_rot_y(float a);
 void d_gfx_t_rot_z(float a);
-vec2 d_gfx_t_apply_vec2(vec2 p);
-vec3 d_gfx_t_apply_vec3(vec3 p);
+d_vec2 d_gfx_t_apply_vec2(d_vec2 p);
+d_vec3 d_gfx_t_apply_vec3(d_vec3 p);
 void d_gfx_drawon(d_img* img);
 d_img* d_gfx_canvas(void);
 void d_gfx_set_shader(d_gfx_shader func);
@@ -361,11 +361,11 @@ typedef struct {
 	bool bbuf_test;
 	d_font def_font;
 	d_font* cur_font;
-	color clear_color;
+	d_color clear_color;
 	d_blend blend;
 	d_wrap wrap;
-	mat4 t;
-	mat4 tstack[D_MAX_TSTACK];
+	d_mat4 t;
+	d_mat4 tstack[D_MAX_TSTACK];
 	int tstack_len;
 } d_gfx_ctx;
 
@@ -386,25 +386,25 @@ void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.blend = D_BLEND_ALPHA;
 	d_gfx.wrap = D_WRAP_BORDER;
 	d_gfx.clear_color = desc.clear_color;
-	d_gfx.t = mat4u();
-	memset(d_gfx.tstack, 0, sizeof(mat4) * D_MAX_TSTACK);
+	d_gfx.t = d_mat4u();
+	memset(d_gfx.tstack, 0, sizeof(d_mat4) * D_MAX_TSTACK);
 	d_gfx.tstack_len = 0;
 	d_gfx_clear();
 }
 
 #ifdef D_APP_H
 
-vec2 d_gfx_mouse_pos(void) {
-	vec2 mpos = d_app_mouse_pos();
-	return vec2f(
+d_vec2 d_gfx_mouse_pos(void) {
+	d_vec2 mpos = d_app_mouse_pos();
+	return d_vec2f(
 		mpos.x * d_gfx_width() / d_app_width(),
 		mpos.y * d_gfx_height() / d_app_height()
 	);
 }
 
-vec2 d_gfx_mouse_dpos(void) {
-	vec2 mdpos = d_app_mouse_dpos();
-	return vec2f(
+d_vec2 d_gfx_mouse_dpos(void) {
+	d_vec2 mdpos = d_app_mouse_dpos();
+	return d_vec2f(
 		mdpos.x * d_gfx_width() / d_app_width(),
 		mdpos.y * d_gfx_height() / d_app_height()
 	);
@@ -516,7 +516,7 @@ d_img d_img_new(int w, int h) {
 	return (d_img) {
 		.width = w,
 		.height = h,
-		.pixels = calloc(w * h, sizeof(color)),
+		.pixels = calloc(w * h, sizeof(d_color)),
 	};
 }
 
@@ -543,7 +543,7 @@ d_img d_img_parse(uint8_t* bytes, size_t size) {
 		return (d_img) {
 			.width = w,
 			.height = h,
-			.pixels = (color*)pixels,
+			.pixels = (d_color*)pixels,
 		};
 #else
 		fprintf(stderr, "jpeg / png support requires 'stb_image.h'\n");
@@ -569,15 +569,15 @@ d_img d_img_load(char* path) {
 }
 #endif // #ifdef D_FS_H
 
-void d_img_set(d_img* img, int x, int y, color c) {
+void d_img_set(d_img* img, int x, int y, d_color c) {
 	img->pixels[y * img->width + x] = c;
 }
 
-color d_img_get(d_img* img, int x, int y) {
+d_color d_img_get(d_img* img, int x, int y) {
 	return img->pixels[y * img->width + x];
 }
 
-void d_img_fill(d_img* img, color c) {
+void d_img_fill(d_img* img, d_color c) {
 	for (int i = 0; i < img->width * img->height; i++) {
 		img->pixels[i] = c;
 	}
@@ -591,7 +591,7 @@ void d_img_save_png(d_img* img, char* path) {
 		img->height,
 		4,
 		(uint8_t*)img->pixels,
-		img->width * sizeof(color)
+		img->width * sizeof(d_color)
 	);
 #else
 	fprintf(stderr, "image save only available with 'stb_image_write.h'\n");
@@ -602,7 +602,7 @@ d_img d_img_clone(d_img* img) {
 	int w = img->width;
 	int h = img->height;
 	d_img img2 = d_img_new(w, h);
-	memcpy(img2.pixels, img->pixels, w * h * sizeof(color));
+	memcpy(img2.pixels, img->pixels, w * h * sizeof(d_color));
 	return img2;
 }
 
@@ -697,7 +697,7 @@ bool d_gfx_bbuf_get(int x, int y) {
 	return d_bbuf_get(&d_gfx.bbuf, x, y);
 }
 
-void d_gfx_draw_pixel(int x, int y, int z, color c) {
+void d_gfx_draw_pixel(int x, int y, int z, d_color c) {
 	d_img* img = d_gfx.cur_canvas;
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
@@ -725,8 +725,8 @@ void d_gfx_draw_pixel(int x, int y, int z, color c) {
 			if (c.a == 255) {
 				img->pixels[i] = c;
 			} else if (c.a != 0) {
-				color rc = img->pixels[i];
-				img->pixels[i] = (color) {
+				d_color rc = img->pixels[i];
+				img->pixels[i] = (d_color) {
 					.r = (rc.r * (255 - c.a) + c.r * c.a) / 255,
 					.g = (rc.g * (255 - c.a) + c.g * c.a) / 255,
 					.b = (rc.b * (255 - c.a) + c.b * c.a) / 255,
@@ -740,8 +740,8 @@ void d_gfx_draw_pixel(int x, int y, int z, color c) {
 			break;
 		case D_BLEND_ADD:
 			if (c.a != 0) {
-				color rc = img->pixels[i];
-				img->pixels[i] = (color) {
+				d_color rc = img->pixels[i];
+				img->pixels[i] = (d_color) {
 					.r = (rc.r * rc.a + c.r * c.a) / 255,
 					.g = (rc.g * rc.a + c.g * c.a) / 255,
 					.b = (rc.b * rc.a + c.b * c.a) / 255,
@@ -752,7 +752,7 @@ void d_gfx_draw_pixel(int x, int y, int z, color c) {
 	}
 }
 
-void d_gfx_blit_pixel(int x, int y, color c) {
+void d_gfx_blit_pixel(int x, int y, d_color c) {
 	d_img* img = d_gfx.cur_canvas;
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
@@ -762,18 +762,18 @@ void d_gfx_blit_pixel(int x, int y, color c) {
 	}
 }
 
-color d_gfx_get(int x, int y) {
+d_color d_gfx_get(int x, int y) {
 	d_img* img = d_gfx.cur_canvas;
 	switch (d_gfx.wrap) {
 		case D_WRAP_BORDER:
 			if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
-				return colori(0, 0, 0, 0);
+				return d_colori(0, 0, 0, 0);
 			} else {
 				return img->pixels[y * img->width + x];
 			}
 		case D_WRAP_EDGE: {
-			int xx = clampi(x, 0, img->width - 1);
-			int yy = clampi(y, 0, img->height - 1);
+			int xx = d_clampi(x, 0, img->width - 1);
+			int yy = d_clampi(y, 0, img->height - 1);
 			return img->pixels[yy * img->width + xx];
 		}
 		case D_WRAP_REPEAT: {
@@ -782,10 +782,10 @@ color d_gfx_get(int x, int y) {
 			return img->pixels[yy * img->width + xx];
 		}
 	}
-	return colorx(0x00000000);
+	return d_colorx(0x00000000);
 }
 
-void d_blit_img(d_img* img, vec2 pos) {
+void d_blit_img(d_img* img, d_vec2 pos) {
 	for (int x = 0; x < img->width; x++) {
 		for (int y = 0; y < img->height; y++) {
 			d_gfx_blit_pixel(
@@ -798,18 +798,18 @@ void d_blit_img(d_img* img, vec2 pos) {
 }
 
 void d_blit_bg(void) {
-	color c1 = colori(128, 128, 128, 255);
-	color c2 = colori(191, 191, 191, 255);
-	int s = 16;
+	d_color c1 = d_colori(128, 128, 128, 255);
+	d_color c2 = d_colori(191, 191, 191, 255);
+	int s = 32;
 	for (int x = 0; x < d_gfx_width(); x++) {
 		for (int y = 0; y < d_gfx_height(); y++) {
-			color c = (x / s % 2 + y / s % 2) == 1 ? c1 : c2;
+			d_color c = (x / s % 2 + y / s % 2) == 1 ? c1 : c2;
 			d_gfx_blit_pixel(x, y, c);
 		}
 	}
 }
 
-void d_blit_rect(vec2 p1, vec2 p2, color c) {
+void d_blit_rect(d_vec2 p1, d_vec2 p2, d_color c) {
 	int x1 = p1.x < p2.x ? p1.x : p2.x;
 	int x2 = p1.x > p2.x ? p1.x : p2.x;
 	int y1 = p1.y < p2.y ? p1.y : p2.y;
@@ -821,19 +821,19 @@ void d_blit_rect(vec2 p1, vec2 p2, color c) {
 	}
 }
 
-void d_blit_circle(vec2 center, float r, color c) {
+void d_blit_circle(d_vec2 center, float r, d_color c) {
 	for (int i = center.x - r; i <= center.x + r; i++) {
 		for (int j = center.y - r; j <= center.y + r; j++) {
-			vec2 p = vec2f(i, j);
-			float d = vec2_dist(p, center);
-			if (d <= r) {
+			d_vec2 p = d_vec2f(i, j);
+			float d = d_vec2_dist(p, center);
+			if (d < r) {
 				d_gfx_blit_pixel(p.x, p.y, c);
 			}
 		}
 	}
 }
 
-void d_blit_text(char* text, vec2 pos, color c, bool bold, bool italic) {
+void d_blit_text(char* text, d_vec2 pos, d_color c, bool bold, bool italic) {
 
 	int num_chars = strlen(text);
 	d_font* font = &d_gfx.def_font;
@@ -861,7 +861,7 @@ void d_blit_text(char* text, vec2 pos, color c, bool bold, bool italic) {
 
 }
 
-void d_blit_line(vec2 p1, vec2 p2, color c) {
+void d_blit_line(d_vec2 p1, d_vec2 p2, d_color c) {
 
 	int x1 = p1.x;
 	int y1 = p1.y;
@@ -870,13 +870,13 @@ void d_blit_line(vec2 p1, vec2 p2, color c) {
 	bool steep = abs(y2 - y1) > abs(x2 - x1);
 
 	if (steep) {
-		swapi(&x1, &y1);
-		swapi(&x2, &y2);
+		d_swapi(&x1, &y1);
+		d_swapi(&x2, &y2);
 	}
 
 	if (x1 > x2) {
-		swapi(&x1, &x2);
-		swapi(&y1, &y2);
+		d_swapi(&x1, &x2);
+		d_swapi(&y1, &y2);
 	}
 
 	int dx = x2 - x1;
@@ -913,35 +913,35 @@ void d_draw_prim_tri(
 	d_img* tex
 ) {
 
-	vec3 p1 = d_gfx_t_apply_vec3(v1.pos);
-	vec3 p2 = d_gfx_t_apply_vec3(v2.pos);
-	vec3 p3 = d_gfx_t_apply_vec3(v3.pos);
+	d_vec3 p1 = d_gfx_t_apply_vec3(v1.pos);
+	d_vec3 p2 = d_gfx_t_apply_vec3(v2.pos);
+	d_vec3 p3 = d_gfx_t_apply_vec3(v3.pos);
 
 	if (d_gfx.backface_cull) {
-		vec3 normal = vec3_unit(
-			vec3_cross(
-				vec3_sub(p3, p1),
-				vec3_sub(p2, p1)
+		d_vec3 normal = d_vec3_unit(
+			d_vec3_cross(
+				d_vec3_sub(p3, p1),
+				d_vec3_sub(p2, p1)
 			)
 		);
-		if (vec3_dot(normal, vec3f(0, 0, 1)) < 0) {
+		if (d_vec3_dot(normal, d_vec3f(0, 0, 1)) < 0) {
 			return;
 		}
 	}
 
 	if (p1.y > p2.y) {
 		d_vertex_swap(&v1, &v2);
-		vec3_swap(&p1, &p2);
+		d_vec3_swap(&p1, &p2);
 	}
 
 	if (p1.y > p3.y) {
 		d_vertex_swap(&v1, &v3);
-		vec3_swap(&p1, &p3);
+		d_vec3_swap(&p1, &p3);
 	}
 
 	if (p2.y > p3.y) {
 		d_vertex_swap(&v2, &v3);
-		vec3_swap(&p2, &p3);
+		d_vec3_swap(&p2, &p3);
 	}
 
 	int x1 = p1.x;
@@ -954,9 +954,9 @@ void d_draw_prim_tri(
 	int y3 = p3.y;
 	int z3 = p3.z;
 
-	// vec3 n1 = vec3_unit(d_gfx_t_apply_vec3(v1.normal));
-	// vec3 n2 = vec3_unit(d_gfx_t_apply_vec3(v2.normal));
-	// vec3 n3 = vec3_unit(d_gfx_t_apply_vec3(v3.normal));
+	// d_vec3 n1 = d_vec3_unit(d_gfx_t_apply_vec3(v1.normal));
+	// d_vec3 n2 = d_vec3_unit(d_gfx_t_apply_vec3(v2.normal));
+	// d_vec3 n3 = d_vec3_unit(d_gfx_t_apply_vec3(v3.normal));
 
 	int gw = d_gfx_width();
 	int gh = d_gfx_height();
@@ -970,57 +970,57 @@ void d_draw_prim_tri(
 		bool prebend = y < y2;
 
 		int x_start = prebend
-			? mapi(y, y1, y2, x1, x2)
-			: mapi(y, y2, y3, x2, x3);
-		int x_end = mapi(y, y1, y3, x1, x3);
+			? d_mapi(y, y1, y2, x1, x2)
+			: d_mapi(y, y2, y3, x2, x3);
+		int x_end = d_mapi(y, y1, y3, x1, x3);
 
 		int z_start = prebend
-			? mapi(y, y1, y2, z1, z2)
-			: mapi(y, y2, y3, z2, z3);
-		int z_end = mapi(y, y1, y3, z1, z3);
+			? d_mapi(y, y1, y2, z1, z2)
+			: d_mapi(y, y2, y3, z2, z3);
+		int z_end = d_mapi(y, y1, y3, z1, z3);
 
 		float ty1 = (float)(y - y1) / (float)(y2 - y1);
 		float ty2 = (float)(y - y2) / (float)(y3 - y2);
 		float ty3 = (float)(y - y1) / (float)(y3 - y1);
 
-		color col_start = prebend
-			? color_lerp(v1.color, v2.color, ty1)
-			: color_lerp(v2.color, v3.color, ty2);
-		color col_end = color_lerp(v1.color, v3.color, ty3);
+		d_color col_start = prebend
+			? d_color_lerp(v1.color, v2.color, ty1)
+			: d_color_lerp(v2.color, v3.color, ty2);
+		d_color col_end = d_color_lerp(v1.color, v3.color, ty3);
 
-		vec2 uv_start = prebend
-			? vec2_lerp(v1.uv, v2.uv, ty1)
-			: vec2_lerp(v2.uv, v3.uv, ty2);
-		vec2 uv_end = vec2_lerp(v1.uv, v3.uv, ty3);
+		d_vec2 uv_start = prebend
+			? d_vec2_lerp(v1.uv, v2.uv, ty1)
+			: d_vec2_lerp(v2.uv, v3.uv, ty2);
+		d_vec2 uv_end = d_vec2_lerp(v1.uv, v3.uv, ty3);
 
-		// vec3 normal_start = prebend
-			// ? vec3_lerp(n1, n2, ty1)
-			// : vec3_lerp(n2, n3, ty2);
-		// vec3 normal_end = vec3_lerp(n1, n3, ty3);
+		// d_vec3 normal_start = prebend
+			// ? d_vec3_lerp(n1, n2, ty1)
+			// : d_vec3_lerp(n2, n3, ty2);
+		// d_vec3 normal_end = d_vec3_lerp(n1, n3, ty3);
 
-		bool same_color = color_eq(col_start, col_end);
+		bool same_color = d_color_eq(col_start, col_end);
 		int x_len = x_end - x_start;
 
-		for (int x = mini(x_start, x_end); x < maxi(x_start, x_end); x++) {
+		for (int x = d_mini(x_start, x_end); x < d_maxi(x_start, x_end); x++) {
 
 			if (x < 0 || x >= gw) {
 				continue;
 			}
 
-			int z = mapi(x, x_start, x_end, z_start, z_end);
+			int z = d_mapi(x, x_start, x_end, z_start, z_end);
 			float t = (float)(x - x_start) / (float)x_len;
 
-			color c = same_color
+			d_color c = same_color
 				? col_start
-				: color_lerp(col_start, col_end, t);
+				: d_color_lerp(col_start, col_end, t);
 
-// 			vec3 normal = vec3_lerp(normal_start, normal_end, t);
+// 			d_vec3 normal = d_vec3_lerp(normal_start, normal_end, t);
 // 			int l = mapf(normal.x + normal.y + normal.z, 3, -3, -255, 255);
-// 			c = color_lighten(c, l);
+// 			c = d_color_lighten(c, l);
 
 			if (tex) {
-				vec2 uv = vec2_lerp(uv_start, uv_end, t);
-				c = color_mix(
+				d_vec2 uv = d_vec2_lerp(uv_start, uv_end, t);
+				c = d_color_mix(
 					d_img_get(tex, tex->width * uv.x, tex->height * uv.y),
 					c
 				);
@@ -1045,122 +1045,122 @@ void d_draw_prim_quad(
 	d_draw_prim_tri(v1, v3, v4, tex);
 }
 
-void d_draw_img(d_img* img, vec2 pos) {
+void d_draw_img(d_img* img, d_vec2 pos) {
 	d_draw_prim_quad(
 		(d_vertex) {
-			.pos = vec3f(pos.x, pos.y, 0),
-			.color = colorx(0xffffffff),
-			.uv = vec2f(0, 0),
-			.normal = vec3f(0, 0, 1),
+			.pos = d_vec3f(pos.x, pos.y, 0),
+			.color = d_colorx(0xffffffff),
+			.uv = d_vec2f(0, 0),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(pos.x + img->width, pos.y, 0),
-			.color = colorx(0xffffffff),
-			.uv = vec2f(1, 0),
-			.normal = vec3f(0, 0, 1),
+			.pos = d_vec3f(pos.x + img->width, pos.y, 0),
+			.color = d_colorx(0xffffffff),
+			.uv = d_vec2f(1, 0),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(pos.x + img->width, pos.y + img->height, 0),
-			.color = colorx(0xffffffff),
-			.uv = vec2f(1, 1),
-			.normal = vec3f(0, 0, 1),
+			.pos = d_vec3f(pos.x + img->width, pos.y + img->height, 0),
+			.color = d_colorx(0xffffffff),
+			.uv = d_vec2f(1, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(pos.x, pos.y + img->height, 0),
-			.color = colorx(0xffffffff),
-			.uv = vec2f(0, 1),
-			.normal = vec3f(0, 0, 1),
+			.pos = d_vec3f(pos.x, pos.y + img->height, 0),
+			.color = d_colorx(0xffffffff),
+			.uv = d_vec2f(0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		img
 	);
 }
 
-void d_draw_tri(vec2 p1, vec2 p2, vec2 p3, color c) {
+void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c) {
 	d_draw_prim_tri(
 		(d_vertex) {
-			.pos = vec3f(p1.x, p1.y, 0),
+			.pos = d_vec3f(p1.x, p1.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(p2.x, p2.y, 0),
+			.pos = d_vec3f(p2.x, p2.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(p3.x, p3.y, 0),
+			.pos = d_vec3f(p3.x, p3.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		NULL
 	);
 }
 
-void d_draw_rect(vec2 p1, vec2 p2, color c) {
+void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c) {
 	d_draw_prim_quad(
 		(d_vertex) {
-			.pos = vec3f(p1.x, p1.y, 0),
+			.pos = d_vec3f(p1.x, p1.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(p2.x, p1.y, 0),
+			.pos = d_vec3f(p2.x, p1.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(p2.x, p2.y, 0),
+			.pos = d_vec3f(p2.x, p2.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(p1.x, p2.y, 0),
+			.pos = d_vec3f(p1.x, p2.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		NULL
 	);
 }
 
-void d_draw_line(vec2 p1, vec2 p2, color c) {
+void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c) {
 	p1 = d_gfx_t_apply_vec2(p1);
 	p2 = d_gfx_t_apply_vec2(p2);
 	d_blit_line(p1, p2, c);
 }
 
-void d_draw_line3(vec3 p1, vec3 p2, color c) {
+void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c) {
 	p1 = d_gfx_t_apply_vec3(p1);
 	p2 = d_gfx_t_apply_vec3(p2);
-	d_blit_line(vec2f(p1.x, p1.y), vec2f(p2.x, p2.y), c);
+	d_blit_line(d_vec2f(p1.x, p1.y), d_vec2f(p2.x, p2.y), c);
 }
 
 // TODO
-void d_draw_line2(vec2 p1, vec2 p2, int w, color c) {
-	vec2 d = vec2_scale(vec2_unit(vec2_normal(vec2_sub(p1, p2))), w);
-	vec2 pp1 = vec2_add(p1, d);
-	vec2 pp2 = vec2_sub(p1, d);
-	vec2 pp3 = vec2_sub(p2, d);
-	vec2 pp4 = vec2_add(p2, d);
+void d_draw_line2(d_vec2 p1, d_vec2 p2, int w, d_color c) {
+	d_vec2 d = d_vec2_scale(d_vec2_unit(d_vec2_normal(d_vec2_sub(p1, p2))), w);
+	d_vec2 pp1 = d_vec2_add(p1, d);
+	d_vec2 pp2 = d_vec2_sub(p1, d);
+	d_vec2 pp3 = d_vec2_sub(p2, d);
+	d_vec2 pp4 = d_vec2_add(p2, d);
 	d_draw_prim_quad(
 		(d_vertex) {
-			.pos = vec3f(pp1.x, pp1.y, 0),
+			.pos = d_vec3f(pp1.x, pp1.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(pp2.x, pp2.y, 0),
+			.pos = d_vec3f(pp2.x, pp2.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(pp3.x, pp3.y, 0),
+			.pos = d_vec3f(pp3.x, pp3.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = vec3f(pp4.x, pp4.y, 0),
+			.pos = d_vec3f(pp4.x, pp4.y, 0),
 			.color = c,
-			.normal = vec3f(0, 0, 1),
+			.normal = d_vec3f(0, 0, 1),
 		},
 		NULL
 	);
@@ -1182,44 +1182,44 @@ void d_gfx_t_pop(void) {
 	d_gfx.t = d_gfx.tstack[--d_gfx.tstack_len];
 }
 
-void d_gfx_t_use(mat4 m) {
-	d_gfx.t = mat4_mult(d_gfx.t, m);
+void d_gfx_t_use(d_mat4 m) {
+	d_gfx.t = d_mat4_mult(d_gfx.t, m);
 }
 
-void d_gfx_t_move(vec2 p) {
-	d_gfx_t_move3(vec3f(p.x, p.y, 0));
+void d_gfx_t_move(d_vec2 p) {
+	d_gfx_t_move3(d_vec3f(p.x, p.y, 0));
 }
 
-void d_gfx_t_scale(vec2 s) {
-	d_gfx_t_scale3(vec3f(s.x, s.y, 1));
+void d_gfx_t_scale(d_vec2 s) {
+	d_gfx_t_scale3(d_vec3f(s.x, s.y, 1));
 }
 
-void d_gfx_t_move3(vec3 p) {
-	d_gfx.t = mat4_mult(d_gfx.t, mat4_translate(p));
+void d_gfx_t_move3(d_vec3 p) {
+	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_translate(p));
 }
 
-void d_gfx_t_scale3(vec3 s) {
-	d_gfx.t = mat4_mult(d_gfx.t, mat4_scale(s));
+void d_gfx_t_scale3(d_vec3 s) {
+	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_scale(s));
 }
 
 void d_gfx_t_rot_x(float a) {
-	d_gfx.t = mat4_mult(d_gfx.t, mat4_rot_x(a));
+	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_x(a));
 }
 
 void d_gfx_t_rot_y(float a) {
-	d_gfx.t = mat4_mult(d_gfx.t, mat4_rot_y(a));
+	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_y(a));
 }
 
 void d_gfx_t_rot_z(float a) {
-	d_gfx.t = mat4_mult(d_gfx.t, mat4_rot_z(a));
+	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_z(a));
 }
 
-vec2 d_gfx_t_apply_vec2(vec2 p) {
-	return mat4_mult_vec2(d_gfx.t, p);
+d_vec2 d_gfx_t_apply_vec2(d_vec2 p) {
+	return d_mat4_mult_vec2(d_gfx.t, p);
 }
 
-vec3 d_gfx_t_apply_vec3(vec3 p) {
-	return mat4_mult_vec3(d_gfx.t, p);
+d_vec3 d_gfx_t_apply_vec3(d_vec3 p) {
+	return d_mat4_mult_vec3(d_gfx.t, p);
 }
 
 void d_draw_mesh(d_mesh* mesh, d_img* tex) {
@@ -1233,7 +1233,7 @@ void d_draw_mesh(d_mesh* mesh, d_img* tex) {
 	}
 }
 
-void d_draw_mesh_line(d_mesh* mesh, color c) {
+void d_draw_mesh_line(d_mesh* mesh, d_color c) {
 	for (int i = 0; i < mesh->num_indices; i += 3) {
 		d_vertex v1 = mesh->verts[mesh->indices[i + 0]];
 		d_vertex v2 = mesh->verts[mesh->indices[i + 1]];
@@ -1244,21 +1244,21 @@ void d_draw_mesh_line(d_mesh* mesh, color c) {
 	}
 }
 
-static mat4 d_transform_mat4(d_transform t) {
-	return mat4_mult(
-		mat4_mult(
-			mat4_translate(t.pos),
-			mat4_scale(t.scale)
+static d_mat4 d_transform_mat4(d_transform t) {
+	return d_mat4_mult(
+		d_mat4_mult(
+			d_mat4_translate(t.pos),
+			d_mat4_scale(t.scale)
 		),
-		mat4_rot_quat(t.rot)
+		d_mat4_rot_quat(t.rot)
 	);
 }
 
 static d_transform d_transform_apply(d_transform t1, d_transform t2) {
 	return (d_transform) {
-		.pos = vec3_add(t1.pos, t2.pos),
-		.rot = quat_mult(t1.rot, t2.rot),
-		.scale = vec3_mult(t1.scale, t2.scale),
+		.pos = d_vec3_add(t1.pos, t2.pos),
+		.rot = d_quat_mult(t1.rot, t2.rot),
+		.scale = d_vec3_mult(t1.scale, t2.scale),
 	};
 }
 
@@ -1291,7 +1291,7 @@ void d_draw_model(d_model* model) {
 	d_gfx_t_pop();
 }
 
-static void d_draw_model_node_line(d_model_node* node, color c) {
+static void d_draw_model_node_line(d_model_node* node, d_color c) {
 	d_gfx_t_push();
 	d_gfx_t_use(node->t);
 	for (int i = 0; i < node->num_meshes; i++) {
@@ -1303,7 +1303,7 @@ static void d_draw_model_node_line(d_model_node* node, color c) {
 	d_gfx_t_pop();
 }
 
-void d_draw_model_line(d_model* model, color c) {
+void d_draw_model_line(d_model* model, d_color c) {
 	d_gfx_t_push();
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_draw_model_node_line(&model->nodes[i], c);
@@ -1334,24 +1334,24 @@ d_img* d_gfx_canvas(void) {
 void d_mesh_gen_normals(d_mesh* mesh) {
 
 	for (int i = 0; i < mesh->num_verts; i++) {
-		mesh->verts[i].normal = vec3f(0, 0, 0);
+		mesh->verts[i].normal = d_vec3f(0, 0, 0);
 	}
 
 	for (int i = 0; i < mesh->num_indices; i += 3) {
 		d_vertex* v1 = &mesh->verts[mesh->indices[i + 0]];
 		d_vertex* v2 = &mesh->verts[mesh->indices[i + 1]];
 		d_vertex* v3 = &mesh->verts[mesh->indices[i + 2]];
-		vec3 n = vec3_cross(
-			vec3_sub(v3->pos, v1->pos),
-			vec3_sub(v2->pos, v1->pos)
+		d_vec3 n = d_vec3_cross(
+			d_vec3_sub(v3->pos, v1->pos),
+			d_vec3_sub(v2->pos, v1->pos)
 		);
-		v1->normal = vec3_add(v1->normal, n);
-		v2->normal = vec3_add(v2->normal, n);
-		v3->normal = vec3_add(v3->normal, n);
+		v1->normal = d_vec3_add(v1->normal, n);
+		v2->normal = d_vec3_add(v2->normal, n);
+		v3->normal = d_vec3_add(v3->normal, n);
 	}
 
 	for (int i = 0; i < mesh->num_verts; i++) {
-		mesh->verts[i].normal = vec3_unit(mesh->verts[i].normal);
+		mesh->verts[i].normal = d_vec3_unit(mesh->verts[i].normal);
 	}
 
 }
@@ -1415,8 +1415,8 @@ static d_model d_model_empty(void) {
 		.num_nodes = 0,
 		.images = malloc(0),
 		.num_images = 0,
-		.bbox = boxf(vec3f(0, 0, 0), vec3f(0, 0, 0)),
-		.center = vec3f(0, 0, 0),
+		.bbox = d_boxf(d_vec3f(0, 0, 0), d_vec3f(0, 0, 0)),
+		.center = d_vec3f(0, 0, 0),
 	};
 }
 
@@ -1432,15 +1432,15 @@ void d_free_model(d_model* model) {
 	memset(model, 0, sizeof(d_model));
 }
 
-void d_draw_bbox(box bbox, color c) {
-	vec3 p1 = vec3f(bbox.p1.x, bbox.p2.y, bbox.p1.z);
-	vec3 p2 = vec3f(bbox.p2.x, bbox.p2.y, bbox.p1.z);
-	vec3 p3 = vec3f(bbox.p2.x, bbox.p1.y, bbox.p1.z);
-	vec3 p4 = bbox.p1;
-	vec3 p5 = vec3f(bbox.p1.x, bbox.p2.y, bbox.p2.z);
-	vec3 p6 = bbox.p2;
-	vec3 p7 = vec3f(bbox.p2.x, bbox.p1.y, bbox.p2.z);
-	vec3 p8 = vec3f(bbox.p1.x, bbox.p1.y, bbox.p2.z);
+void d_draw_bbox(d_box bbox, d_color c) {
+	d_vec3 p1 = d_vec3f(bbox.p1.x, bbox.p2.y, bbox.p1.z);
+	d_vec3 p2 = d_vec3f(bbox.p2.x, bbox.p2.y, bbox.p1.z);
+	d_vec3 p3 = d_vec3f(bbox.p2.x, bbox.p1.y, bbox.p1.z);
+	d_vec3 p4 = bbox.p1;
+	d_vec3 p5 = d_vec3f(bbox.p1.x, bbox.p2.y, bbox.p2.z);
+	d_vec3 p6 = bbox.p2;
+	d_vec3 p7 = d_vec3f(bbox.p2.x, bbox.p1.y, bbox.p2.z);
+	d_vec3 p8 = d_vec3f(bbox.p1.x, bbox.p1.y, bbox.p2.z);
 	d_draw_line3(p1, p2, c);
 	d_draw_line3(p2, p3, c);
 	d_draw_line3(p3, p4, c);
@@ -1457,15 +1457,15 @@ void d_draw_bbox(box bbox, color c) {
 
 static void d_model_node_gen_bbox(
 	d_model_node* node,
-	box* bbox,
-	mat4 t
+	d_box* bbox,
+	d_mat4 t
 ) {
-	t = mat4_mult(t, node->t);
+	t = d_mat4_mult(t, node->t);
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_mesh* mesh = &node->meshes[i];
 		for (int j = 0; j < mesh->num_verts; j++) {
 			d_vertex* v = &mesh->verts[j];
-			vec3 pos = mat4_mult_vec3(t, v->pos);
+			d_vec3 pos = d_mat4_mult_vec3(t, v->pos);
 			bbox->p1.x = fminf(pos.x, bbox->p1.x);
 			bbox->p1.y = fminf(pos.y, bbox->p1.y);
 			bbox->p1.z = fminf(pos.z, bbox->p1.z);
@@ -1480,12 +1480,12 @@ static void d_model_node_gen_bbox(
 }
 
 void d_model_gen_bbox(d_model* model) {
-	box bbox = boxf(vec3f(0, 0, 0), vec3f(0, 0, 0));
+	d_box bbox = d_boxf(d_vec3f(0, 0, 0), d_vec3f(0, 0, 0));
 	for (int i = 0; i < model->num_nodes; i++) {
-		d_model_node_gen_bbox(&model->nodes[i], &bbox, mat4u());
+		d_model_node_gen_bbox(&model->nodes[i], &bbox, d_mat4u());
 	}
 	model->bbox = bbox;
-	model->center = vec3_scale(vec3_add(bbox.p1, bbox.p2), 0.5);
+	model->center = d_vec3_scale(d_vec3_add(bbox.p1, bbox.p2), 0.5);
 }
 
 static void d_assert(bool b, char* fmt, ...) {
@@ -1510,18 +1510,18 @@ static void d_model_parse_node(
 	memset(node, 0, sizeof(d_model_node));
 
 	d_transform t = (d_transform) {
-		.pos = vec3f(
+		.pos = d_vec3f(
 			cnode->translation[0],
 			cnode->translation[1],
 			cnode->translation[2]
 		),
-		.rot = quatf(
+		.rot = d_quatf(
 			cnode->rotation[0],
 			cnode->rotation[1],
 			cnode->rotation[2],
 			cnode->rotation[3]
 		),
-		.scale = vec3f(
+		.scale = d_vec3f(
 			cnode->scale[0],
 			cnode->scale[1],
 			cnode->scale[2]
@@ -1556,7 +1556,7 @@ static void d_model_parse_node(
 		d_vertex* verts = calloc(num_verts, sizeof(d_vertex));
 
 		for (int j = 0; j < num_verts; j++) {
-			verts[j].color = colorx(0xffffffff);
+			verts[j].color = d_colorx(0xffffffff);
 		}
 
 		for (int j = 0; j < prim->attributes_count; j++) {
@@ -1699,7 +1699,7 @@ static void d_model_parse_node(
 						&anim.frames[k].time,
 						1
 					);
-					anim.frames[k].transform = mat4u();
+					anim.frames[k].transform = d_mat4u();
 				}
 
 				switch (chan->target_path) {

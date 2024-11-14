@@ -18,198 +18,206 @@ typedef struct {
 typedef struct {
 	float x;
 	float y;
-} vec2;
+} d_vec2;
 
 typedef struct {
 	float x;
 	float y;
 	float z;
-} vec3;
+} d_vec3;
 
 typedef struct {
 	float x;
 	float y;
 	float z;
 	float w;
-} vec4;
+} d_vec4;
 
 typedef struct {
 	uint8_t r;
 	uint8_t g;
 	uint8_t b;
 	uint8_t a;
-} color;
+} d_color;
 
 typedef struct {
 	float m[16];
-} mat4;
+} d_mat4;
 
 typedef struct {
 	float x;
 	float y;
 	float z;
 	float w;
-} quat;
+} d_quat;
 
 typedef struct {
 	float x;
 	float y;
 	float w;
 	float h;
-} quad;
+} d_quad;
 
 typedef struct {
-	vec2 p1;
-	vec2 p2;
-} rect;
+	d_vec2 p1;
+	d_vec2 p2;
+} d_rect;
 
 typedef struct {
-	vec3 p1;
-	vec3 p2;
-} box;
+	d_vec3 p1;
+	d_vec3 p2;
+} d_box;
 
 typedef struct {
-	vec2 p1;
-	vec2 p2;
-} line2;
+	d_vec2 p1;
+	d_vec2 p2;
+} d_line2;
 
 typedef struct {
-	vec3 p1;
-	vec3 p2;
-} line3;
+	d_vec3 p1;
+	d_vec3 p2;
+} d_line3;
 
 typedef struct {
-	vec2 center;
+	d_vec2 center;
 	float radius;
-} circle;
+} d_circle;
 
 typedef struct {
-	vec3 center;
+	d_vec3 center;
 	float radius;
-} sphere;
+} d_sphere;
 
 typedef struct {
-	vec3 normal;
+	d_vec3 normal;
 	float dist;
-} plane;
+} d_plane;
 
 typedef struct {
-	vec3 origin;
-	vec3 dir;
-} ray3;
+	d_vec3 origin;
+	d_vec3 dir;
+} d_ray3;
 
 typedef struct {
-	vec2 origin;
-	vec2 dir;
-} ray2;
+	d_vec2 origin;
+	d_vec2 dir;
+} d_ray2;
 
 d_rng d_rng_new(uint64_t seed);
 float d_rng_gen(d_rng* rng);
-float randf(float, float);
+float d_randf(float, float);
 
-vec2 vec2f(float, float);
-vec2 vec2u(void);
-vec2 vec2_add(vec2, vec2);
-vec2 vec2_sub(vec2, vec2);
-vec2 vec2_scale(vec2, float);
-vec2 vec2_mult(vec2, vec2);
-float vec2_dist(vec2, vec2);
-float vec2_len(vec2);
-vec2 vec2_unit(vec2);
-vec3 vec2_cross(vec2, vec2);
-float vec2_dot(vec2, vec2);
-vec2 vec2_normal(vec2);
-float vec2_angle(vec2, vec2);
-vec2 vec2_min(vec2, vec2);
-vec2 vec2_max(vec2, vec2);
-vec2 vec2_rand(vec2, vec2);
-vec2 vec2_lerp(vec2, vec2, float);
-vec2 vec2_clamp(vec2, vec2, vec2);
-bool vec2_eq(vec2, vec2);
-void vec2_swap(vec2*, vec2*);
+d_vec2 d_vec2f(float, float);
+d_vec2 d_vec2u(void);
+d_vec2 d_vec2_add(d_vec2, d_vec2);
+d_vec2 d_vec2_sub(d_vec2, d_vec2);
+d_vec2 d_vec2_scale(d_vec2, float);
+d_vec2 d_vec2_mult(d_vec2, d_vec2);
+float d_vec2_dist(d_vec2, d_vec2);
+float d_vec2_len(d_vec2);
+d_vec2 d_vec2_unit(d_vec2);
+d_vec3 d_vec2_cross(d_vec2, d_vec2);
+float d_vec2_dot(d_vec2, d_vec2);
+d_vec2 d_vec2_normal(d_vec2);
+float d_vec2_angle(d_vec2, d_vec2);
+d_vec2 d_vec2_min(d_vec2, d_vec2);
+d_vec2 d_vec2_max(d_vec2, d_vec2);
+d_vec2 d_vec2_rand(d_vec2, d_vec2);
+d_vec2 d_vec2_lerp(d_vec2, d_vec2, float);
+d_vec2 d_vec2_clamp(d_vec2, d_vec2, d_vec2);
+bool d_vec2_eq(d_vec2, d_vec2);
+void d_vec2_swap(d_vec2*, d_vec2*);
 
-vec3 vec3f(float, float, float);
-vec3 vec3u(void);
-vec3 vec3_add(vec3, vec3);
-vec3 vec3_sub(vec3, vec3);
-vec3 vec3_scale(vec3, float);
-vec3 vec3_mult(vec3, vec3);
-float vec3_dist(vec3, vec3);
-float vec3_len(vec3);
-vec3 vec3_unit(vec3);
-vec3 vec3_cross(vec3, vec3);
-float vec3_dot(vec3, vec3);
-vec3 vec3_min(vec3, vec3);
-vec3 vec3_max(vec3, vec3);
-vec3 vec3_rand(vec3, vec3);
-vec3 vec3_lerp(vec3, vec3, float);
-vec3 vec3_clamp(vec3, vec3, vec3);
-bool vec3_eq(vec3, vec3);
-void vec3_swap(vec3*, vec3*);
+d_vec3 d_vec3f(float, float, float);
+d_vec3 d_vec3u(void);
+d_vec3 d_vec3_add(d_vec3, d_vec3);
+d_vec3 d_vec3_sub(d_vec3, d_vec3);
+d_vec3 d_vec3_scale(d_vec3, float);
+d_vec3 d_vec3_mult(d_vec3, d_vec3);
+float d_vec3_dist(d_vec3, d_vec3);
+float d_vec3_len(d_vec3);
+d_vec3 d_vec3_unit(d_vec3);
+d_vec3 d_vec3_cross(d_vec3, d_vec3);
+float d_vec3_dot(d_vec3, d_vec3);
+d_vec3 d_vec3_min(d_vec3, d_vec3);
+d_vec3 d_vec3_max(d_vec3, d_vec3);
+d_vec3 d_vec3_rand(d_vec3, d_vec3);
+d_vec3 d_vec3_lerp(d_vec3, d_vec3, float);
+d_vec3 d_vec3_clamp(d_vec3, d_vec3, d_vec3);
+bool d_vec3_eq(d_vec3, d_vec3);
+void d_vec3_swap(d_vec3*, d_vec3*);
 
-vec4 vec4f(float, float, float, float);
-vec4 vec4u(void);
+d_vec4 d_vec4f(float, float, float, float);
+d_vec4 d_vec4u(void);
 
-color colori(uint8_t, uint8_t, uint8_t, uint8_t);
-color colorf(float, float, float, float);
-color colorx(uint32_t hex);
-color color_mix(color c1, color c2);
-color color_darken(color c, int d);
-color color_lighten(color c, int l);
-color coloru(void);
-bool color_eq(color, color);
-color color_lerp(color from, color to, float t);
+d_color d_colori(uint8_t, uint8_t, uint8_t, uint8_t);
+d_color d_colorf(float, float, float, float);
+d_color d_colorx(uint32_t hex);
+d_color d_color_mix(d_color c1, d_color c2);
+d_color d_color_darken(d_color c, int d);
+d_color d_color_lighten(d_color c, int l);
+d_color d_coloru(void);
+bool d_color_eq(d_color, d_color);
+d_color d_color_lerp(d_color from, d_color to, float t);
 
-mat4 mat4f(
+d_mat4 d_mat4f(
 	float, float, float, float,
 	float, float, float, float,
 	float, float, float, float,
 	float, float, float, float
 );
-mat4 mat4u(void);
-mat4 mat4_identity(void);
-mat4 mat4_mult(mat4, mat4);
-vec4 mat4_mult_vec4(mat4, vec4);
-vec3 mat4_mult_vec3(mat4, vec3);
-vec2 mat4_mult_vec2(mat4, vec2);
-mat4 mat4_invert(mat4);
-mat4 mat4_scale(vec3);
-mat4 mat4_translate(vec3);
-mat4 mat4_ortho(float w, float n, float near, float far);
-mat4 mat4_persp(float fov, float aspect, float far, float near);
-mat4 mat4_view(vec3 pos, vec3 dir, vec3 up);
-mat4 mat4_rot_x(float);
-mat4 mat4_rot_y(float);
-mat4 mat4_rot_z(float);
-mat4 mat4_rot_quat(quat);
-mat4 mat4_lerp(mat4 m1, mat4 m2, float t);
+d_mat4 d_mat4u(void);
+d_mat4 d_mat4_identity(void);
+d_mat4 d_mat4_mult(d_mat4, d_mat4);
+d_vec4 d_mat4_mult_vec4(d_mat4, d_vec4);
+d_vec3 d_mat4_mult_vec3(d_mat4, d_vec3);
+d_vec2 d_mat4_mult_vec2(d_mat4, d_vec2);
+d_mat4 d_mat4_invert(d_mat4);
+d_mat4 d_mat4_scale(d_vec3);
+d_mat4 d_mat4_translate(d_vec3);
+d_mat4 d_mat4_ortho(float w, float n, float near, float far);
+d_mat4 d_mat4_persp(float fov, float aspect, float far, float near);
+d_mat4 d_mat4_view(d_vec3 pos, d_vec3 dir, d_vec3 up);
+d_mat4 d_mat4_rot_x(float);
+d_mat4 d_mat4_rot_y(float);
+d_mat4 d_mat4_rot_z(float);
+d_mat4 d_mat4_rot_quat(d_quat);
+d_mat4 d_mat4_lerp(d_mat4 m1, d_mat4 m2, float t);
 
-quat quatf(float, float, float, float);
-quat quatu(void);
-quat quat_mult(quat q1, quat q2);
+d_quat d_quatf(float, float, float, float);
+d_quat d_quatu(void);
+d_quat d_quat_mult(d_quat q1, d_quat q2);
 
-quad quadf(float, float, float, float);
-quad quadu(void);
+d_quad d_quadf(float, float, float, float);
+d_quad d_quadu(void);
 
-rect rectf(vec2, vec2);
-box boxf(vec3, vec3);
-line2 line2f(vec2, vec2);
-line3 line3f(vec3, vec3);
-circle circlef(vec2, float);
-sphere spheref(vec3, float);
-plane planef(vec3, float);
-ray2 ray2f(vec2, vec2);
-ray3 ray3f(vec3, vec3);
+d_rect d_rectf(d_vec2, d_vec2);
+d_box d_boxf(d_vec3, d_vec3);
+d_line2 d_line2f(d_vec2, d_vec2);
+d_line3 d_line3f(d_vec3, d_vec3);
+d_circle d_circlef(d_vec2, float);
+d_sphere d_spheref(d_vec3, float);
+d_plane d_planef(d_vec3, float);
+d_ray2 d_ray2f(d_vec2, d_vec2);
+d_ray3 d_ray3f(d_vec3, d_vec3);
 
-float degf(float);
-float radf(float);
-float clampf(float, float, float);
-int clampi(int, int, int);
-float lerpf(float, float, float);
-float mapf(float, float, float, float, float);
-int mapi(int, int, int, int, int);
-void swapi(int*, int*);
-void swapf(float*, float*);
+bool d_col_pt_rect(d_vec2 pt, d_rect r);
+bool d_col_rect_rect(d_rect r1, d_rect r2);
+bool d_col_line_line(d_line2 l1, d_line2 l2);
+bool d_col_line_rect(d_line2 l, d_rect r);
+bool d_col_pt_circle(d_vec2 pt, d_circle c);
+bool d_col_circle_circle(d_circle c1, d_circle c2);
+bool d_col_line_circle(d_line2 l, d_circle c);
+
+float d_degf(float);
+float d_radf(float);
+float d_clampf(float, float, float);
+int d_clampi(int, int, int);
+float d_lerpf(float, float, float);
+float d_mapf(float, float, float, float, float);
+int d_mapi(int, int, int, int, int);
+void d_swapi(int*, int*);
+void d_swapf(float*, float*);
 
 #endif
 
@@ -228,170 +236,170 @@ float d_rng_gen(d_rng* rng) {
 	return (float)(rng->seed) / (float)D_RNG_M;
 }
 
-float randf(float low, float hi) {
+float d_randf(float low, float hi) {
 	return low + (float)rand() / (float)RAND_MAX * (hi - low);
 }
 
-vec2 vec2f(float x, float y) {
-	return (vec2) {
+d_vec2 d_vec2f(float x, float y) {
+	return (d_vec2) {
 		.x = x,
 		.y = y,
 	};
 }
 
-vec2 vec2u(void) {
-	return vec2f(0.0, 0.0);
+d_vec2 d_vec2u(void) {
+	return d_vec2f(0.0, 0.0);
 }
 
-vec2 vec2_add(vec2 p1, vec2 p2) {
-	return (vec2) {
+d_vec2 d_vec2_add(d_vec2 p1, d_vec2 p2) {
+	return (d_vec2) {
 		.x = p1.x + p2.x,
 		.y = p1.y + p2.y,
 	};
 }
 
-vec2 vec2_sub(vec2 p1, vec2 p2) {
-	return (vec2) {
+d_vec2 d_vec2_sub(d_vec2 p1, d_vec2 p2) {
+	return (d_vec2) {
 		.x = p1.x - p2.x,
 		.y = p1.y - p2.y,
 	};
 }
 
-vec2 vec2_scale(vec2 p, float s) {
-	return (vec2) {
+d_vec2 d_vec2_scale(d_vec2 p, float s) {
+	return (d_vec2) {
 		.x = p.x * s,
 		.y = p.y * s,
 	};
 }
 
-vec2 vec2_mult(vec2 p1, vec2 p2) {
-	return (vec2) {
+d_vec2 d_vec2_mult(d_vec2 p1, d_vec2 p2) {
+	return (d_vec2) {
 		.x = p1.x * p2.x,
 		.y = p1.y * p2.y,
 	};
 }
 
-float vec2_dist(vec2 p1, vec2 p2) {
+float d_vec2_dist(d_vec2 p1, d_vec2 p2) {
 	return sqrt(
 		(p1.x - p2.x) * (p1.x - p2.x) +
 		(p1.y - p2.y) * (p1.y - p2.y)
 	);
 }
 
-float vec2_len(vec2 p) {
-	return vec2_dist(p, vec2f(0.0, 0.0));
+float d_vec2_len(d_vec2 p) {
+	return d_vec2_dist(p, d_vec2f(0.0, 0.0));
 }
 
-vec2 vec2_unit(vec2 p) {
-	return vec2_scale(p, 1.0 / vec2_len(p));
+d_vec2 d_vec2_unit(d_vec2 p) {
+	return d_vec2_scale(p, 1.0 / d_vec2_len(p));
 }
 
-vec3 vec2_cross(vec2 p1, vec2 p2) {
-	return vec3_cross(vec3f(p1.x, p1.y, 0.0), vec3f(p2.x, p2.y, 0.0));
+d_vec3 d_vec2_cross(d_vec2 p1, d_vec2 p2) {
+	return d_vec3_cross(d_vec3f(p1.x, p1.y, 0.0), d_vec3f(p2.x, p2.y, 0.0));
 }
 
-float vec2_dot(vec2 p1, vec2 p2) {
+float d_vec2_dot(d_vec2 p1, d_vec2 p2) {
 	return p1.x * p2.x + p1.y * p2.y;
 }
 
-vec2 vec2_normal(vec2 p) {
-	return vec2f(p.y, -p.x);
+d_vec2 d_vec2_normal(d_vec2 p) {
+	return d_vec2f(p.y, -p.x);
 }
 
-float vec2_angle(vec2 p1, vec2 p2) {
+float d_vec2_angle(d_vec2 p1, d_vec2 p2) {
 	return atan2(p1.y - p2.y, p1.x - p2.x);
 }
 
-vec2 vec2_min(vec2 a, vec2 b) {
-	return (vec2) {
+d_vec2 d_vec2_min(d_vec2 a, d_vec2 b) {
+	return (d_vec2) {
 		.x = fminf(a.x, b.x),
 		.y = fminf(a.y, b.y),
 	};
 }
 
-vec2 vec2_max(vec2 a, vec2 b) {
-	return (vec2) {
+d_vec2 d_vec2_max(d_vec2 a, d_vec2 b) {
+	return (d_vec2) {
 		.x = fmaxf(a.x, b.x),
 		.y = fmaxf(a.y, b.y),
 	};
 }
 
-vec2 vec2_lerp(vec2 from, vec2 to, float t) {
-	return (vec2) {
-		.x = lerpf(from.x, to.x, t),
-		.y = lerpf(from.y, to.y, t),
+d_vec2 d_vec2_lerp(d_vec2 from, d_vec2 to, float t) {
+	return (d_vec2) {
+		.x = d_lerpf(from.x, to.x, t),
+		.y = d_lerpf(from.y, to.y, t),
 	};
 }
 
-vec2 vec2_rand(vec2 p1, vec2 p2) {
-	return (vec2) {
-		.x = randf(p1.x, p2.x),
-		.y = randf(p1.y, p2.y),
+d_vec2 d_vec2_rand(d_vec2 p1, d_vec2 p2) {
+	return (d_vec2) {
+		.x = d_randf(p1.x, p2.x),
+		.y = d_randf(p1.y, p2.y),
 	};
 }
 
-vec2 vec2_clamp(vec2 p, vec2 low, vec2 hi) {
-	return (vec2) {
-		.x = clampf(p.x, low.x, hi.x),
-		.y = clampf(p.x, low.y, hi.y),
+d_vec2 d_vec2_clamp(d_vec2 p, d_vec2 low, d_vec2 hi) {
+	return (d_vec2) {
+		.x = d_clampf(p.x, low.x, hi.x),
+		.y = d_clampf(p.x, low.y, hi.y),
 	};
 }
 
-bool vec2_eq(vec2 p1, vec2 p2) {
+bool d_vec2_eq(d_vec2 p1, d_vec2 p2) {
 	return p1.x == p2.x && p1.y == p2.y;
 }
 
-void vec2_swap(vec2* p1, vec2* p2) {
-	vec2 p3 = *p2;
+void d_vec2_swap(d_vec2* p1, d_vec2* p2) {
+	d_vec2 p3 = *p2;
 	*p2 = *p1;
 	*p1 = p3;
 }
 
-vec3 vec3f(float x, float y, float z) {
-	return (vec3) {
+d_vec3 d_vec3f(float x, float y, float z) {
+	return (d_vec3) {
 		.x = x,
 		.y = y,
 		.z = z,
 	};
 }
 
-vec3 vec3u(void) {
-	return vec3f(0.0, 0.0, 0.0);
+d_vec3 d_vec3u(void) {
+	return d_vec3f(0.0, 0.0, 0.0);
 }
 
-vec3 vec3_add(vec3 p1, vec3 p2) {
-	return (vec3) {
+d_vec3 d_vec3_add(d_vec3 p1, d_vec3 p2) {
+	return (d_vec3) {
 		.x = p1.x + p2.x,
 		.y = p1.y + p2.y,
 		.z = p1.z + p2.z,
 	};
 }
 
-vec3 vec3_sub(vec3 p1, vec3 p2) {
-	return (vec3) {
+d_vec3 d_vec3_sub(d_vec3 p1, d_vec3 p2) {
+	return (d_vec3) {
 		.x = p1.x - p2.x,
 		.y = p1.y - p2.y,
 		.z = p1.z - p2.z,
 	};
 }
 
-vec3 vec3_scale(vec3 p, float s) {
-	return (vec3) {
+d_vec3 d_vec3_scale(d_vec3 p, float s) {
+	return (d_vec3) {
 		.x = p.x * s,
 		.y = p.y * s,
 		.z = p.z * s,
 	};
 }
 
-vec3 vec3_mult(vec3 p1, vec3 p2) {
-	return (vec3) {
+d_vec3 d_vec3_mult(d_vec3 p1, d_vec3 p2) {
+	return (d_vec3) {
 		.x = p1.x * p2.x,
 		.y = p1.y * p2.y,
 		.z = p1.z * p2.z,
 	};
 }
 
-float vec3_dist(vec3 p1, vec3 p2) {
+float d_vec3_dist(d_vec3 p1, d_vec3 p2) {
 	return sqrt(
 		(p1.x - p2.x) * (p1.x - p2.x) +
 		(p1.y - p2.y) * (p1.y - p2.y) +
@@ -399,78 +407,78 @@ float vec3_dist(vec3 p1, vec3 p2) {
 	);
 }
 
-float vec3_len(vec3 p) {
-	return vec3_dist(p, vec3f(0.0, 0.0, 0.0));
+float d_vec3_len(d_vec3 p) {
+	return d_vec3_dist(p, d_vec3f(0.0, 0.0, 0.0));
 }
 
-vec3 vec3_unit(vec3 p) {
-	return vec3_scale(p, 1.0 / vec3_len(p));
+d_vec3 d_vec3_unit(d_vec3 p) {
+	return d_vec3_scale(p, 1.0 / d_vec3_len(p));
 }
 
-vec3 vec3_cross(vec3 p1, vec3 p2) {
-	return (vec3) {
+d_vec3 d_vec3_cross(d_vec3 p1, d_vec3 p2) {
+	return (d_vec3) {
 		.x = (p1.y * p2.z) - (p1.z * p2.y),
 		.y = (p1.z * p2.x) - (p1.x * p2.z),
 		.z = (p1.x * p2.y) - (p1.y * p2.x),
 	};
 }
 
-float vec3_dot(vec3 p1, vec3 p2) {
+float d_vec3_dot(d_vec3 p1, d_vec3 p2) {
 	return p1.x * p2.x + p1.y * p2.y + p1.z * p2.z;
 }
 
-vec3 vec3_min(vec3 a, vec3 b) {
-	return (vec3) {
+d_vec3 d_vec3_min(d_vec3 a, d_vec3 b) {
+	return (d_vec3) {
 		.x = fminf(a.x, b.x),
 		.y = fminf(a.y, b.y),
 		.z = fminf(a.z, b.z),
 	};
 }
 
-vec3 vec3_max(vec3 a, vec3 b) {
-	return (vec3) {
+d_vec3 d_vec3_max(d_vec3 a, d_vec3 b) {
+	return (d_vec3) {
 		.x = fmaxf(a.x, b.x),
 		.y = fmaxf(a.y, b.y),
 		.z = fmaxf(a.z, b.z),
 	};
 }
 
-vec3 vec3_lerp(vec3 from, vec3 to, float t) {
-	return (vec3) {
-		.x = lerpf(from.x, to.x, t),
-		.y = lerpf(from.y, to.y, t),
-		.z = lerpf(from.z, to.z, t),
+d_vec3 d_vec3_lerp(d_vec3 from, d_vec3 to, float t) {
+	return (d_vec3) {
+		.x = d_lerpf(from.x, to.x, t),
+		.y = d_lerpf(from.y, to.y, t),
+		.z = d_lerpf(from.z, to.z, t),
 	};
 }
 
-vec3 vec3_rand(vec3 p1, vec3 p2) {
-	return (vec3) {
-		.x = randf(p1.x, p2.x),
-		.y = randf(p1.y, p2.y),
-		.z = randf(p1.z, p2.z),
+d_vec3 d_vec3_rand(d_vec3 p1, d_vec3 p2) {
+	return (d_vec3) {
+		.x = d_randf(p1.x, p2.x),
+		.y = d_randf(p1.y, p2.y),
+		.z = d_randf(p1.z, p2.z),
 	};
 }
 
-vec3 vec3_clamp(vec3 p, vec3 low, vec3 hi) {
-	return (vec3) {
-		.x = clampf(p.x, low.x, hi.x),
-		.y = clampf(p.x, low.y, hi.y),
-		.z = clampf(p.x, low.z, hi.z),
+d_vec3 d_vec3_clamp(d_vec3 p, d_vec3 low, d_vec3 hi) {
+	return (d_vec3) {
+		.x = d_clampf(p.x, low.x, hi.x),
+		.y = d_clampf(p.x, low.y, hi.y),
+		.z = d_clampf(p.x, low.z, hi.z),
 	};
 }
 
-bool vec3_eq(vec3 p1, vec3 p2) {
+bool d_vec3_eq(d_vec3 p1, d_vec3 p2) {
 	return p1.x == p2.x && p1.y == p2.y && p1.z == p2.z;
 }
 
-void vec3_swap(vec3* p1, vec3* p2) {
-	vec3 p3 = *p2;
+void d_vec3_swap(d_vec3* p1, d_vec3* p2) {
+	d_vec3 p3 = *p2;
 	*p2 = *p1;
 	*p1 = p3;
 }
 
-vec4 vec4f(float x, float y, float z, float w) {
-	return (vec4) {
+d_vec4 d_vec4f(float x, float y, float z, float w) {
+	return (d_vec4) {
 		.x = x,
 		.y = y,
 		.z = z,
@@ -478,12 +486,12 @@ vec4 vec4f(float x, float y, float z, float w) {
 	};
 }
 
-vec4 vec4u(void) {
-	return vec4f(0.0, 0.0, 0.0, 1.0);
+d_vec4 d_vec4u(void) {
+	return d_vec4f(0.0, 0.0, 0.0, 1.0);
 }
 
-color colori(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
-	return (color) {
+d_color d_colori(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
+	return (d_color) {
 		.r = r,
 		.g = g,
 		.b = b,
@@ -491,8 +499,8 @@ color colori(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
 	};
 }
 
-color colorf(float r, float g, float b, float a) {
-	return (color) {
+d_color d_colorf(float r, float g, float b, float a) {
+	return (d_color) {
 		.r = r * 255,
 		.g = g * 255,
 		.b = b * 255,
@@ -500,8 +508,8 @@ color colorf(float r, float g, float b, float a) {
 	};
 }
 
-color colorx(uint32_t hex) {
-	return (color) {
+d_color d_colorx(uint32_t hex) {
+	return (d_color) {
 		.r = ((hex >> 24) & 0xff),
 		.g = ((hex >> 16) & 0xff),
 		.b = ((hex >> 8) & 0xff),
@@ -509,8 +517,8 @@ color colorx(uint32_t hex) {
 	};
 }
 
-color coloru(void) {
-	return (color) {
+d_color d_coloru(void) {
+	return (d_color) {
 		.r = 255,
 		.g = 255,
 		.b = 255,
@@ -518,8 +526,8 @@ color coloru(void) {
 	};
 }
 
-color color_mix(color c1, color c2) {
-	return (color) {
+d_color d_color_mix(d_color c1, d_color c2) {
+	return (d_color) {
 		.r = c1.r * c2.r / 255,
 		.g = c1.g * c2.g / 255,
 		.b = c1.b * c2.b / 255,
@@ -527,39 +535,39 @@ color color_mix(color c1, color c2) {
 	};
 }
 
-color color_darken(color c, int d) {
-	return (color) {
-		.r = clampi(c.r - d, 0, 255),
-		.g = clampi(c.g - d, 0, 255),
-		.b = clampi(c.b - d, 0, 255),
+d_color d_color_darken(d_color c, int d) {
+	return (d_color) {
+		.r = d_clampi(c.r - d, 0, 255),
+		.g = d_clampi(c.g - d, 0, 255),
+		.b = d_clampi(c.b - d, 0, 255),
 		.a = c.a,
 	};
 }
 
-color color_lighten(color c, int l) {
-	return color_darken(c, -l);
+d_color d_color_lighten(d_color c, int l) {
+	return d_color_darken(c, -l);
 }
 
-bool color_eq(color c1, color c2) {
+bool d_color_eq(d_color c1, d_color c2) {
 	return c1.r == c2.r && c1.g == c2.g && c1.b == c2.b && c1.a == c2.a;
 }
 
-color color_lerp(color from, color to, float t) {
-	return (color) {
-		.r = (int)lerpf(from.r, to.r, t),
-		.g = (int)lerpf(from.g, to.g, t),
-		.b = (int)lerpf(from.b, to.b, t),
-		.a = (int)lerpf(from.a, to.a, t),
+d_color d_color_lerp(d_color from, d_color to, float t) {
+	return (d_color) {
+		.r = (int)d_lerpf(from.r, to.r, t),
+		.g = (int)d_lerpf(from.g, to.g, t),
+		.b = (int)d_lerpf(from.b, to.b, t),
+		.a = (int)d_lerpf(from.a, to.a, t),
 	};
 }
 
-mat4 mat4f(
+d_mat4 d_mat4f(
 	float m0, float m1, float m2, float m3,
 	float m4, float m5, float m6, float m7,
 	float m8, float m9, float m10, float m11,
 	float m12, float m13, float m14, float m15
 ) {
-	return (mat4) {
+	return (d_mat4) {
 		.m = {
 			m0, m1, m2, m3,
 			m4, m5, m6, m7,
@@ -569,12 +577,12 @@ mat4 mat4f(
 	};
 }
 
-mat4 mat4u(void) {
-	return mat4_identity();
+d_mat4 d_mat4u(void) {
+	return d_mat4_identity();
 }
 
-mat4 mat4_identity(void) {
-	return (mat4) {
+d_mat4 d_mat4_identity(void) {
+	return (d_mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
 			0.0, 1.0, 0.0, 0.0,
@@ -584,9 +592,9 @@ mat4 mat4_identity(void) {
 	};
 }
 
-mat4 mat4_mult(mat4 m1, mat4 m2) {
+d_mat4 d_mat4_mult(d_mat4 m1, d_mat4 m2) {
 
-	mat4 out = mat4u();
+	d_mat4 out = d_mat4u();
 
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
@@ -602,8 +610,8 @@ mat4 mat4_mult(mat4 m1, mat4 m2) {
 
 }
 
-vec4 mat4_mult_vec4(mat4 m, vec4 p) {
-	return (vec4) {
+d_vec4 d_mat4_mult_vec4(d_mat4 m, d_vec4 p) {
+	return (d_vec4) {
 		.x = p.x * m.m[0] + p.y * m.m[4] + p.z * m.m[8] + p.w * m.m[12],
 		.y = p.x * m.m[1] + p.y * m.m[5] + p.z * m.m[9] + p.w * m.m[13],
 		.z = p.x * m.m[2] + p.y * m.m[6] + p.z * m.m[10] + p.w * m.m[14],
@@ -611,19 +619,19 @@ vec4 mat4_mult_vec4(mat4 m, vec4 p) {
 	};
 }
 
-vec3 mat4_mult_vec3(mat4 m, vec3 p) {
-	vec4 p4 = mat4_mult_vec4(m, vec4f(p.x, p.y, p.z, 1.0));
-	return vec3f(p4.x, p4.y, p4.z);
+d_vec3 d_mat4_mult_vec3(d_mat4 m, d_vec3 p) {
+	d_vec4 p4 = d_mat4_mult_vec4(m, d_vec4f(p.x, p.y, p.z, 1.0));
+	return d_vec3f(p4.x, p4.y, p4.z);
 }
 
-vec2 mat4_mult_vec2(mat4 m, vec2 p) {
-	vec3 p3 = mat4_mult_vec3(m, vec3f(p.x, p.y, 0.0));
-	return vec2f(p3.x, p3.y);
+d_vec2 d_mat4_mult_vec2(d_mat4 m, d_vec2 p) {
+	d_vec3 p3 = d_mat4_mult_vec3(m, d_vec3f(p.x, p.y, 0.0));
+	return d_vec2f(p3.x, p3.y);
 }
 
-mat4 mat4_invert(mat4 m) {
+d_mat4 d_mat4_invert(d_mat4 m) {
 
-	mat4 out = mat4u();
+	d_mat4 out = d_mat4u();
 
 	float f00 = m.m[10] * m.m[15] - m.m[14] * m.m[11];
 	float f01 = m.m[9] * m.m[15] - m.m[13] * m.m[11];
@@ -681,8 +689,8 @@ mat4 mat4_invert(mat4 m) {
 
 }
 
-mat4 mat4_scale(vec3 s) {
-	return (mat4) {
+d_mat4 d_mat4_scale(d_vec3 s) {
+	return (d_mat4) {
 		.m = {
 			s.x, 0.0, 0.0, 0.0,
 			0.0, s.y, 0.0, 0.0,
@@ -692,8 +700,8 @@ mat4 mat4_scale(vec3 s) {
 	};
 }
 
-mat4 mat4_translate(vec3 p) {
-	return (mat4) {
+d_mat4 d_mat4_translate(d_vec3 p) {
+	return (d_mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
 			0.0, 1.0, 0.0, 0.0,
@@ -703,8 +711,8 @@ mat4 mat4_translate(vec3 p) {
 	};
 }
 
-mat4 mat4_rot_x(float a) {
-	return (mat4) {
+d_mat4 d_mat4_rot_x(float a) {
+	return (d_mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
 			0.0, cos(a), -sin(a), 0.0,
@@ -714,8 +722,8 @@ mat4 mat4_rot_x(float a) {
 	};
 }
 
-mat4 mat4_rot_y(float a) {
-	return (mat4) {
+d_mat4 d_mat4_rot_y(float a) {
+	return (d_mat4) {
 		.m = {
 			cos(a), 0.0, -sin(a), 0.0,
 			0.0, 1.0, 0.0, 0.0,
@@ -725,8 +733,8 @@ mat4 mat4_rot_y(float a) {
 	};
 }
 
-mat4 mat4_rot_z(float a) {
-	return (mat4) {
+d_mat4 d_mat4_rot_z(float a) {
+	return (d_mat4) {
 		.m = {
 			cos(a), -sin(a), 0.0, 0.0,
 			sin(a), cos(a), 0.0, 0.0,
@@ -736,15 +744,15 @@ mat4 mat4_rot_z(float a) {
 	};
 }
 
-mat4 mat4_rot_quat(quat q) {
-	return mat4_mult(
-		mat4f(
+d_mat4 d_mat4_rot_quat(d_quat q) {
+	return d_mat4_mult(
+		d_mat4f(
 			q.w, q.z, -q.y, q.x,
 			-q.z, q.w, q.x, q.y,
 			q.y, -q.x, q.w, q.z,
 			-q.x, -q.y, -q.z, q.w
 		),
-		mat4f(
+		d_mat4f(
 			q.w, q.z, -q.y, -q.x,
 			-q.z, q.w, q.x, -q.y,
 			q.y, -q.x, q.w, -q.z,
@@ -753,15 +761,15 @@ mat4 mat4_rot_quat(quat q) {
 	);
 }
 
-mat4 mat4_lerp(mat4 m1, mat4 m2, float t) {
-	mat4 m3;
+d_mat4 d_mat4_lerp(d_mat4 m1, d_mat4 m2, float t) {
+	d_mat4 m3;
 	for (int i = 0; i < 16; i++) {
-		m3.m[i] = lerpf(m1.m[i], m2.m[i], t);
+		m3.m[i] = d_lerpf(m1.m[i], m2.m[i], t);
 	}
 	return m3;
 }
 
-mat4 mat4_ortho(float w, float h, float near, float far) {
+d_mat4 d_mat4_ortho(float w, float h, float near, float far) {
 
 	float left = -w / 2.0;
 	float right = w / 2.0;
@@ -771,7 +779,7 @@ mat4 mat4_ortho(float w, float h, float near, float far) {
 	float ty = -(top + bottom) / (top - bottom);
 	float tz = -(far + near) / (far - near);
 
-	return (mat4) {
+	return (d_mat4) {
 		.m = {
 			2.0 / (right - left), 0.0, 0.0, 0.0,
 			0.0, 2.0 / (top - bottom), 0.0, 0.0,
@@ -782,11 +790,11 @@ mat4 mat4_ortho(float w, float h, float near, float far) {
 
 }
 
-mat4 mat4_persp(float fov, float aspect, float near, float far) {
+d_mat4 d_mat4_persp(float fov, float aspect, float near, float far) {
 
 	float f = 1.0 / tan(fov / 2.0);
 
-	return (mat4) {
+	return (d_mat4) {
 		.m = {
 			-f / aspect, 0.0, 0.0, 0.0,
 			0.0, f, 0.0, 0.0,
@@ -797,25 +805,25 @@ mat4 mat4_persp(float fov, float aspect, float near, float far) {
 
 }
 
-mat4 mat4_view(vec3 pos, vec3 dir, vec3 up) {
+d_mat4 d_mat4_view(d_vec3 pos, d_vec3 dir, d_vec3 up) {
 
-	vec3 z = vec3_unit(dir);
-	vec3 x = vec3_unit(vec3_cross(up, z));
-	vec3 y = vec3_cross(z, x);
+	d_vec3 z = d_vec3_unit(dir);
+	d_vec3 x = d_vec3_unit(d_vec3_cross(up, z));
+	d_vec3 y = d_vec3_cross(z, x);
 
-	return (mat4) {
+	return (d_mat4) {
 		.m = {
 			x.x, y.x, z.x, 0.0,
 			x.y, y.y, z.y, 0.0,
 			x.z, y.z, z.z, 0.0,
-			-vec3_dot(x, pos), -vec3_dot(y, pos), -vec3_dot(z, pos), 1.0,
+			-d_vec3_dot(x, pos), -d_vec3_dot(y, pos), -d_vec3_dot(z, pos), 1.0,
 		},
 	};
 
 }
 
-quat quatf(float x, float y, float z, float w) {
-	return (quat) {
+d_quat d_quatf(float x, float y, float z, float w) {
+	return (d_quat) {
 		.x = x,
 		.y = y,
 		.z = z,
@@ -823,12 +831,12 @@ quat quatf(float x, float y, float z, float w) {
 	};
 }
 
-quat quatu(void) {
-	return quatf(0.0, 0.0, 0.0, 1.0);
+d_quat d_quatu(void) {
+	return d_quatf(0.0, 0.0, 0.0, 1.0);
 }
 
-quat quat_mult(quat q1, quat q2) {
-	return quatf(
+d_quat d_quat_mult(d_quat q1, d_quat q2) {
+	return d_quatf(
 		q1.x * q2.x,
 		q1.y * q2.y,
 		q1.z * q2.z,
@@ -836,8 +844,8 @@ quat quat_mult(quat q1, quat q2) {
 	);
 }
 
-quad quadf(float x, float y, float w, float h) {
-	return (quad) {
+d_quad d_quadf(float x, float y, float w, float h) {
+	return (d_quad) {
 		.x = x,
 		.y = y,
 		.w = w,
@@ -845,116 +853,215 @@ quad quadf(float x, float y, float w, float h) {
 	};
 }
 
-quad quadu(void) {
-	return quadf(0.0, 0.0, 1.0, 1.0);
+d_quad d_quadu(void) {
+	return d_quadf(0.0, 0.0, 1.0, 1.0);
 }
 
-rect rectf(vec2 p1, vec2 p2) {
-	return (rect) {
+d_rect d_rectf(d_vec2 p1, d_vec2 p2) {
+	return (d_rect) {
 		.p1 = p1,
 		.p2 = p2,
 	};
 }
 
-box boxf(vec3 p1, vec3 p2) {
-	return (box) {
+d_box d_boxf(d_vec3 p1, d_vec3 p2) {
+	return (d_box) {
 		.p1 = p1,
 		.p2 = p2,
 	};
 }
 
-line2 line2f(vec2 p1, vec2 p2) {
-	return (line2) {
+d_line2 d_line2f(d_vec2 p1, d_vec2 p2) {
+	return (d_line2) {
 		.p1 = p1,
 		.p2 = p2,
 	};
 }
 
-line3 line3f(vec3 p1, vec3 p2) {
-	return (line3) {
+d_line3 d_line3f(d_vec3 p1, d_vec3 p2) {
+	return (d_line3) {
 		.p1 = p1,
 		.p2 = p2,
 	};
 }
 
-circle circlef(vec2 center, float radius) {
-	return (circle) {
+d_circle d_circlef(d_vec2 center, float radius) {
+	return (d_circle) {
 		.center = center,
 		.radius = radius,
 	};
 }
 
-sphere spheref(vec3 center, float radius) {
-	return (sphere) {
+d_sphere d_spheref(d_vec3 center, float radius) {
+	return (d_sphere) {
 		.center = center,
 		.radius = radius,
 	};
 }
 
-plane planef(vec3 normal, float dist) {
-	return (plane) {
+d_plane d_planef(d_vec3 normal, float dist) {
+	return (d_plane) {
 		.normal = normal,
 		.dist = dist,
 	};
 }
 
-ray2 ray2f(vec2 origin, vec2 dir) {
-	return (ray2) {
+d_ray2 d_ray2f(d_vec2 origin, d_vec2 dir) {
+	return (d_ray2) {
 		.origin = origin,
 		.dir = dir,
 	};
 }
 
-ray3 ray3f(vec3 origin, vec3 dir) {
-	return (ray3) {
+d_ray3 d_ray3f(d_vec3 origin, d_vec3 dir) {
+	return (d_ray3) {
 		.origin = origin,
 		.dir = dir,
 	};
 }
 
-float degf(float r) {
+static void fix_rect(d_rect* r) {
+	d_vec2 pp1 = d_vec2_min(r->p1, r->p2);
+	d_vec2 pp2 = d_vec2_max(r->p1, r->p2);
+	r->p1 = pp1;
+	r->p2 = pp2;
+}
+
+bool d_col_pt_rect(d_vec2 pt, d_rect r) {
+	fix_rect(&r);
+	return
+		pt.x >= r.p1.x
+		&& pt.x <= r.p2.x
+		&& pt.y >= r.p1.y
+		&& pt.y <= r.p2.y;
+}
+
+bool d_col_rect_rect(d_rect r1, d_rect r2) {
+	fix_rect(&r1);
+	fix_rect(&r2);
+	return
+		r1.p2.x >= r2.p1.x
+		&& r1.p1.x <= r2.p2.x
+		&& r1.p2.y >= r2.p1.y
+		&& r1.p1.y <= r2.p2.y;
+}
+
+bool d_col_line_line(d_line2 l1, d_line2 l2) {
+	float a =
+		(
+			(l2.p2.x - l2.p1.x)
+			* (l1.p1.y - l2.p1.y)
+			- (l2.p2.y - l2.p1.y)
+			* (l1.p1.x - l2.p1.x)
+		)
+		/
+		(
+			(l2.p2.y - l2.p1.y)
+			* (l1.p2.x - l1.p1.x)
+			- (l2.p2.x - l2.p1.x)
+			* (l1.p2.y - l1.p1.y)
+		);
+	float b =
+		(
+			(l1.p2.x - l1.p1.x)
+			* (l1.p1.y - l2.p1.y)
+			- (l1.p2.y - l1.p1.y)
+			* (l1.p1.x - l2.p1.x)
+		)
+		/
+		(
+			(l2.p2.y - l2.p1.y)
+			* (l1.p2.x - l1.p1.x)
+			- (l2.p2.x - l2.p1.x)
+			* (l1.p2.y - l1.p1.y)
+		);
+	return a >= 0.0 && a <= 1.0 && b >= 0.0 && b <= 1.0;
+}
+
+bool d_col_line_rect(d_line2 l, d_rect r) {
+	if (d_col_pt_rect(l.p1, r) || d_col_pt_rect(l.p2, r)) {
+		return true;
+	}
+	return
+		d_col_line_line(l, d_line2f(r.p1, d_vec2f(r.p2.x, r.p1.y)))
+		|| d_col_line_line(l, d_line2f(d_vec2f(r.p2.x, r.p1.y), r.p2))
+		|| d_col_line_line(l, d_line2f(r.p2, d_vec2f(r.p1.x, r.p2.y)))
+		|| d_col_line_line(l, d_line2f(d_vec2f(r.p1.x, r.p2.y), r.p1));
+}
+
+bool d_col_pt_circle(d_vec2 pt, d_circle c) {
+	return d_vec2_dist(pt, c.center) <= c.radius;
+}
+
+bool d_col_circle_circle(d_circle c1, d_circle c2) {
+	return d_vec2_dist(c1.center, c2.center) <= c1.radius + c2.radius;
+}
+
+bool d_col_line_circle(d_line2 l, d_circle c) {
+	// vector from p1 to p2
+	float abx = l.p2.x - l.p1.x;
+	float aby = l.p2.y - l.p1.y;
+	// vector from p1 to circle center
+	float acx = c.center.x - l.p1.x;
+	float acy = c.center.y - l.p1.y;
+	// project circle center onto line segment, computing the parameter t along
+	float ab_ab = abx * abx + aby * aby;
+	float ac_ab = acx * abx + acy * aby;
+	float t = d_clampf(ac_ab / ab_ab, 0.0f, 1.0f);
+	// find the closest pt on the line segment to the circle center
+	float close_x = l.p1.x + t * abx;
+	float close_y = l.p1.y + t * aby;
+	// calc dis from the closest pt to the circle center
+	float dx = close_x - c.center.x;
+	float dy = close_y - c.center.y;
+	float dis_sq = dx * dx + dy * dy;
+	// compare distance to radius squared
+	return dis_sq <= c.radius * c.radius;
+}
+
+float d_degf(float r) {
 	return r * (180.0 / D_PI);
 }
 
-float radf(float d) {
+float d_radf(float d) {
 	return d / (180.0 / D_PI);
 }
 
-int maxi(int a, int b) {
+int d_maxi(int a, int b) {
 	return a > b ? a : b;
 }
 
-int mini(int a, int b) {
+int d_mini(int a, int b) {
 	return a < b ? a : b;
 }
 
-float clampf(float v, float low, float hi) {
+float d_clampf(float v, float low, float hi) {
 	return fmaxf(low, fminf(v, hi));
 }
 
-int clampi(int v, int low, int hi) {
-	return maxi(low, mini(v, hi));
+int d_clampi(int v, int low, int hi) {
+	return d_maxi(low, d_mini(v, hi));
 }
 
-float lerpf(float a, float b, float t) {
+float d_lerpf(float a, float b, float t) {
 	return a + (b - a) * t;
 }
 
-float mapf(float v, float l1, float h1, float l2, float h2) {
+float d_mapf(float v, float l1, float h1, float l2, float h2) {
 	return l2 + (v - l1) * (h2 - l2) / (h1 - l1);
 }
 
-int mapi(int v, int l1, int h1, int l2, int h2) {
+int d_mapi(int v, int l1, int h1, int l2, int h2) {
 	return l2 + (v - l1) * (h2 - l2) / (h1 - l1);
 }
 
-void swapi(int* a, int* b) {
+void d_swapi(int* a, int* b) {
 	int c = *a;
 	*a = *b;
 	*b = c;
 }
 
-void swapf(float* a, float* b) {
+void d_swapf(float* a, float* b) {
 	float c = *a;
 	*a = *b;
 	*b = c;

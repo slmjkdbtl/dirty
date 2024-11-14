@@ -1,10 +1,6 @@
 #ifndef D_TWEEN_H
 #define D_TWEEN_H
 
-#ifndef D_MATH_H
-#include "d_math.h"
-#endif
-
 #include <stdlib.h>
 #include <stdbool.h>
 
@@ -49,14 +45,16 @@ d_tween* d_tweener_add_number(
 	d_ease_func func
 );
 
+#ifdef D_MATH_H
 void d_tweener_add_vec2(
 	d_tweener* tweener,
-	vec2 from,
-	vec2 to,
+	d_vec2 from,
+	d_vec2 to,
 	float duration,
-	vec2* val_src,
+	d_vec2* val_src,
 	d_ease_func func
 );
+#endif
 
 float d_ease_linear(float t);
 float d_ease_in_sine(float t);
@@ -132,7 +130,7 @@ void d_tween_update(d_tween *tween, float dt, float* val) {
 		if (val) *val = tween->to;
 		return;
 	}
-	tween->val = lerpf(tween->from, tween->to, tween->easing_func(t));
+	tween->val = d_lerpf(tween->from, tween->to, tween->easing_func(t));
 	if (tween->val_src) *tween->val_src = tween->val;
 	if (val) *val = tween->val;
 }
@@ -173,18 +171,20 @@ d_tween* d_tweener_add_number(
 	return d_tweener_add(tweener, t);
 }
 
+#ifdef D_MATH_H
 // TODO: return a handle
 void d_tweener_add_vec2(
 	d_tweener* tweener,
-	vec2 from,
-	vec2 to,
+	d_vec2 from,
+	d_vec2 to,
 	float duration,
-	vec2* val_src,
+	d_vec2* val_src,
 	d_ease_func func
 ) {
 	d_tweener_add_number(tweener, from.x, to.x, duration, &val_src->x, func);
 	d_tweener_add_number(tweener, from.y, to.y, duration, &val_src->y, func);
 }
+#endif
 
 void d_tweener_update(d_tweener* tweener, float dt) {
 	for (int i = 0; i < tweener->num_tweens; i++) {

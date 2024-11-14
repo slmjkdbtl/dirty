@@ -33,7 +33,7 @@ void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
-		.clear_color = colori(0, 0, 0, 255),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
 }
@@ -54,16 +54,16 @@ void frame(void) {
 
 		d_draw_prim_tri(
 			(d_vertex) {
-				.pos = vec3f(240, 120, 0),
-				.color = colorx(0xffffffff),
+				.pos = d_vec3f(240, 120, 0),
+				.color = d_colorx(0xffffffff),
 			},
 			(d_vertex) {
-				.pos = vec3f(120, 320, 0),
-				.color = colorx(0xffffffff),
+				.pos = d_vec3f(120, 320, 0),
+				.color = d_colorx(0xffffffff),
 			},
 			(d_vertex) {
-				.pos = vec3f(360, 320, 0),
-				.color = colorx(0xffffffff),
+				.pos = d_vec3f(360, 320, 0),
+				.color = d_colorx(0xffffffff),
 			},
 			NULL
 		);

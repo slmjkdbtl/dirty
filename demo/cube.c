@@ -11,64 +11,64 @@
 #define SCALE 4
 
 d_mesh cube;
-vec3 rot;
+d_vec3 rot;
 
 void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
-		.clear_color = colori(0, 0, 0, 255),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
 	d_vertex verts[] = {
 		[0] = (d_vertex) {
-			.pos = vec3f(1, 1, 1),
-			.normal = vec3f(0, 0, 0),
-			.uv = vec2f(0, 0),
-			.color = colori(255, 255, 255, 255),
+			.pos = d_vec3f(1, 1, 1),
+			.normal = d_vec3f(0, 0, 0),
+			.uv = d_vec2f(0, 0),
+			.color = d_colori(255, 255, 255, 255),
 		},
 		[1] = (d_vertex) {
-			.pos = vec3f(-1, 1, 1),
-			.normal = vec3f(0, 0, 0),
-			.uv = vec2f(0, 0),
-			.color = colori(0, 255, 255, 255),
+			.pos = d_vec3f(-1, 1, 1),
+			.normal = d_vec3f(0, 0, 0),
+			.uv = d_vec2f(0, 0),
+			.color = d_colori(0, 255, 255, 255),
 		},
 		[2] = (d_vertex) {
-			.pos = vec3f(-1, -1, 1),
-			.normal = vec3f(0, 0, 0),
-			.uv = vec2f(0, 0),
-			.color = colori(0, 0, 255, 255),
+			.pos = d_vec3f(-1, -1, 1),
+			.normal = d_vec3f(0, 0, 0),
+			.uv = d_vec2f(0, 0),
+			.color = d_colori(0, 0, 255, 255),
 		},
 		[3] = (d_vertex) {
-			.pos = vec3f(1, -1, 1),
-			.normal = vec3f(0, 0, 0),
-			.uv = vec2f(0, 0),
-			.color = colori(255, 0, 255, 255),
+			.pos = d_vec3f(1, -1, 1),
+			.normal = d_vec3f(0, 0, 0),
+			.uv = d_vec2f(0, 0),
+			.color = d_colori(255, 0, 255, 255),
 		},
 		[4] = (d_vertex) {
-			.pos = vec3f(1, 1, -1),
-			.normal = vec3f(0, 0, 0),
-			.uv = vec2f(0, 0),
-			.color = colori(255, 255, 0, 255),
+			.pos = d_vec3f(1, 1, -1),
+			.normal = d_vec3f(0, 0, 0),
+			.uv = d_vec2f(0, 0),
+			.color = d_colori(255, 255, 0, 255),
 		},
 		[5] = (d_vertex) {
-			.pos = vec3f(-1, 1, -1),
-			.normal = vec3f(0, 0, 0),
-			.uv = vec2f(0, 0),
-			.color = colori(0, 255, 0, 255),
+			.pos = d_vec3f(-1, 1, -1),
+			.normal = d_vec3f(0, 0, 0),
+			.uv = d_vec2f(0, 0),
+			.color = d_colori(0, 255, 0, 255),
 		},
 		[6] = (d_vertex) {
-			.pos = vec3f(-1, -1, -1),
-			.normal = vec3f(0, 0, 0),
-			.uv = vec2f(0, 0),
-			.color = colori(0, 0, 0, 255),
+			.pos = d_vec3f(-1, -1, -1),
+			.normal = d_vec3f(0, 0, 0),
+			.uv = d_vec2f(0, 0),
+			.color = d_colori(0, 0, 0, 255),
 		},
 		[7] = (d_vertex) {
-			.pos = vec3f(1, -1, -1),
-			.normal = vec3f(0, 0, 0),
-			.uv = vec2f(0, 0),
-			.color = colori(255, 0, 0, 255),
+			.pos = d_vec3f(1, -1, -1),
+			.normal = d_vec3f(0, 0, 0),
+			.uv = d_vec2f(0, 0),
+			.color = d_colori(255, 0, 0, 255),
 		},
 	};
 
@@ -98,7 +98,7 @@ void frame(void) {
 		d_app_quit();
 	}
 
-	vec2 mdpos = d_gfx_mouse_dpos();
+	d_vec2 mdpos = d_gfx_mouse_dpos();
 
 	if (d_app_mouse_down(D_MOUSE_LEFT)) {
 		rot.x += mdpos.y / 100;
@@ -109,13 +109,13 @@ void frame(void) {
 
 	d_gfx_clear();
 	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
+	d_gfx_t_move3(d_vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
 	// d_gfx_t_rot_x(d_app_time());
 	// d_gfx_t_rot_y(d_app_time());
 	// d_gfx_t_rot_z(d_app_time());
 	d_gfx_t_rot_x(rot.x);
 	d_gfx_t_rot_y(rot.y);
-	d_gfx_t_scale3(vec3f(s, -s, s));
+	d_gfx_t_scale3(d_vec3f(s, -s, s));
 	// d_gfx_t_rot_z(d_app_time());
 	d_draw_mesh(&cube, NULL);
 	d_gfx_t_pop();

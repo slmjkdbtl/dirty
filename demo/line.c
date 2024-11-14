@@ -10,7 +10,7 @@ void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = 480,
 		.height = 480,
-		.clear_color = colori(0, 0, 0, 255),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 }
 
@@ -21,8 +21,8 @@ void frame(void) {
 	}
 
 	d_gfx_clear();
-	d_draw_line2(vec2f(0, 0), d_gfx_mouse_pos(), 3, colori(0, 0, 255, 255));
-	d_draw_line2(vec2f(100, 100), d_gfx_mouse_pos(), 3, colori(0, 0, 255, 255));
+	d_blit_line(d_vec2f(0, 0), d_gfx_mouse_pos(), d_colori(0, 0, 255, 255));
+	d_blit_line(d_vec2f(100, 100), d_gfx_mouse_pos(), d_colori(0, 0, 255, 255));
 	d_gfx_present();
 
 }

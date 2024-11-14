@@ -21,7 +21,7 @@ void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
-		.clear_color = colori(0, 0, 0, 255),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
 	canvas = d_img_new(WIDTH, HEIGHT);
@@ -41,16 +41,16 @@ void frame(void) {
 	d_gfx_drawon(&canvas);
 
 	if (d_app_mouse_down(D_MOUSE_LEFT)) {
-		vec2 mpos = d_gfx_mouse_pos();
-		vec2 mdpos = d_gfx_mouse_dpos();
-		d_blit_line(vec2_sub(mpos, mdpos), mpos, colorx(0x000000ff));
+		d_vec2 mpos = d_gfx_mouse_pos();
+		d_vec2 mdpos = d_gfx_mouse_dpos();
+		d_blit_line(d_vec2_sub(mpos, mdpos), mpos, d_colorx(0x000000ff));
 	}
 
 	d_gfx_drawon(NULL);
 
 	d_gfx_clear();
 	d_blit_bg();
-	d_blit_img(&canvas, vec2f(0, 0));
+	d_blit_img(&canvas, d_vec2f(0, 0));
 	d_gfx_present();
 
 }

@@ -11,13 +11,13 @@
 #include <d_gfx.h>
 #include <d_tween.h>
 
-#define WIDTH 120
-#define HEIGHT 120
-#define SCALE 4
+#define WIDTH 240
+#define HEIGHT 240
+#define SCALE 2
 
 d_tweener tweener;
 d_model btfly;
-vec2 pos;
+d_vec2 pos;
 bool show_bbox;
 
 void init(void) {
@@ -25,10 +25,10 @@ void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
-		.clear_color = colori(0, 0, 0, 255),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
-	pos = vec2f(d_gfx_width() / 2.0, d_gfx_height() / 2.0);
+	pos = d_vec2f(d_gfx_width() / 2.0, d_gfx_height() / 2.0);
 	btfly = d_model_load(d_res_path("res/btfly.glb"));
 	tweener = d_tweener_new(128);
 
@@ -49,7 +49,7 @@ void frame(void) {
 	}
 
 	if (d_app_mouse_pressed(D_MOUSE_LEFT)) {
-		vec2 mpos = d_gfx_mouse_pos();
+		d_vec2 mpos = d_gfx_mouse_pos();
 		d_tweener_add_vec2(&tweener, pos, mpos, 1, &pos, d_ease_out_elastic);
 	}
 
@@ -61,15 +61,15 @@ void frame(void) {
 	d_blit_bg();
 
 	d_gfx_t_push();
-	d_gfx_t_move3(vec3f(pos.x, pos.y, 0));
+	d_gfx_t_move3(d_vec3f(pos.x, pos.y, 0));
 	d_gfx_t_rot_y(0.5);
 	d_gfx_t_rot_z(-0.8);
-	d_gfx_t_scale3(vec3f(1, -1, 1));
-	d_gfx_t_move3(vec3_scale(btfly.center, -1));
+	d_gfx_t_scale3(d_vec3f(2, -2, 2));
+	d_gfx_t_move3(d_vec3_scale(btfly.center, -1));
 	d_draw_model(&btfly);
 
 	if (show_bbox) {
-		d_draw_bbox(btfly.bbox, colorx(0x0000ffff));
+		d_draw_bbox(btfly.bbox, d_colorx(0x0000ffff));
 	}
 
 	d_gfx_t_pop();

@@ -3,6 +3,7 @@
 #ifndef D_REGEX_H
 #define D_REGEX_H
 
+#include <stdlib.h>
 #include <stdbool.h>
 
 typedef struct {
@@ -16,9 +17,9 @@ typedef struct {
 	bool success;
 	dr_region* regions;
 	int num_regions;
-} dr_res;
+} d_regex_res;
 
-dr_res dr_match(char* regex, char* txt);
+d_regex_res d_regex_match(char* regex, char* txt);
 
 #endif
 
@@ -33,7 +34,7 @@ dr_res dr_match(char* regex, char* txt);
 #include <stdlib.h>
 #include <string.h>
 
-dr_res dr_match(char* regex, char* txt) {
+d_regex_res d_regex_match(char* regex, char* txt) {
 	char* r = regex;
 	char* t = txt;
 	int num_regions = 0;
