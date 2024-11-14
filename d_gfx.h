@@ -925,6 +925,7 @@ void d_draw_prim_tri(
 			)
 		);
 		if (d_vec3_dot(normal, d_vec3f(0, 0, 1)) < 0) {
+			// TODO: wrongfully culling normal 2d shapes
 			return;
 		}
 	}
@@ -1076,6 +1077,8 @@ void d_draw_img(d_img* img, d_vec2 pos) {
 }
 
 void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c) {
+	bool cull = d_gfx.backface_cull;
+	d_gfx.backface_cull = false;
 	d_draw_prim_tri(
 		(d_vertex) {
 			.pos = d_vec3f(p1.x, p1.y, 0),
@@ -1094,9 +1097,12 @@ void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c) {
 		},
 		NULL
 	);
+	d_gfx.backface_cull = cull;
 }
 
 void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c) {
+	bool cull = d_gfx.backface_cull;
+	d_gfx.backface_cull = false;
 	d_draw_prim_quad(
 		(d_vertex) {
 			.pos = d_vec3f(p1.x, p1.y, 0),
@@ -1120,6 +1126,7 @@ void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c) {
 		},
 		NULL
 	);
+	d_gfx.backface_cull = cull;
 }
 
 void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c) {
