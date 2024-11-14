@@ -98,6 +98,10 @@ float d_ease_in_out_bounce(float t);
 #ifndef D_TWEEN_IMPL_ONCE
 #define D_TWEEN_IMPL_ONCE
 
+static float d_tween_lerp(float a, float b, float t) {
+	return a + (b - a) * t;
+}
+
 d_tween d_tween_new(
 	float from,
 	float to,
@@ -130,7 +134,7 @@ void d_tween_update(d_tween *tween, float dt, float* val) {
 		if (val) *val = tween->to;
 		return;
 	}
-	tween->val = d_lerpf(tween->from, tween->to, tween->easing_func(t));
+	tween->val = d_tween_lerp(tween->from, tween->to, tween->easing_func(t));
 	if (tween->val_src) *tween->val_src = tween->val;
 	if (val) *val = tween->val;
 }
@@ -202,23 +206,23 @@ void d_tweener_update(d_tweener* tweener, float dt) {
 #define C1 1.70158
 #define C2 (C1 * 1.525)
 #define C3 (C1 + 1)
-#define C4 ((2 * D_PI) / 3)
-#define C5 ((2 * D_PI) / 4.5)
+#define C4 ((2 * M_PI) / 3)
+#define C5 ((2 * M_PI) / 4.5)
 
 float d_ease_linear(float t) {
 	return t;
 }
 
 float d_ease_in_sine(float t) {
-	return 1 - cos((t * D_PI) / 2);
+	return 1 - cos((t * M_PI) / 2);
 }
 
 float d_ease_out_sine(float t) {
-	return sin((t * D_PI) / 2);
+	return sin((t * M_PI) / 2);
 }
 
 float d_ease_in_out_sine(float t) {
-	return -(cos(D_PI * t) - 1) / 2;
+	return -(cos(M_PI * t) - 1) / 2;
 }
 
 float d_ease_in_quad(float t) {

@@ -33,16 +33,16 @@ void frame(void) {
 			.color = d_colorx(0xff0000ff),
 		},
 		(d_vertex) {
-			.pos = d_vec3f(d_gfx_width(), 0, 0),
-			.color = d_colorx(0x00ff00ff),
+			.pos = d_vec3f(0, d_gfx_height(), 0),
+			.color = d_colorx(0xffff00ff),
 		},
 		(d_vertex) {
 			.pos = d_vec3f(d_gfx_width(), d_gfx_height(), 0),
 			.color = d_colorx(0x0000ffff),
 		},
 		(d_vertex) {
-			.pos = d_vec3f(0, d_gfx_height(), 0),
-			.color = d_colorx(0xffff00ff),
+			.pos = d_vec3f(d_gfx_width(), 0, 0),
+			.color = d_colorx(0x00ff00ff),
 		},
 		NULL
 	);

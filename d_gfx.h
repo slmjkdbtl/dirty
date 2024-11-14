@@ -199,6 +199,8 @@ void d_blit_bg(void);
 void d_blit_rect(d_vec2 p1, d_vec2 p2, d_color c);
 void d_blit_circle(d_vec2 center, float r, d_color c);
 void d_blit_line(d_vec2 p1, d_vec2 p2, d_color c);
+void d_blit_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c);
+void d_blit_poly(d_poly p, d_color c);
 void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img* tex);
 void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img* tex);
 void d_draw_img(d_img* img, d_vec2 pos);
@@ -898,6 +900,20 @@ void d_blit_line(d_vec2 p1, d_vec2 p2, d_color c) {
 		}
 	}
 
+}
+
+void d_blit_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c) {
+	// TODO
+	d_draw_tri(p1, p2, p3, c);
+}
+
+void d_blit_poly(d_poly p, d_color c) {
+	d_vec2 p1 = p.verts[0];
+	for (int i = 1; i < p.num_verts - 1; i++) {
+		d_vec2 p2 = p.verts[i];
+		d_vec2 p3 = p.verts[i + 1];
+		d_blit_tri(p1, p2, p3, c);
+	}
 }
 
 void d_vertex_swap(d_vertex* v1, d_vertex* v2) {

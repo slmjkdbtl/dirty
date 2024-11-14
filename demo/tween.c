@@ -25,10 +25,10 @@ void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
-		.clear_color = d_colori(0, 0, 0, 255),
+		.clear_color = C(0),
 	});
 
-	pos = d_vec2f(d_gfx_width() / 2.0, d_gfx_height() / 2.0);
+	pos = V(d_gfx_width() / 2.0, d_gfx_height() / 2.0);
 	btfly = d_model_load(d_res_path("res/btfly.glb"));
 	tweener = d_tweener_new(128);
 
@@ -61,10 +61,10 @@ void frame(void) {
 	d_blit_bg();
 
 	d_gfx_t_push();
-	d_gfx_t_move3(d_vec3f(pos.x, pos.y, 0));
+	d_gfx_t_move3(V3(pos.x, pos.y, 0));
 	d_gfx_t_rot_y(0.5);
 	d_gfx_t_rot_z(-0.8);
-	d_gfx_t_scale3(d_vec3f(2, -2, 2));
+	d_gfx_t_scale3(V3(2, -2, 2));
 	d_gfx_t_move3(d_vec3_scale(btfly.center, -1));
 	d_draw_model(&btfly);
 

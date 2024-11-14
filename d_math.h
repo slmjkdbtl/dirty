@@ -6,10 +6,10 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define D_PI 3.14
 #define D_RNG_A 1103515245
 #define D_RNG_C 12345
 #define D_RNG_M 2147483648
+#define D_MAX_POLY_VERTS 8
 
 typedef struct {
 	uint64_t seed;
@@ -77,6 +77,11 @@ typedef struct {
 	d_vec3 p1;
 	d_vec3 p2;
 } d_line3;
+
+typedef struct {
+	d_vec2 verts[D_MAX_POLY_VERTS];
+	int num_verts;
+} d_poly;
 
 typedef struct {
 	d_vec2 center;
@@ -201,13 +206,20 @@ d_plane d_planef(d_vec3, float);
 d_ray2 d_ray2f(d_vec2, d_vec2);
 d_ray3 d_ray3f(d_vec3, d_vec3);
 
+bool d_col_pt_pt(d_vec2 p1, d_vec2 p2);
+bool d_col_pt_line(d_vec2 p, d_line2 l2);
 bool d_col_pt_rect(d_vec2 pt, d_rect r);
-bool d_col_rect_rect(d_rect r1, d_rect r2);
+bool d_col_pt_circle(d_vec2 pt, d_circle c);
+bool d_col_pt_poly(d_vec2 l, d_poly p);
+
 bool d_col_line_line(d_line2 l1, d_line2 l2);
 bool d_col_line_rect(d_line2 l, d_rect r);
-bool d_col_pt_circle(d_vec2 pt, d_circle c);
-bool d_col_circle_circle(d_circle c1, d_circle c2);
 bool d_col_line_circle(d_line2 l, d_circle c);
+bool d_col_line_poly(d_line2 l, d_poly p);
+
+bool d_col_rect_rect(d_rect r1, d_rect r2);
+
+bool d_col_circle_circle(d_circle c1, d_circle c2);
 
 float d_degf(float);
 float d_radf(float);
@@ -220,15 +232,15 @@ void d_swapi(int*, int*);
 void d_swapf(float*, float*);
 
 // https://stackoverflow.com/a/28074198/4584387
-#define V2_FUNC_CHOOSER(_f1, _f2, _f3, ...) _f3
-#define V2_FUNC_RECOMPOSER(args) V2_FUNC_CHOOSER args
-#define V2_CHOOSE_FROM_ARG_COUNT(...) V2_FUNC_RECOMPOSER((__VA_ARGS__, V2_2, V2_1, ))
-#define V2_NO_ARG_EXPANDER() ,,V2_0
-#define V2_MACRO_CHOOSER(...) V2_CHOOSE_FROM_ARG_COUNT(V2_NO_ARG_EXPANDER __VA_ARGS__ ())
-#define V2_2(x, y) ((d_vec2) { (x), (y) })
-#define V2_1(x) V2_2(x, x)
-#define V2_0() V2_2(0, 0)
-#define V2(...) V2_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
+#define V_FUNC_CHOOSER(_f1, _f2, _f3, ...) _f3
+#define V_FUNC_RECOMPOSER(args) V_FUNC_CHOOSER args
+#define V_CHOOSE_FROM_ARG_COUNT(...) V_FUNC_RECOMPOSER((__VA_ARGS__, V_2, V_1, ))
+#define V_NO_ARG_EXPANDER() ,,V_0
+#define V_MACRO_CHOOSER(...) V_CHOOSE_FROM_ARG_COUNT(V_NO_ARG_EXPANDER __VA_ARGS__ ())
+#define V_2(x, y) ((d_vec2) { (x), (y) })
+#define V_1(x) V_2(x, x)
+#define V_0() V_2(0, 0)
+#define V(...) V_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
 
 #define V3_FUNC_CHOOSER(_f1, _f2, _f3, _f4, ...) _f4
 #define V3_FUNC_RECOMPOSER(args) V3_FUNC_CHOOSER args
@@ -1053,12 +1065,39 @@ bool d_col_line_circle(d_line2 l, d_circle c) {
 	return dis_sq <= c.radius * c.radius;
 }
 
+bool d_col_pt_poly(d_vec2 pt, d_poly poly) {
+	bool c = false;
+	d_vec2* p = poly.verts;
+	for (int i = 0, j = poly.num_verts - 1; i < poly.num_verts; j = i++) {
+		if (
+			((p[i].y > pt.y) != (p[j].y > pt.y))
+			&& (pt.x < (p[j].x - p[i].x) * (pt.y - p[i].y) / (p[j].y - p[i].y) + p[i].x)
+		) {
+			c = !c;
+		}
+	}
+	return c;
+}
+
+bool d_col_line_poly(d_line2 l, d_poly p) {
+	if (d_col_pt_poly(l.p1, p) || d_col_pt_poly(l.p2, p)) {
+		return true;
+	}
+	for (int i = 0; i < p.num_verts; i++) {
+		d_vec2 p1 = p.verts[i];
+		d_vec2 p2 = p.verts[(i + 1) % p.num_verts];
+		d_line2 l2 = d_line2f(p1, p2);
+		if (d_col_line_line(l, l2)) return true;
+	}
+	return false;
+}
+
 float d_degf(float r) {
-	return r * (180.0 / D_PI);
+	return r * (180.0 / M_PI);
 }
 
 float d_radf(float d) {
-	return d / (180.0 / D_PI);
+	return d / (180.0 / M_PI);
 }
 
 int d_maxi(int a, int b) {
@@ -1103,4 +1142,3 @@ void d_swapf(float* a, float* b) {
 
 #endif
 #endif
-
