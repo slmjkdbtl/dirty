@@ -219,6 +219,40 @@ int d_mapi(int, int, int, int, int);
 void d_swapi(int*, int*);
 void d_swapf(float*, float*);
 
+// https://stackoverflow.com/a/28074198/4584387
+#define V2_FUNC_CHOOSER(_f1, _f2, _f3, ...) _f3
+#define V2_FUNC_RECOMPOSER(args) V2_FUNC_CHOOSER args
+#define V2_CHOOSE_FROM_ARG_COUNT(...) V2_FUNC_RECOMPOSER((__VA_ARGS__, V2_2, V2_1, ))
+#define V2_NO_ARG_EXPANDER() ,,V2_0
+#define V2_MACRO_CHOOSER(...) V2_CHOOSE_FROM_ARG_COUNT(V2_NO_ARG_EXPANDER __VA_ARGS__ ())
+#define V2_2(x, y) ((d_vec2) { (x), (y) })
+#define V2_1(x) V2_2(x, x)
+#define V2_0() V2_2(0, 0)
+#define V2(...) V2_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
+
+#define V3_FUNC_CHOOSER(_f1, _f2, _f3, _f4, ...) _f4
+#define V3_FUNC_RECOMPOSER(args) V3_FUNC_CHOOSER args
+#define V3_CHOOSE_FROM_ARG_COUNT(...) V3_FUNC_RECOMPOSER((__VA_ARGS__, V3_3, V3_2, V3_1, ))
+#define V3_NO_ARG_EXPANDER() ,,V3_0
+#define V3_MACRO_CHOOSER(...) V3_CHOOSE_FROM_ARG_COUNT(V3_NO_ARG_EXPANDER __VA_ARGS__ ())
+#define V3_3(x, y, z) ((d_vec3) { (x), (y), (z) })
+#define V3_2(x, y) ((d_vec3) { (x), (y), (0) })
+#define V3_1(x) V3_3(x, x, x)
+#define V3_0() V3_3(0, 0, 0)
+#define V3(...) V3_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
+
+#define C_FUNC_CHOOSER(_f1, _f2, _f3, _f4, _f5, ...) _f5
+#define C_FUNC_RECOMPOSER(args) C_FUNC_CHOOSER args
+#define C_CHOOSE_FROM_ARG_COUNT(...) C_FUNC_RECOMPOSER((__VA_ARGS__, C_4, C_3, C_2, C_1, ))
+#define C_NO_ARG_EXPANDER() ,,C_0
+#define C_MACRO_CHOOSER(...) C_CHOOSE_FROM_ARG_COUNT(C_NO_ARG_EXPANDER __VA_ARGS__ ())
+#define C_4(r, g, b, a) ((d_color) { (r), (g), (b), (a) })
+#define C_3(r, g, b) ((d_color) { (r), (g), (b), (255) })
+#define C_2(g, a) ((d_color) { (g), (g), (g), (a) })
+#define C_1(g) ((d_color) { (g), (g), (g), (255) })
+#define C_0() C_1(255)
+#define C(...) C_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
+
 #endif
 
 #if defined(D_MATH_IMPL) || defined(D_IMPL)
