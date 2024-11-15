@@ -1079,18 +1079,18 @@ bool d_col_sat(d_poly p1, d_poly p2, d_vec2* dis_out) {
 	for (int i = 0; i < 2; i++) {
 		d_poly p = polys[i];
 		for (int i = 0; i < p.num_verts; i++) {
-			d_vec2 pt1 = p1.verts[i];
-			d_vec2 pt2 = p1.verts[(i + 1) % p1.num_verts];
+			d_vec2 pt1 = p.verts[i];
+			d_vec2 pt2 = p.verts[(i + 1) % p.num_verts];
 			d_vec2 axis_proj = d_vec2_unit(d_vec2_normal(d_vec2_sub(pt2, pt1)));
 			float min1 = FLT_MAX;
-			float max1 = FLT_MIN;
+			float max1 = -FLT_MAX;
 			for (int j = 0; j < p1.num_verts; j++) {
 				float q = d_vec2_dot(p1.verts[j], axis_proj);
 				min1 = fminf(min1, q);
 				max1 = fmaxf(max1, q);
 			}
 			float min2 = FLT_MAX;
-			float max2 = FLT_MIN;
+			float max2 = -FLT_MAX;
 			for (int j = 0; j < p2.num_verts; j++) {
 				float q = d_vec2_dot(p2.verts[j], axis_proj);
 				min2 = fminf(min2, q);
