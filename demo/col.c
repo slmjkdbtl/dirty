@@ -9,13 +9,11 @@
 #define SCALE 4
 
 void init(void) {
-
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
 		.clear_color = C(0),
 	});
-
 }
 
 void frame(void) {
@@ -27,17 +25,17 @@ void frame(void) {
 	d_gfx_clear();
 	d_blit_bg();
 
-	d_line2 mouse_line = d_line2f(V(110, 10), d_gfx_mouse_pos());
+	d_line2 mouse_line = { V(110, 10), d_gfx_mouse_pos() };
 
-	d_line2 line = d_line2f(V(10, 10), V(20, 90));
-	d_rect rect = d_rectf(V(40, 80), V(80, 100));
-	d_circle circle = d_circlef(V(40, 30), 12);
-	d_poly poly = (d_poly) {
+	d_line2 line = { V(10, 10), V(20, 90) };
+	d_rect rect = { V(40, 80), V(80, 100) };
+	d_circle circle = { V(40, 30), 12 };
+	d_poly poly = {
 		.num_verts = 5,
 		.verts = {
 			V(80, 40),
 			V(100, 60),
-			V(90, 70),
+			V(90, 75),
 			V(70, 70),
 			V(60, 50),
 		},

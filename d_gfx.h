@@ -784,7 +784,7 @@ d_color d_gfx_get(int x, int y) {
 			return img->pixels[yy * img->width + xx];
 		}
 	}
-	return d_colorx(0x00000000);
+	return d_colori(0, 0, 0, 0);
 }
 
 void d_blit_img(d_img* img, d_vec2 pos) {
@@ -907,6 +907,7 @@ void d_blit_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c) {
 	d_draw_tri(p1, p2, p3, c);
 }
 
+// TODO: concave
 void d_blit_poly(d_poly p, d_color c) {
 	d_vec2 p1 = p.verts[0];
 	for (int i = 1; i < p.num_verts - 1; i++) {
@@ -1066,25 +1067,25 @@ void d_draw_img(d_img* img, d_vec2 pos) {
 	d_draw_prim_quad(
 		(d_vertex) {
 			.pos = d_vec3f(pos.x, pos.y, 0),
-			.color = d_colorx(0xffffffff),
+			.color = d_colorx(0xffffff),
 			.uv = d_vec2f(0, 0),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
 			.pos = d_vec3f(pos.x + img->width, pos.y, 0),
-			.color = d_colorx(0xffffffff),
+			.color = d_colorx(0xffffff),
 			.uv = d_vec2f(1, 0),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
 			.pos = d_vec3f(pos.x + img->width, pos.y + img->height, 0),
-			.color = d_colorx(0xffffffff),
+			.color = d_colorx(0xffffff),
 			.uv = d_vec2f(1, 1),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
 			.pos = d_vec3f(pos.x, pos.y + img->height, 0),
-			.color = d_colorx(0xffffffff),
+			.color = d_colorx(0xffffff),
 			.uv = d_vec2f(0, 1),
 			.normal = d_vec3f(0, 0, 1),
 		},
@@ -1438,7 +1439,7 @@ static d_model d_model_empty(void) {
 		.num_nodes = 0,
 		.images = malloc(0),
 		.num_images = 0,
-		.bbox = d_boxf(d_vec3f(0, 0, 0), d_vec3f(0, 0, 0)),
+		.bbox = (d_box) { d_vec3f(0, 0, 0), d_vec3f(0, 0, 0) },
 		.center = d_vec3f(0, 0, 0),
 	};
 }
@@ -1503,7 +1504,7 @@ static void d_model_node_gen_bbox(
 }
 
 void d_model_gen_bbox(d_model* model) {
-	d_box bbox = d_boxf(d_vec3f(0, 0, 0), d_vec3f(0, 0, 0));
+	d_box bbox = (d_box) { d_vec3f(0, 0, 0), d_vec3f(0, 0, 0) };
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_model_node_gen_bbox(&model->nodes[i], &bbox, d_mat4u());
 	}
@@ -1538,12 +1539,12 @@ static void d_model_parse_node(
 			cnode->translation[1],
 			cnode->translation[2]
 		),
-		.rot = d_quatf(
+		.rot = (d_quart) {
 			cnode->rotation[0],
 			cnode->rotation[1],
 			cnode->rotation[2],
 			cnode->rotation[3]
-		),
+		},
 		.scale = d_vec3f(
 			cnode->scale[0],
 			cnode->scale[1],
@@ -1579,7 +1580,7 @@ static void d_model_parse_node(
 		d_vertex* verts = calloc(num_verts, sizeof(d_vertex));
 
 		for (int j = 0; j < num_verts; j++) {
-			verts[j].color = d_colorx(0xffffffff);
+			verts[j].color = d_colorx(0xffffff);
 		}
 
 		for (int j = 0; j < prim->attributes_count; j++) {

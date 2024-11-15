@@ -89,6 +89,13 @@ typedef struct {
 } d_circle;
 
 typedef struct {
+	d_vec2 center;
+	float radius_x;
+	float radius_y;
+	float angle;
+} d_ellipse;
+
+typedef struct {
 	d_vec3 center;
 	float radius;
 } d_sphere;
@@ -165,12 +172,6 @@ d_color d_coloru(void);
 bool d_color_eq(d_color, d_color);
 d_color d_color_lerp(d_color from, d_color to, float t);
 
-d_mat4 d_mat4f(
-	float, float, float, float,
-	float, float, float, float,
-	float, float, float, float,
-	float, float, float, float
-);
 d_mat4 d_mat4u(void);
 d_mat4 d_mat4_identity(void);
 d_mat4 d_mat4_mult(d_mat4, d_mat4);
@@ -189,25 +190,17 @@ d_mat4 d_mat4_rot_z(float);
 d_mat4 d_mat4_rot_quat(d_quat);
 d_mat4 d_mat4_lerp(d_mat4 m1, d_mat4 m2, float t);
 
-d_quat d_quatf(float, float, float, float);
 d_quat d_quatu(void);
 d_quat d_quat_mult(d_quat q1, d_quat q2);
 
-d_quad d_quadf(float, float, float, float);
 d_quad d_quadu(void);
 
-d_rect d_rectf(d_vec2, d_vec2);
-d_box d_boxf(d_vec3, d_vec3);
-d_line2 d_line2f(d_vec2, d_vec2);
-d_line3 d_line3f(d_vec3, d_vec3);
-d_circle d_circlef(d_vec2, float);
-d_sphere d_spheref(d_vec3, float);
-d_plane d_planef(d_vec3, float);
-d_ray2 d_ray2f(d_vec2, d_vec2);
-d_ray3 d_ray3f(d_vec3, d_vec3);
+void d_rect_fix(d_rect* r);
+float d_rect_area(d_rect r);
+d_poly d_rect_to_poly(d_rect r);
 
 bool d_col_pt_pt(d_vec2 p1, d_vec2 p2);
-bool d_col_pt_line(d_vec2 p, d_line2 l2);
+bool d_col_pt_line(d_vec2 p, d_line2 l);
 bool d_col_pt_rect(d_vec2 pt, d_rect r);
 bool d_col_pt_circle(d_vec2 pt, d_circle c);
 bool d_col_pt_poly(d_vec2 l, d_poly p);
@@ -217,9 +210,14 @@ bool d_col_line_rect(d_line2 l, d_rect r);
 bool d_col_line_circle(d_line2 l, d_circle c);
 bool d_col_line_poly(d_line2 l, d_poly p);
 
-bool d_col_rect_rect(d_rect r1, d_rect r2);
-
 bool d_col_circle_circle(d_circle c1, d_circle c2);
+bool d_col_circle_rect(d_circle c, d_rect r);
+bool d_col_circle_poly(d_circle c, d_poly p);
+
+bool d_col_rect_rect(d_rect r1, d_rect r2);
+bool d_col_rect_poly(d_rect r, d_poly p);
+
+bool d_col_poly_poly(d_poly p1, d_poly p2);
 
 float d_degf(float);
 float d_radf(float);
@@ -261,7 +259,7 @@ void d_swapf(float*, float*);
 #define C_4(r, g, b, a) ((d_color) { (r), (g), (b), (a) })
 #define C_3(r, g, b) ((d_color) { (r), (g), (b), (255) })
 #define C_2(g, a) ((d_color) { (g), (g), (g), (a) })
-#define C_1(g) ((d_color) { (g), (g), (g), (255) })
+#define C_1(x) (d_colorx(x))
 #define C_0() C_1(255)
 #define C(...) C_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
 
@@ -555,11 +553,16 @@ d_color d_colorf(float r, float g, float b, float a) {
 }
 
 d_color d_colorx(uint32_t hex) {
-	return (d_color) {
+	return hex > 16777215 ? (d_color) {
 		.r = ((hex >> 24) & 0xff),
 		.g = ((hex >> 16) & 0xff),
 		.b = ((hex >> 8) & 0xff),
 		.a = ((hex >> 0) & 0xff),
+	} : (d_color) {
+		.r = ((hex >> 16) & 0xff),
+		.g = ((hex >> 8) & 0xff),
+		.b = ((hex >> 0) & 0xff),
+		.a = 255,
 	};
 }
 
@@ -604,22 +607,6 @@ d_color d_color_lerp(d_color from, d_color to, float t) {
 		.g = (int)d_lerpf(from.g, to.g, t),
 		.b = (int)d_lerpf(from.b, to.b, t),
 		.a = (int)d_lerpf(from.a, to.a, t),
-	};
-}
-
-d_mat4 d_mat4f(
-	float m0, float m1, float m2, float m3,
-	float m4, float m5, float m6, float m7,
-	float m8, float m9, float m10, float m11,
-	float m12, float m13, float m14, float m15
-) {
-	return (d_mat4) {
-		.m = {
-			m0, m1, m2, m3,
-			m4, m5, m6, m7,
-			m8, m9, m10, m11,
-			m12, m13, m14, m15
-		},
 	};
 }
 
@@ -792,18 +779,18 @@ d_mat4 d_mat4_rot_z(float a) {
 
 d_mat4 d_mat4_rot_quat(d_quat q) {
 	return d_mat4_mult(
-		d_mat4f(
+		(d_mat4) {
 			q.w, q.z, -q.y, q.x,
 			-q.z, q.w, q.x, q.y,
 			q.y, -q.x, q.w, q.z,
 			-q.x, -q.y, -q.z, q.w
-		),
-		d_mat4f(
+		},
+		(d_mat4) {
 			q.w, q.z, -q.y, -q.x,
 			-q.z, q.w, q.x, -q.y,
 			q.y, -q.x, q.w, -q.z,
 			q.x, q.y, q.z, q.w
-		)
+		}
 	);
 }
 
@@ -868,113 +855,65 @@ d_mat4 d_mat4_view(d_vec3 pos, d_vec3 dir, d_vec3 up) {
 
 }
 
-d_quat d_quatf(float x, float y, float z, float w) {
-	return (d_quat) {
-		.x = x,
-		.y = y,
-		.z = z,
-		.w = w,
-	};
-}
-
 d_quat d_quatu(void) {
-	return d_quatf(0.0, 0.0, 0.0, 1.0);
+	return (d_quat) { 0.0, 0.0, 0.0, 1.0 };
 }
 
 d_quat d_quat_mult(d_quat q1, d_quat q2) {
-	return d_quatf(
+	return (d_quat) {
 		q1.x * q2.x,
 		q1.y * q2.y,
 		q1.z * q2.z,
 		q1.w * q2.w
-	);
-}
-
-d_quad d_quadf(float x, float y, float w, float h) {
-	return (d_quad) {
-		.x = x,
-		.y = y,
-		.w = w,
-		.h = h,
 	};
 }
 
 d_quad d_quadu(void) {
-	return d_quadf(0.0, 0.0, 1.0, 1.0);
+	return (d_quad) { 0.0, 0.0, 1.0, 1.0 };
 }
 
-d_rect d_rectf(d_vec2 p1, d_vec2 p2) {
-	return (d_rect) {
-		.p1 = p1,
-		.p2 = p2,
-	};
-}
-
-d_box d_boxf(d_vec3 p1, d_vec3 p2) {
-	return (d_box) {
-		.p1 = p1,
-		.p2 = p2,
-	};
-}
-
-d_line2 d_line2f(d_vec2 p1, d_vec2 p2) {
-	return (d_line2) {
-		.p1 = p1,
-		.p2 = p2,
-	};
-}
-
-d_line3 d_line3f(d_vec3 p1, d_vec3 p2) {
-	return (d_line3) {
-		.p1 = p1,
-		.p2 = p2,
-	};
-}
-
-d_circle d_circlef(d_vec2 center, float radius) {
-	return (d_circle) {
-		.center = center,
-		.radius = radius,
-	};
-}
-
-d_sphere d_spheref(d_vec3 center, float radius) {
-	return (d_sphere) {
-		.center = center,
-		.radius = radius,
-	};
-}
-
-d_plane d_planef(d_vec3 normal, float dist) {
-	return (d_plane) {
-		.normal = normal,
-		.dist = dist,
-	};
-}
-
-d_ray2 d_ray2f(d_vec2 origin, d_vec2 dir) {
-	return (d_ray2) {
-		.origin = origin,
-		.dir = dir,
-	};
-}
-
-d_ray3 d_ray3f(d_vec3 origin, d_vec3 dir) {
-	return (d_ray3) {
-		.origin = origin,
-		.dir = dir,
-	};
-}
-
-static void fix_rect(d_rect* r) {
+void d_rect_fix(d_rect* r) {
 	d_vec2 pp1 = d_vec2_min(r->p1, r->p2);
 	d_vec2 pp2 = d_vec2_max(r->p1, r->p2);
 	r->p1 = pp1;
 	r->p2 = pp2;
 }
 
+d_poly d_rect_to_poly(d_rect r) {
+	return (d_poly) {
+		.num_verts = 4,
+		.verts = {
+			r.p1,
+			V(r.p2.x, r.p1.y),
+			r.p2,
+			V(r.p1.x, r.p2.y),
+		},
+	};
+}
+
+bool d_col_pt_pt(d_vec2 p1, d_vec2 p2) {
+	return p1.x == p2.x && p1.y == p2.y;
+}
+
+bool d_col_pt_line(d_vec2 p, d_line2 l) {
+	float cross =
+		(p.y - l.p1.y) * (l.p2.x - l.p1.x)
+		- (p.x - l.p1.x) * (l.p2.y - l.p1.y);
+	if (cross != 0) {
+		return false;
+	}
+	if (d_col_pt_rect(p, (d_rect) { l.p1, l.p2 })) {
+		return false;
+	}
+	return true;
+}
+
+bool d_col_pt_circle(d_vec2 pt, d_circle c) {
+	return d_vec2_dist(pt, c.center) <= c.radius;
+}
+
 bool d_col_pt_rect(d_vec2 pt, d_rect r) {
-	fix_rect(&r);
+	d_rect_fix(&r);
 	return
 		pt.x >= r.p1.x
 		&& pt.x <= r.p2.x
@@ -982,14 +921,18 @@ bool d_col_pt_rect(d_vec2 pt, d_rect r) {
 		&& pt.y <= r.p2.y;
 }
 
-bool d_col_rect_rect(d_rect r1, d_rect r2) {
-	fix_rect(&r1);
-	fix_rect(&r2);
-	return
-		r1.p2.x >= r2.p1.x
-		&& r1.p1.x <= r2.p2.x
-		&& r1.p2.y >= r2.p1.y
-		&& r1.p1.y <= r2.p2.y;
+bool d_col_pt_poly(d_vec2 pt, d_poly poly) {
+	bool c = false;
+	d_vec2* p = poly.verts;
+	for (int i = 0, j = poly.num_verts - 1; i < poly.num_verts; j = i++) {
+		if (
+			((p[i].y > pt.y) != (p[j].y > pt.y))
+			&& (pt.x < (p[j].x - p[i].x) * (pt.y - p[i].y) / (p[j].y - p[i].y) + p[i].x)
+		) {
+			c = !c;
+		}
+	}
+	return c;
 }
 
 bool d_col_line_line(d_line2 l1, d_line2 l2) {
@@ -1024,25 +967,6 @@ bool d_col_line_line(d_line2 l1, d_line2 l2) {
 	return a >= 0.0 && a <= 1.0 && b >= 0.0 && b <= 1.0;
 }
 
-bool d_col_line_rect(d_line2 l, d_rect r) {
-	if (d_col_pt_rect(l.p1, r) || d_col_pt_rect(l.p2, r)) {
-		return true;
-	}
-	return
-		d_col_line_line(l, d_line2f(r.p1, d_vec2f(r.p2.x, r.p1.y)))
-		|| d_col_line_line(l, d_line2f(d_vec2f(r.p2.x, r.p1.y), r.p2))
-		|| d_col_line_line(l, d_line2f(r.p2, d_vec2f(r.p1.x, r.p2.y)))
-		|| d_col_line_line(l, d_line2f(d_vec2f(r.p1.x, r.p2.y), r.p1));
-}
-
-bool d_col_pt_circle(d_vec2 pt, d_circle c) {
-	return d_vec2_dist(pt, c.center) <= c.radius;
-}
-
-bool d_col_circle_circle(d_circle c1, d_circle c2) {
-	return d_vec2_dist(c1.center, c2.center) <= c1.radius + c2.radius;
-}
-
 bool d_col_line_circle(d_line2 l, d_circle c) {
 	// vector from p1 to p2
 	float abx = l.p2.x - l.p1.x;
@@ -1065,18 +989,15 @@ bool d_col_line_circle(d_line2 l, d_circle c) {
 	return dis_sq <= c.radius * c.radius;
 }
 
-bool d_col_pt_poly(d_vec2 pt, d_poly poly) {
-	bool c = false;
-	d_vec2* p = poly.verts;
-	for (int i = 0, j = poly.num_verts - 1; i < poly.num_verts; j = i++) {
-		if (
-			((p[i].y > pt.y) != (p[j].y > pt.y))
-			&& (pt.x < (p[j].x - p[i].x) * (pt.y - p[i].y) / (p[j].y - p[i].y) + p[i].x)
-		) {
-			c = !c;
-		}
+bool d_col_line_rect(d_line2 l, d_rect r) {
+	if (d_col_pt_rect(l.p1, r) || d_col_pt_rect(l.p2, r)) {
+		return true;
 	}
-	return c;
+	return
+		d_col_line_line(l, (d_line2) { r.p1, V(r.p2.x, r.p1.y) })
+		|| d_col_line_line(l, (d_line2) { V(r.p2.x, r.p1.y), r.p2 })
+		|| d_col_line_line(l, (d_line2) { r.p2, V(r.p1.x, r.p2.y) })
+		|| d_col_line_line(l, (d_line2) { V(r.p1.x, r.p2.y), r.p1 });
 }
 
 bool d_col_line_poly(d_line2 l, d_poly p) {
@@ -1086,8 +1007,58 @@ bool d_col_line_poly(d_line2 l, d_poly p) {
 	for (int i = 0; i < p.num_verts; i++) {
 		d_vec2 p1 = p.verts[i];
 		d_vec2 p2 = p.verts[(i + 1) % p.num_verts];
-		d_line2 l2 = d_line2f(p1, p2);
+		d_line2 l2 = { p1, p2 };
 		if (d_col_line_line(l, l2)) return true;
+	}
+	return false;
+}
+
+bool d_col_circle_circle(d_circle c1, d_circle c2) {
+	return d_vec2_dist(c1.center, c2.center) <= c1.radius + c2.radius;
+}
+
+bool d_col_circle_rect(d_circle c, d_rect r) {
+	d_rect_fix(&r);
+	float closest_x = fmaxf(r.p1.x, fminf(c.center.x, r.p2.x));
+	float closest_y = fmaxf(r.p1.y, fminf(c.center.y, r.p2.y));
+	float dis_x = c.center.x - closest_x;
+	float dis_y = c.center.y - closest_y;
+	float dis_s = dis_x * dis_x + dis_y * dis_y;
+	return dis_s <= (c.radius * c.radius);
+}
+
+bool d_col_circle_poly(d_circle c, d_poly p) {
+	if (d_col_pt_circle(p.verts[0], c)) return true;
+	if (d_col_pt_poly(c.center, p)) return true;
+	for (int i = 0; i < p.num_verts; i++) {
+		d_vec2 pt1 = p.verts[i];
+		d_vec2 pt2 = p.verts[(i + 1) % p.num_verts];
+		d_line2 l = { pt1, pt2 };
+		if (d_col_line_circle(l, c)) return true;
+	}
+	return false;
+}
+
+bool d_col_rect_rect(d_rect r1, d_rect r2) {
+	d_rect_fix(&r1);
+	d_rect_fix(&r2);
+	return
+		r1.p2.x >= r2.p1.x
+		&& r1.p1.x <= r2.p2.x
+		&& r1.p2.y >= r2.p1.y
+		&& r1.p1.y <= r2.p2.y;
+}
+
+bool d_col_rect_poly(d_rect r, d_poly p) {
+	return d_col_poly_poly(d_rect_to_poly(r), p);
+}
+
+bool d_col_poly_poly(d_poly p1, d_poly p2) {
+	for (int i = 0; i < p1.num_verts; i++) {
+		d_vec2 pt1 = p1.verts[i];
+		d_vec2 pt2 = p1.verts[(i + 1) % p1.num_verts];
+		d_line2 l = { pt1, pt2 };
+		if (d_col_line_poly(l, p2)) return true;
 	}
 	return false;
 }
