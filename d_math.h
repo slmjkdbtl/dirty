@@ -628,9 +628,7 @@ d_mat4 d_mat4_identity(void) {
 }
 
 d_mat4 d_mat4_mult(d_mat4 m1, d_mat4 m2) {
-
 	d_mat4 out = d_mat4u();
-
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			out.m[i * 4 + j] =
@@ -640,9 +638,7 @@ d_mat4 d_mat4_mult(d_mat4 m1, d_mat4 m2) {
 				m1.m[3 * 4 + j] * m2.m[i * 4 + 3];
 		}
 	}
-
 	return out;
-
 }
 
 d_vec4 d_mat4_mult_vec4(d_mat4 m, d_vec4 p) {

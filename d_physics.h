@@ -28,6 +28,7 @@ typedef struct {
 
 d_world d_world_new(void);
 d_body* d_world_add(d_world* w, d_poly p, void* userdata);
+void d_world_rm(d_world* w, d_body* b);
 void d_world_check_reset(d_world* w);
 d_world_res d_world_check_next(d_world* w);
 
@@ -59,6 +60,21 @@ d_body* d_world_add(d_world* w, d_poly p, void* userdata) {
 	return &w->bodies[idx];
 }
 
+void d_world_rm(d_world* w, d_body* b) {
+	for (int i = 0; i < w->num_bodies; i++) {
+		if (&w->bodies[i] == b) {
+			memmove(
+				w->bodies + i,
+				w->bodies + i + 1,
+				(w->num_bodies - i - 1) * sizeof(d_body)
+			);
+			w->num_bodies--;
+			i--;
+			return;
+		}
+	}
+}
+
 void d_world_check_reset(d_world* w) {
 	w->cur_a = 0;
 	w->cur_b = 0;
@@ -67,18 +83,17 @@ void d_world_check_reset(d_world* w) {
 d_world_res d_world_check_next(d_world* w) {
 	// TODO: hash grid
 	while (true) {
-		int i = w->cur_a;
-		int j = w->cur_a + w->cur_b + 1;
-		d_body* a = &w->bodies[i];
-		d_body* b = &w->bodies[j];
 		w->cur_b++;
-		if (j >= w->num_bodies - 1) {
+		if (w->cur_b >= w->num_bodies) {
 			w->cur_a++;
-			w->cur_b = 0;
+			w->cur_b = w->cur_a + 1;
 			if (w->cur_a >= w->num_bodies - 1) {
 				break;
 			}
 		}
+		d_body* a = &w->bodies[w->cur_a];
+		d_body* b = &w->bodies[w->cur_b];
+		if (a == b) continue;
 		d_vec2 dis = d_vec2f(0, 0);
 		if (d_col_sat(a->shape, b->shape, &dis)) {
 			return (d_world_res) {

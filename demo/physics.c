@@ -98,9 +98,7 @@ void frame(void) {
 
 	while (true) {
 		d_world_res res = d_world_check_next(&world);
-		if (!res.collided) {
-			break;
-		}
+		if (!res.collided) break;
 		if (res.body_a == player_body) {
 			pos = d_vec2_add(pos, res.dis);
 		} else if (res.body_b == player_body) {
@@ -111,8 +109,9 @@ void frame(void) {
 	d_transform_push();
 	d_transform_pos(pos);
 	d_transform_rot(rot);
-	d_transform_pos(V(-img.width / 2.0f, -img.height / 2.0f));
+	d_transform_pos(d_vec2_scale(V(img.width, img.height), -0.5));
 	d_draw_img(&img);
+	d_draw_poly_lines(d_rect_to_poly(player_rect), C(0x0000ff));
 	d_transform_pop();
 
 	d_blit_circle(pos, 2, C(0xffff00));

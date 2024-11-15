@@ -209,6 +209,7 @@ void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c);
 void d_draw_poly(d_poly p, d_color c);
+void d_draw_poly_lines(d_poly p, d_color c);
 void d_draw_mesh(d_mesh* mesh, d_img* tex);
 void d_draw_model(d_model* model);
 void d_draw_bbox(d_box bbox, d_color c);
@@ -1200,6 +1201,14 @@ void d_draw_poly(d_poly p, d_color c) {
 		d_vec2 p2 = p.verts[i];
 		d_vec2 p3 = p.verts[i + 1];
 		d_draw_tri(p1, p2, p3, c);
+	}
+}
+
+void d_draw_poly_lines(d_poly p, d_color c) {
+	for (int i = 0; i < p.num_verts; i++) {
+		d_vec2 p1 = p.verts[i];
+		d_vec2 p2 = p.verts[(i + 1) % p.num_verts];
+		d_draw_line(p1, p2, c);
 	}
 }
 

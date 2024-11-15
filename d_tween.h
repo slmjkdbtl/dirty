@@ -194,7 +194,12 @@ void d_tweener_update(d_tweener* tweener, float dt) {
 	for (int i = 0; i < tweener->num_tweens; i++) {
 		d_tween* t = &tweener->tweens[i];
 		if (t->done) {
-			tweener->tweens[i] = tweener->tweens[--tweener->num_tweens];
+			memmove(
+				tweener->tweens + i,
+				tweener->tweens + i + 1,
+				(tweener->num_tweens - i - 1) * sizeof(d_tween)
+			);
+			tweener->num_tweens--;
 			i--;
 			continue;
 		}

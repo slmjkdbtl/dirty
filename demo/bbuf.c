@@ -45,12 +45,12 @@ void frame(void) {
 
 	d_gfx_set_bbuf_write(true);
 
-	d_gfx_t_push();
-	d_gfx_t_move3(d_vec3f(60, 80, 0));
-	d_gfx_t_rot_y(d_app_time());
-	d_gfx_t_scale3(d_vec3f(6, -6, 6));
+	d_transform_push();
+	d_transform_pos3(d_vec3f(60, 80, 0));
+	d_transform_rot_y(d_app_time());
+	d_transform_scale3(d_vec3f(6, -6, 6));
 	d_draw_model(&btfly);
-	d_gfx_t_pop();
+	d_transform_pop();
 
 	d_vec2 mpos = d_gfx_mouse_pos();
 	float t = d_app_time() * 10;

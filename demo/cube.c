@@ -11,7 +11,7 @@
 #define SCALE 4
 
 d_mesh cube;
-d_vec3 rot;
+d_vec3 rot = V3(0.3, 0.3, 0);
 
 void init(void) {
 
@@ -108,17 +108,17 @@ void frame(void) {
 	int s = d_gfx_width() / 4;
 
 	d_gfx_clear();
-	d_gfx_t_push();
-	d_gfx_t_move3(d_vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
-	// d_gfx_t_rot_x(d_app_time());
-	// d_gfx_t_rot_y(d_app_time());
-	// d_gfx_t_rot_z(d_app_time());
-	d_gfx_t_rot_x(rot.x);
-	d_gfx_t_rot_y(rot.y);
-	d_gfx_t_scale3(d_vec3f(s, -s, s));
-	// d_gfx_t_rot_z(d_app_time());
+	d_transform_push();
+	d_transform_pos3(d_vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
+	// d_transform_rot_x(d_app_time());
+	// d_transform_rot_y(d_app_time());
+	// d_transform_rot_z(d_app_time());
+	d_transform_rot_x(rot.x);
+	d_transform_rot_y(rot.y);
+	d_transform_scale3(d_vec3f(s, -s, s));
+	// d_transform_rot_z(d_app_time());
 	d_draw_mesh(&cube, NULL);
-	d_gfx_t_pop();
+	d_transform_pop();
 	d_gfx_present();
 
 }

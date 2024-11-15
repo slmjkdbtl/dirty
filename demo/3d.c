@@ -106,18 +106,18 @@ void frame(void) {
 
 	for (int i = 0; i < NUM_MODELS; i++) {
 		model *m = &models[i];
-		d_gfx_t_push();
-		d_gfx_t_move3(m->pos);
-		d_gfx_t_rot_y(m->rot.y + rot.y);
-		d_gfx_t_rot_x(m->rot.x + rot.x);
-		d_gfx_t_rot_z(m->rot.z);
-		d_gfx_t_scale3(m->scale);
-		d_gfx_t_move3(d_vec3_scale(m->model.center, -1));
+		d_transform_push();
+		d_transform_pos3(m->pos);
+		d_transform_rot_y(m->rot.y + rot.y);
+		d_transform_rot_x(m->rot.x + rot.x);
+		d_transform_rot_z(m->rot.z);
+		d_transform_scale3(m->scale);
+		d_transform_pos3(d_vec3_scale(m->model.center, -1));
 		d_draw_model(&m->model);
 		if (show_bbox) {
 			d_draw_bbox(m->model.bbox, d_colorx(0x0000ffff));
 		}
-		d_gfx_t_pop();
+		d_transform_pop();
 	}
 
 	d_gfx_present();

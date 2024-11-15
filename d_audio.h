@@ -170,7 +170,11 @@ static float d_audio_next(void) {
 		d_playback* p = &d_audio.playbacks[i];
 
 		if (p->done) {
-			d_audio.playbacks[i] = d_audio.playbacks[d_audio.num_playbacks - 1];
+			memmove(
+				d_audio.playbacks + i,
+				d_audio.playbacks + i + 1,
+				(d_audio.num_playbacks - i - 1) * sizeof(d_playback)
+			);
 			d_audio.num_playbacks--;
 			i--;
 			continue;

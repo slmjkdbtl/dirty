@@ -58,19 +58,19 @@ void frame(void) {
 
 	d_blit_bg();
 
-	d_gfx_t_push();
-	d_gfx_t_move3(d_vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
-	d_gfx_t_rot_y(d_app_time());
-	d_gfx_t_rot_z(d_app_time() / 2);
-	d_gfx_t_scale3(d_vec3f(3, -3, 3));
-	d_gfx_t_move3(d_vec3_scale(btfly.center, -1));
+	d_transform_push();
+	d_transform_pos3(d_vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
+	d_transform_rot_y(d_app_time());
+	d_transform_rot_z(d_app_time() / 2);
+	d_transform_scale3(d_vec3f(3, -3, 3));
+	d_transform_pos3(d_vec3_scale(btfly.center, -1));
 	d_draw_model(&btfly);
 
 	if (show_bbox) {
 		d_draw_bbox(btfly.bbox, d_colorx(0x0000ffff));
 	}
 
-	d_gfx_t_pop();
+	d_transform_pop();
 
 	d_gfx_present();
 
