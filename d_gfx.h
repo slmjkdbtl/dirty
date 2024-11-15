@@ -203,26 +203,30 @@ void d_blit_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c);
 void d_blit_poly(d_poly p, d_color c);
 void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img* tex);
 void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img* tex);
-void d_draw_img(d_img* img, d_vec2 pos);
+void d_draw_img(d_img* img);
 void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c);
 void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c);
+void d_draw_poly(d_poly p, d_color c);
 void d_draw_mesh(d_mesh* mesh, d_img* tex);
 void d_draw_model(d_model* model);
 void d_draw_bbox(d_box bbox, d_color c);
-void d_gfx_t_push(void);
-void d_gfx_t_pop(void);
-void d_gfx_t_use(d_mat4 m);
-void d_gfx_t_move(d_vec2 p);
-void d_gfx_t_move3(d_vec3 p);
-void d_gfx_t_scale(d_vec2 s);
-void d_gfx_t_scale3(d_vec3 s);
-void d_gfx_t_rot_x(float a);
-void d_gfx_t_rot_y(float a);
-void d_gfx_t_rot_z(float a);
-d_vec2 d_gfx_t_apply_vec2(d_vec2 p);
-d_vec3 d_gfx_t_apply_vec3(d_vec3 p);
+void d_transform_push(void);
+void d_transform_pop(void);
+void d_transform_use(d_mat4 m);
+void d_transform_pos(d_vec2 p);
+void d_transform_pos3(d_vec3 p);
+void d_transform_scale(d_vec2 s);
+void d_transform_scale3(d_vec3 s);
+void d_transform_rot(float a);
+void d_transform_rot_x(float a);
+void d_transform_rot_y(float a);
+void d_transform_rot_z(float a);
+d_vec2 d_transform_apply_vec2(d_vec2 p);
+d_vec3 d_transform_apply_vec3(d_vec3 p);
+void d_transform_set(d_mat4 m);
+d_mat4 d_transform_get(void);
 void d_gfx_drawon(d_img* img);
 d_img* d_gfx_canvas(void);
 void d_gfx_set_shader(d_gfx_shader func);
@@ -930,9 +934,9 @@ void d_draw_prim_tri(
 	d_img* tex
 ) {
 
-	d_vec3 p1 = d_gfx_t_apply_vec3(v1.pos);
-	d_vec3 p2 = d_gfx_t_apply_vec3(v2.pos);
-	d_vec3 p3 = d_gfx_t_apply_vec3(v3.pos);
+	d_vec3 p1 = d_transform_apply_vec3(v1.pos);
+	d_vec3 p2 = d_transform_apply_vec3(v2.pos);
+	d_vec3 p3 = d_transform_apply_vec3(v3.pos);
 
 	if (d_gfx.backface_cull) {
 		d_vec3 normal = d_vec3_unit(
@@ -972,9 +976,9 @@ void d_draw_prim_tri(
 	int y3 = p3.y;
 	int z3 = p3.z;
 
-	// d_vec3 n1 = d_vec3_unit(d_gfx_t_apply_vec3(v1.normal));
-	// d_vec3 n2 = d_vec3_unit(d_gfx_t_apply_vec3(v2.normal));
-	// d_vec3 n3 = d_vec3_unit(d_gfx_t_apply_vec3(v3.normal));
+	// d_vec3 n1 = d_vec3_unit(d_transform_apply_vec3(v1.normal));
+	// d_vec3 n2 = d_vec3_unit(d_transform_apply_vec3(v2.normal));
+	// d_vec3 n3 = d_vec3_unit(d_transform_apply_vec3(v3.normal));
 
 	int gw = d_gfx_width();
 	int gh = d_gfx_height();
@@ -1063,30 +1067,30 @@ void d_draw_prim_quad(
 	d_draw_prim_tri(v1, v3, v4, tex);
 }
 
-void d_draw_img(d_img* img, d_vec2 pos) {
+void d_draw_img(d_img* img) {
 	d_draw_prim_quad(
 		(d_vertex) {
-			.pos = d_vec3f(pos.x, pos.y, 0),
+			.pos = d_vec3f(0, 0, 0),
 			.color = d_colorx(0xffffff),
 			.uv = d_vec2f(0, 0),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = d_vec3f(pos.x + img->width, pos.y, 0),
+			.pos = d_vec3f(0, img->height, 0),
 			.color = d_colorx(0xffffff),
-			.uv = d_vec2f(1, 0),
+			.uv = d_vec2f(0, 1),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = d_vec3f(pos.x + img->width, pos.y + img->height, 0),
+			.pos = d_vec3f(img->width, img->height, 0),
 			.color = d_colorx(0xffffff),
 			.uv = d_vec2f(1, 1),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
-			.pos = d_vec3f(pos.x, pos.y + img->height, 0),
+			.pos = d_vec3f(img->width, 0, 0),
 			.color = d_colorx(0xffffff),
-			.uv = d_vec2f(0, 1),
+			.uv = d_vec2f(1, 0),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		img
@@ -1147,14 +1151,14 @@ void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c) {
 }
 
 void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c) {
-	p1 = d_gfx_t_apply_vec2(p1);
-	p2 = d_gfx_t_apply_vec2(p2);
+	p1 = d_transform_apply_vec2(p1);
+	p2 = d_transform_apply_vec2(p2);
 	d_blit_line(p1, p2, c);
 }
 
 void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c) {
-	p1 = d_gfx_t_apply_vec3(p1);
-	p2 = d_gfx_t_apply_vec3(p2);
+	p1 = d_transform_apply_vec3(p1);
+	p2 = d_transform_apply_vec3(p2);
 	d_blit_line(d_vec2f(p1.x, p1.y), d_vec2f(p2.x, p2.y), c);
 }
 
@@ -1190,7 +1194,16 @@ void d_draw_line2(d_vec2 p1, d_vec2 p2, int w, d_color c) {
 	);
 }
 
-void d_gfx_t_push(void) {
+void d_draw_poly(d_poly p, d_color c) {
+	d_vec2 p1 = p.verts[0];
+	for (int i = 1; i < p.num_verts - 1; i++) {
+		d_vec2 p2 = p.verts[i];
+		d_vec2 p3 = p.verts[i + 1];
+		d_draw_tri(p1, p2, p3, c);
+	}
+}
+
+void d_transform_push(void) {
 	if (d_gfx.tstack_len >= D_MAX_TSTACK) {
 		fprintf(stderr, "tstack overflow\n");
 		return;
@@ -1198,7 +1211,7 @@ void d_gfx_t_push(void) {
 	d_gfx.tstack[d_gfx.tstack_len++] = d_gfx.t;
 }
 
-void d_gfx_t_pop(void) {
+void d_transform_pop(void) {
 	if (d_gfx.tstack_len <= 0) {
 		fprintf(stderr, "tstack underflow\n");
 		return;
@@ -1206,43 +1219,55 @@ void d_gfx_t_pop(void) {
 	d_gfx.t = d_gfx.tstack[--d_gfx.tstack_len];
 }
 
-void d_gfx_t_use(d_mat4 m) {
+void d_transform_use(d_mat4 m) {
 	d_gfx.t = d_mat4_mult(d_gfx.t, m);
 }
 
-void d_gfx_t_move(d_vec2 p) {
-	d_gfx_t_move3(d_vec3f(p.x, p.y, 0));
+void d_transform_set(d_mat4 m) {
+	d_gfx.t = m;
 }
 
-void d_gfx_t_scale(d_vec2 s) {
-	d_gfx_t_scale3(d_vec3f(s.x, s.y, 1));
+d_mat4 d_transform_get(void) {
+	return d_gfx.t;
 }
 
-void d_gfx_t_move3(d_vec3 p) {
+void d_transform_pos(d_vec2 p) {
+	d_transform_pos3(d_vec3f(p.x, p.y, 0));
+}
+
+void d_transform_scale(d_vec2 s) {
+	d_transform_scale3(d_vec3f(s.x, s.y, 1));
+}
+
+void d_transform_pos3(d_vec3 p) {
 	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_translate(p));
 }
 
-void d_gfx_t_scale3(d_vec3 s) {
+void d_transform_scale3(d_vec3 s) {
 	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_scale(s));
 }
 
-void d_gfx_t_rot_x(float a) {
+void d_transform_rot(float a) {
+	d_transform_rot_z(a);
+}
+
+void d_transform_rot_x(float a) {
 	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_x(a));
 }
 
-void d_gfx_t_rot_y(float a) {
+void d_transform_rot_y(float a) {
 	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_y(a));
 }
 
-void d_gfx_t_rot_z(float a) {
+void d_transform_rot_z(float a) {
 	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_z(a));
 }
 
-d_vec2 d_gfx_t_apply_vec2(d_vec2 p) {
+d_vec2 d_transform_apply_vec2(d_vec2 p) {
 	return d_mat4_mult_vec2(d_gfx.t, p);
 }
 
-d_vec3 d_gfx_t_apply_vec3(d_vec3 p) {
+d_vec3 d_transform_apply_vec3(d_vec3 p) {
 	return d_mat4_mult_vec3(d_gfx.t, p);
 }
 
@@ -1287,13 +1312,13 @@ static d_transform d_transform_apply(d_transform t1, d_transform t2) {
 }
 
 static void d_draw_model_node(d_model* model, d_model_node* node) {
-	d_gfx_t_push();
+	d_transform_push();
 	// TODO
 	if (node->num_anims) {
 		d_model_anim* anim = &node->anims[0];
-		d_gfx_t_use(anim->frames[(int)(d_app_time() * 60) % anim->num_frames].transform);
+		d_transform_use(anim->frames[(int)(d_app_time() * 60) % anim->num_frames].transform);
 	} else {
-		d_gfx_t_use(node->t);
+		d_transform_use(node->t);
 	}
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_draw_mesh(
@@ -1304,35 +1329,35 @@ static void d_draw_model_node(d_model* model, d_model_node* node) {
 	for (int i = 0; i < node->num_children; i++) {
 		d_draw_model_node(model, &node->children[i]);
 	}
-	d_gfx_t_pop();
+	d_transform_pop();
 }
 
 void d_draw_model(d_model* model) {
-	d_gfx_t_push();
+	d_transform_push();
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_draw_model_node(model, &model->nodes[i]);
 	}
-	d_gfx_t_pop();
+	d_transform_pop();
 }
 
 static void d_draw_model_node_line(d_model_node* node, d_color c) {
-	d_gfx_t_push();
-	d_gfx_t_use(node->t);
+	d_transform_push();
+	d_transform_use(node->t);
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_draw_mesh_line(&node->meshes[i], c);
 	}
 	for (int i = 0; i < node->num_children; i++) {
 		d_draw_model_node_line(&node->children[i], c);
 	}
-	d_gfx_t_pop();
+	d_transform_pop();
 }
 
 void d_draw_model_line(d_model* model, d_color c) {
-	d_gfx_t_push();
+	d_transform_push();
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_draw_model_node_line(&model->nodes[i], c);
 	}
-	d_gfx_t_pop();
+	d_transform_pop();
 }
 
 void d_gfx_set_blend(d_blend b) {
@@ -1539,7 +1564,7 @@ static void d_model_parse_node(
 			cnode->translation[1],
 			cnode->translation[2]
 		),
-		.rot = (d_quart) {
+		.rot = (d_quat) {
 			cnode->rotation[0],
 			cnode->rotation[1],
 			cnode->rotation[2],

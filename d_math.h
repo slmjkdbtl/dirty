@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <math.h>
+#include <float.h>
 
 #define D_RNG_A 1103515245
 #define D_RNG_C 12345
@@ -106,14 +107,14 @@ typedef struct {
 } d_plane;
 
 typedef struct {
-	d_vec3 origin;
-	d_vec3 dir;
-} d_ray3;
-
-typedef struct {
 	d_vec2 origin;
 	d_vec2 dir;
 } d_ray2;
+
+typedef struct {
+	d_vec3 origin;
+	d_vec3 dir;
+} d_ray3;
 
 d_rng d_rng_new(uint64_t seed);
 float d_rng_gen(d_rng* rng);
@@ -198,26 +199,27 @@ d_quad d_quadu(void);
 void d_rect_fix(d_rect* r);
 float d_rect_area(d_rect r);
 d_poly d_rect_to_poly(d_rect r);
+d_poly d_rect_transform(d_rect r, d_mat4 t);
+
+d_poly d_poly_transform(d_poly p, d_mat4 t);
 
 bool d_col_pt_pt(d_vec2 p1, d_vec2 p2);
 bool d_col_pt_line(d_vec2 p, d_line2 l);
 bool d_col_pt_rect(d_vec2 pt, d_rect r);
 bool d_col_pt_circle(d_vec2 pt, d_circle c);
 bool d_col_pt_poly(d_vec2 l, d_poly p);
-
 bool d_col_line_line(d_line2 l1, d_line2 l2);
 bool d_col_line_rect(d_line2 l, d_rect r);
 bool d_col_line_circle(d_line2 l, d_circle c);
 bool d_col_line_poly(d_line2 l, d_poly p);
-
 bool d_col_circle_circle(d_circle c1, d_circle c2);
 bool d_col_circle_rect(d_circle c, d_rect r);
 bool d_col_circle_poly(d_circle c, d_poly p);
-
 bool d_col_rect_rect(d_rect r1, d_rect r2);
 bool d_col_rect_poly(d_rect r, d_poly p);
-
 bool d_col_poly_poly(d_poly p1, d_poly p2);
+
+bool d_col_sat(d_poly p1, d_poly p2, d_vec2* dis);
 
 float d_degf(float);
 float d_radf(float);
@@ -260,7 +262,7 @@ void d_swapf(float*, float*);
 #define C_3(r, g, b) ((d_color) { (r), (g), (b), (255) })
 #define C_2(g, a) ((d_color) { (g), (g), (g), (a) })
 #define C_1(x) (d_colorx(x))
-#define C_0() C_1(255)
+#define C_0() C_1(0xffffff)
 #define C(...) C_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
 
 #endif
@@ -891,6 +893,17 @@ d_poly d_rect_to_poly(d_rect r) {
 	};
 }
 
+d_poly d_rect_transform(d_rect r, d_mat4 t) {
+	return d_poly_transform(d_rect_to_poly(r), t);
+}
+
+d_poly d_poly_transform(d_poly p, d_mat4 t) {
+	for (int i = 0; i < p.num_verts; i++) {
+		p.verts[i] = d_mat4_mult_vec2(t, p.verts[i]);
+	}
+	return p;
+}
+
 bool d_col_pt_pt(d_vec2 p1, d_vec2 p2) {
 	return p1.x == p2.x && p1.y == p2.y;
 }
@@ -1061,6 +1074,46 @@ bool d_col_poly_poly(d_poly p1, d_poly p2) {
 		if (d_col_line_poly(l, p2)) return true;
 	}
 	return false;
+}
+
+bool d_col_sat(d_poly p1, d_poly p2, d_vec2* dis_out) {
+	float overlap = FLT_MAX;
+	d_vec2 dis = d_vec2f(0, 0);
+	d_poly polys[2] = { p1, p2 };
+	for (int i = 0; i < 2; i++) {
+		d_poly p = polys[i];
+		for (int i = 0; i < p.num_verts; i++) {
+			d_vec2 pt1 = p1.verts[i];
+			d_vec2 pt2 = p1.verts[(i + 1) % p1.num_verts];
+			d_vec2 axis_proj = d_vec2_unit(d_vec2_normal(d_vec2_sub(pt2, pt1)));
+			float min1 = FLT_MAX;
+			float max1 = FLT_MIN;
+			for (int j = 0; j < p1.num_verts; j++) {
+				float q = d_vec2_dot(p1.verts[j], axis_proj);
+				min1 = fminf(min1, q);
+				max1 = fmaxf(max1, q);
+			}
+			float min2 = FLT_MAX;
+			float max2 = FLT_MIN;
+			for (int j = 0; j < p2.num_verts; j++) {
+				float q = d_vec2_dot(p2.verts[j], axis_proj);
+				min2 = fminf(min2, q);
+				max2 = fmaxf(max2, q);
+			}
+			float o = fminf(max1, max2) - fmaxf(min1, min2);
+			if (o < 0) {
+				return false;
+			}
+			if (o < fabsf(overlap)) {
+				float o1 = max2 - min1;
+				float o2 = min2 - max1;
+				overlap = fabsf(o1) < fabsf(o2) ? o1 : o2;
+				dis = d_vec2_scale(axis_proj, overlap);
+			}
+		}
+	}
+	if (dis_out) *dis_out = dis;
+	return true;
 }
 
 float d_degf(float r) {

@@ -518,7 +518,7 @@ d_sound d_sound_load(char* path) {
 #endif // #ifdef D_FS_H
 
 float d_sound_sample(d_sound* snd, float time) {
-	int pos = clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1);
+	int pos = d_clampi(time * D_SAMPLE_RATE, 0, snd->num_frames - 1);
 	return (float)snd->frames[pos] / SHRT_MAX;
 }
 
@@ -544,7 +544,7 @@ d_playback* d_play_ex(d_sound* snd, d_play_opts opts) {
 	if (d_audio.num_playbacks >= D_MAX_PLAYBACKS) {
 		// TODO
 	}
-	int pos = clampi((int)(opts.time * D_SAMPLE_RATE), 0, snd->num_frames - 1);
+	int pos = d_clampi((int)(opts.time * D_SAMPLE_RATE), 0, snd->num_frames - 1);
 	d_playback src = (d_playback) {
 		.src = snd,
 		.pos = pos,
@@ -559,7 +559,7 @@ d_playback* d_play_ex(d_sound* snd, d_play_opts opts) {
 }
 
 void d_playback_seek(d_playback* pb, float time) {
-	pb->pos = clampi(time * D_SAMPLE_RATE, 0, pb->src->num_frames - 1);
+	pb->pos = d_clampi(time * D_SAMPLE_RATE, 0, pb->src->num_frames - 1);
 }
 
 float d_playback_time(d_playback* pb) {
@@ -571,7 +571,7 @@ float d_note_freq(int n) {
 }
 
 float d_wav_sin(float freq, float t) {
-	return sin(freq * 2.0 * D_PI * t);
+	return sin(freq * 2.0 * M_PI * t);
 }
 
 float d_wav_square(float freq, float t) {
@@ -579,15 +579,15 @@ float d_wav_square(float freq, float t) {
 }
 
 float d_wav_tri(float freq, float t) {
-	return asin(d_wav_sin(freq, t)) * 2.0 / D_PI;
+	return asin(d_wav_sin(freq, t)) * 2.0 / M_PI;
 }
 
 float d_wav_saw(float freq, float t) {
-	return (2.0 / D_PI) * (freq * D_PI * fmod(t, 1.0 / freq) - D_PI / 2.0);
+	return (2.0 / M_PI) * (freq * M_PI * fmod(t, 1.0 / freq) - M_PI / 2.0);
 }
 
 float d_wav_noise(float freq, float t) {
-	return randf(-1.0, 1.0);
+	return d_randf(-1.0, 1.0);
 }
 
 d_synth d_synth_new(void) {
