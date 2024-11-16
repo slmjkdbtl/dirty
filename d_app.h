@@ -1,4 +1,5 @@
 // TODO: gamepad
+// TODO: scale mode
 
 #ifndef D_APP_H
 #define D_APP_H

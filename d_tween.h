@@ -26,7 +26,7 @@ d_tween d_tween_new(
 	d_ease_func func
 );
 
-void d_tween_update(d_tween *tween, float dt, float* val);
+bool d_tween_update(d_tween *tween, float dt, float* val);
 
 typedef struct {
 	d_tween* tweens;
@@ -34,6 +34,8 @@ typedef struct {
 	int max_tweens;
 } d_tweener;
 
+d_tweener d_tweener_new(int num);
+void d_tweener_free(d_tweener* t);
 void d_tweener_update(d_tweener* tweener, float dt);
 
 d_tween* d_tweener_add_number(
@@ -122,8 +124,8 @@ d_tween d_tween_new(
 	};
 }
 
-void d_tween_update(d_tween *tween, float dt, float* val) {
-	if (tween->paused || tween->done) return;
+bool d_tween_update(d_tween *tween, float dt, float* val) {
+	if (tween->paused || tween->done) return false;
 	tween->elapsed += dt;
 	float t = tween->elapsed / tween->duration;
 	if (t >= 1.0f) {
@@ -132,11 +134,12 @@ void d_tween_update(d_tween *tween, float dt, float* val) {
 		tween->done = true;
 		if (tween->val_src) *tween->val_src = tween->to;
 		if (val) *val = tween->to;
-		return;
+		return true;
 	}
 	tween->val = d_tween_lerp(tween->from, tween->to, tween->easing_func(t));
 	if (tween->val_src) *tween->val_src = tween->val;
 	if (val) *val = tween->val;
+	return false;
 }
 
 d_tweener d_tweener_new(int num) {
@@ -146,6 +149,12 @@ d_tweener d_tweener_new(int num) {
 		.num_tweens = 0,
 		.max_tweens = num,
 	};
+}
+
+void d_tweener_free(d_tweener* t) {
+	free(t->tweens);
+	t->tweens = NULL;
+	t->num_tweens = 0;
 }
 
 d_tween* d_tweener_add(d_tweener* tweener, d_tween t) {
@@ -206,6 +215,10 @@ void d_tweener_update(d_tweener* tweener, float dt) {
 		d_tween_update(t, dt, NULL);
 	}
 }
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338327950288
+#endif
 
 // https://github.com/ai/easings.net/blob/master/src/easings/easingsFunctions.ts
 #define C1 1.70158

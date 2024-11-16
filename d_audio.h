@@ -570,6 +570,10 @@ float d_playback_time(d_playback* pb) {
 	return (float)pb->pos / (float)D_SAMPLE_RATE;
 }
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338327950288
+#endif
+
 float d_note_freq(int n) {
 	return D_A4_FREQ * pow(powf(2.0, 1.0 / 12.0), n - D_A4_NOTE);
 }
@@ -654,15 +658,15 @@ void d_voice_process(d_voice* v, d_envelope* e, float dt) {
 		} else {
 			v->volume = v->life / a;
 		}
-	// decay
 	} else if (v->life > a && v->life <= a + d) {
+		// decay
 		v->volume = 1.0 - (v->life - a) / d * (1.0 - s);
-	// systain
 	} else {
+		// systain
 		if (v->active) {
 			v->volume = s;
-		// release
 		} else {
+			// release
 			if (r == 0.0) {
 				v->volume = 0.0;
 			} else {

@@ -6,17 +6,22 @@
 #endif
 
 #define D_MAX_BODIES 2048
+#define D_WORLD_GRID_SIZE 64
 
 typedef struct {
+	bool active;
 	d_poly shape;
 	void* userdata;
 } d_body;
+
+typedef bool (*d_world_filter)(d_body* a, d_body* b);
 
 typedef struct {
 	d_body bodies[D_MAX_BODIES];
 	int num_bodies;
 	int cur_a;
 	int cur_b;
+	d_world_filter filter;
 } d_world;
 
 typedef struct {
@@ -48,12 +53,14 @@ d_world d_world_new(void) {
 		.num_bodies = 0,
 		.cur_a = 0,
 		.cur_b = 0,
+		.filter = NULL,
 	};
 }
 
 d_body* d_world_add(d_world* w, d_poly p, void* userdata) {
 	int idx = w->num_bodies;
 	w->bodies[w->num_bodies++] = (d_body) {
+		.active = true,
 		.shape = p,
 		.userdata = userdata,
 	};
@@ -80,10 +87,13 @@ void d_world_check_reset(d_world* w) {
 	w->cur_b = 0;
 }
 
+// TODO: hash grid
 d_world_res d_world_check_next(d_world* w) {
-	// TODO: hash grid
+
 	while (true) {
+
 		w->cur_b++;
+
 		if (w->cur_b >= w->num_bodies) {
 			w->cur_a++;
 			w->cur_b = w->cur_a + 1;
@@ -91,10 +101,23 @@ d_world_res d_world_check_next(d_world* w) {
 				break;
 			}
 		}
+
 		d_body* a = &w->bodies[w->cur_a];
 		d_body* b = &w->bodies[w->cur_b];
+
 		if (a == b) continue;
+		if (!a->active || !b->active) continue;
+
+		if (w->filter) {
+			if (w->filter(a, b) == false) continue;
+		}
+
+		d_rect a_bbox = d_poly_bbox(a->shape);
+		d_rect b_bbox = d_poly_bbox(b->shape);
+		if (!d_col_rect_rect(a_bbox, b_bbox)) continue;
+
 		d_vec2 dis = d_vec2f(0, 0);
+
 		if (d_col_sat(a->shape, b->shape, &dis)) {
 			return (d_world_res) {
 				.collided = true,
@@ -103,13 +126,16 @@ d_world_res d_world_check_next(d_world* w) {
 				.dis = dis,
 			};
 		}
+
 	}
+
 	return (d_world_res) {
 		.collided = false,
 		.body_a = NULL,
 		.body_b = NULL,
 		.dis = d_vec2f(0, 0),
 	};
+
 }
 
 #endif

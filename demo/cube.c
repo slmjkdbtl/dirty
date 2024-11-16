@@ -11,7 +11,7 @@
 #define SCALE 4
 
 d_mesh cube;
-d_vec3 rot = V3(0.3, 0.3, 0);
+d_vec3 rot = V3(-0.4, 0.8, 0);
 
 void init(void) {
 
@@ -101,8 +101,8 @@ void frame(void) {
 	d_vec2 mdpos = d_gfx_mouse_dpos();
 
 	if (d_app_mouse_down(D_MOUSE_LEFT)) {
-		rot.x += mdpos.y / 100;
-		rot.y += mdpos.x / 100;
+		rot.x -= mdpos.y / 100;
+		rot.y -= mdpos.x / 100;
 	}
 
 	int s = d_gfx_width() / 4;

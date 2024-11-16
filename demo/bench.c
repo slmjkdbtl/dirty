@@ -12,8 +12,22 @@
 #define HEIGHT 240
 #define SCALE 2
 
+#define FMT_MAX 1024
+
+static char* fmt(char *fmt, ...) {
+
+	static char buf[FMT_MAX];
+	va_list args;
+
+	va_start(args, fmt);
+	vsnprintf(buf, FMT_MAX, fmt, args);
+	va_end(args);
+
+	return buf;
+
+}
+
 d_img img;
-d_vec2 pos;
 
 void init(void) {
 
@@ -37,18 +51,21 @@ void frame(void) {
 		d_app_set_fullscreen(!d_app_is_fullscreen());
 	}
 
-	if (d_app_mouse_pressed(D_MOUSE_LEFT)) {
-		pos = d_gfx_mouse_pos();
-	}
-
 	d_gfx_clear();
-
-	d_vec2 mpos = d_gfx_mouse_pos();
-
 	d_blit_bg();
 
-	d_blit_img(&img, pos);
-	d_blit_circle(mpos, 3, d_colorx(0xffffffff));
+	int count = 2000;
+
+	for (int i = 0; i < count; i++) {
+		d_transform_push();
+		d_transform_pos(V(d_randf(0, d_gfx_width()), d_randf(0, d_gfx_height())));
+		d_draw_img(&img);
+		d_transform_pop();
+	}
+
+	char* fps = fmt("%d", d_app_fps());
+	d_blit_text(fps, V(10, 10), C(0xffffff), false, false);
+	d_app_set_title(fps);
 
 	d_gfx_present();
 
@@ -56,7 +73,7 @@ void frame(void) {
 
 int main(void) {
 	d_app_run((d_app_desc) {
-		.title = "sprite",
+		.title = "bench",
 		.init = init,
 		.frame = frame,
 		.width = WIDTH * SCALE,

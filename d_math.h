@@ -7,6 +7,10 @@
 #include <math.h>
 #include <float.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846264338327950288
+#endif
+
 #define D_RNG_A 1103515245
 #define D_RNG_C 12345
 #define D_RNG_M 2147483648
@@ -119,6 +123,7 @@ typedef struct {
 d_rng d_rng_new(uint64_t seed);
 float d_rng_gen(d_rng* rng);
 float d_randf(float, float);
+int d_randi(int, int);
 
 d_vec2 d_vec2f(float, float);
 d_vec2 d_vec2u(void);
@@ -202,6 +207,7 @@ d_poly d_rect_to_poly(d_rect r);
 d_poly d_rect_transform(d_rect r, d_mat4 t);
 
 d_poly d_poly_transform(d_poly p, d_mat4 t);
+d_rect d_poly_bbox(d_poly p);
 
 bool d_col_pt_pt(d_vec2 p1, d_vec2 p2);
 bool d_col_pt_line(d_vec2 p, d_line2 l);
@@ -221,8 +227,8 @@ bool d_col_poly_poly(d_poly p1, d_poly p2);
 
 bool d_col_sat(d_poly p1, d_poly p2, d_vec2* dis);
 
-float d_degf(float);
-float d_radf(float);
+float d_deg2rad(float);
+float d_rad2deg(float);
 float d_clampf(float, float, float);
 int d_clampi(int, int, int);
 float d_lerpf(float, float, float);
@@ -238,7 +244,7 @@ void d_swapf(float*, float*);
 #define V_NO_ARG_EXPANDER() ,,V_0
 #define V_MACRO_CHOOSER(...) V_CHOOSE_FROM_ARG_COUNT(V_NO_ARG_EXPANDER __VA_ARGS__ ())
 #define V_2(x, y) ((d_vec2) { (x), (y) })
-#define V_1(x) V_2(x, x)
+#define V_1(x) V_2((x), (x))
 #define V_0() V_2(0, 0)
 #define V(...) V_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
 
@@ -265,6 +271,16 @@ void d_swapf(float*, float*);
 #define C_0() C_1(0xffffff)
 #define C(...) C_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
 
+#define R_FUNC_CHOOSER(_f1, _f2, _f3, ...) _f3
+#define R_FUNC_RECOMPOSER(args) R_FUNC_CHOOSER args
+#define R_CHOOSE_FROM_ARG_COUNT(...) R_FUNC_RECOMPOSER((__VA_ARGS__, R_2, R_1, ))
+#define R_NO_ARG_EXPANDER() ,,R_0
+#define R_MACRO_CHOOSER(...) R_CHOOSE_FROM_ARG_COUNT(R_NO_ARG_EXPANDER __VA_ARGS__ ())
+#define R_2(x, y) (d_randf((x), (y)))
+#define R_1(x) R_2(0, (x))
+#define R_0() R_2(0, 1)
+#define R(...) R_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
+
 #endif
 
 #if defined(D_MATH_IMPL) || defined(D_IMPL)
@@ -284,6 +300,10 @@ float d_rng_gen(d_rng* rng) {
 
 float d_randf(float low, float hi) {
 	return low + (float)rand() / (float)RAND_MAX * (hi - low);
+}
+
+int d_randi(int low, int hi) {
+	return low + (int)rand() / (int)RAND_MAX * (hi - low);
 }
 
 d_vec2 d_vec2f(float x, float y) {
@@ -746,8 +766,8 @@ d_mat4 d_mat4_rot_x(float a) {
 	return (d_mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
-			0.0, cos(a), -sin(a), 0.0,
-			0.0, sin(a), cos(a), 0.0,
+			0.0, cos(-a), -sin(-a), 0.0,
+			0.0, sin(-a), cos(-a), 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},
 	};
@@ -756,9 +776,9 @@ d_mat4 d_mat4_rot_x(float a) {
 d_mat4 d_mat4_rot_y(float a) {
 	return (d_mat4) {
 		.m = {
-			cos(a), 0.0, -sin(a), 0.0,
+			cos(-a), 0.0, -sin(-a), 0.0,
 			0.0, 1.0, 0.0, 0.0,
-			sin(a), 0.0, cos(a), 0.0,
+			sin(-a), 0.0, cos(-a), 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},
 	};
@@ -767,8 +787,8 @@ d_mat4 d_mat4_rot_y(float a) {
 d_mat4 d_mat4_rot_z(float a) {
 	return (d_mat4) {
 		.m = {
-			cos(a), -sin(a), 0.0, 0.0,
-			sin(a), cos(a), 0.0, 0.0,
+			cos(-a), -sin(-a), 0.0, 0.0,
+			sin(-a), cos(-a), 0.0, 0.0,
 			0.0, 0.0, 1.0, 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},
@@ -898,6 +918,19 @@ d_poly d_poly_transform(d_poly p, d_mat4 t) {
 		p.verts[i] = d_mat4_mult_vec2(t, p.verts[i]);
 	}
 	return p;
+}
+
+d_rect d_poly_bbox(d_poly p) {
+	d_vec2 p1 = d_vec2f(FLT_MAX, FLT_MAX);
+	d_vec2 p2 = d_vec2f(-FLT_MAX, -FLT_MAX);
+	for (int i = 0; i < p.num_verts; i++) {
+		d_vec2 pt = p.verts[i];
+		p1.x = fminf(p1.x, pt.x);
+		p2.x = fmaxf(p2.x, pt.x);
+		p1.y = fminf(p1.y, pt.y);
+		p2.y = fmaxf(p2.y, pt.y);
+	}
+	return (d_rect) { p1, p2 };
 }
 
 bool d_col_pt_pt(d_vec2 p1, d_vec2 p2) {
@@ -1098,6 +1131,7 @@ bool d_col_sat(d_poly p1, d_poly p2, d_vec2* dis_out) {
 			}
 			float o = fminf(max1, max2) - fmaxf(min1, min2);
 			if (o < 0) {
+				if (dis_out) *dis_out = d_vec2f(0, 0);
 				return false;
 			}
 			if (o < fabsf(overlap)) {
@@ -1112,11 +1146,11 @@ bool d_col_sat(d_poly p1, d_poly p2, d_vec2* dis_out) {
 	return true;
 }
 
-float d_degf(float r) {
+float d_rad2deg(float r) {
 	return r * (180.0 / M_PI);
 }
 
-float d_radf(float d) {
+float d_deg2rad(float d) {
 	return d / (180.0 / M_PI);
 }
 

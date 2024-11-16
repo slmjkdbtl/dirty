@@ -8,17 +8,17 @@
 #include <d_math.h>
 #include <d_fs.h>
 #include <d_app.h>
-#define STB_VORBIS_IMPLEMENTATION
-#include <stb_vorbis.c>
 #include <d_gfx.h>
-#include <d_audio.h>
+// #define STB_VORBIS_IMPLEMENTATION
+// #include <stb_vorbis.c>
+// #include <d_audio.h>
 
 #define WIDTH 64
 #define HEIGHT 64
 #define SCALE 4
 
 d_model btfly;
-d_sound snd;
+// d_sound snd;
 bool show_bbox;
 
 void init(void) {
@@ -29,10 +29,10 @@ void init(void) {
 		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
-	d_audio_init((d_audio_desc) {0});
+	// d_audio_init((d_audio_desc) {0});
 
 	btfly = d_model_load(d_res_path("res/btfly.glb"));
-	snd = d_sound_load(d_res_path("res/bark.ogg"));
+	// snd = d_sound_load(d_res_path("res/bark.ogg"));
 
 }
 
@@ -50,9 +50,9 @@ void frame(void) {
 		d_app_set_fullscreen(!d_app_is_fullscreen());
 	}
 
-	if (d_app_key_pressed(D_KEY_SPACE)) {
-		d_play(&snd);
-	}
+	// if (d_app_key_pressed(D_KEY_SPACE)) {
+		// d_play(&snd);
+	// }
 
 	d_gfx_clear();
 

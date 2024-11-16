@@ -18,6 +18,7 @@
 d_tweener tweener;
 d_model btfly;
 d_vec2 pos;
+d_vec2 rot;
 bool show_bbox;
 
 void init(void) {
@@ -53,7 +54,14 @@ void frame(void) {
 		d_tweener_add_vec2(&tweener, pos, mpos, 1, &pos, d_ease_out_elastic);
 	}
 
+	if (d_app_mouse_down(D_MOUSE_LEFT)) {
+		d_vec2 mdpos = d_gfx_mouse_dpos();
+		rot.x -= mdpos.y / 100;
+		rot.y -= mdpos.x / 100;
+	}
+
 	float dt = d_app_dt();
+	d_vec2 mpos = d_gfx_mouse_pos();
 
 	d_tweener_update(&tweener, dt);
 
@@ -62,8 +70,8 @@ void frame(void) {
 
 	d_transform_push();
 	d_transform_pos3(V3(pos.x, pos.y, 0));
-	d_transform_rot_y(0.5);
-	d_transform_rot_z(-0.8);
+	d_transform_rot_x(-mpos.y / d_gfx_height() + 0.5);
+	d_transform_rot_y(-mpos.x / d_gfx_width() + 0.5);
 	d_transform_scale3(V3(2, -2, 2));
 	d_transform_pos3(d_vec3_scale(btfly.center, -1));
 	d_draw_model(&btfly);
