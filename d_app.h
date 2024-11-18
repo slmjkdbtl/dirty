@@ -1363,8 +1363,8 @@ static void d_term_present(int w, int h, d_color* buf) {
 	struct winsize term_size;
 
 	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &term_size) != -1 && term_size.ws_col != 0) {
-		tw = mini(w, term_size.ws_col);
-		th = mini(h, term_size.ws_row * 2 - 2);
+		tw = d_mini(w, term_size.ws_col);
+		th = d_mini(h, term_size.ws_row * 2 - 2);
 	}
 
 	d_color prev_c1 = d_colorx(0x00000000);
