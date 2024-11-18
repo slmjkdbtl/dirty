@@ -1327,6 +1327,8 @@ static void d_term_run(d_app_desc* desc) {
 	atexit(d_term_cleanup);
 	signal(SIGINT, d_term_sigint);
 
+	d_app_init();
+
 	struct pollfd pfd = {
 		.fd = STDIN_FILENO,
 		.events = POLLIN,
