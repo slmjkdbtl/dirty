@@ -20,6 +20,7 @@ float bling_time = 0.5f;
 typedef struct {
 	d_t2 t;
 	bool dead;
+	float scale;
 } bling_t;
 
 bling_t blings[MAX_BLINGS];

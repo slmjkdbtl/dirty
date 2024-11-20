@@ -81,11 +81,11 @@ typedef enum {
 	D_KEY_EQUAL,
 	D_KEY_COMMA,
 	D_KEY_PERIOD,
-	D_KEY_GRAVE,
+	D_KEY_BACKTICK,
 	D_KEY_SLASH,
 	D_KEY_BACKSLASH,
 	D_KEY_SEMICOLON,
-	D_KEY_APOS,
+	D_KEY_QUOTE,
 	D_KEY_UP,
 	D_KEY_DOWN,
 	D_KEY_LEFT,
@@ -95,7 +95,7 @@ typedef enum {
 	D_KEY_SPACE,
 	D_KEY_BACKSPACE,
 	D_KEY_DELETE,
-	D_KEY_RETURN,
+	D_KEY_ENTER,
 	D_KEY_INSERT,
 	D_KEY_MENU,
 	D_KEY_HOME,
@@ -447,9 +447,7 @@ static void d_app_frame(void) {
 	for (int i = 0; i < d_app.num_touches; i++) {
 		process_btn(&d_app.touches[i].state);
 		if (d_app.touches[i].state == D_BTN_IDLE) {
-			d_app.touches[i] = d_app.touches[d_app.num_touches - 1];
-			d_app.num_touches--;
-			i--;
+			d_app.touches[i--] = d_app.touches[--d_app.num_touches];
 			continue;
 		}
 	}
@@ -792,11 +790,11 @@ static d_key d_cocoa_key(unsigned short k) {
 		case 0x07: return D_KEY_X;
 		case 0x10: return D_KEY_Y;
 		case 0x06: return D_KEY_Z;
-		case 0x27: return D_KEY_APOS;
+		case 0x27: return D_KEY_QUOTE;
 		case 0x2A: return D_KEY_BACKSLASH;
 		case 0x2B: return D_KEY_COMMA;
 		case 0x18: return D_KEY_EQUAL;
-		case 0x32: return D_KEY_GRAVE;
+		case 0x32: return D_KEY_BACKTICK;
 		case 0x21: return D_KEY_LBRACKET;
 		case 0x1B: return D_KEY_MINUS;
 		case 0x2F: return D_KEY_PERIOD;
@@ -805,7 +803,7 @@ static d_key d_cocoa_key(unsigned short k) {
 		case 0x2C: return D_KEY_SLASH;
 		case 0x33: return D_KEY_BACKSPACE;
 		case 0x7D: return D_KEY_DOWN;
-		case 0x24: return D_KEY_RETURN;
+		case 0x24: return D_KEY_ENTER;
 		case 0x35: return D_KEY_ESC;
 		case 0x7A: return D_KEY_F1;
 		case 0x78: return D_KEY_F2;
@@ -1291,7 +1289,7 @@ static d_key d_term_key(char* c, int size) {
 				case '8': return D_KEY_8;
 				case '9': return D_KEY_9;
 				case '0': return D_KEY_0;
-				case '`': return D_KEY_GRAVE;
+				case '`': return D_KEY_BACKTICK;
 				case ',': return D_KEY_COMMA;
 				case '.': return D_KEY_PERIOD;
 				case '=': return D_KEY_EQUAL;
@@ -1299,13 +1297,13 @@ static d_key d_term_key(char* c, int size) {
 				case '/': return D_KEY_SLASH;
 				case ';': return D_KEY_SEMICOLON;
 				case '\\': return D_KEY_BACKSLASH;
-				case '\'': return D_KEY_APOS;
+				case '\'': return D_KEY_QUOTE;
 				case '[': return D_KEY_LBRACKET;
 				case ']': return D_KEY_RBRACKET;
 				case '(': return D_KEY_LPAREN;
 				case ')': return D_KEY_RPAREN;
 				case ' ': return D_KEY_SPACE;
-				case 1: return D_KEY_RETURN;
+				case 1: return D_KEY_ENTER;
 				case 9: return D_KEY_TAB;
 				case 27: return D_KEY_ESC;
 				case 127: return D_KEY_BACKSPACE;
@@ -1657,11 +1655,11 @@ static d_key d_win32_key(int k) {
 		case 0x02D: return D_KEY_X;
 		case 0x015: return D_KEY_Y;
 		case 0x02C: return D_KEY_Z;
-		case 0x028: return D_KEY_APOS;
+		case 0x028: return D_KEY_QUOTE;
 		case 0x02B: return D_KEY_BACKSLASH;
 		case 0x033: return D_KEY_COMMA;
 		case 0x00D: return D_KEY_EQUAL;
-		case 0x029: return D_KEY_GRAVE;
+		case 0x029: return D_KEY_BACKTICK;
 		case 0x01A: return D_KEY_LBRACKET;
 		case 0x00C: return D_KEY_MINUS;
 		case 0x034: return D_KEY_PERIOD;
@@ -1670,7 +1668,7 @@ static d_key d_win32_key(int k) {
 		case 0x035: return D_KEY_SLASH;
 		case 0x00E: return D_KEY_BACKSPACE;
 		case 0x153: return D_KEY_DELETE;
-		case 0x01C: return D_KEY_RETURN;
+		case 0x01C: return D_KEY_ENTER;
 		case 0x001: return D_KEY_ESC;
 		case 0x147: return D_KEY_HOME;
 		case 0x152: return D_KEY_INSERT;
@@ -1916,12 +1914,12 @@ static d_key d_web_key(char* k, int loc) {
 	else if (streq(k, "]")) return D_KEY_RBRACKET;
 	else if (streq(k, "\\")) return D_KEY_BACKSLASH;
 	else if (streq(k, ";")) return D_KEY_SEMICOLON;
-	else if (streq(k, "Enter")) return D_KEY_RETURN;
+	else if (streq(k, "Enter")) return D_KEY_ENTER;
 	else if (streq(k, "Escape")) return D_KEY_ESC;
 	else if (streq(k, "Backspace")) return D_KEY_BACKSPACE;
 	else if (streq(k, "Tab")) return D_KEY_TAB;
-	else if (streq(k, "'")) return D_KEY_APOS;
-	else if (streq(k, "`")) return D_KEY_GRAVE;
+	else if (streq(k, "'")) return D_KEY_QUOTE;
+	else if (streq(k, "`")) return D_KEY_BACKTICK;
 	else if (streq(k, "F1")) return D_KEY_F1;
 	else if (streq(k, "F2")) return D_KEY_F2;
 	else if (streq(k, "F3")) return D_KEY_F3;

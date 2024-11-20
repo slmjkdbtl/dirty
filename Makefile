@@ -43,9 +43,12 @@ CFLAGS += -pedantic
 CFLAGS += -std=c99
 CFLAGS += -I.
 CFLAGS += -Iext
+CFLAGS += -Iext/lua/src
 CFLAGS += -Wno-unused-function
 CFLAGS += -Wno-unused-variable
 CFLAGS += -Wno-unused-but-set-variable
+CFLAGS += -Wno-gnu-label-as-value
+CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
 
 ifdef DEBUG
 CFLAGS += -O0 -g
@@ -127,6 +130,10 @@ DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
 DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(BIN_PATH)/%, $(DEMO_FILES))
 PREFIX := /usr/local
 
+LUA_PATH := ext/lua
+LUA_LIB := lapi.c lcode.c lctype.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c lcorolib.c ldblib.c liolib.c lmathlib.c loadlib.c loslib.c lstrlib.c ltablib.c lutf8lib.c linit.c
+LUA_SRC := $(addprefix $(LUA_PATH)/src/, $(LUA_LIB))
+
 .PHONY: run
 run: $(BIN_PATH)/$(DEMO)
 ifeq ($(TARGET),web)
@@ -200,13 +207,21 @@ ifeq ($(TARGET),web)
 	$(CC) $(CFLAGS) -o $@.js $< $(LDFLAGS)
 	sed 's/{{name}}/$*/' misc/web.html > $(BIN_PATH)/index.html
 else
-	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $<  $(LDFLAGS)
 endif
 	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
 
+$(BIN_PATH)/dlua: $(LUA_SRC) d_lua.c *.h
+	@mkdir -p $(BIN_PATH)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(LUA_SRC) d_lua.c -o $@
+
 $(BIN_PATH)/dirty: dirty.c *.h
 	@mkdir -p $(BIN_PATH)
-	cc $(CFLAGS) $(LDFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+
+.PHONY: runlua
+runlua: $(BIN_PATH)/dlua
+	$< $(ARGS)
 
 .PHONY: runscript
 runscript: $(BIN_PATH)/dirty

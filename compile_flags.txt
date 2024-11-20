@@ -8,3 +8,6 @@
 -Iext/lua/src
 -Wno-unused-function
 -Wno-unused-variable
+-Wno-unused-but-set-variable
+-Wno-gnu-label-as-value
+-Wno-incompatible-pointer-types-discards-qualifiers
