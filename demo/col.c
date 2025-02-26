@@ -12,7 +12,7 @@ void init(void) {
 	d_gfx_init((d_gfx_desc) {
 		.width = WIDTH,
 		.height = HEIGHT,
-		.clear_color = C(0),
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 }
 
@@ -25,19 +25,19 @@ void frame(void) {
 	d_gfx_clear();
 	d_blit_bg();
 
-	d_line2 mouse_line = { V(110, 10), d_gfx_mouse_pos() };
+	d_line2 mouse_line = { d_vec2f(110, 10), d_gfx_mouse_pos() };
 
-	d_line2 line = { V(10, 10), V(20, 90) };
-	d_rect rect = { V(40, 80), V(80, 100) };
-	d_circle circle = { V(40, 30), 12 };
+	d_line2 line = { d_vec2f(10, 10), d_vec2f(20, 90) };
+	d_rect rect = { d_vec2f(40, 80), d_vec2f(80, 100) };
+	d_circle circle = { d_vec2f(40, 30), 12 };
 	d_poly poly = {
 		.num_verts = 5,
 		.verts = {
-			V(80, 40),
-			V(100, 60),
-			V(90, 75),
-			V(70, 70),
-			V(60, 50),
+			d_vec2f(80, 40),
+			d_vec2f(100, 60),
+			d_vec2f(90, 75),
+			d_vec2f(70, 70),
+			d_vec2f(60, 50),
 		},
 	};
 
@@ -46,12 +46,12 @@ void frame(void) {
 	bool col_circle = d_col_line_circle(mouse_line, circle);
 	bool col_poly = d_col_line_poly(mouse_line, poly);
 
-	d_blit_line(line.p1, line.p2, C(col_line ? 0 : 255, 255, 0));
-	d_blit_rect(rect.p1, rect.p2, C(col_rect ? 0 : 255, 255, 0));
-	d_blit_circle(circle.center, circle.radius, C(col_circle ? 0 : 255, 255, 0));
-	d_blit_poly(poly, C(col_poly ? 0 : 255, 255, 0));
+	d_blit_line(line.p1, line.p2, d_colori(col_line ? 0 : 255, 255, 0, 255));
+	d_blit_rect(rect.p1, rect.p2, d_colori(col_rect ? 0 : 255, 255, 0, 255));
+	d_blit_circle(circle.center, circle.radius, d_colori(col_circle ? 0 : 255, 255, 0, 255));
+	d_blit_poly(poly, d_colori(col_poly ? 0 : 255, 255, 0, 255));
 
-	d_blit_line(mouse_line.p1, mouse_line.p2, C(0, 0, 255));
+	d_blit_line(mouse_line.p1, mouse_line.p2, d_colori(0, 0, 255, 255));
 
 	d_gfx_present();
 

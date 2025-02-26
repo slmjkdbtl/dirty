@@ -117,11 +117,11 @@ typedef enum {
 } d_key;
 
 typedef enum {
-	D_KMOD_ALT,
-	D_KMOD_META,
-	D_KMOD_CTRL,
-	D_KMOD_SHIFT,
-} d_kmod;
+	D_KEYMOD_ALT,
+	D_KEYMOD_META,
+	D_KEYMOD_CTRL,
+	D_KEYMOD_SHIFT,
+} d_keymod;
 
 typedef enum {
 	D_MOUSE_NONE,
@@ -194,7 +194,7 @@ bool d_app_has_focus(void);
 
 bool d_app_mouse_down(d_mouse m);
 bool d_app_key_down(d_key k);
-bool d_app_key_mod(d_kmod kmod);
+bool d_app_key_mod(d_keymod kmod);
 d_vec2 d_app_mouse_pos(void);
 d_vec2 d_app_mouse_dpos(void);
 d_vec2 d_app_touch_pos(d_touch t);
@@ -2287,15 +2287,15 @@ bool d_app_key_released(d_key k) {
 	return d_app.key_states[k] == D_BTN_RELEASED;
 }
 
-bool d_app_key_mod(d_kmod kmod) {
+bool d_app_key_mod(d_keymod kmod) {
 	switch (kmod) {
-		case D_KMOD_ALT:
+		case D_KEYMOD_ALT:
 			return d_app_key_down(D_KEY_LALT) || d_app_key_down(D_KEY_RALT);
-		case D_KMOD_META:
+		case D_KEYMOD_META:
 			return d_app_key_down(D_KEY_LMETA) || d_app_key_down(D_KEY_RMETA);
-		case D_KMOD_CTRL:
+		case D_KEYMOD_CTRL:
 			return d_app_key_down(D_KEY_LCTRL) || d_app_key_down(D_KEY_RCTRL);
-		case D_KMOD_SHIFT:
+		case D_KEYMOD_SHIFT:
 			return d_app_key_down(D_KEY_LSHIFT) || d_app_key_down(D_KEY_RSHIFT);
 	}
 	return false;

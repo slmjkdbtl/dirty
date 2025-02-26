@@ -16,9 +16,9 @@
 #define ROT_SPEED 160.0f
 
 d_t2 player_t = (d_t2) {
-	.pos = V(30),
-	.scale = V(1),
-	.origin = V(),
+	.pos = (d_vec2) { 30, 30 },
+	.scale = (d_vec2) { 1, 1 },
+	.origin = (d_vec2) { 0, 0 },
 	.rot = 90,
 };
 
@@ -41,12 +41,12 @@ void init(void) {
 	img = d_img_load(d_res_path("res/wizard.png"));
 	world = d_world_new();
 
-	player_t.origin = d_vec2_scale(V(img.width, img.height), 0.5);
+	player_t.origin = d_vec2_scale(d_vec2f(img.width, img.height), 0.5);
 
-	player_rect = (d_rect) { V(0), V(img.width, img.height) };
+	player_rect = (d_rect) { d_vec2f(0, 0), d_vec2f(img.width, img.height) };
 	player_body = d_world_add(&world, d_rect_to_poly(player_rect), NULL);
-	rock1_body = d_world_add(&world, d_rect_to_poly((d_rect) { V(100), V(150) }), NULL);
-	rock2_body = d_world_add(&world, d_rect_to_poly((d_rect) { V(40, 180), V(60, 200) }), NULL);
+	rock1_body = d_world_add(&world, d_rect_to_poly((d_rect) { d_vec2f(100, 100), d_vec2f(150, 150) }), NULL);
+	rock2_body = d_world_add(&world, d_rect_to_poly((d_rect) { d_vec2f(40, 180), d_vec2f(60, 200) }), NULL);
 
 }
 
@@ -93,8 +93,8 @@ void frame(void) {
 	d_gfx_clear();
 	d_blit_bg();
 
-	d_draw_poly_outline(rock1_body->shape, C(0xffffff));
-	d_draw_poly_outline(rock2_body->shape, C(0xffffff));
+	d_draw_poly_outline(rock1_body->shape, d_colorx(0xffffffff));
+	d_draw_poly_outline(rock2_body->shape, d_colorx(0xffffffff));
 
 	d_world_check_reset(&world);
 
@@ -109,10 +109,10 @@ void frame(void) {
 	d_transform_push();
 	d_t2_apply(player_t);
 	d_draw_img(&img);
-	d_draw_poly_outline(d_rect_to_poly(player_rect), C(0x0000ff));
+	d_draw_poly_outline(d_rect_to_poly(player_rect), d_colorx(0x0000ffff));
 	d_transform_pop();
 
-	d_blit_circle(player_t.pos, 2, C(0xffff00));
+	d_blit_circle(player_t.pos, 2, d_colorx(0xffff00ff));
 
 	d_gfx_present();
 

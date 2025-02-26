@@ -49,6 +49,8 @@ CFLAGS += -Wno-unused-variable
 CFLAGS += -Wno-unused-but-set-variable
 CFLAGS += -Wno-gnu-label-as-value
 CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
+CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
+CFLAGS += -Wno-missing-braces
 
 ifdef DEBUG
 CFLAGS += -O0 -g
@@ -141,7 +143,7 @@ ifeq ($(TARGET),web)
 		python3 -m http.server 8000
 else ifeq ($(TARGET),iossim)
 	@if [ -z "$(SIMULATOR)" ]; then \
-		echo "SIMULATOR not set"; \
+		echo "SIMULATOR not set, run 'xcrun simctl list' and select a device"; \
 		exit 1; \
 	fi
 	$(MAKE) bundle

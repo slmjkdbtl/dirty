@@ -9,30 +9,29 @@
 #include <d_fs.h>
 #include <d_app.h>
 #include <d_gfx.h>
-// #define STB_VORBIS_IMPLEMENTATION
-// #include <stb_vorbis.c>
-// #include <d_audio.h>
+#define STB_VORBIS_IMPLEMENTATION
+#include <stb_vorbis.c>
+#include <d_audio.h>
 
-#define WIDTH 64
-#define HEIGHT 64
+#define WIDTH 480
+#define HEIGHT 480
 #define SCALE 4
 
 d_model btfly;
-// d_sound snd;
+d_sound snd;
 bool show_bbox;
 
 void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
-		.width = WIDTH,
-		.height = HEIGHT,
 		.clear_color = d_colori(0, 0, 0, 255),
+		.scale = SCALE,
 	});
 
-	// d_audio_init((d_audio_desc) {0});
+	d_audio_init((d_audio_desc) {0});
 
 	btfly = d_model_load(d_res_path("res/btfly.glb"));
-	// snd = d_sound_load(d_res_path("res/bark.ogg"));
+	snd = d_sound_load(d_res_path("res/pop.ogg"));
 
 }
 
@@ -50,9 +49,9 @@ void frame(void) {
 		d_app_set_fullscreen(!d_app_is_fullscreen());
 	}
 
-	// if (d_app_key_pressed(D_KEY_SPACE)) {
-		// d_play(&snd);
-	// }
+	if (d_app_key_pressed(D_KEY_SPACE)) {
+		d_play(&snd);
+	}
 
 	d_gfx_clear();
 
@@ -60,9 +59,9 @@ void frame(void) {
 
 	d_transform_push();
 	d_transform_pos3(d_vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
-	d_transform_rot_y(d_app_time() * -20);
-	d_transform_rot_z(d_app_time() * -10);
-	d_transform_scale3(d_vec3f(3, -3, 3));
+	d_transform_rot_y(d_app_time());
+	d_transform_rot_z(d_app_time() * -0.5);
+	d_transform_scale3(d_vec3f(4, -4, 4));
 	d_transform_pos3(d_vec3_scale(btfly.center, -1));
 	d_draw_model(&btfly);
 
@@ -81,7 +80,7 @@ int main(void) {
 		.title = "btfly",
 		.init = init,
 		.frame = frame,
-		.width = WIDTH * SCALE,
-		.height = HEIGHT * SCALE,
+		.width = WIDTH,
+		.height = HEIGHT,
 	});
 }

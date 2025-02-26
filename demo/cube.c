@@ -6,18 +6,17 @@
 
 #define countof(x) (sizeof(x) / sizeof((x)[0]))
 
-#define WIDTH 128
-#define HEIGHT 128
+#define WIDTH 480
+#define HEIGHT 480
 #define SCALE 4
 
 d_mesh cube;
-d_vec3 rot = V3(-0.4, 0.8, 0);
+d_vec3 rot = (d_vec3) { -0.4, 0.8, 0 };
 
 void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
-		.width = WIDTH,
-		.height = HEIGHT,
+		.scale = SCALE,
 		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
@@ -106,17 +105,14 @@ void frame(void) {
 	}
 
 	int s = d_gfx_width() / 4;
+	float t = d_app_time();
 
 	d_gfx_clear();
 	d_transform_push();
 	d_transform_pos3(d_vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
-	// d_transform_rot_x(d_app_time());
-	// d_transform_rot_y(d_app_time());
-	// d_transform_rot_z(d_app_time());
 	d_transform_rot_x(rot.x);
 	d_transform_rot_y(rot.y);
 	d_transform_scale3(d_vec3f(s, -s, s));
-	// d_transform_rot_z(d_app_time());
 	d_draw_mesh(&cube, NULL);
 	d_transform_pop();
 	d_gfx_present();
@@ -128,7 +124,7 @@ int main(void) {
 		.title = "cube",
 		.init = init,
 		.frame = frame,
-		.width = WIDTH * SCALE,
-		.height = HEIGHT * SCALE,
+		.width = WIDTH,
+		.height = HEIGHT,
 	});
 }

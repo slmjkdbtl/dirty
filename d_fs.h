@@ -9,7 +9,6 @@ char*       d_read_text(char* path, size_t* osize);
 uint8_t*    d_read_bytes(char* path, size_t* osize);
 bool        d_write_bytes(char* path, uint8_t* data, size_t size);
 bool        d_write_text(char* path, char* text, size_t size);
-void        d_free_dir(char** list);
 bool        d_is_file(char* path);
 bool        d_is_dir(char* path);
 char*       d_extname(char* path);
@@ -93,9 +92,7 @@ bool d_is_dir(char* path) {
 
 char* d_extname(char* path) {
 	char* dot = strrchr(path, '.');
-	if (!dot) {
-		return NULL;
-	}
+	if (!dot) return NULL;
 	char* buf = malloc(strlen(dot + 1) + 1);
 	strcpy(buf, dot + 1);
 	return buf;

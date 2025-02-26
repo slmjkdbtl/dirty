@@ -57,14 +57,14 @@ void frame(void) {
 		timer += dt;
 		if (timer >= bling_time) {
 			timer = 0.0f;
-			float dx = R(-4, 4);
-			float dy = R(-4, 4);
+			float dx = d_randf(-4, 4);
+			float dy = d_randf(-4, 4);
 			blings[num_blings++] = (bling_t) {
 				.t = (d_t2) {
-					.pos = d_vec2_add(mpos, V(dx, dy)),
+					.pos = d_vec2_add(mpos, d_vec2f(dx, dy)),
 					.rot = 0,
-					.scale = V(0),
-					.origin = d_vec2_scale(V(img.width, img.height), 0.5),
+					.scale = d_vec2f(0, 0),
+					.origin = d_vec2_scale(d_vec2f(img.width, img.height), 0.5),
 				},
 				.dead = false,
 			};

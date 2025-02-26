@@ -11,6 +11,7 @@
 typedef struct d_gfx_desc {
 	int width;
 	int height;
+	int scale;
 	bool no_depth_test;
 	bool no_backface_cull;
 	bool anti_alias;
@@ -197,8 +198,8 @@ void d_model_free(d_model* model);
 void d_gfx_clear(void);
 void d_gfx_set_blend(d_blend b);
 void d_gfx_set_wrap(d_wrap w);
-void d_gfx_draw_pixel(int x, int y, int z, d_color c);
-void d_gfx_blit_pixel(int x, int y, d_color c);
+void d_draw_pixel(int x, int y, int z, d_color c);
+void d_blit_pixel(int x, int y, d_color c);
 d_color d_gfx_get(int x, int y);
 void d_blit_img(d_img* img, d_vec2 pos);
 void d_blit_text(char* text, d_vec2 pos, d_color c, bool bold, bool italic);
@@ -264,6 +265,7 @@ d_mat4 d_t2_get_mat4(d_t2 t);
 
 #define D_MAX_TSTACK 64
 
+// TODO: use normal bitmap
 static uint8_t proggy_bytes[] = {
 	0x64, 0x31, 0x52, 0x74, 0x79, 0x66, 0x30, 0x4e, 0x74, 0x07, 0x0d, 0x5f,
 	0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x28, 0x29, 0x2a, 0x2b,
@@ -389,10 +391,21 @@ typedef struct {
 static d_gfx_ctx d_gfx;
 
 void d_gfx_init(d_gfx_desc desc) {
-	d_gfx.def_canvas = d_img_new(desc.width, desc.height);
+	int width = desc.width;
+	int height = desc.height;
+	if (!width || !height) {
+#ifdef D_APP_H
+		int scale = desc.scale ? desc.scale : 1;
+		width = d_app_width() / scale;
+		height = d_app_height() / scale;
+#else
+		fprintf(stderr, "'d_app.h' required when gfx size not defined\n");
+#endif
+	}
+	d_gfx.def_canvas = d_img_new(width, height);
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
-	d_gfx.depth_buf = d_ibuf_new(desc.width, desc.height);
-	d_gfx.bbuf = d_bbuf_new(desc.width, desc.height);
+	d_gfx.depth_buf = d_ibuf_new(width, height);
+	d_gfx.bbuf = d_bbuf_new(width, height);
 	d_gfx.depth_test = !desc.no_depth_test;
 	d_gfx.backface_cull = !desc.no_backface_cull;
 	d_gfx.anti_alias = desc.anti_alias;
@@ -714,7 +727,7 @@ bool d_gfx_bbuf_get(int x, int y) {
 	return d_bbuf_get(&d_gfx.bbuf, x, y);
 }
 
-void d_gfx_draw_pixel(int x, int y, int z, d_color c) {
+void d_draw_pixel(int x, int y, int z, d_color c) {
 	d_img* img = d_gfx.cur_canvas;
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
@@ -769,7 +782,7 @@ void d_gfx_draw_pixel(int x, int y, int z, d_color c) {
 	}
 }
 
-void d_gfx_blit_pixel(int x, int y, d_color c) {
+void d_blit_pixel(int x, int y, d_color c) {
 	d_img* img = d_gfx.cur_canvas;
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
@@ -805,7 +818,7 @@ d_color d_gfx_get(int x, int y) {
 void d_blit_img(d_img* img, d_vec2 pos) {
 	for (int x = 0; x < img->width; x++) {
 		for (int y = 0; y < img->height; y++) {
-			d_gfx_blit_pixel(
+			d_blit_pixel(
 				x + pos.x,
 				y + pos.y,
 				img->pixels[y * img->width + x]
@@ -821,7 +834,7 @@ void d_blit_bg(void) {
 	for (int x = 0; x < d_gfx_width(); x++) {
 		for (int y = 0; y < d_gfx_height(); y++) {
 			d_color c = (x / s % 2 + y / s % 2) == 1 ? c1 : c2;
-			d_gfx_blit_pixel(x, y, c);
+			d_blit_pixel(x, y, c);
 		}
 	}
 }
@@ -833,7 +846,7 @@ void d_blit_rect(d_vec2 p1, d_vec2 p2, d_color c) {
 	int y2 = p1.y > p2.y ? p1.y : p2.y;
 	for (int x = x1; x < x2; x++) {
 		for (int y = y1; y < y2; y++) {
-			d_gfx_blit_pixel(x, y, c);
+			d_blit_pixel(x, y, c);
 		}
 	}
 }
@@ -844,7 +857,7 @@ void d_blit_circle(d_vec2 center, float r, d_color c) {
 			d_vec2 p = d_vec2f(i, j);
 			float d = d_vec2_dist(p, center);
 			if (d < r) {
-				d_gfx_blit_pixel(p.x, p.y, c);
+				d_blit_pixel(p.x, p.y, c);
 			}
 		}
 	}
@@ -865,9 +878,9 @@ void d_blit_text(char* text, d_vec2 pos, d_color c, bool bold, bool italic) {
 				int idx = (charpos * font->gh + y) * font->gw + x;
 				int dx = italic ? (font->gh - y) * 0.3 : 0;
 				if (font->bitmap[idx]) {
-					d_gfx_blit_pixel(pos.x + ox + x + dx, pos.y + y, c);
+					d_blit_pixel(pos.x + ox + x + dx, pos.y + y, c);
 				} else if (bold && font->bitmap[idx - 1]) {
-					d_gfx_blit_pixel(pos.x + ox + x + dx, pos.y + y, c);
+					d_blit_pixel(pos.x + ox + x + dx, pos.y + y, c);
 				}
 			}
 		}
@@ -904,9 +917,9 @@ void d_blit_line(d_vec2 p1, d_vec2 p2, d_color c) {
 
 	for (int x = x1; x <= x2; x++) {
 		if (steep) {
-			d_gfx_blit_pixel(y, x, c);
+			d_blit_pixel(y, x, c);
 		} else {
-			d_gfx_blit_pixel(x, y, c);
+			d_blit_pixel(x, y, c);
 		}
 		err -= dy;
 		if (err < 0) {
@@ -1059,7 +1072,7 @@ void d_draw_prim_tri(
 				);
 			}
 
-			d_gfx_draw_pixel(x, y, z, c);
+			d_draw_pixel(x, y, z, c);
 
 		}
 
@@ -1082,25 +1095,25 @@ void d_draw_img(d_img* img) {
 	d_draw_prim_quad(
 		(d_vertex) {
 			.pos = d_vec3f(0, 0, 0),
-			.color = d_colorx(0xffffff),
+			.color = d_colorx(0xffffffff),
 			.uv = d_vec2f(0, 0),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
 			.pos = d_vec3f(0, img->height, 0),
-			.color = d_colorx(0xffffff),
+			.color = d_colorx(0xffffffff),
 			.uv = d_vec2f(0, 1),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
 			.pos = d_vec3f(img->width, img->height, 0),
-			.color = d_colorx(0xffffff),
+			.color = d_colorx(0xffffffff),
 			.uv = d_vec2f(1, 1),
 			.normal = d_vec3f(0, 0, 1),
 		},
 		(d_vertex) {
 			.pos = d_vec3f(img->width, 0, 0),
-			.color = d_colorx(0xffffff),
+			.color = d_colorx(0xffffffff),
 			.uv = d_vec2f(1, 0),
 			.normal = d_vec3f(0, 0, 1),
 		},
@@ -1271,15 +1284,15 @@ void d_transform_rot(float a) {
 }
 
 void d_transform_rot_x(float a) {
-	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_x(d_deg2rad(a)));
+	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_x(a));
 }
 
 void d_transform_rot_y(float a) {
-	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_y(d_deg2rad(a)));
+	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_y(a));
 }
 
 void d_transform_rot_z(float a) {
-	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_z(d_deg2rad(a)));
+	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_z(a));
 }
 
 d_vec2 d_transform_apply_vec2(d_vec2 p) {
@@ -1639,7 +1652,7 @@ static void d_model_parse_node(
 		d_vertex* verts = calloc(num_verts, sizeof(d_vertex));
 
 		for (int j = 0; j < num_verts; j++) {
-			verts[j].color = d_colorx(0xffffff);
+			verts[j].color = d_colorx(0xffffffff);
 		}
 
 		for (int j = 0; j < prim->attributes_count; j++) {

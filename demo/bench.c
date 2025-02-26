@@ -58,13 +58,14 @@ void frame(void) {
 
 	for (int i = 0; i < count; i++) {
 		d_transform_push();
-		d_transform_pos(V(d_randf(0, d_gfx_width()), d_randf(0, d_gfx_height())));
+		d_transform_pos(d_vec2f(d_randf(0, d_gfx_width()), d_randf(0, d_gfx_height())));
+		d_transform_pos(d_vec2f(-img.width / 2.0, -img.height / 2.0));
 		d_draw_img(&img);
 		d_transform_pop();
 	}
 
 	char* fps = fmt("%d", d_app_fps());
-	d_blit_text(fps, V(10, 10), C(0xffffff), false, false);
+	d_blit_text(fps, d_vec2f(10, 10), d_colorx(0xffffffff), false, false);
 	d_app_set_title(fps);
 
 	d_gfx_present();

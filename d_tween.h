@@ -124,7 +124,7 @@ d_tween d_tween_new(
 	};
 }
 
-bool d_tween_update(d_tween *tween, float dt, float* val) {
+bool d_tween_update(d_tween* tween, float dt, float* val) {
 	if (tween->paused || tween->done) return false;
 	tween->elapsed += dt;
 	float t = tween->elapsed / tween->duration;

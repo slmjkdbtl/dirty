@@ -10,8 +10,8 @@
 #include <d_app.h>
 #include <d_gfx.h>
 
-#define WIDTH 240
-#define HEIGHT 240
+#define WIDTH 480
+#define HEIGHT 480
 #define SCALE 2
 
 #define FMT_MAX 256
@@ -45,35 +45,34 @@ bool show_bbox;
 void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
-		.width = WIDTH,
-		.height = HEIGHT,
+		.scale = SCALE,
 		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
 	models[0] = (model) {
 		.pos = d_vec3f(60, 80, 0),
-		.rot = d_vec3f(-15, -30, 0),
+		.rot = d_vec3f(-0.2, -0.5, 0),
 		.scale = d_vec3f(6, -6, 6),
 		.model = d_model_load(d_res_path("res/btfly.glb")),
 	};
 
 	models[1] = (model) {
 		.pos = d_vec3f(160, 140, 0),
-		.rot = d_vec3f(-12, -20, -12),
+		.rot = d_vec3f(-0.2, -0.4, -0.2),
 		.scale = d_vec3f(1, -1, 1),
 		.model = d_model_load(d_res_path("res/tv.glb")),
 	};
 
 	models[2] = (model) {
 		.pos = d_vec3f(160, 60, 0),
-		.rot = d_vec3f(-30, 30, 0),
+		.rot = d_vec3f(-0.5, 0.5, 0),
 		.scale = d_vec3f(1, -1, 1),
 		.model = d_model_load(d_res_path("res/flower.glb")),
 	};
 
 	models[3] = (model) {
 		.pos = d_vec3f(60, 190, 0),
-		.rot = d_vec3f(30, 30, 0),
+		.rot = d_vec3f(0.5, 0.5, 0),
 		.scale = d_vec3f(1, -1, 1),
 		.model = d_model_load(d_res_path("res/sprayer.glb")),
 	};
@@ -96,8 +95,8 @@ void frame(void) {
 
 	if (d_app_mouse_down(D_MOUSE_LEFT)) {
 		d_vec2 mdpos = d_gfx_mouse_dpos();
-		rot.x -= mdpos.y / 2;
-		rot.y -= mdpos.x / 2;
+		rot.x -= mdpos.y / 100;
+		rot.y -= mdpos.x / 100;
 	}
 
 	d_gfx_clear();
@@ -130,7 +129,7 @@ int main(void) {
 		.title = "3d",
 		.init = init,
 		.frame = frame,
-		.width = WIDTH * SCALE,
-		.height = HEIGHT * SCALE,
+		.width = WIDTH,
+		.height = HEIGHT,
 	});
 }
