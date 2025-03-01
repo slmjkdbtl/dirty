@@ -46,11 +46,9 @@ CFLAGS += -Iext
 CFLAGS += -Iext/lua/src
 CFLAGS += -Wno-unused-function
 CFLAGS += -Wno-unused-variable
-CFLAGS += -Wno-unused-but-set-variable
-CFLAGS += -Wno-gnu-label-as-value
-CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
-CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
 CFLAGS += -Wno-missing-braces
+CFLAGS += -Wno-unused-but-set-variable
+CFLAGS += -Wno-tautological-compare
 
 ifdef DEBUG
 CFLAGS += -O0 -g
@@ -60,6 +58,8 @@ endif
 
 ifeq ($(TARGET),macos)
 CFLAGS += -ObjC
+CFLAGS += -arch arm64
+CFLAGS += -arch x86_64
 endif
 
 ifeq ($(TARGET),ios)

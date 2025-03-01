@@ -1030,7 +1030,7 @@ int main(int argc, char** argv) {
 
 	char* path = NULL;
 
-	for (int i = 1 ; i < argc; i++) {
+	for (int i = 1; i < argc; i++) {
 		char* arg = argv[i];
 		int len = strlen(arg);
 		if (len >= 2 && arg[0] == '-' && arg[1] != '-') {
