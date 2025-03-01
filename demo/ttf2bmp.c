@@ -13,6 +13,21 @@
 #define CHAR_END 126
 #define CHARS_PER_ROW 19
 
+#define FMT_MAX 256
+
+static char* fmt(char* fmt, ...) {
+
+	static char buf[FMT_MAX];
+	va_list args;
+
+	va_start(args, fmt);
+	vsnprintf(buf, FMT_MAX, fmt, args);
+	va_end(args);
+
+	return buf;
+
+}
+
 bool streq(const char* s1, const char* s2) {
 	return strcmp(s1, s2) == 0;
 }
@@ -25,17 +40,43 @@ int main(int argc, char* argv[]) {
 	}
 
 	int font_size = FONT_SIZE;
+	int chars_per_row = CHARS_PER_ROW;
+	bool embed = false;
+	char embed_char = '*';
+	char* name = "font";
 	char* ttf_file = NULL;
 
 	for (int i = 1; i < argc; i++) {
 		char* arg = argv[i];
 		int len = strlen(arg);
-		if (streq(arg, "--size")) {
+		if (streq(arg, "-s") || streq(arg, "--size")) {
 			if (i + 1 >= argc) {
 				fprintf(stderr, "size not defined");
 				return EXIT_FAILURE;
 			}
 			font_size = atoi(argv[i + 1]);
+		} else if (streq(arg, "-r") || streq(arg, "--row")) {
+			if (i + 1 >= argc) {
+				fprintf(stderr, "row not defined");
+				return EXIT_FAILURE;
+			}
+			chars_per_row = atoi(argv[i + 1]);
+		} else if (streq(arg, "-c") || streq(arg, "--char")) {
+			if (i + 1 >= argc) {
+				fprintf(stderr, "char not defined");
+				return EXIT_FAILURE;
+			}
+			embed_char = argv[i + 1][0];
+		} else if (streq(arg, "-n") || streq(arg, "--name")) {
+			if (i + 1 >= argc) {
+				fprintf(stderr, "name not defined");
+				return EXIT_FAILURE;
+			}
+			name = argv[i + 1];
+		} else if (streq(arg, "-e") || streq(arg, "--embed")) {
+			embed = true;
+		} else if (streq(arg, "-o") || streq(arg, "--output")) {
+			// TODO
 		} else if (!ttf_file) {
 			ttf_file = arg;
 		}
@@ -87,8 +128,8 @@ int main(int argc, char* argv[]) {
 	int char_height = ascent - descent;
 
 	int total_chars = CHAR_END - CHAR_START + 1;
-	int rows = (total_chars + CHARS_PER_ROW - 1) / CHARS_PER_ROW; // Round up
-	int img_width = CHARS_PER_ROW * char_width;
+	int rows = (total_chars + chars_per_row - 1) / chars_per_row; // Round up
+	int img_width = chars_per_row * char_width;
 	int img_height = rows * char_height;
 
 	// allocate bitmap
@@ -136,11 +177,26 @@ int main(int argc, char* argv[]) {
 
 	}
 
-	printf("width: %d, height: %d\n", char_width, char_height);
-
-	// save image
-	stbi_write_png("font.png", img_width, img_height, 1, bitmap, img_width);
-	printf("bitmap font saved as font.png\n");
+	if (embed) {
+		printf("const char* font[] = {\n");
+		for (int y = 0; y < img_height; y++) {
+			printf("    \"");
+			for (int x = 0; x < img_width; x++) {
+				int i = y * img_width + x;
+				printf("%c", bitmap[i] == 0 ? ' ' : embed_char);
+			}
+			printf("\"\n");
+		}
+		printf("};\n");
+		printf("\n");
+		printf("int font_width = %d;\n", char_width);
+		printf("int font_height = %d;\n", char_height);
+	} else {
+		// save image
+		char* file_name = fmt("%s_%dx%d.png", name, char_width, char_height);
+		stbi_write_png(file_name, img_width, img_height, 1, bitmap, img_width);
+		printf("bitmap font saved as %s\n", file_name);
+	}
 
 	free(font_file_buf);
 	free(bitmap);
