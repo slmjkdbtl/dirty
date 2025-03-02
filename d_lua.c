@@ -6,6 +6,8 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
@@ -624,6 +626,14 @@ static int l_gfx_clear(lua_State* L) {
 	return 0;
 }
 
+static int l_gfx_get_pixel(lua_State* L) {
+	int x = luaL_checknumber(L, 1);
+	int y = luaL_checknumber(L, 2);
+	d_color c = d_gfx_get_pixel(x, y);
+	lua_pushudata(L, d_vec2, "color", &c);
+	return 1;
+}
+
 static int l_gfx_blit_bg(lua_State* L) {
 	d_blit_bg();
 	return 0;
@@ -831,15 +841,23 @@ static int l_gfx_rotz(lua_State* L) {
 	return 0;
 }
 
+static int l_gfx_drawon(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	d_gfx_drawon(img);
+	return 0;
+}
+
+static int l_gfx_get_canvas(lua_State* L) {
+	d_img* img = d_gfx_canvas();
+	lua_pushlightuserdata(L, img);
+	luaL_setmetatable(L, "img");
+	return 1;
+}
+
 static int l_img_load(lua_State* L) {
 	const char* path = luaL_checkstring(L, 1);
 	d_img img = d_img_load(path);
-	if (img.width == 0 || img.height == 0) {
-		luaL_error(L, "failed to load img '%s'", path);
-		lua_pushnil(L);
-	} else {
-		lua_pushudata(L, d_img, "img", &img);
-	}
+	lua_pushudata(L, d_img, "img", &img);
 	return 1;
 }
 
@@ -935,6 +953,7 @@ static luaL_Reg gfx_funcs[] = {
 	{ "present", l_gfx_present },
 	{ "mouse_pos", l_gfx_mouse_pos },
 	{ "mouse_dpos", l_gfx_mouse_dpos },
+	{ "get_pixel", l_gfx_get_pixel },
 	{ "blit_bg", l_gfx_blit_bg },
 	{ "blit_pixel", l_gfx_blit_pixel },
 	{ "blit_img", l_gfx_blit_img },
@@ -960,6 +979,8 @@ static luaL_Reg gfx_funcs[] = {
 	{ "rotx", l_gfx_rotx },
 	{ "roty", l_gfx_roty },
 	{ "rotz", l_gfx_rotz },
+	{ "drawon", l_gfx_drawon },
+	{ "get_canvas", l_gfx_get_canvas },
 	{ NULL, NULL, },
 };
 

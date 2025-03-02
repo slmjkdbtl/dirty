@@ -1,8 +1,8 @@
 local WIDTH = 480
 local HEIGHT = 480
-local SCALE = 2
+local SCALE = 4
 
-local img = gfx.img_load("demo/res/wizard.png")
+local img = gfx.img_load("demo/res/wizad.png")
 local pos = vec2(20, 20)
 
 function init()

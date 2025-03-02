@@ -151,14 +151,18 @@ int d_gfx_width(void);
 int d_gfx_height(void);
 
 d_img d_img_new(int w, int h);
+#ifdef STB_IMAGE_IMPLEMENTATION
 d_img d_img_parse(uint8_t* bytes, size_t size);
 #ifdef D_FS_H
 d_img d_img_load(char* path);
 #endif
+#endif
 void d_img_set(d_img* img, int x, int y, d_color c);
 d_color d_img_get(d_img* img, int x, int y);
 void d_img_fill(d_img* img, d_color c);
+#ifdef STB_IMAGE_WRITE_IMPLEMENTATION
 void d_img_save(d_img* img, char* path);
+#endif
 d_img d_img_clone(d_img* img);
 void d_img_free(d_img* img);
 
@@ -188,9 +192,11 @@ d_font d_font_load(char* path);
 #endif
 void d_font_free(d_font* font);
 
+#ifdef CGLTF_IMPLEMENTATION
 d_model d_model_parse(uint8_t* bytes, int size);
 #ifdef D_FS_H
 d_model d_model_load(char* path);
+#endif
 #endif
 void d_model_gen_bbox(d_model* model);
 void d_model_free(d_model* model);
@@ -199,7 +205,7 @@ void d_gfx_clear(void);
 void d_gfx_set_blend(d_blend b);
 void d_gfx_set_wrap(d_wrap w);
 void d_blit_pixel(int x, int y, d_color c);
-d_color d_gfx_get(int x, int y);
+d_color d_gfx_get_pixel(int x, int y);
 void d_blit_bg(void);
 void d_blit_img(d_img* img, d_vec2 pos);
 void d_blit_text(char* text, d_vec2 pos, d_color c, bool bold, bool italic);
@@ -559,31 +565,16 @@ d_img d_img_empty(void) {
 	};
 }
 
-static uint8_t png_sig[] = { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a };
-static uint8_t jpeg_sig[] = { 0xff, 0xd8, 0xff };
-
-d_img d_img_parse(uint8_t* bytes, size_t size) {
-	if (
-		memcmp(bytes, png_sig, sizeof(png_sig)) == 0
-		|| memcmp(bytes, jpeg_sig, sizeof(jpeg_sig)) == 0
-	) {
 #ifdef STB_IMAGE_IMPLEMENTATION
-		int w;
-		int h;
-		uint8_t* pixels = stbi_load_from_memory(bytes, size, &w, &h, NULL, 4);
-		return (d_img) {
-			.width = w,
-			.height = h,
-			.pixels = (d_color*)pixels,
-		};
-#else
-		fprintf(stderr, "jpeg / png support requires 'stb_image.h'\n");
-		return d_img_empty();
-#endif // #ifdef STB_IMAGE_IMPLEMENTATION
-	} else {
-		fprintf(stderr, "unsupported image format\n");
-		return d_img_empty();
-	}
+d_img d_img_parse(uint8_t* bytes, size_t size) {
+	int w;
+	int h;
+	uint8_t* pixels = stbi_load_from_memory(bytes, size, &w, &h, NULL, 4);
+	return (d_img) {
+		.width = w,
+		.height = h,
+		.pixels = (d_color*)pixels,
+	};
 }
 
 #ifdef D_FS_H
@@ -599,6 +590,7 @@ d_img d_img_load(char* path) {
 	return img;
 }
 #endif // #ifdef D_FS_H
+#endif // #ifdef STB_IMAGE_IMPLEMENTATION
 
 void d_img_set(d_img* img, int x, int y, d_color c) {
 	img->pixels[y * img->width + x] = c;
@@ -614,8 +606,8 @@ void d_img_fill(d_img* img, d_color c) {
 	}
 }
 
-void d_img_save(d_img* img, char* path) {
 #ifdef STB_IMAGE_WRITE_IMPLEMENTATION
+void d_img_save(d_img* img, char* path) {
 	stbi_write_png(
 		path,
 		img->width,
@@ -624,10 +616,8 @@ void d_img_save(d_img* img, char* path) {
 		(uint8_t*)img->pixels,
 		img->width * sizeof(d_color)
 	);
-#else
-	fprintf(stderr, "image save only available with 'stb_image_write.h'\n");
-#endif // #ifdef STB_IMAGE_WRITE_IMPLEMENTATION
 }
+#endif
 
 d_img d_img_clone(d_img* img) {
 	int w = img->width;
@@ -793,7 +783,7 @@ void d_blit_pixel(int x, int y, d_color c) {
 	}
 }
 
-d_color d_gfx_get(int x, int y) {
+d_color d_gfx_get_pixel(int x, int y) {
 	d_img* img = d_gfx.cur_canvas;
 	switch (d_gfx.wrap) {
 		case D_WRAP_BORDER:
@@ -1869,7 +1859,7 @@ static void d_model_parse_node(
 
 }
 
-static d_model d_model_parse_glb(uint8_t* bytes, int size) {
+d_model d_model_parse(uint8_t* bytes, int size) {
 
 	cgltf_options options;
 	memset(&options, 0, sizeof(cgltf_options));
@@ -1911,24 +1901,6 @@ static d_model d_model_parse_glb(uint8_t* bytes, int size) {
 
 }
 
-#endif // #ifdef CGLTF_IMPLEMENTATION
-
-static uint8_t glb_sig[] = { 0x67, 0x6c, 0x54, 0x46 };
-
-d_model d_model_parse(uint8_t* bytes, int size) {
-	if (memcmp(bytes, glb_sig, sizeof(glb_sig)) == 0) {
-#ifdef CGLTF_IMPLEMENTATION
-		return d_model_parse_glb(bytes, size);
-#else
-		fprintf(stderr, "glb support requires 'cgltf.h'\n");
-		return d_model_empty();
-#endif
-	} else {
-		fprintf(stderr, "unsupported model format\n");
-		return d_model_empty();
-	}
-}
-
 #ifdef D_FS_H
 d_model d_model_load(char* path) {
 	size_t size;
@@ -1942,6 +1914,7 @@ d_model d_model_load(char* path) {
 	return model;
 }
 #endif // #ifdef D_FS_H
+#endif // #ifdef CGLTF_IMPLEMENTATION
 
 #endif // #ifndef D_GFX_IMPL_ONCE
 #endif // #ifdef D_GFX_IMPL

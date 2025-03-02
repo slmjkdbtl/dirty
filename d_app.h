@@ -147,6 +147,8 @@ typedef struct {
 	bool fullscreen;
 	bool vsync;
 	bool hidpi;
+	bool borderless;
+	bool always_on_top;
 	char* canvas_root;
 } d_app_desc;
 
@@ -874,14 +876,22 @@ static void d_cocoa_present(int w, int h, d_color* buf) {
 	DView* view = [[DView alloc] init];
 	d_app.view = view;
 
-	NSWindow* window = [[NSWindow alloc]
-		initWithContentRect:NSMakeRect(0, 0, d_app.width, d_app.height)
-		styleMask:
-			0
+	int style_mask = 0;
+
+	if (d_app.desc.borderless) {
+		style_mask |= NSWindowStyleMaskBorderless;
+	} else {
+		style_mask |= 0
 			| NSWindowStyleMaskTitled
 			| NSWindowStyleMaskClosable
 			| NSWindowStyleMaskResizable
 			| NSWindowStyleMaskMiniaturizable
+			;
+	}
+
+	NSWindow* window = [[NSWindow alloc]
+		initWithContentRect:NSMakeRect(0, 0, d_app.width, d_app.height)
+		styleMask:style_mask
 		backing:NSBackingStoreBuffered
 		defer:NO
 	];
@@ -895,10 +905,16 @@ static void d_cocoa_present(int w, int h, d_color* buf) {
 	[window setAcceptsMouseMovedEvents:YES];
 	[window setRestorable:YES];
 	[window center];
+	[window setOpaque:NO];
+	[window setBackgroundColor:[NSColor clearColor]];
 	[window setDelegate:[[DWindowDelegate alloc] init]];
 	[window setContentView:view];
 	[window makeFirstResponder:view];
 	[window makeKeyAndOrderFront:nil];
+
+	if (d_app.desc.always_on_top) {
+		[window setLevel:NSFloatingWindowLevel];
+	}
 
 	[NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
 	[NSApp activateIgnoringOtherApps:YES];
