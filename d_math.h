@@ -168,13 +168,13 @@ void d_vec3_swap(d_vec3*, d_vec3*);
 d_vec4 d_vec4f(float, float, float, float);
 d_vec4 d_vec4u(void);
 
+d_color d_coloru(void);
 d_color d_colori(uint8_t, uint8_t, uint8_t, uint8_t);
 d_color d_colorf(float, float, float, float);
 d_color d_colorx(uint32_t hex);
 d_color d_color_mix(d_color c1, d_color c2);
 d_color d_color_darken(d_color c, int d);
 d_color d_color_lighten(d_color c, int l);
-d_color d_coloru(void);
 bool d_color_eq(d_color, d_color);
 d_color d_color_lerp(d_color from, d_color to, float t);
 

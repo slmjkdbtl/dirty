@@ -66,6 +66,47 @@ bool luaL_args4(lua_State* L, int t1, int t2, int t3, int t4) {
 	return false;
 }
 
+static void lua_stack_dump(lua_State *L) {
+	int top = lua_gettop(L);
+	printf("Lua Stack (size: %d):\n", top);
+	for (int i = 1; i <= top; i++) {
+		int t = lua_type(L, i);
+		switch (t) {
+			case LUA_TNUMBER:
+				printf("%d: number = %f\n", i, lua_tonumber(L, i));
+				break;
+			case LUA_TSTRING:
+				printf("%d: string = '%s'\n", i, lua_tostring(L, i));
+				break;
+			case LUA_TBOOLEAN:
+				printf("%d: boolean = %s\n", i, lua_toboolean(L, i) ? "true" : "false");
+				break;
+			case LUA_TNIL:
+				printf("%d: nil\n", i);
+				break;
+			case LUA_TTABLE:
+				printf("%d: table\n", i);
+				break;
+			case LUA_TFUNCTION:
+				printf("%d: function\n", i);
+				break;
+			case LUA_TUSERDATA:
+				printf("%d: userdata\n", i);
+				break;
+			case LUA_TLIGHTUSERDATA:
+				printf("%d: lightuserdata\n", i);
+				break;
+			case LUA_TTHREAD:
+				printf("%d: thread\n", i);
+				break;
+			default:
+				printf("%d: unknown type\n", i);
+				break;
+		}
+	}
+	printf("\n");
+}
+
 void luaL_checktable(lua_State* L, int pos) {
 	luaL_checktype(L, pos, LUA_TTABLE);
 }
@@ -73,6 +114,13 @@ void luaL_checktable(lua_State* L, int pos) {
 bool luaL_checkboolean(lua_State* L, int pos) {
 	luaL_checktype(L, pos, LUA_TBOOLEAN);
 	return lua_toboolean(L, pos);
+}
+
+bool luaL_optboolean(lua_State* L, int pos, bool def) {
+	if (lua_isnoneornil(L, pos)) {
+		return def;
+	}
+	return luaL_checkboolean(L, pos);
 }
 
 void luaL_opttable(lua_State* L, int pos) {
@@ -93,6 +141,13 @@ const char* lua_udatatype(lua_State* L, int pos) {
 	const char* tname = lua_tostring(L, -1);
 	lua_pop(L, 2);
 	return tname;
+}
+
+static int lua_getlen(lua_State* L, int idx) {
+	lua_len(L, idx);
+	int len = lua_tonumber(L, -1);
+	lua_pop(L, 1);
+	return len;
 }
 
 void luaL_regfuncs(lua_State* L, luaL_Reg *reg) {
@@ -304,13 +359,6 @@ static int l_app_quit(lua_State* L) {
 	return 0;
 }
 
-static int lua_getlen(lua_State* L, int idx) {
-	lua_len(L, idx);
-	int len = lua_tonumber(L, -1);
-	lua_pop(L, 1);
-	return len;
-}
-
 static int l_app_present(lua_State* L) {
 
 	int w = luaL_checknumber(L, 1);
@@ -382,19 +430,19 @@ static int l_app_key_mod(lua_State* L) {
 }
 
 static int l_app_mouse_pressed(lua_State* L) {
-	const char* m = luaL_checkstring(L, 1);
+	const char* m = luaL_optlstring(L, 1, "left", NULL);
 	lua_pushboolean(L, d_app_mouse_pressed(luaL_getenum(L, l_app_mouse_map, m)));
 	return 1;
 }
 
 static int l_app_mouse_released(lua_State* L) {
-	const char* m = luaL_checkstring(L, 1);
+	const char* m = luaL_optlstring(L, 1, "left", NULL);
 	lua_pushboolean(L, d_app_mouse_released(luaL_getenum(L, l_app_mouse_map, m)));
 	return 1;
 }
 
 static int l_app_mouse_down(lua_State* L) {
-	const char* m = luaL_checkstring(L, 1);
+	const char* m = luaL_optlstring(L, 1, "left", NULL);
 	lua_pushboolean(L, d_app_mouse_down(luaL_getenum(L, l_app_mouse_map, m)));
 	return 1;
 }
@@ -553,6 +601,7 @@ static int l_gfx_init(lua_State* L) {
 	d_gfx_init((d_gfx_desc) {
 		.width = lua_getfield(L, 1, "width") ? luaL_checknumber(L, -1) : 0,
 		.height = lua_getfield(L, 1, "height") ? luaL_checknumber(L, -1) : 0,
+		.scale = lua_getfield(L, 1, "scale") ? luaL_checknumber(L, -1) : 0,
 		.clear_color = lua_getfield(L, 1, "clear_color") ? *(d_color*)luaL_checkudata(L, -1, "color") : d_colori(0, 0, 0, 0),
 	});
 
@@ -585,20 +634,200 @@ static int l_gfx_present(lua_State* L) {
 	return 0;
 }
 
-static int l_gfx_draw_pixel(lua_State* L) {
-	int x = luaL_checknumber(L, 1);
-	int y = luaL_checknumber(L, 2);
-	int z = luaL_checknumber(L, 3);
-	d_color* c = luaL_checkudata(L, 4, "color");
-	d_draw_pixel(x, y, z, *c);
-	return 0;
+static int l_gfx_mouse_pos(lua_State* L) {
+	d_vec2 mpos = d_gfx_mouse_pos();
+	lua_pushudata(L, d_vec2, "vec2", &mpos);
+	return 1;
+}
+
+static int l_gfx_mouse_dpos(lua_State* L) {
+	d_vec2 mpos = d_gfx_mouse_dpos();
+	lua_pushudata(L, d_vec2, "vec2", &mpos);
+	return 1;
 }
 
 static int l_gfx_blit_pixel(lua_State* L) {
 	int x = luaL_checknumber(L, 1);
 	int y = luaL_checknumber(L, 2);
-	d_color* c = luaL_checkudata(L, 4, "color");
+	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
 	d_blit_pixel(x, y, *c);
+	return 0;
+}
+
+static int l_gfx_blit_img(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	d_vec2* pos = luaL_checkudata(L, 2, "vec2");
+	d_blit_img(img, *pos);
+	return 0;
+}
+
+static int l_gfx_blit_text(lua_State* L) {
+	const char* str = luaL_checkstring(L, 1);
+	d_vec2* pos = luaL_optudata(L, 2, "vec2", &(d_vec2) { 0, 0 });
+	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	bool bold = luaL_optboolean(L, 4, false);
+	bool italic = luaL_optboolean(L, 5, false);
+	d_blit_text(str, *pos, *c, bold, italic);
+	return 0;
+}
+
+static int l_gfx_blit_line(lua_State* L) {
+	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_blit_line(*p1, *p2, *c);
+	return 0;
+}
+
+static int l_gfx_blit_rect(lua_State* L) {
+	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_blit_rect(*p1, *p2, *c);
+	return 0;
+}
+
+static int l_gfx_blit_circle(lua_State* L) {
+	d_vec2* center = luaL_checkudata(L, 1, "vec2");
+	float radius = luaL_checknumber(L, 2);
+	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_blit_circle(*center, radius, *c);
+	return 0;
+}
+
+static int l_gfx_blit_tri(lua_State* L) {
+	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	d_vec2* p3 = luaL_checkudata(L, 3, "vec2");
+	d_color* c = luaL_optudata(L, 4, "color", &(d_color) { 255, 255, 255, 255 });
+	d_blit_tri(*p1, *p2, *p3, *c);
+	return 0;
+}
+
+static d_poly l_get_poly(lua_State* L, int pos) {
+	d_poly poly = {0};
+	luaL_checktable(L, pos);
+	int num_verts = lua_getlen(L, 1);
+	if (num_verts > D_MAX_POLY_VERTS) {
+		luaL_error(L, "%d exceeds max polygon verts", num_verts);
+		return poly;
+	}
+	poly.num_verts = num_verts;
+	lua_pushnil(L);
+	for (int i = 0; i < num_verts; i++) {
+		lua_next(L, 1);
+		d_vec2* p = luaL_checkudata(L, -1, "vec2");
+		poly.verts[i] = *p;
+		lua_pop(L, 1);
+	}
+	lua_pop(L, 1);
+	return poly;
+}
+
+static int l_gfx_blit_poly(lua_State* L) {
+	d_poly poly = l_get_poly(L, 1);
+	d_color* c = luaL_optudata(L, 2, "color", &(d_color) { 255, 255, 255, 255 });
+	d_blit_poly(poly, *c);
+	return 0;
+}
+
+static int l_gfx_draw_pixel(lua_State* L) {
+	int x = luaL_checknumber(L, 1);
+	int y = luaL_checknumber(L, 2);
+	int z = luaL_checknumber(L, 3);
+	d_color* c = luaL_optudata(L, 4, "color", &(d_color) { 255, 255, 255, 255 });
+	d_draw_pixel(x, y, z, *c);
+	return 0;
+}
+
+static int l_gfx_draw_img(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	d_draw_img(img);
+	return 0;
+}
+
+static int l_gfx_draw_line(lua_State* L) {
+	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_draw_line(*p1, *p2, *c);
+	return 0;
+}
+
+static int l_gfx_draw_rect(lua_State* L) {
+	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_draw_rect(*p1, *p2, *c);
+	return 0;
+}
+
+static int l_gfx_draw_circle(lua_State* L) {
+	float radius = luaL_checknumber(L, 1);
+	d_color* c = luaL_optudata(L, 2, "color", &(d_color) { 255, 255, 255, 255 });
+	d_draw_circle(radius, *c);
+	return 0;
+}
+
+static int l_gfx_draw_tri(lua_State* L) {
+	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	d_vec2* p3 = luaL_checkudata(L, 3, "vec2");
+	d_color* c = luaL_optudata(L, 4, "color", &(d_color) { 255, 255, 255, 255 });
+	d_draw_tri(*p1, *p2, *p3, *c);
+	return 0;
+}
+
+static int l_gfx_draw_poly(lua_State* L) {
+	d_poly poly = l_get_poly(L, 1);
+	d_color* c = luaL_optudata(L, 2, "color", &(d_color) { 255, 255, 255, 255 });
+	d_draw_poly(poly, *c);
+	return 0;
+}
+
+static int l_gfx_push(lua_State* L) {
+	d_transform_push();
+	return 0;
+}
+
+static int l_gfx_pop(lua_State* L) {
+	d_transform_pop();
+	return 0;
+}
+
+static int l_gfx_pos(lua_State* L) {
+	d_vec2* pos = luaL_checkudata(L, 1, "vec2");
+	d_transform_pos(*pos);
+	return 0;
+}
+
+static int l_gfx_scale(lua_State* L) {
+	d_vec2* s = luaL_checkudata(L, 1, "vec2");
+	d_transform_scale(*s);
+	return 0;
+}
+
+static int l_gfx_rot(lua_State* L) {
+	float r = luaL_checknumber(L, 1);
+	d_transform_rot(r);
+	return 0;
+}
+
+static int l_gfx_rotx(lua_State* L) {
+	float r = luaL_checknumber(L, 1);
+	d_transform_rot_x(r);
+	return 0;
+}
+
+static int l_gfx_roty(lua_State* L) {
+	float r = luaL_checknumber(L, 1);
+	d_transform_rot_y(r);
+	return 0;
+}
+
+static int l_gfx_rotz(lua_State* L) {
+	float r = luaL_checknumber(L, 1);
+	d_transform_rot_z(r);
 	return 0;
 }
 
@@ -632,6 +861,33 @@ static int l_img_set(lua_State* L) {
 	return 0;
 }
 
+static int l_img_fill(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	d_color* c = luaL_checkudata(L, 2, "color");
+	d_img_fill(img, *c);
+	return 0;
+}
+
+static int l_img_save(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	const char* path = luaL_checkstring(L, 2);
+	d_img_save(img, path);
+	return 0;
+}
+
+static int l_img_clone(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	d_img img2 = d_img_clone(img);
+	lua_pushudata(L, d_img, "img", &img2);
+	return 1;
+}
+
+static int l_img_free(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	d_img_free(img);
+	return 0;
+}
+
 static int l_img_index(lua_State* L) {
 	d_img* img = luaL_checkudata(L, 1, "img");
 	const char* key = luaL_checkstring(L, 2);
@@ -639,6 +895,18 @@ static int l_img_index(lua_State* L) {
 		lua_pushinteger(L, img->width);
 	} else if (strcmp(key, "height") == 0) {
 		lua_pushinteger(L, img->height);
+	} else if (strcmp(key, "get") == 0) {
+		lua_pushcfunction(L, l_img_get);
+	} else if (strcmp(key, "set") == 0) {
+		lua_pushcfunction(L, l_img_set);
+	} else if (strcmp(key, "fill") == 0) {
+		lua_pushcfunction(L, l_img_fill);
+	} else if (strcmp(key, "save") == 0) {
+		lua_pushcfunction(L, l_img_save);
+	} else if (strcmp(key, "clone") == 0) {
+		lua_pushcfunction(L, l_img_clone);
+	} else if (strcmp(key, "free") == 0) {
+		lua_pushcfunction(L, l_img_free);
 	} else {
 		luaL_error(L, "unknown field '%s' on img", key);
 		lua_pushnil(L);
@@ -646,8 +914,15 @@ static int l_img_index(lua_State* L) {
 	return 1;
 }
 
+static int l_img_gc(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	d_img_free(img);
+	return 0;
+}
+
 static luaL_Reg img_meta[] = {
 	{ "__index", l_img_index },
+	{ "__gc", l_img_gc },
 	{ NULL, NULL, },
 };
 
@@ -657,10 +932,34 @@ static luaL_Reg gfx_funcs[] = {
 	{ "height", l_gfx_height, },
 	{ "img_load", l_img_load },
 	{ "clear", l_gfx_clear },
-	{ "blit_bg", l_gfx_blit_bg },
 	{ "present", l_gfx_present },
-	{ "draw_pixel", l_gfx_draw_pixel },
+	{ "mouse_pos", l_gfx_mouse_pos },
+	{ "mouse_dpos", l_gfx_mouse_dpos },
+	{ "blit_bg", l_gfx_blit_bg },
 	{ "blit_pixel", l_gfx_blit_pixel },
+	{ "blit_img", l_gfx_blit_img },
+	{ "blit_text", l_gfx_blit_text },
+	{ "blit_line", l_gfx_blit_line },
+	{ "blit_rect", l_gfx_blit_rect },
+	{ "blit_circle", l_gfx_blit_circle },
+	{ "blit_tri", l_gfx_blit_tri },
+	{ "blit_poly", l_gfx_blit_poly },
+	{ "draw_pixel", l_gfx_draw_pixel },
+	{ "draw_img", l_gfx_draw_img },
+	{ "draw_tri", l_gfx_draw_tri },
+	{ "draw_line", l_gfx_draw_line },
+	{ "draw_rect", l_gfx_draw_rect },
+	{ "draw_circle", l_gfx_draw_circle },
+	{ "draw_tri", l_gfx_draw_tri },
+	{ "draw_poly", l_gfx_draw_poly },
+	{ "push", l_gfx_push },
+	{ "pop", l_gfx_pop },
+	{ "pos", l_gfx_pos },
+	{ "scale", l_gfx_scale },
+	{ "rot", l_gfx_rot },
+	{ "rotx", l_gfx_rotx },
+	{ "roty", l_gfx_roty },
+	{ "rotz", l_gfx_rotz },
 	{ NULL, NULL, },
 };
 
@@ -788,6 +1087,13 @@ static int l_vec2_normal(lua_State* L) {
 	return 1;
 }
 
+static int l_vec2_clone(lua_State* L) {
+	d_vec2* p = luaL_checkudata(L, 1, "vec2");
+	d_vec2 p2 = *p;
+	lua_pushudata(L, d_vec2, "vec2", &p2);
+	return 1;
+}
+
 static int l_vec2_index(lua_State* L) {
 	d_vec2* p = luaL_checkudata(L, 1, "vec2");
 	const char* key = luaL_checkstring(L, 2);
@@ -805,6 +1111,8 @@ static int l_vec2_index(lua_State* L) {
 		lua_pushcfunction(L, l_vec2_normal);
 	} else if (strcmp(key, "angle") == 0) {
 		lua_pushcfunction(L, l_vec2_angle);
+	} else if (strcmp(key, "clone") == 0) {
+		lua_pushcfunction(L, l_vec2_clone);
 	} else {
 		luaL_error(L, "unknown field '%s' on vec2", key);
 		lua_pushnil(L);

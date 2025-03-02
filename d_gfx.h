@@ -158,7 +158,7 @@ d_img d_img_load(char* path);
 void d_img_set(d_img* img, int x, int y, d_color c);
 d_color d_img_get(d_img* img, int x, int y);
 void d_img_fill(d_img* img, d_color c);
-void d_img_save_png(d_img* img, char* path);
+void d_img_save(d_img* img, char* path);
 d_img d_img_clone(d_img* img);
 void d_img_free(d_img* img);
 
@@ -198,17 +198,17 @@ void d_model_free(d_model* model);
 void d_gfx_clear(void);
 void d_gfx_set_blend(d_blend b);
 void d_gfx_set_wrap(d_wrap w);
-void d_draw_pixel(int x, int y, int z, d_color c);
 void d_blit_pixel(int x, int y, d_color c);
 d_color d_gfx_get(int x, int y);
+void d_blit_bg(void);
 void d_blit_img(d_img* img, d_vec2 pos);
 void d_blit_text(char* text, d_vec2 pos, d_color c, bool bold, bool italic);
-void d_blit_bg(void);
 void d_blit_rect(d_vec2 p1, d_vec2 p2, d_color c);
 void d_blit_circle(d_vec2 center, float r, d_color c);
 void d_blit_line(d_vec2 p1, d_vec2 p2, d_color c);
 void d_blit_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c);
 void d_blit_poly(d_poly p, d_color c);
+void d_draw_pixel(int x, int y, int z, d_color c);
 void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img* tex);
 void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img* tex);
 void d_draw_img(d_img* img);
@@ -216,6 +216,7 @@ void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c);
 void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c);
+void d_draw_circle(float r, d_color c);
 void d_draw_poly(d_poly p, d_color c);
 void d_draw_poly_outline(d_poly p, d_color c);
 void d_draw_mesh(d_mesh* mesh, d_img* tex);
@@ -613,7 +614,7 @@ void d_img_fill(d_img* img, d_color c) {
 	}
 }
 
-void d_img_save_png(d_img* img, char* path) {
+void d_img_save(d_img* img, char* path) {
 #ifdef STB_IMAGE_WRITE_IMPLEMENTATION
 	stbi_write_png(
 		path,
@@ -1216,6 +1217,14 @@ void d_draw_line2(d_vec2 p1, d_vec2 p2, int w, d_color c) {
 		},
 		NULL
 	);
+}
+
+// TODO
+void d_draw_circle(float r, d_color c) {
+	d_mat4 t = d_gfx.t;
+	d_vec2 p = d_transform_apply_vec2((d_vec2) { 0, 0 });
+	r *= (t.m[0] + t.m[5]) / 2;
+	d_blit_circle(p, r, c);
 }
 
 void d_draw_poly(d_poly p, d_color c) {

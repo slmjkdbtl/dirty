@@ -43,6 +43,7 @@ int main(int argc, char* argv[]) {
 	int chars_per_row = CHARS_PER_ROW;
 	bool embed = false;
 	char embed_char = '*';
+	bool hex = false;
 	char* name = "font";
 	char* ttf_file = NULL;
 
@@ -75,6 +76,8 @@ int main(int argc, char* argv[]) {
 			name = argv[i + 1];
 		} else if (streq(arg, "-e") || streq(arg, "--embed")) {
 			embed = true;
+		} else if (streq(arg, "-h") || streq(arg, "--hex")) {
+			hex = true;
 		} else if (streq(arg, "-o") || streq(arg, "--output")) {
 			// TODO
 		} else if (!ttf_file) {
@@ -128,7 +131,7 @@ int main(int argc, char* argv[]) {
 	int char_height = ascent - descent;
 
 	int total_chars = CHAR_END - CHAR_START + 1;
-	int rows = (total_chars + chars_per_row - 1) / chars_per_row; // Round up
+	int rows = (total_chars + chars_per_row - 1) / chars_per_row;
 	int img_width = chars_per_row * char_width;
 	int img_height = rows * char_height;
 
@@ -178,19 +181,23 @@ int main(int argc, char* argv[]) {
 	}
 
 	if (embed) {
-		printf("const char* font[] = {\n");
-		for (int y = 0; y < img_height; y++) {
-			printf("    \"");
-			for (int x = 0; x < img_width; x++) {
-				int i = y * img_width + x;
-				printf("%c", bitmap[i] == 0 ? ' ' : embed_char);
+		if (hex) {
+			// TODO
+		} else {
+			printf("const char font[%d][%d] = {\n", chars_per_row * char_width, rows * char_height);
+			for (int y = 0; y < img_height; y++) {
+				printf("    \"");
+				for (int x = 0; x < img_width; x++) {
+					int i = y * img_width + x;
+					printf("%c", bitmap[i] == 0 ? ' ' : embed_char);
+				}
+				printf("\",\n");
 			}
-			printf("\"\n");
+			printf("};\n");
+			printf("\n");
+			printf("int font_width = %d;\n", char_width);
+			printf("int font_height = %d;\n", char_height);
 		}
-		printf("};\n");
-		printf("\n");
-		printf("int font_width = %d;\n", char_width);
-		printf("int font_height = %d;\n", char_height);
 	} else {
 		// save image
 		char* file_name = fmt("%s_%dx%d.png", name, char_width, char_height);
