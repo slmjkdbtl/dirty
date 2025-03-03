@@ -54,7 +54,6 @@ void frame(void) {
 	}
 
 	d_gfx_clear();
-
 	d_blit_bg();
 
 	d_transform_push();

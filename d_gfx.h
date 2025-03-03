@@ -1916,5 +1916,16 @@ d_model d_model_load(char* path) {
 #endif // #ifdef D_FS_H
 #endif // #ifdef CGLTF_IMPLEMENTATION
 
+void d_model_free(d_model* model) {
+	for (int i = 0; i < model->num_images; i++) {
+		d_img_free(&model->images[i]);
+	}
+	free(model->images);
+	for (int i = 0; i < model->num_nodes; i++) {
+		d_free_model_node(&model->nodes[i]);
+	}
+	free(model->nodes);
+}
+
 #endif // #ifndef D_GFX_IMPL_ONCE
 #endif // #ifdef D_GFX_IMPL

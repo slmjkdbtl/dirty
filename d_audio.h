@@ -453,11 +453,11 @@ static short *resample(
 	return output;
 }
 
-static uint8_t ogg_sig[] = { 0x4f, 0x67, 0x67, 0x53 };
-static uint8_t wav_sig[] = { 0x52, 0x49, 0x46, 0x46 };
+static uint8_t OGG_SIG[] = { 0x4f, 0x67, 0x67, 0x53 };
+static uint8_t WAV_SIG[] = { 0x52, 0x49, 0x46, 0x46 };
 
 d_sound d_sound_parse(uint8_t* bytes, size_t size) {
-	if (memcmp(bytes, ogg_sig, sizeof(ogg_sig)) == 0) {
+	if (memcmp(bytes, OGG_SIG, sizeof(OGG_SIG)) == 0) {
 #ifdef STB_VORBIS_IMPLEMENTATION
 		d_sound snd = d_sound_empty();
 		int num_channels, sample_rate;

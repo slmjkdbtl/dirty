@@ -43,7 +43,6 @@ CFLAGS += -pedantic
 CFLAGS += -std=c99
 CFLAGS += -I.
 CFLAGS += -Iext
-CFLAGS += -Iext/lua/src
 CFLAGS += -Wno-unused-function
 CFLAGS += -Wno-unused-variable
 CFLAGS += -Wno-missing-braces
@@ -134,7 +133,8 @@ PREFIX := /usr/local
 
 LUA_PATH := ext/lua
 LUA_LIB := lapi.c lcode.c lctype.c ldebug.c ldo.c ldump.c lfunc.c lgc.c llex.c lmem.c lobject.c lopcodes.c lparser.c lstate.c lstring.c ltable.c ltm.c lundump.c lvm.c lzio.c lauxlib.c lbaselib.c lcorolib.c ldblib.c liolib.c lmathlib.c loadlib.c loslib.c lstrlib.c ltablib.c lutf8lib.c linit.c
-LUA_SRC := $(addprefix $(LUA_PATH)/src/, $(LUA_LIB))
+LUA_SRC := $(addprefix $(LUA_PATH)/src/, $(LUA_LIB)) ext/stb_vorbis.c
+LUA_CFLAGS += -I$(LUA_PATH)/src
 LUA_CFLAGS += -Wno-gnu-label-as-value
 LUA_CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
 
@@ -226,6 +226,10 @@ $(BIN_PATH)/dirty: dirty.c *.h
 .PHONY: runlua
 runlua: $(BIN_PATH)/dlua
 	$< $(ARGS)
+
+.PHONY: install
+installlua: $(BIN_PATH)/dlua
+	install $< $(PREFIX)/bin/dlua
 
 .PHONY: runscript
 runscript: $(BIN_PATH)/dirty

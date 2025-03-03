@@ -92,7 +92,7 @@ int main(void) {
 		.frame = frame,
 		.width = WIDTH,
 		.height = HEIGHT,
-		.borderless = true,
-		.always_on_top = true,
+		// .borderless = true,
+		// .always_on_top = true,
 	});
 }
