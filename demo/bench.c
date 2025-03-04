@@ -54,7 +54,7 @@ void frame(void) {
 	d_gfx_clear();
 	d_blit_bg();
 
-	int count = 2000;
+	int count = 5000;
 
 	for (int i = 0; i < count; i++) {
 		d_transform_push();

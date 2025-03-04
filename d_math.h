@@ -237,6 +237,49 @@ int d_mapi(int, int, int, int, int);
 void d_swapi(int*, int*);
 void d_swapf(float*, float*);
 
+// https://stackoverflow.com/a/28074198/4584387
+#define V_FUNC_CHOOSER(_f1, _f2, _f3, ...) _f3
+#define V_FUNC_RECOMPOSER(args) V_FUNC_CHOOSER args
+#define V_CHOOSE_FROM_ARG_COUNT(...) V_FUNC_RECOMPOSER((__VA_ARGS__, V_2, V_1, ))
+#define V_NO_ARG_EXPANDER() ,,V_0
+#define V_MACRO_CHOOSER(...) V_CHOOSE_FROM_ARG_COUNT(V_NO_ARG_EXPANDER __VA_ARGS__ ())
+#define V_2(x, y) ((d_vec2) { (x), (y) })
+#define V_1(x) V_2((x), (x))
+#define V_0() V_2(0, 0)
+#define V(...) V_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
+
+#define V3_FUNC_CHOOSER(_f1, _f2, _f3, _f4, ...) _f4
+#define V3_FUNC_RECOMPOSER(args) V3_FUNC_CHOOSER args
+#define V3_CHOOSE_FROM_ARG_COUNT(...) V3_FUNC_RECOMPOSER((__VA_ARGS__, V3_3, V3_2, V3_1, ))
+#define V3_NO_ARG_EXPANDER() ,,V3_0
+#define V3_MACRO_CHOOSER(...) V3_CHOOSE_FROM_ARG_COUNT(V3_NO_ARG_EXPANDER __VA_ARGS__ ())
+#define V3_3(x, y, z) ((d_vec3) { (x), (y), (z) })
+#define V3_2(x, y) ((d_vec3) { (x), (y), (0) })
+#define V3_1(x) V3_3(x, x, x)
+#define V3_0() V3_3(0, 0, 0)
+#define V3(...) V3_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
+
+#define C_FUNC_CHOOSER(_f1, _f2, _f3, _f4, _f5, ...) _f5
+#define C_FUNC_RECOMPOSER(args) C_FUNC_CHOOSER args
+#define C_CHOOSE_FROM_ARG_COUNT(...) C_FUNC_RECOMPOSER((__VA_ARGS__, C_4, C_3, C_2, C_1, ))
+#define C_NO_ARG_EXPANDER() ,,C_0
+#define C_MACRO_CHOOSER(...) C_CHOOSE_FROM_ARG_COUNT(C_NO_ARG_EXPANDER __VA_ARGS__ ())
+#define C_4(r, g, b, a) ((d_color) { (r), (g), (b), (a) })
+#define C_3(r, g, b) ((d_color) { (r), (g), (b), (255) })
+#define C_2(g, a) ((d_color) { (g), (g), (g), (a) })
+#define C_1(x) (d_colorx(x))
+#define C_0() C_1(0xffffff)
+#define C(...) C_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
+
+#define R_FUNC_CHOOSER(_f1, _f2, _f3, ...) _f3
+#define R_FUNC_RECOMPOSER(args) R_FUNC_CHOOSER args
+#define R_CHOOSE_FROM_ARG_COUNT(...) R_FUNC_RECOMPOSER((__VA_ARGS__, R_2, R_1, ))
+#define R_NO_ARG_EXPANDER() ,,R_0
+#define R_MACRO_CHOOSER(...) R_CHOOSE_FROM_ARG_COUNT(R_NO_ARG_EXPANDER __VA_ARGS__ ())
+#define R_2(x, y) (d_randf((x), (y)))
+#define R_1(x) R_2(0, (x))
+#define R_0() R_2(0, 1)
+#define R(...) R_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
 #endif
 
 #if defined(D_MATH_IMPL) || defined(D_IMPL)

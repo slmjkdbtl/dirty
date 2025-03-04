@@ -433,18 +433,18 @@ void d_gfx_init(d_gfx_desc desc) {
 
 d_vec2 d_gfx_mouse_pos(void) {
 	d_vec2 mpos = d_app_mouse_pos();
-	return d_vec2f(
+	return (d_vec2) {
 		mpos.x * d_gfx_width() / d_app_width(),
 		mpos.y * d_gfx_height() / d_app_height()
-	);
+	};
 }
 
 d_vec2 d_gfx_mouse_dpos(void) {
 	d_vec2 mdpos = d_app_mouse_dpos();
-	return d_vec2f(
+	return (d_vec2) {
 		mdpos.x * d_gfx_width() / d_app_width(),
 		mdpos.y * d_gfx_height() / d_app_height()
-	);
+	};
 }
 
 void d_gfx_present(void) {
@@ -845,7 +845,7 @@ void d_blit_rect(d_vec2 p1, d_vec2 p2, d_color c) {
 void d_blit_circle(d_vec2 center, float r, d_color c) {
 	for (int i = center.x - r; i <= center.x + r; i++) {
 		for (int j = center.y - r; j <= center.y + r; j++) {
-			d_vec2 p = d_vec2f(i, j);
+			d_vec2 p = { i, j };
 			float d = d_vec2_dist(p, center);
 			if (d < r) {
 				d_blit_pixel(p.x, p.y, c);
@@ -960,7 +960,7 @@ void d_draw_prim_tri(
 				d_vec3_sub(p2, p1)
 			)
 		);
-		if (d_vec3_dot(normal, d_vec3f(0, 0, 1)) < 0) {
+		if (d_vec3_dot(normal, (d_vec3) { 0, 0, 1 }) < 0) {
 			// TODO: wrongfully culling normal 2d shapes
 			return;
 		}
@@ -1051,9 +1051,9 @@ void d_draw_prim_tri(
 				? col_start
 				: d_color_lerp(col_start, col_end, t);
 
-// 			d_vec3 normal = d_vec3_lerp(normal_start, normal_end, t);
-// 			int l = mapf(normal.x + normal.y + normal.z, 3, -3, -255, 255);
-// 			c = d_color_lighten(c, l);
+			// d_vec3 normal = d_vec3_lerp(normal_start, normal_end, t);
+			// int l = mapf(normal.x + normal.y + normal.z, 3, -3, -255, 255);
+			// c = d_color_lighten(c, l);
 
 			if (tex) {
 				d_vec2 uv = d_vec2_lerp(uv_start, uv_end, t);
@@ -1085,28 +1085,28 @@ void d_draw_prim_quad(
 void d_draw_img(d_img* img) {
 	d_draw_prim_quad(
 		(d_vertex) {
-			.pos = d_vec3f(0, 0, 0),
-			.color = d_colorx(0xffffffff),
-			.uv = d_vec2f(0, 0),
-			.normal = d_vec3f(0, 0, 1),
+			.pos = { 0, 0, 0 },
+			.color = { 255, 255, 255, 255 },
+			.uv = { 0, 0 },
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(0, img->height, 0),
-			.color = d_colorx(0xffffffff),
-			.uv = d_vec2f(0, 1),
-			.normal = d_vec3f(0, 0, 1),
+			.pos = { 0, img->height, 0 },
+			.color = { 255, 255, 255, 255 },
+			.uv = { 0, 1 },
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(img->width, img->height, 0),
-			.color = d_colorx(0xffffffff),
-			.uv = d_vec2f(1, 1),
-			.normal = d_vec3f(0, 0, 1),
+			.pos = { img->width, img->height, 0 },
+			.color = { 255, 255, 255, 255 },
+			.uv = { 1, 1 },
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(img->width, 0, 0),
-			.color = d_colorx(0xffffffff),
-			.uv = d_vec2f(1, 0),
-			.normal = d_vec3f(0, 0, 1),
+			.pos = { img->width, 0, 0 },
+			.color = { 255, 255, 255, 255 },
+			.uv = { 1, 0 },
+			.normal = { 0, 0, 1 },
 		},
 		img
 	);
@@ -1117,19 +1117,19 @@ void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c) {
 	d_gfx.backface_cull = false;
 	d_draw_prim_tri(
 		(d_vertex) {
-			.pos = d_vec3f(p1.x, p1.y, 0),
+			.pos = { p1.x, p1.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(p2.x, p2.y, 0),
+			.pos = { p2.x, p2.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(p3.x, p3.y, 0),
+			.pos = { p3.x, p3.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		NULL
 	);
@@ -1141,24 +1141,24 @@ void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c) {
 	d_gfx.backface_cull = false;
 	d_draw_prim_quad(
 		(d_vertex) {
-			.pos = d_vec3f(p1.x, p1.y, 0),
+			.pos = { p1.x, p1.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(p2.x, p1.y, 0),
+			.pos = { p2.x, p1.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(p2.x, p2.y, 0),
+			.pos = { p2.x, p2.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(p1.x, p2.y, 0),
+			.pos = { p1.x, p2.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		NULL
 	);
@@ -1174,7 +1174,7 @@ void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c) {
 void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c) {
 	p1 = d_transform_apply_vec3(p1);
 	p2 = d_transform_apply_vec3(p2);
-	d_blit_line(d_vec2f(p1.x, p1.y), d_vec2f(p2.x, p2.y), c);
+	d_blit_line((d_vec2){ p1.x, p1.y }, (d_vec2) { p2.x, p2.y }, c);
 }
 
 // TODO
@@ -1186,24 +1186,24 @@ void d_draw_line2(d_vec2 p1, d_vec2 p2, int w, d_color c) {
 	d_vec2 pp4 = d_vec2_add(p2, d);
 	d_draw_prim_quad(
 		(d_vertex) {
-			.pos = d_vec3f(pp1.x, pp1.y, 0),
+			.pos = { pp1.x, pp1.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(pp2.x, pp2.y, 0),
+			.pos = { pp2.x, pp2.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(pp3.x, pp3.y, 0),
+			.pos = { pp3.x, pp3.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
-			.pos = d_vec3f(pp4.x, pp4.y, 0),
+			.pos = { pp4.x, pp4.y, 0 },
 			.color = c,
-			.normal = d_vec3f(0, 0, 1),
+			.normal = { 0, 0, 1 },
 		},
 		NULL
 	);
@@ -1263,11 +1263,11 @@ d_mat4 d_transform_get(void) {
 }
 
 void d_transform_pos(d_vec2 p) {
-	d_transform_pos3(d_vec3f(p.x, p.y, 0));
+	d_transform_pos3((d_vec3){ p.x, p.y, 0 });
 }
 
 void d_transform_scale(d_vec2 s) {
-	d_transform_scale3(d_vec3f(s.x, s.y, 1));
+	d_transform_scale3((d_vec3) { s.x, s.y, 1 });
 }
 
 void d_transform_pos3(d_vec3 p) {
@@ -1429,7 +1429,7 @@ d_img* d_gfx_canvas(void) {
 void d_mesh_gen_normals(d_mesh* mesh) {
 
 	for (int i = 0; i < mesh->num_verts; i++) {
-		mesh->verts[i].normal = d_vec3f(0, 0, 0);
+		mesh->verts[i].normal = (d_vec3) { 0, 0, 0 };
 	}
 
 	for (int i = 0; i < mesh->num_indices; i += 3) {
@@ -1510,8 +1510,8 @@ static d_model d_model_empty(void) {
 		.num_nodes = 0,
 		.images = malloc(0),
 		.num_images = 0,
-		.bbox = (d_box) { d_vec3f(0, 0, 0), d_vec3f(0, 0, 0) },
-		.center = d_vec3f(0, 0, 0),
+		.bbox = (d_box) { { 0, 0, 0 }, { 0, 0, 0 } },
+		.center = { 0, 0, 0 },
 	};
 }
 
@@ -1528,14 +1528,14 @@ void d_free_model(d_model* model) {
 }
 
 void d_draw_bbox(d_box bbox, d_color c) {
-	d_vec3 p1 = d_vec3f(bbox.p1.x, bbox.p2.y, bbox.p1.z);
-	d_vec3 p2 = d_vec3f(bbox.p2.x, bbox.p2.y, bbox.p1.z);
-	d_vec3 p3 = d_vec3f(bbox.p2.x, bbox.p1.y, bbox.p1.z);
+	d_vec3 p1 = { bbox.p1.x, bbox.p2.y, bbox.p1.z };
+	d_vec3 p2 = { bbox.p2.x, bbox.p2.y, bbox.p1.z };
+	d_vec3 p3 = { bbox.p2.x, bbox.p1.y, bbox.p1.z };
 	d_vec3 p4 = bbox.p1;
-	d_vec3 p5 = d_vec3f(bbox.p1.x, bbox.p2.y, bbox.p2.z);
+	d_vec3 p5 = { bbox.p1.x, bbox.p2.y, bbox.p2.z };
 	d_vec3 p6 = bbox.p2;
-	d_vec3 p7 = d_vec3f(bbox.p2.x, bbox.p1.y, bbox.p2.z);
-	d_vec3 p8 = d_vec3f(bbox.p1.x, bbox.p1.y, bbox.p2.z);
+	d_vec3 p7 = { bbox.p2.x, bbox.p1.y, bbox.p2.z };
+	d_vec3 p8 = { bbox.p1.x, bbox.p1.y, bbox.p2.z };
 	d_draw_line3(p1, p2, c);
 	d_draw_line3(p2, p3, c);
 	d_draw_line3(p3, p4, c);
@@ -1575,7 +1575,7 @@ static void d_model_node_gen_bbox(
 }
 
 void d_model_gen_bbox(d_model* model) {
-	d_box bbox = (d_box) { d_vec3f(0, 0, 0), d_vec3f(0, 0, 0) };
+	d_box bbox = (d_box) { { 0, 0, 0 }, { 0, 0, 0 } };
 	for (int i = 0; i < model->num_nodes; i++) {
 		d_model_node_gen_bbox(&model->nodes[i], &bbox, d_mat4u());
 	}
@@ -1605,22 +1605,22 @@ static void d_model_parse_node(
 	memset(node, 0, sizeof(d_model_node));
 
 	d_transform t = (d_transform) {
-		.pos = d_vec3f(
+		.pos = (d_vec3) {
 			cnode->translation[0],
 			cnode->translation[1],
 			cnode->translation[2]
-		),
+		},
 		.rot = (d_quat) {
 			cnode->rotation[0],
 			cnode->rotation[1],
 			cnode->rotation[2],
 			cnode->rotation[3]
 		},
-		.scale = d_vec3f(
+		.scale = (d_vec3) {
 			cnode->scale[0],
 			cnode->scale[1],
 			cnode->scale[2]
-		),
+		},
 	};
 
 	node->t = d_transform_mat4(t);

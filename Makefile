@@ -208,10 +208,10 @@ endif
 $(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
 	@mkdir -p $(BIN_PATH)
 ifeq ($(TARGET),web)
-	$(CC) $(CFLAGS) -o $@.js $< $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@.js $< ext/stb_vorbis.c $(LDFLAGS)
 	sed 's/{{name}}/$*/' misc/web.html > $(BIN_PATH)/index.html
 else
-	$(CC) $(CFLAGS) -o $@ $<  $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $< ext/stb_vorbis.c $(LDFLAGS)
 endif
 	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
 

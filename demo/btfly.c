@@ -3,6 +3,7 @@
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
+#define D_TERM
 #define D_IMPL
 #include <d_plat.h>
 #include <d_math.h>

@@ -368,6 +368,14 @@ static int l_app_run(lua_State* L) {
 		desc.hidpi = luaL_checkboolean(L, -1);
 	}
 	lua_pop(L, 1);
+	if (lua_getfield(L, -1, "borderless")) {
+		desc.borderless = luaL_checkboolean(L, -1);
+	}
+	lua_pop(L, 1);
+	if (lua_getfield(L, -1, "always_on_top")) {
+		desc.always_on_top = luaL_checkboolean(L, -1);
+	}
+	lua_pop(L, 1);
 
 	d_app_run(desc);
 
@@ -1731,17 +1739,24 @@ static luaL_Reg global_funcs[] = {
 int main(int argc, char** argv) {
 
 	char* path = NULL;
+	int arg_start = -1;
 
 	for (int i = 1; i < argc; i++) {
 		char* arg = argv[i];
-		int len = strlen(arg);
-		if (len >= 2 && arg[0] == '-' && arg[1] != '-') {
-			switch (arg[1]) {
-			}
-		} else if (arg[0] != '-') {
-			path = arg;
+		if (strcmp(arg, "--") == 0) {
+			arg_start = i + 1;
 			break;
+		} else if (arg[0] == '-') {
+			// TODO
+		} else {
+			if (!path) {
+				path = arg;
+			}
 		}
+	}
+
+	if (!path) {
+		return EXIT_FAILURE;
 	}
 
 	lua_State* L = luaL_newstate();
@@ -1772,6 +1787,17 @@ int main(int argc, char** argv) {
 	luaL_regtype(L, "color", color_meta);
 
 	luaL_regfuncs(L, global_funcs);
+
+	lua_newtable(L);
+
+	if (arg_start != -1) {
+		for (int i = arg_start; i < argc; i++) {
+			lua_pushstring(L, argv[i]);
+			lua_rawseti(L, -2, i - arg_start + 1);
+		}
+	}
+
+	lua_setglobal(L, "arg");
 
 	if (luaL_loadfile(L, path) || lua_pcall(L, 0, 0, 0)) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));

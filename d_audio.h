@@ -21,7 +21,7 @@ typedef struct {
 typedef struct {
 	bool loop;
 	float volume;
-	float pitch;
+	float speed;
 	bool paused;
 	float time;
 } d_play_opts;
@@ -29,10 +29,10 @@ typedef struct {
 // sound playback control handle
 typedef struct {
 	d_sound* src;
-	int pos;
+	float pos;
+	float speed;
 	bool loop;
 	float volume;
-	float pitch;
 	bool paused;
 	bool done;
 } d_playback;
@@ -61,6 +61,9 @@ d_sound d_sound_parse(uint8_t* bytes, size_t size);
 #ifdef D_FS_H
 d_sound d_sound_load(char* path);
 #endif
+d_sound d_sound_clone(d_sound* snd);
+d_sound d_sound_stereo_to_mono(d_sound* snd);
+d_sound d_sound_resample(d_sound* src, int input_rate, int output_rate);
 float d_sound_sample(d_sound* snd, float time);
 float d_sound_len(d_sound* snd);
 void d_sound_free(d_sound* sound);
@@ -200,8 +203,15 @@ static float d_audio_next(void) {
 			}
 		}
 
-		frame += (float)p->src->frames[p->pos] / SHRT_MAX * p->volume;
-		p->pos++;
+		int idx = (int)p->pos;
+		float frac = p->pos - idx;
+		float f = p->src->frames[idx];
+		float val = f;
+		if (idx + 1 < p->src->num_frames) {
+			val = ((1.0 - frac) * f + frac * p->src->frames[idx + 1]);
+		}
+		frame += val / SHRT_MAX * p->volume;
+		p->pos += p->speed;
 
 	}
 
@@ -409,48 +419,44 @@ d_sound d_sound_empty(void) {
 	};
 }
 
-static short *stereo_to_mono(
-	const short *input,
-	int input_len,
-	int *output_len
-) {
-	*output_len = input_len / 2;
-	short *output = malloc(*output_len * sizeof(short));
-	for (int i = 0; i < input_len; i += 2) {
-		output[i / 2] = (input[i] + input[i + 1]) / 2;
-	}
-	return output;
+d_sound d_sound_clone(d_sound* snd) {
+	return d_sound_new(snd->frames, snd->num_frames);
 }
 
-static short *resample(
-	const short *input,
-	int input_len,
-	int input_rate,
-	int output_rate,
-	int *output_len
-) {
-	double ratio = (double) input_rate / output_rate;
-	*output_len = input_len / ratio;
-	short *output = malloc(*output_len * sizeof(short));
-	for (int i = 0; i < *output_len; i++) {
+d_sound d_sound_stereo_to_mono(d_sound* snd) {
+	d_sound snd2 = {0};
+	snd2.num_frames = snd->num_frames / 2;
+	snd2.frames = malloc(snd2.num_frames * sizeof(short));
+	for (int i = 0; i < snd->num_frames; i += 2) {
+		snd2.frames[i / 2] = (snd->frames[i] + snd->frames[i + 1]) / 2;
+	}
+	return snd2;
+}
+
+d_sound d_sound_resample(d_sound* src, int input_rate, int output_rate) {
+	float ratio = (float) input_rate / output_rate;
+	d_sound snd2 = {0};
+	snd2.num_frames = src->num_frames / ratio;
+	snd2.frames = malloc(snd2.num_frames * sizeof(short));
+	for (int i = 0; i < snd2.num_frames; i++) {
 		// find the corresponding position in the input buffer
-		double src_pos = i * ratio;
+		float src_pos = i * ratio;
 		int index = (int)src_pos;
-		double frac = src_pos - index;
+		float frac = src_pos - index;
 		// linear interpolation with boundary check
 		int interp_val;
-		if (index + 1 < input_len) {
+		if (index + 1 < src->num_frames) {
 			// interpolate between two neighboring samples
-			interp_val = (int)((1.0 - frac) * input[index] + frac * input[index + 1]);
+			interp_val = (int)((1.0 - frac) * src->frames[index] + frac * src->frames[index + 1]);
 		} else {
 			// use the last sample if we're at the end of the input
-			interp_val = input[index];
+			interp_val = src->frames[index];
 		}
 		if (interp_val > SHRT_MAX) interp_val = SHRT_MAX;
 		if (interp_val < SHRT_MIN) interp_val = SHRT_MIN;
-		output[i] = (short)interp_val;
+		snd2.frames[i] = (short)interp_val;
 	}
-	return output;
+	return snd2;
 }
 
 static uint8_t OGG_SIG[] = { 0x4f, 0x67, 0x67, 0x53 };
@@ -459,9 +465,8 @@ static uint8_t WAV_SIG[] = { 0x52, 0x49, 0x46, 0x46 };
 d_sound d_sound_parse(uint8_t* bytes, size_t size) {
 	if (memcmp(bytes, OGG_SIG, sizeof(OGG_SIG)) == 0) {
 #ifdef STB_VORBIS_IMPLEMENTATION
-		d_sound snd = d_sound_empty();
 		int num_channels, sample_rate;
-		short *frames;
+		short* frames;
 		int num_frames = stb_vorbis_decode_memory(
 			bytes,
 			size,
@@ -473,30 +478,21 @@ d_sound d_sound_parse(uint8_t* bytes, size_t size) {
 			fprintf(stderr, "failed to decode audio\n");
 			return d_sound_empty();
 		}
-		if (num_channels == 2 && D_NUM_CHANNELS == 1) {
-			short *new_frames = stereo_to_mono(
-				frames,
-				num_frames,
-				&num_frames
-			);
-			free(frames);
-			frames = new_frames;
-		}
-		if (sample_rate != D_SAMPLE_RATE) {
-			short *new_frames = resample(
-				frames,
-				num_frames,
-				sample_rate,
-				D_SAMPLE_RATE,
-				&num_frames
-			);
-			free(frames);
-			frames = new_frames;
-		}
-		return (d_sound) {
+		d_sound snd = {
 			.num_frames = num_frames,
 			.frames = frames,
 		};
+		if (num_channels == 2 && D_NUM_CHANNELS == 1) {
+			d_sound snd2 = d_sound_stereo_to_mono(&snd);
+			d_sound_free(&snd);
+			snd = snd2;
+		}
+		if (sample_rate != D_SAMPLE_RATE) {
+			d_sound snd2 = d_sound_resample(&snd, sample_rate, D_SAMPLE_RATE);
+			d_sound_free(&snd);
+			snd = snd2;
+		}
+		return snd;
 #else
 		fprintf(stderr, "ogg support requires 'stb_vorbis.c' and STB_VORBIS_IMPLEMENTATION flag\n");
 		return d_sound_empty();
@@ -540,13 +536,13 @@ d_playback* d_play(d_sound* snd) {
 		.loop = false,
 		.paused = false,
 		.volume = 1.0,
-		.pitch = 1.0,
+		.speed = 1.0,
 	});
 }
 
 d_playback* d_play_ex(d_sound* snd, d_play_opts opts) {
 	if (d_audio.num_playbacks >= D_MAX_PLAYBACKS) {
-		// TODO
+		return NULL;
 	}
 	int pos = d_clampi((int)(opts.time * D_SAMPLE_RATE), 0, snd->num_frames - 1);
 	d_playback src = (d_playback) {
@@ -555,7 +551,7 @@ d_playback* d_play_ex(d_sound* snd, d_play_opts opts) {
 		.loop = opts.loop,
 		.paused = opts.paused,
 		.volume = opts.volume,
-		.pitch = opts.pitch,
+		.speed = opts.speed,
 		.done = false,
 	};
 	d_audio.playbacks[d_audio.num_playbacks] = src;

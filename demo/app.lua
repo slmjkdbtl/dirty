@@ -20,16 +20,21 @@ function wave(a, b, t)
 end
 
 function frame()
+
 	if app.key_pressed("esc") then
 		app.quit()
 	end
+
 	if app.key_pressed("space") then
 		audio.play(snd)
 	end
+
 	if app.mouse_pressed() then
 		pos = gfx.mouse_pos()
 	end
+
 	local t = app.time()
+
 	gfx.clear()
 	gfx.blit_bg()
 
@@ -43,6 +48,7 @@ function frame()
 	gfx.pop()
 
 	gfx.present()
+
 end
 
 app.run({

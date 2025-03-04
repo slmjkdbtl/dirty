@@ -8,8 +8,8 @@
 #include <d_app.h>
 #include <d_gfx.h>
 
-#define WIDTH 240
-#define HEIGHT 240
+#define WIDTH 480
+#define HEIGHT 480
 #define SCALE 2
 
 d_img img;
@@ -18,9 +18,7 @@ d_vec2 pos;
 void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
-		.width = WIDTH,
-		.height = HEIGHT,
-		.clear_color = d_colori(0, 0, 0, 255),
+		.scale = SCALE,
 	});
 
 	img = d_img_load(d_res_path("res/wizard.png"));
@@ -59,7 +57,7 @@ int main(void) {
 		.title = "sprite",
 		.init = init,
 		.frame = frame,
-		.width = WIDTH * SCALE,
-		.height = HEIGHT * SCALE,
+		.width = WIDTH,
+		.height = HEIGHT,
 	});
 }
