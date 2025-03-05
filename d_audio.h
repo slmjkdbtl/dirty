@@ -167,6 +167,8 @@ typedef struct {
 	IAudioClient* client;
 	IAudioRenderClient* render_client;
 	UINT32 num_buf_frames;
+	HANDLE thread;
+	HANDLE event;
 #endif
 } d_audio_ctx;
 
@@ -309,13 +311,23 @@ static void d_ca_dispose(void) {
 static DWORD WINAPI d_wasapi_thread(LPVOID lpParam) {
 	HRESULT hr;
 	while (1) {
-		UINT32 padding;
+		WaitForSingleObject(d_audio.event, INFINITE);
+		UINT32 num_frames = 0;
+		hr = d_audio.client->lpVtbl->GetBufferSize(
+			d_audio.client,
+			&num_frames
+		);
+		if (FAILED(hr)) {
+			printf("failed to get buffer size\n");
+			continue;
+		}
+		UINT32 padding = 0;
 		hr = d_audio.client->lpVtbl->GetCurrentPadding(d_audio.client, &padding);
 		if (FAILED(hr)) {
 			printf("failed to get padding\n");
-			break;
+			continue;
 		}
-        UINT32 num_frames = d_audio.num_buf_frames - padding;
+        num_frames -= padding;
 		if (num_frames <= 0) {
 			continue;
 		}
@@ -327,7 +339,7 @@ static DWORD WINAPI d_wasapi_thread(LPVOID lpParam) {
 		);
 		if (FAILED(hr)) {
 			printf("failed to get buffer\n");
-			break;
+			continue;
 		}
 		float* buf = (float*)data;
 		for (int i = 0; i < num_frames; i++) {
@@ -340,7 +352,7 @@ static DWORD WINAPI d_wasapi_thread(LPVOID lpParam) {
 		);
 		if (FAILED(hr)) {
 			printf("failed to release buffer\n");
-			break;
+			continue;
 		}
 	}
 	return 0;
@@ -410,11 +422,16 @@ static void d_wasapi_init(void) {
 	fmt.nBlockAlign = (fmt.nChannels * fmt.wBitsPerSample) / 8;
 	fmt.nAvgBytesPerSec = fmt.nSamplesPerSec * fmt.nBlockAlign;
 
+	d_audio.event = CreateEvent(NULL, FALSE, FALSE, NULL);
+
+    REFERENCE_TIME buf_duration =
+		(double)D_BUFFER_FRAMES / ((double)D_SAMPLE_RATE * (1.0 / 10000000.0));
+
 	hr = d_audio.client->lpVtbl->Initialize(
 		d_audio.client,
 		AUDCLNT_SHAREMODE_SHARED,
-		0,
-		10000000,
+		AUDCLNT_STREAMFLAGS_EVENTCALLBACK,
+		buf_duration,
 		0,
 		&fmt,
 		NULL
@@ -422,6 +439,13 @@ static void d_wasapi_init(void) {
 
 	if (FAILED(hr)) {
 		printf("failed to initialize audio client\n");
+		return;
+	}
+
+	hr = d_audio.client->lpVtbl->SetEventHandle(d_audio.client, d_audio.event);
+
+	if (FAILED(hr)) {
+		printf("failed to set event handle\n");
 		return;
 	}
 
@@ -436,28 +460,24 @@ static void d_wasapi_init(void) {
 		return;
 	}
 
-    hr = d_audio.client->lpVtbl->GetBufferSize(
-		d_audio.client,
-		&d_audio.num_buf_frames
-	);
-
-	if (FAILED(hr)) {
-		printf("failed to get buffer size\n");
-		return;
-	}
-
 	hr = d_audio.client->lpVtbl->Start(d_audio.client);
+
 	if (FAILED(hr)) {
 		printf("failed to start audio client\n");
 		return;
 	}
 
-	HANDLE thread = CreateThread(NULL, 0, d_wasapi_thread, NULL, 0, NULL);
+	d_audio.thread = CreateThread(NULL, 0, d_wasapi_thread, NULL, 0, NULL);
 
 }
 
 static void d_wasapi_dispose(void) {
-	// TODO
+	CloseHandle(d_audio.event);
+	CloseHandle(d_audio.thread);
+	d_audio.render_client->lpVtbl->Release(d_audio.render_client);
+	d_audio.client->lpVtbl->Release(d_audio.client);
+	d_audio.device->lpVtbl->Release(d_audio.device);
+	d_audio.device_enumerator->lpVtbl->Release(d_audio.device_enumerator);
 	CoUninitialize();
 }
 

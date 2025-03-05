@@ -1,17 +1,17 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#define STB_VORBIS_IMPLEMENTATION
+#define STB_VORBIS_HEADER_ONLY
+#include <stb_vorbis.c>
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
-#define D_TERM
 #define D_IMPL
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_fs.h>
 #include <d_app.h>
 #include <d_gfx.h>
-#define STB_VORBIS_IMPLEMENTATION
-#include <stb_vorbis.c>
 #include <d_audio.h>
 
 #define WIDTH 480
