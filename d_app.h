@@ -275,10 +275,10 @@ d_vec2 d_app_touch_dpos(d_touch t);
 #endif
 
 #if defined(D_COCOA)
-	#include <Cocoa/Cocoa.h>
-	#include <QuartzCore/CVDisplayLink.h>
+	#import <Cocoa/Cocoa.h>
+	#import <QuartzCore/CVDisplayLink.h>
 #elif defined(D_UIKIT)
-	#include <UIKit/UIKit.h>
+	#import <UIKit/UIKit.h>
 #elif defined(D_CANVAS)
 	#include <emscripten/emscripten.h>
 #elif defined(D_WIN32)

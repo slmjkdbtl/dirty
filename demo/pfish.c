@@ -103,6 +103,21 @@ void fish_draw(fish_t* f) {
 	d_transform_pop();
 }
 
+#define FMT_MAX 256
+
+static char* fmt(char *fmt, ...) {
+
+	static char buf[FMT_MAX];
+	va_list args;
+
+	va_start(args, fmt);
+	vsnprintf(buf, FMT_MAX, fmt, args);
+	va_end(args);
+
+	return buf;
+
+}
+
 void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
@@ -121,7 +136,7 @@ void init(void) {
 	};
 
 	for (int i = 0; i < NUM_FISH; i++) {
-		float pad = 64;
+		float pad = 80;
 		float x = r(pad, d_gfx_width() - pad);
 		float y = r(pad, d_gfx_height() - pad);
 		pool[i] = fish_new(v2(x, y), i == 7);
@@ -129,21 +144,6 @@ void init(void) {
 
 	grabbing.fish = NULL;
 	grabbing.offset = v2(0, 0);
-
-}
-
-#define FMT_MAX 256
-
-static char* fmt(char *fmt, ...) {
-
-	static char buf[FMT_MAX];
-	va_list args;
-
-	va_start(args, fmt);
-	vsnprintf(buf, FMT_MAX, fmt, args);
-	va_end(args);
-
-	return buf;
 
 }
 

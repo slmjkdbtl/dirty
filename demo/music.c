@@ -66,21 +66,21 @@ void frame(void) {
 		music_pb->paused = !music_pb->paused;
 	}
 
-	if (d_app_key_pressed(D_KEY_LEFT)) {
+	if (d_app_key_rpressed(D_KEY_LEFT)) {
 		// music_pb->speed -= 0.1;
 		d_playback_seek_by(music_pb, -1);
 	}
 
-	if (d_app_key_pressed(D_KEY_RIGHT)) {
+	if (d_app_key_rpressed(D_KEY_RIGHT)) {
 		// music_pb->speed += 0.1;
 		d_playback_seek_by(music_pb, 1);
 	}
 
-	if (d_app_key_pressed(D_KEY_DOWN)) {
+	if (d_app_key_rpressed(D_KEY_DOWN)) {
 		music_pb->volume -= 0.1;
 	}
 
-	if (d_app_key_pressed(D_KEY_UP)) {
+	if (d_app_key_rpressed(D_KEY_UP)) {
 		music_pb->volume += 0.1;
 	}
 
@@ -88,7 +88,7 @@ void frame(void) {
 
 	d_blit_text(fmt("volume: %.02f", music_pb->volume), v2(10, 10), D_WHITE, false, false);
 	d_blit_text(fmt("speed: %.02f", music_pb->speed), v2(10, 20), D_WHITE, false, false);
-	d_blit_text(fmt("progress: %.02f / %.02f", d_playback_time(music_pb), d_sound_duration(&music)), v2(10, 30), D_WHITE, false, false);
+	d_blit_text(fmt("progress: %.02fs / %.02fs", d_playback_time(music_pb), d_sound_duration(&music)), v2(10, 30), D_WHITE, false, false);
 
 	d_gfx_present();
 

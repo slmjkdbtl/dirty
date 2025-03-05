@@ -1089,7 +1089,7 @@ static int l_audio_play(lua_State* L) {
 			.loop = false,
 			.paused = false,
 			.volume = 1.0,
-			.pitch = 1.0,
+			.speed = 1.0,
 		};
 		luaL_checktable(L, 2);
 		if (lua_getfield(L, -1, "loop")) {
@@ -1104,8 +1104,8 @@ static int l_audio_play(lua_State* L) {
 			opts.volume = luaL_checknumber(L, -1);
 		}
 		lua_pop(L, 1);
-		if (lua_getfield(L, -1, "pitch")) {
-			opts.pitch = luaL_checknumber(L, -1);
+		if (lua_getfield(L, -1, "speed")) {
+			opts.speed = luaL_checknumber(L, -1);
 		}
 		lua_pop(L, 1);
 		d_play_ex(sound, opts);
@@ -1120,9 +1120,9 @@ static int l_sound_load(lua_State* L) {
 	return 1;
 }
 
-static int l_sound_len(lua_State* L) {
+static int l_sound_duration(lua_State* L) {
 	d_sound* sound = luaL_checkudata(L, 1, "sound");
-	lua_pushnumber(L, d_sound_len(sound));
+	lua_pushnumber(L, d_sound_duration(sound));
 	return 1;
 }
 
@@ -1142,8 +1142,8 @@ static int l_sound_free(lua_State* L) {
 static int l_sound_index(lua_State* L) {
 	d_sound* sound = luaL_checkudata(L, 1, "sound");
 	const char* key = luaL_checkstring(L, 2);
-	if (strcmp(key, "len") == 0) {
-		lua_pushcfunction(L, l_sound_len);
+	if (strcmp(key, "duration") == 0) {
+		lua_pushcfunction(L, l_sound_duration);
 	} else if (strcmp(key, "sample") == 0) {
 		lua_pushcfunction(L, l_sound_sample);
 	} else if (strcmp(key, "free") == 0) {
@@ -1157,7 +1157,6 @@ static int l_sound_index(lua_State* L) {
 
 static luaL_Reg sound_meta[] = {
 	{ "__index", l_sound_index },
-	{ "__len", l_sound_len },
 	{ "__gc", l_sound_free },
 	{ NULL, NULL, },
 };
@@ -1180,8 +1179,8 @@ static int l_playback_index(lua_State* L) {
 		lua_pushboolean(L, pb->done);
 	} else if (strcmp(key, "volume") == 0) {
 		lua_pushnumber(L, pb->volume);
-	} else if (strcmp(key, "pitch") == 0) {
-		lua_pushnumber(L, pb->pitch);
+	} else if (strcmp(key, "speed") == 0) {
+		lua_pushnumber(L, pb->speed);
 	} else if (strcmp(key, "time") == 0) {
 		lua_pushnumber(L, d_playback_time(pb));
 	} else if (strcmp(key, "seek") == 0) {
@@ -1208,9 +1207,9 @@ static int l_playback_newindex(lua_State* L) {
 	} else if (strcmp(key, "volume") == 0) {
 		float v = luaL_checknumber(L, 3);
 		pb->volume = v;
-	} else if (strcmp(key, "pitch") == 0) {
+	} else if (strcmp(key, "speed") == 0) {
 		float p = luaL_checknumber(L, 3);
-		pb->pitch = p;
+		pb->speed = p;
 	}
 	return 0;
 }

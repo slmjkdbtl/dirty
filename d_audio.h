@@ -118,14 +118,15 @@ float d_wav_noise(float freq, float t);
 #endif
 
 #if defined(D_COREAUDIO)
-	#include <AudioToolbox/AudioToolbox.h>
+#include <AudioToolbox/AudioToolbox.h>
 #elif defined(D_ALSA)
-	#include <alsa/asoundlib.h>
+#include <alsa/asoundlib.h>
 #elif defined(D_WASAPI)
-	#include <audioclient.h>
-	#include <mmdeviceapi.h>
+#include <windows.h>
+#include <audioclient.h>
+#include <mmdeviceapi.h>
 #elif defined(D_WEBAUDIO)
-	#include <emscripten/emscripten.h>
+#include <emscripten/emscripten.h>
 #endif
 
 #define D_SAMPLE_RATE 44100
@@ -160,6 +161,12 @@ typedef struct {
 	d_synth synth;
 #if defined(D_COREAUDIO)
 	AudioQueueRef queue;
+#elif defined(D_WASAPI)
+	IMMDeviceEnumerator* device_enumerator;
+	IMMDevice* device;
+	IAudioClient* client;
+	IAudioRenderClient* render_client;
+	UINT32 num_buf_frames;
 #endif
 } d_audio_ctx;
 
@@ -299,17 +306,159 @@ static void d_ca_dispose(void) {
 // Windows
 #if defined(D_WASAPI)
 
+static DWORD WINAPI d_wasapi_thread(LPVOID lpParam) {
+	HRESULT hr;
+	while (1) {
+		UINT32 padding;
+		hr = d_audio.client->lpVtbl->GetCurrentPadding(d_audio.client, &padding);
+		if (FAILED(hr)) {
+			printf("failed to get padding\n");
+			break;
+		}
+        UINT32 num_frames = d_audio.num_buf_frames - padding;
+		if (num_frames <= 0) {
+			continue;
+		}
+		BYTE* data;
+		hr = d_audio.render_client->lpVtbl->GetBuffer(
+			d_audio.render_client,
+			num_frames,
+			&data
+		);
+		if (FAILED(hr)) {
+			printf("failed to get buffer\n");
+			break;
+		}
+		float* buf = (float*)data;
+		for (int i = 0; i < num_frames; i++) {
+			buf[i] = d_audio_next();
+		}
+		hr = d_audio.render_client->lpVtbl->ReleaseBuffer(
+			d_audio.render_client,
+			num_frames,
+			0
+		);
+		if (FAILED(hr)) {
+			printf("failed to release buffer\n");
+			break;
+		}
+	}
+	return 0;
+}
+
+
+static const CLSID D_CLSID_IMMDeviceEnumerator = { 0xbcde0395, 0xe52f, 0x467c, {0x8e, 0x3d, 0xc4, 0x57, 0x92, 0x91, 0x69, 0x2e} };
+static const IID D_IID_IMMDeviceEnumerator = { 0xa95664d2, 0x9614, 0x4f35, {0xa7, 0x46, 0xde, 0x8d, 0xb6, 0x36, 0x17, 0xe6} };
+static const IID D_IID_IAudioClient = { 0x1cb9ad4c, 0xdbfa, 0x4c32, {0xb1, 0x78, 0xc2, 0xf5, 0x68, 0xa7, 0x03, 0xb2} };
+static const IID D_IID_IAudioRenderClient = { 0xf294acfc, 0x3146, 0x4483, {0xa7, 0xbf, 0xad, 0xdc, 0xa7, 0xc2, 0x60, 0xe2} };
+
 static void d_wasapi_init(void) {
-	IMMDeviceEnumerator *pEnumerator = NULL;
-	IMMDevice *pDevice = NULL;
-	IAudioClient *pAudioClient = NULL;
-	IAudioRenderClient *pRenderClient = NULL;
-	WAVEFORMATEX *pwfx = NULL;
-	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+
+	HRESULT hr;
+
+	hr = CoInitializeEx(0, COINIT_MULTITHREADED);
+
 	if (FAILED(hr)) {
-		fprintf(stderr, "failed to initialize com\n");
+		printf("failed to initialize COM\n");
 		return;
 	}
+
+	hr = CoCreateInstance(
+		&D_CLSID_IMMDeviceEnumerator,
+		NULL,
+		CLSCTX_ALL,
+		&D_IID_IMMDeviceEnumerator,
+		(void**)&d_audio.device_enumerator
+	);
+
+	if (FAILED(hr)) {
+		printf("failed to create device enumerator\n");
+		return;
+	}
+
+	hr = d_audio.device_enumerator->lpVtbl->GetDefaultAudioEndpoint(
+		d_audio.device_enumerator,
+		eRender,
+		eConsole,
+		&d_audio.device
+	);
+
+	if (FAILED(hr)) {
+		printf("failed to get default audio device\n");
+		return;
+	}
+
+	hr = d_audio.device->lpVtbl->Activate(
+		d_audio.device,
+		&D_IID_IAudioClient,
+		CLSCTX_ALL,
+		NULL,
+		(void**)&d_audio.client
+	);
+
+	if (FAILED(hr)) {
+		printf("failed to get activate audio client\n");
+		return;
+	}
+
+	WAVEFORMATEX fmt;
+	memset(&fmt, 0, sizeof(WAVEFORMATEX));
+	fmt.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
+	fmt.nChannels = D_NUM_CHANNELS;
+	fmt.nSamplesPerSec = D_SAMPLE_RATE;
+	fmt.wBitsPerSample = 32;
+	fmt.nBlockAlign = (fmt.nChannels * fmt.wBitsPerSample) / 8;
+	fmt.nAvgBytesPerSec = fmt.nSamplesPerSec * fmt.nBlockAlign;
+
+	hr = d_audio.client->lpVtbl->Initialize(
+		d_audio.client,
+		AUDCLNT_SHAREMODE_SHARED,
+		0,
+		10000000,
+		0,
+		&fmt,
+		NULL
+	);
+
+	if (FAILED(hr)) {
+		printf("failed to initialize audio client\n");
+		return;
+	}
+
+	hr = d_audio.client->lpVtbl->GetService(
+		d_audio.client,
+		&D_IID_IAudioRenderClient,
+		(void**)&d_audio.render_client
+	);
+
+	if (FAILED(hr)) {
+		printf("failed to get render client\n");
+		return;
+	}
+
+    hr = d_audio.client->lpVtbl->GetBufferSize(
+		d_audio.client,
+		&d_audio.num_buf_frames
+	);
+
+	if (FAILED(hr)) {
+		printf("failed to get buffer size\n");
+		return;
+	}
+
+	hr = d_audio.client->lpVtbl->Start(d_audio.client);
+	if (FAILED(hr)) {
+		printf("failed to start audio client\n");
+		return;
+	}
+
+	HANDLE thread = CreateThread(NULL, 0, d_wasapi_thread, NULL, 0, NULL);
+
+}
+
+static void d_wasapi_dispose(void) {
+	// TODO
+	CoUninitialize();
 }
 
 #endif // D_WASAPI
@@ -398,6 +547,8 @@ void d_audio_dispose(void) {
 	d_ca_dispose();
 #elif defined(D_WEBAUDIO)
 	d_webaudio_dispose();
+#elif defined(D_WASAPI)
+	d_wasapi_dispose();
 #elif defined(D_ALSA)
 	d_alsa_dispose();
 #endif

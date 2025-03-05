@@ -202,7 +202,7 @@ else ifeq ($(TARGET),ios)
 		exit 1; \
 	fi
 	cp $(PROVISION) $<.app/embedded.mobileprovision
-	codesign -s "$(CODESIGN)" $<.app
+	codesign -s "$(CODESIGN)" --deep --force $<.app
 endif
 
 $(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
