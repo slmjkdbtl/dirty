@@ -25,8 +25,10 @@ bool show_bbox;
 void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
-		.clear_color = d_colori(0, 0, 0, 255),
 		.scale = SCALE,
+		.depth_test = true,
+		.backface_cull = true,
+		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
 	d_audio_init((d_audio_desc) {0});

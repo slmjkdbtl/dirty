@@ -275,9 +275,10 @@ d_vec2 d_app_touch_dpos(d_touch t);
 #endif
 
 #if defined(D_COCOA)
-	#import <Cocoa/Cocoa.h>
+	#include <Cocoa/Cocoa.h>
+	#include <QuartzCore/CVDisplayLink.h>
 #elif defined(D_UIKIT)
-	#import <UIKit/UIKit.h>
+	#include <UIKit/UIKit.h>
 #elif defined(D_CANVAS)
 	#include <emscripten/emscripten.h>
 #elif defined(D_WIN32)
@@ -973,9 +974,7 @@ static void d_cocoa_present(int w, int h, d_color* buf) {
 @end
 
 @implementation DView
-// - (BOOL)isOpaque {
-//	return YES;
-// }
+CVDisplayLinkRef displayLink;
 - (BOOL)canBecomeKeyView {
 	return YES;
 }
@@ -1027,6 +1026,21 @@ static void d_cocoa_present(int w, int h, d_color* buf) {
 
 }
 @end
+
+static CVReturn displayLinkCallback(
+	CVDisplayLinkRef display_link,
+	const CVTimeStamp* now,
+	const CVTimeStamp* output_time,
+	CVOptionFlags flags_in,
+	CVOptionFlags* flags_out,
+	void* display_link_ctx
+) {
+	DView* view = (__bridge DView*)display_link_ctx;
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[d_app.view setNeedsDisplay:YES];
+	});
+	return kCVReturnSuccess;
+}
 
 static void d_cocoa_run(d_app_desc* desc) {
 	[NSApplication sharedApplication];

@@ -46,6 +46,8 @@ void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
 		.scale = SCALE,
+		.depth_test = true,
+		.backface_cull = true,
 		.clear_color = d_colori(0, 0, 0, 255),
 	});
 

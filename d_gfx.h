@@ -12,8 +12,8 @@ typedef struct d_gfx_desc {
 	int width;
 	int height;
 	int scale;
-	bool no_depth_test;
-	bool no_backface_cull;
+	bool depth_test;
+	bool backface_cull;
 	bool anti_alias;
 	d_color clear_color;
 } d_gfx_desc;
@@ -413,8 +413,8 @@ void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.cur_canvas = &d_gfx.def_canvas;
 	d_gfx.depth_buf = d_ibuf_new(width, height);
 	d_gfx.bbuf = d_bbuf_new(width, height);
-	d_gfx.depth_test = !desc.no_depth_test;
-	d_gfx.backface_cull = !desc.no_backface_cull;
+	d_gfx.depth_test = desc.depth_test;
+	d_gfx.backface_cull = desc.backface_cull;
 	d_gfx.anti_alias = desc.anti_alias;
 	d_gfx.bbuf_write = false;
 	d_gfx.bbuf_test = false;
@@ -723,6 +723,7 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
+	// TODO: these tests are costly even when not turned on
 	if (d_gfx.depth_test) {
 		if (d_ibuf_get(&d_gfx.depth_buf, x, y) <= z) {
 			d_ibuf_set(&d_gfx.depth_buf, x, y, z);
@@ -953,6 +954,21 @@ void d_draw_prim_tri(
 	d_vec3 p2 = d_transform_apply_vec3(v2.pos);
 	d_vec3 p3 = d_transform_apply_vec3(v3.pos);
 
+	bool same_color = false;
+	bool no_color = false;
+	bool no_uv = false;
+
+	if (d_color_eq(v1.color, v2.color) && d_color_eq(v1.color, v3.color)) {
+		same_color = true;
+		if (d_color_eq(v1.color, D_WHITE)) {
+			no_color = true;
+		}
+	}
+
+	if (d_vec2_eq(v1.uv, v2.uv) && d_vec2_eq(v1.uv, v3.uv)) {
+		no_uv = true;
+	}
+
 	if (d_gfx.backface_cull) {
 		d_vec3 normal = d_vec3_unit(
 			d_vec3_cross(
@@ -1020,22 +1036,32 @@ void d_draw_prim_tri(
 		float ty2 = (float)(y - y2) / (float)(y3 - y2);
 		float ty3 = (float)(y - y1) / (float)(y3 - y1);
 
-		d_color col_start = prebend
-			? d_color_lerp(v1.color, v2.color, ty1)
-			: d_color_lerp(v2.color, v3.color, ty2);
-		d_color col_end = d_color_lerp(v1.color, v3.color, ty3);
+		d_color color_start = v1.color;
+		d_color color_end = v1.color;
 
-		d_vec2 uv_start = prebend
-			? d_vec2_lerp(v1.uv, v2.uv, ty1)
-			: d_vec2_lerp(v2.uv, v3.uv, ty2);
-		d_vec2 uv_end = d_vec2_lerp(v1.uv, v3.uv, ty3);
+		if (!same_color) {
+			color_start = prebend
+				? d_color_lerp(v1.color, v2.color, ty1)
+				: d_color_lerp(v2.color, v3.color, ty2);
+			color_end = d_color_lerp(v1.color, v3.color, ty3);
+		}
+
+		d_vec2 uv_start = { 0, 0 };
+		d_vec2 uv_end = { 0, 0 };
+
+		if (!no_uv) {
+			uv_start = prebend
+				? d_vec2_lerp(v1.uv, v2.uv, ty1)
+				: d_vec2_lerp(v2.uv, v3.uv, ty2);
+			uv_end = d_vec2_lerp(v1.uv, v3.uv, ty3);
+		}
 
 		// d_vec3 normal_start = prebend
 			// ? d_vec3_lerp(n1, n2, ty1)
 			// : d_vec3_lerp(n2, n3, ty2);
 		// d_vec3 normal_end = d_vec3_lerp(n1, n3, ty3);
 
-		bool same_color = d_color_eq(col_start, col_end);
+		bool same_row_color = same_color || d_color_eq(color_start, color_end);
 		int x_len = x_end - x_start;
 
 		for (int x = d_mini(x_start, x_end); x < d_maxi(x_start, x_end); x++) {
@@ -1047,20 +1073,18 @@ void d_draw_prim_tri(
 			int z = d_mapi(x, x_start, x_end, z_start, z_end);
 			float t = (float)(x - x_start) / (float)x_len;
 
-			d_color c = same_color
-				? col_start
-				: d_color_lerp(col_start, col_end, t);
+			d_color c = same_row_color
+				? color_start
+				: d_color_lerp(color_start, color_end, t);
 
 			// d_vec3 normal = d_vec3_lerp(normal_start, normal_end, t);
 			// int l = mapf(normal.x + normal.y + normal.z, 3, -3, -255, 255);
 			// c = d_color_lighten(c, l);
 
-			if (tex) {
+			if (tex && !no_uv) {
 				d_vec2 uv = d_vec2_lerp(uv_start, uv_end, t);
-				c = d_color_mix(
-					d_img_get(tex, tex->width * uv.x, tex->height * uv.y),
-					c
-				);
+				d_color tex_color = d_img_get(tex, tex->width * uv.x, tex->height * uv.y);
+				c = no_color ? tex_color : d_color_mix(tex_color, c);
 			}
 
 			d_draw_pixel(x, y, z, c);

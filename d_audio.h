@@ -65,12 +65,13 @@ d_sound d_sound_clone(d_sound* snd);
 d_sound d_sound_stereo_to_mono(d_sound* snd);
 d_sound d_sound_resample(d_sound* src, int input_rate, int output_rate);
 float d_sound_sample(d_sound* snd, float time);
-float d_sound_len(d_sound* snd);
+float d_sound_duration(d_sound* snd);
 void d_sound_free(d_sound* sound);
 // play a sound, returning a handle for control
 d_playback* d_play(d_sound* sound);
 d_playback* d_play_ex(d_sound* sound, d_play_opts opts);
 void d_playback_seek(d_playback* pb, float time);
+void d_playback_seek_by(d_playback* pb, float time);
 float d_playback_time(d_playback* pb);
 
 // SYNTH
@@ -208,7 +209,7 @@ static float d_audio_next(void) {
 		float f = p->src->frames[idx];
 		float val = f;
 		if (idx + 1 < p->src->num_frames) {
-			val = ((1.0 - frac) * f + frac * p->src->frames[idx + 1]);
+			val = (1.0 - frac) * f + frac * p->src->frames[idx + 1];
 		}
 		frame += val / SHRT_MAX * p->volume;
 		p->pos += p->speed;
@@ -479,7 +480,7 @@ d_sound d_sound_parse(uint8_t* bytes, size_t size) {
 			return d_sound_empty();
 		}
 		d_sound snd = {
-			.num_frames = num_frames,
+			.num_frames = num_frames * num_channels,
 			.frames = frames,
 		};
 		if (num_channels == 2 && D_NUM_CHANNELS == 1) {
@@ -522,7 +523,7 @@ float d_sound_sample(d_sound* snd, float time) {
 	return (float)snd->frames[pos] / SHRT_MAX;
 }
 
-float d_sound_len(d_sound* snd) {
+float d_sound_duration(d_sound* snd) {
 	return (float)snd->num_frames / (float)D_SAMPLE_RATE;
 }
 
@@ -560,6 +561,10 @@ d_playback* d_play_ex(d_sound* snd, d_play_opts opts) {
 
 void d_playback_seek(d_playback* pb, float time) {
 	pb->pos = d_clampi(time * D_SAMPLE_RATE, 0, pb->src->num_frames - 1);
+}
+
+void d_playback_seek_by(d_playback* pb, float time) {
+	d_playback_seek(pb, d_playback_time(pb) + time);
 }
 
 float d_playback_time(d_playback* pb) {

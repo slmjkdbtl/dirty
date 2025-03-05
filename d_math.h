@@ -38,6 +38,13 @@ typedef struct {
 	float w;
 } d_vec4;
 
+#define D_CLEAR (d_color) { 0, 0, 0, 0 }
+#define D_WHITE (d_color) { 255, 255, 255, 255 }
+#define D_BLACK (d_color) { 0, 0, 0, 255 }
+#define D_RED   (d_color) { 255, 0, 0, 255 }
+#define D_GREEN (d_color) { 0, 255, 0, 255 }
+#define D_BLUE  (d_color) { 0, 0, 255, 255 }
+
 typedef struct {
 	uint8_t r;
 	uint8_t g;
@@ -237,49 +244,14 @@ int d_mapi(int, int, int, int, int);
 void d_swapi(int*, int*);
 void d_swapf(float*, float*);
 
-// https://stackoverflow.com/a/28074198/4584387
-#define V_FUNC_CHOOSER(_f1, _f2, _f3, ...) _f3
-#define V_FUNC_RECOMPOSER(args) V_FUNC_CHOOSER args
-#define V_CHOOSE_FROM_ARG_COUNT(...) V_FUNC_RECOMPOSER((__VA_ARGS__, V_2, V_1, ))
-#define V_NO_ARG_EXPANDER() ,,V_0
-#define V_MACRO_CHOOSER(...) V_CHOOSE_FROM_ARG_COUNT(V_NO_ARG_EXPANDER __VA_ARGS__ ())
-#define V_2(x, y) ((d_vec2) { (x), (y) })
-#define V_1(x) V_2((x), (x))
-#define V_0() V_2(0, 0)
-#define V(...) V_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
+#ifdef D_SHORTCUT
+d_vec2 v2(float x, float y);
+d_vec3 v3(float x, float y, float z);
+d_color rgb(float r, float g, float b);
+d_color rgba(float r, float g, float b, float a);
+float r(float a, float b);
+#endif
 
-#define V3_FUNC_CHOOSER(_f1, _f2, _f3, _f4, ...) _f4
-#define V3_FUNC_RECOMPOSER(args) V3_FUNC_CHOOSER args
-#define V3_CHOOSE_FROM_ARG_COUNT(...) V3_FUNC_RECOMPOSER((__VA_ARGS__, V3_3, V3_2, V3_1, ))
-#define V3_NO_ARG_EXPANDER() ,,V3_0
-#define V3_MACRO_CHOOSER(...) V3_CHOOSE_FROM_ARG_COUNT(V3_NO_ARG_EXPANDER __VA_ARGS__ ())
-#define V3_3(x, y, z) ((d_vec3) { (x), (y), (z) })
-#define V3_2(x, y) ((d_vec3) { (x), (y), (0) })
-#define V3_1(x) V3_3(x, x, x)
-#define V3_0() V3_3(0, 0, 0)
-#define V3(...) V3_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
-
-#define C_FUNC_CHOOSER(_f1, _f2, _f3, _f4, _f5, ...) _f5
-#define C_FUNC_RECOMPOSER(args) C_FUNC_CHOOSER args
-#define C_CHOOSE_FROM_ARG_COUNT(...) C_FUNC_RECOMPOSER((__VA_ARGS__, C_4, C_3, C_2, C_1, ))
-#define C_NO_ARG_EXPANDER() ,,C_0
-#define C_MACRO_CHOOSER(...) C_CHOOSE_FROM_ARG_COUNT(C_NO_ARG_EXPANDER __VA_ARGS__ ())
-#define C_4(r, g, b, a) ((d_color) { (r), (g), (b), (a) })
-#define C_3(r, g, b) ((d_color) { (r), (g), (b), (255) })
-#define C_2(g, a) ((d_color) { (g), (g), (g), (a) })
-#define C_1(x) (d_colorx(x))
-#define C_0() C_1(0xffffff)
-#define C(...) C_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
-
-#define R_FUNC_CHOOSER(_f1, _f2, _f3, ...) _f3
-#define R_FUNC_RECOMPOSER(args) R_FUNC_CHOOSER args
-#define R_CHOOSE_FROM_ARG_COUNT(...) R_FUNC_RECOMPOSER((__VA_ARGS__, R_2, R_1, ))
-#define R_NO_ARG_EXPANDER() ,,R_0
-#define R_MACRO_CHOOSER(...) R_CHOOSE_FROM_ARG_COUNT(R_NO_ARG_EXPANDER __VA_ARGS__ ())
-#define R_2(x, y) (d_randf((x), (y)))
-#define R_1(x) R_2(0, (x))
-#define R_0() R_2(0, 1)
-#define R(...) R_MACRO_CHOOSER(__VA_ARGS__)(__VA_ARGS__)
 #endif
 
 #if defined(D_MATH_IMPL) || defined(D_IMPL)
@@ -1187,6 +1159,45 @@ void d_swapf(float* a, float* b) {
 	*a = *b;
 	*b = c;
 }
+
+#ifdef D_SHORTCUT
+d_vec2 v2(float x, float y) {
+	return (d_vec2) {
+		.x = x,
+		.y = y,
+	};
+}
+
+d_vec3 v3(float x, float y, float z) {
+	return (d_vec3) {
+		.x = x,
+		.y = y,
+		.z = z,
+	};
+}
+
+d_color rgb(float r, float g, float b) {
+	return (d_color) {
+		.r = r,
+		.g = g,
+		.b = b,
+		.a = 255,
+	};
+}
+
+d_color rgba(float r, float g, float b, float a) {
+	return (d_color) {
+		.r = r,
+		.g = g,
+		.b = b,
+		.a = a,
+	};
+}
+
+float r(float a, float b) {
+	return d_randf(a, b);
+}
+#endif
 
 #endif
 #endif
