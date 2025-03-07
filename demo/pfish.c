@@ -1,3 +1,7 @@
+// https://imgur.com/gallery/sudden-death-game-jam-official-spritesheet-FszGWNa
+
+#include <time.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 #define STB_VORBIS_IMPLEMENTATION
@@ -18,15 +22,15 @@
 #define WIDTH 640
 #define HEIGHT 480
 #define SCALE 1
-#define NUM_FISH 333
+#define NUM_FISH 200
 
 typedef struct {
 	bool is_pink;
 	d_t2 t;
 	d_timer squeeze_timer;
 	d_tween squeeze_tween;
-	bool squeezing;
-	bool grabbing;
+	bool is_squeezing;
+	bool is_grabbing;
 } fish_t;
 
 typedef struct {
@@ -47,13 +51,13 @@ fish_t fish_new(d_vec2 pos, bool is_pink) {
 		.is_pink = is_pink,
 		.t = (d_t2) {
 			.pos = pos,
-			.scale = v2(0.3, 0.3),
+			.scale = v2(1, 1),
 			.rot = r(0, M_PI * 2),
 			.origin = d_vec2_scale(v2(fish_img.width, fish_img.height), 0.5),
 		},
 		.squeeze_timer = d_timer_new(r(0, 48), false),
-		.squeezing = false,
-		.grabbing = false,
+		.is_squeezing = false,
+		.is_grabbing = false,
 	};
 
 }
@@ -72,15 +76,15 @@ void fish_squeeze(fish_t* f) {
 		NULL,
 		d_ease_out_elastic
 	);
-	f->squeezing = true;
+	f->is_squeezing = true;
 }
 
 void fish_update(fish_t* f) {
 	float dt = d_app_dt();
-	if (f->squeezing) {
+	if (f->is_squeezing) {
 		d_tween_update(&f->squeeze_tween, dt, &f->t.rot);
 		if (f->squeeze_tween.done) {
-			f->squeezing = false;
+			f->is_squeezing = false;
 		}
 	} else {
 		if (d_timer_tick(&f->squeeze_timer, dt)) {
@@ -88,7 +92,7 @@ void fish_update(fish_t* f) {
 			d_timer_reset_to(&f->squeeze_timer, r(0, 48));
 		}
 	}
-	if (f->grabbing) {
+	if (f->is_grabbing) {
 		f->t.rot += r(-0.1, 0.1);
 	}
 }
@@ -96,10 +100,10 @@ void fish_update(fish_t* f) {
 void fish_draw(fish_t* f) {
 	d_transform_push();
 	d_t2_apply(f->t);
-	if (f->grabbing) {
+	if (f->is_grabbing) {
 		d_transform_pos(v2(r(-6, 6), r(-6, 6)));
 	}
-	d_draw_img(f->is_pink ? &pfish_img : &fish_img);
+	d_draw_img(f->is_pink ? &pfish_img : &fish_img, D_WHITE);
 	d_transform_pop();
 }
 
@@ -136,10 +140,11 @@ void init(void) {
 	};
 
 	for (int i = 0; i < NUM_FISH; i++) {
-		float pad = 80;
+		bool is_pink = i == 3;
+		float pad = is_pink ? 200 : 100;
 		float x = r(pad, d_gfx_width() - pad);
 		float y = r(pad, d_gfx_height() - pad);
-		pool[i] = fish_new(v2(x, y), i == 7);
+		pool[i] = fish_new(v2(x, y), is_pink);
 	}
 
 	grabbing.fish = NULL;
@@ -180,7 +185,7 @@ void frame(void) {
 				pool[NUM_FISH - 1] = f;
 				grabbing.fish = &pool[NUM_FISH - 1];
 				grabbing.offset = d_vec2_sub(mpos, f.t.pos);
-				grabbing.fish->grabbing = true;
+				grabbing.fish->is_grabbing = true;
 				if (f.is_pink) {
 					// TODO
 				}
@@ -190,9 +195,11 @@ void frame(void) {
 	}
 
 	if (d_app_mouse_released(D_MOUSE_LEFT)) {
-		grabbing.fish->grabbing = false;
-		grabbing.fish = NULL;
-		grabbing.offset = v2(0, 0);
+		if (grabbing.fish) {
+			grabbing.fish->is_grabbing = false;
+			grabbing.fish = NULL;
+			grabbing.offset = v2(0, 0);
+		}
 	}
 
 	if (grabbing.fish) {
@@ -211,6 +218,7 @@ void frame(void) {
 }
 
 int main(void) {
+	srand(time(NULL));
 	d_app_run((d_app_desc) {
 		.title = "Find The Pink Fish",
 		.init = init,

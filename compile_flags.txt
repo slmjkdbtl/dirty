@@ -1,6 +1,5 @@
 -ObjC
 -Wall
--Werror
 -pedantic
 -std=c99
 -I.

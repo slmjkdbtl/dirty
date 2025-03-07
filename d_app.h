@@ -1343,7 +1343,20 @@ static d_key d_term_key(char* c, int size) {
 	return D_KEY_NONE;
 }
 
+static void d_term_size(int* w, int* h) {
+	struct winsize size;
+	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0) {
+		*w = size.ws_col;
+		*h = size.ws_row * 2;
+	} else {
+		*w = 0;
+		*h = 0;
+	}
+}
+
 static void d_term_run(d_app_desc* desc) {
+
+	d_term_size(&d_app.width, &d_app.height);
 
 	// raw mode
 	struct termios attrs;
@@ -1383,22 +1396,21 @@ static void d_term_run(d_app_desc* desc) {
 
 }
 
+// TODO: scale down if buf is bigger
 static void d_term_present(int w, int h, d_color* buf) {
+
+	int tw;
+	int th;
+
+	d_term_size(&tw, &th);
+	tw = d_mini(w, tw);
+	th = d_mini(h, th);
 
 	printf(TERM_CLEAR_SCREEN);
 	printf(TERM_RESET_CURSOR);
 
-	int tw = w;
-	int th = h;
-	struct winsize term_size;
-
-	if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &term_size) != -1 && term_size.ws_col != 0) {
-		tw = d_mini(w, term_size.ws_col);
-		th = d_mini(h, term_size.ws_row * 2 - 2);
-	}
-
-	d_color prev_c1 = d_colorx(0x00000000);
-	d_color prev_c2 = d_colorx(0x00000000);
+	d_color prev_c1 = { 0, 0, 0, 0 };
+	d_color prev_c2 = { 0, 0, 0, 0 };
 
 	for (int y = 0; y < th; y += 2) {
 		for (int x = 0; x < tw; x++) {

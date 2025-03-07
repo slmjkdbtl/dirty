@@ -164,6 +164,7 @@ void d_img_fill(d_img* img, d_color c);
 void d_img_save(d_img* img, char* path);
 #endif
 d_img d_img_clone(d_img* img);
+d_img d_img_resize(d_img* img, int w, int h);
 void d_img_free(d_img* img);
 
 d_ibuf d_ibuf_new(int w, int h);
@@ -217,7 +218,7 @@ void d_blit_poly(d_poly p, d_color c);
 void d_draw_pixel(int x, int y, int z, d_color c);
 void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img* tex);
 void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img* tex);
-void d_draw_img(d_img* img);
+void d_draw_img(d_img* img, d_color c);
 void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c);
 void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c);
@@ -230,7 +231,9 @@ void d_draw_model(d_model* model);
 void d_draw_bbox(d_box bbox, d_color c);
 void d_transform_push(void);
 void d_transform_pop(void);
-void d_transform_use(d_mat4 m);
+void d_transform_apply(d_mat4 m);
+void d_transform_set(d_mat4 m);
+d_mat4 d_transform_get(void);
 void d_transform_pos(d_vec2 p);
 void d_transform_pos3(d_vec3 p);
 void d_transform_scale(d_vec2 s);
@@ -239,10 +242,8 @@ void d_transform_rot(float a);
 void d_transform_rot_x(float a);
 void d_transform_rot_y(float a);
 void d_transform_rot_z(float a);
-d_vec2 d_transform_apply_vec2(d_vec2 p);
-d_vec3 d_transform_apply_vec3(d_vec3 p);
-void d_transform_set(d_mat4 m);
-d_mat4 d_transform_get(void);
+d_vec2 d_gfx_to_world(d_vec2 p);
+d_vec3 d_gfx_to_world3(d_vec3 p);
 void d_gfx_drawon(d_img* img);
 d_img* d_gfx_canvas(void);
 void d_gfx_set_shader(d_shader func);
@@ -619,6 +620,20 @@ void d_img_save(d_img* img, char* path) {
 }
 #endif
 
+d_img d_img_resize(d_img* src, int w, int h) {
+	d_img dest = d_img_new(w, h);
+	for (int y = 0; y < h; y++) {
+		for (int x = 0; x < w; x++) {
+			int src_x = x * src->width / w;
+			int src_y = y * src->height / h;
+			int src_idx = src_y * src->width + src_x;
+			int dest_idx = y * w + x;
+			dest.pixels[dest_idx] = src->pixels[src_idx];
+		}
+	}
+	return dest;
+}
+
 d_img d_img_clone(d_img* img) {
 	int w = img->width;
 	int h = img->height;
@@ -950,9 +965,9 @@ void d_draw_prim_tri(
 	d_img* tex
 ) {
 
-	d_vec3 p1 = d_transform_apply_vec3(v1.pos);
-	d_vec3 p2 = d_transform_apply_vec3(v2.pos);
-	d_vec3 p3 = d_transform_apply_vec3(v3.pos);
+	d_vec3 p1 = d_gfx_to_world3(v1.pos);
+	d_vec3 p2 = d_gfx_to_world3(v2.pos);
+	d_vec3 p3 = d_gfx_to_world3(v3.pos);
 
 	bool same_color = false;
 	bool no_color = false;
@@ -1007,9 +1022,9 @@ void d_draw_prim_tri(
 	int y3 = p3.y;
 	int z3 = p3.z;
 
-	// d_vec3 n1 = d_vec3_unit(d_transform_apply_vec3(v1.normal));
-	// d_vec3 n2 = d_vec3_unit(d_transform_apply_vec3(v2.normal));
-	// d_vec3 n3 = d_vec3_unit(d_transform_apply_vec3(v3.normal));
+	// d_vec3 n1 = d_vec3_unit(d_gfx_to_world3(v1.normal));
+	// d_vec3 n2 = d_vec3_unit(d_gfx_to_world3(v2.normal));
+	// d_vec3 n3 = d_vec3_unit(d_gfx_to_world3(v3.normal));
 
 	int gw = d_gfx_width();
 	int gh = d_gfx_height();
@@ -1106,29 +1121,29 @@ void d_draw_prim_quad(
 	d_draw_prim_tri(v1, v3, v4, tex);
 }
 
-void d_draw_img(d_img* img) {
+void d_draw_img(d_img* img, d_color c) {
 	d_draw_prim_quad(
 		(d_vertex) {
 			.pos = { 0, 0, 0 },
-			.color = { 255, 255, 255, 255 },
+			.color = c,
 			.uv = { 0, 0 },
 			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
 			.pos = { 0, img->height, 0 },
-			.color = { 255, 255, 255, 255 },
+			.color = c,
 			.uv = { 0, 1 },
 			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
 			.pos = { img->width, img->height, 0 },
-			.color = { 255, 255, 255, 255 },
+			.color = c,
 			.uv = { 1, 1 },
 			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
 			.pos = { img->width, 0, 0 },
-			.color = { 255, 255, 255, 255 },
+			.color = c,
 			.uv = { 1, 0 },
 			.normal = { 0, 0, 1 },
 		},
@@ -1190,14 +1205,14 @@ void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c) {
 }
 
 void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c) {
-	p1 = d_transform_apply_vec2(p1);
-	p2 = d_transform_apply_vec2(p2);
+	p1 = d_gfx_to_world(p1);
+	p2 = d_gfx_to_world(p2);
 	d_blit_line(p1, p2, c);
 }
 
 void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c) {
-	p1 = d_transform_apply_vec3(p1);
-	p2 = d_transform_apply_vec3(p2);
+	p1 = d_gfx_to_world3(p1);
+	p2 = d_gfx_to_world3(p2);
 	d_blit_line((d_vec2){ p1.x, p1.y }, (d_vec2) { p2.x, p2.y }, c);
 }
 
@@ -1236,7 +1251,7 @@ void d_draw_line2(d_vec2 p1, d_vec2 p2, int w, d_color c) {
 // TODO
 void d_draw_circle(float r, d_color c) {
 	d_mat4 t = d_gfx.t;
-	d_vec2 p = d_transform_apply_vec2((d_vec2) { 0, 0 });
+	d_vec2 p = d_gfx_to_world((d_vec2) { 0, 0 });
 	r *= (t.m[0] + t.m[5]) / 2;
 	d_blit_circle(p, r, c);
 }
@@ -1274,7 +1289,7 @@ void d_transform_pop(void) {
 	d_gfx.t = d_gfx.tstack[--d_gfx.tstack_len];
 }
 
-void d_transform_use(d_mat4 m) {
+void d_transform_apply(d_mat4 m) {
 	d_gfx.t = d_mat4_mult(d_gfx.t, m);
 }
 
@@ -1318,11 +1333,11 @@ void d_transform_rot_z(float a) {
 	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_z(a));
 }
 
-d_vec2 d_transform_apply_vec2(d_vec2 p) {
+d_vec2 d_gfx_to_world(d_vec2 p) {
 	return d_mat4_mult_vec2(d_gfx.t, p);
 }
 
-d_vec3 d_transform_apply_vec3(d_vec3 p) {
+d_vec3 d_gfx_to_world3(d_vec3 p) {
 	return d_mat4_mult_vec3(d_gfx.t, p);
 }
 
@@ -1373,22 +1388,15 @@ static d_mat4 d_transform_mat4(d_transform t) {
 	);
 }
 
-static d_transform d_transform_apply(d_transform t1, d_transform t2) {
-	return (d_transform) {
-		.pos = d_vec3_add(t1.pos, t2.pos),
-		.rot = d_quat_mult(t1.rot, t2.rot),
-		.scale = d_vec3_mult(t1.scale, t2.scale),
-	};
-}
-
 static void d_draw_model_node(d_model* model, d_model_node* node) {
 	d_transform_push();
 	// TODO
 	if (node->num_anims) {
 		d_model_anim* anim = &node->anims[0];
-		d_transform_use(anim->frames[(int)(d_app_time() * 60) % anim->num_frames].transform);
+		// TODO: don't use d_app_time()
+		d_transform_apply(anim->frames[(int)(d_app_time() * 60) % anim->num_frames].transform);
 	} else {
-		d_transform_use(node->t);
+		d_transform_apply(node->t);
 	}
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_draw_mesh(
@@ -1412,7 +1420,7 @@ void d_draw_model(d_model* model) {
 
 static void d_draw_model_node_line(d_model_node* node, d_color c) {
 	d_transform_push();
-	d_transform_use(node->t);
+	d_transform_apply(node->t);
 	for (int i = 0; i < node->num_meshes; i++) {
 		d_draw_mesh_line(&node->meshes[i], c);
 	}

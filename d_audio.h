@@ -37,21 +37,6 @@ typedef struct {
 	bool done;
 } d_playback;
 
-typedef struct {
-	float attack;
-	float decay;
-	float sustain;
-	float release;
-} d_envelope;
-
-typedef struct {
-	float life;
-	float afterlife;
-	float volume;
-	bool active;
-	bool alive;
-} d_voice;
-
 void d_audio_init(d_audio_desc);
 void d_audio_dispose(void);
 
@@ -73,24 +58,6 @@ d_playback* d_play_ex(d_sound* sound, d_play_opts opts);
 void d_playback_seek(d_playback* pb, float time);
 void d_playback_seek_by(d_playback* pb, float time);
 float d_playback_time(d_playback* pb);
-
-// SYNTH
-void d_synth_play(int note);
-void d_synth_release(int note);
-d_envelope* d_synth_envelope(void);
-void d_synth_wav(float (*func)(float freq, float t));
-float d_synth_peek(int n);
-
-// voice
-d_voice d_voice_new(void);
-void d_voice_process(d_voice* v, d_envelope* e, float dt);
-
-// built in wave forms
-float d_wav_sin(float freq, float t);
-float d_wav_square(float freq, float t);
-float d_wav_tri(float freq, float t);
-float d_wav_saw(float freq, float t);
-float d_wav_noise(float freq, float t);
 
 #endif
 
@@ -133,32 +100,12 @@ float d_wav_noise(float freq, float t);
 #define D_NUM_CHANNELS 1
 #define D_BUFFER_FRAMES 2048
 #define D_MAX_PLAYBACKS 1024
-#define D_A4_FREQ 440
-#define D_A4_NOTE 69
-#define D_SYNTH_NOTES 128
-#define D_SYNTH_BUF_SIZE 44100
-
-typedef struct {
-	d_voice notes[D_SYNTH_NOTES];
-	float volume;
-	int sample_rate;
-	float clock;
-	d_envelope envelope;
-	float buf[D_SYNTH_BUF_SIZE];
-	int buf_head;
-	int buf_size;
-	float (*wav_func)(float freq, float t);
-} d_synth;
-
-d_synth d_synth_new(void);
-float d_synth_next(void);
 
 typedef struct {
 	d_playback playbacks[D_MAX_PLAYBACKS];
 	int num_playbacks;
 	float volume;
 	float (*user_stream)(void);
-	d_synth synth;
 #if defined(D_COREAUDIO)
 	AudioQueueRef queue;
 #elif defined(D_WASAPI)
@@ -224,8 +171,6 @@ static float d_audio_next(void) {
 		p->pos += p->speed;
 
 	}
-
-	frame += d_synth_next();
 
 	if (d_audio.user_stream) {
 		frame += d_audio.user_stream();
@@ -318,13 +263,13 @@ static DWORD WINAPI d_wasapi_thread(LPVOID lpParam) {
 			&num_frames
 		);
 		if (FAILED(hr)) {
-			printf("failed to get buffer size\n");
+			fprintf(stderr, "failed to get buffer size\n");
 			continue;
 		}
 		UINT32 padding = 0;
 		hr = d_audio.client->lpVtbl->GetCurrentPadding(d_audio.client, &padding);
 		if (FAILED(hr)) {
-			printf("failed to get padding\n");
+			fprintf(stderr, "failed to get padding\n");
 			continue;
 		}
         num_frames -= padding;
@@ -338,7 +283,7 @@ static DWORD WINAPI d_wasapi_thread(LPVOID lpParam) {
 			&data
 		);
 		if (FAILED(hr)) {
-			printf("failed to get buffer\n");
+			fprintf(stderr, "failed to get buffer\n");
 			continue;
 		}
 		float* buf = (float*)data;
@@ -351,7 +296,7 @@ static DWORD WINAPI d_wasapi_thread(LPVOID lpParam) {
 			0
 		);
 		if (FAILED(hr)) {
-			printf("failed to release buffer\n");
+			fprintf(stderr, "failed to release buffer\n");
 			continue;
 		}
 	}
@@ -359,10 +304,10 @@ static DWORD WINAPI d_wasapi_thread(LPVOID lpParam) {
 }
 
 
-static const CLSID D_CLSID_IMMDeviceEnumerator = { 0xbcde0395, 0xe52f, 0x467c, {0x8e, 0x3d, 0xc4, 0x57, 0x92, 0x91, 0x69, 0x2e} };
-static const IID D_IID_IMMDeviceEnumerator = { 0xa95664d2, 0x9614, 0x4f35, {0xa7, 0x46, 0xde, 0x8d, 0xb6, 0x36, 0x17, 0xe6} };
-static const IID D_IID_IAudioClient = { 0x1cb9ad4c, 0xdbfa, 0x4c32, {0xb1, 0x78, 0xc2, 0xf5, 0x68, 0xa7, 0x03, 0xb2} };
-static const IID D_IID_IAudioRenderClient = { 0xf294acfc, 0x3146, 0x4483, {0xa7, 0xbf, 0xad, 0xdc, 0xa7, 0xc2, 0x60, 0xe2} };
+static const CLSID D_CLSID_IMMDeviceEnumerator = { 0xbcde0395, 0xe52f, 0x467c, { 0x8e, 0x3d, 0xc4, 0x57, 0x92, 0x91, 0x69, 0x2e } };
+static const IID D_IID_IMMDeviceEnumerator = { 0xa95664d2, 0x9614, 0x4f35, { 0xa7, 0x46, 0xde, 0x8d, 0xb6, 0x36, 0x17, 0xe6 } };
+static const IID D_IID_IAudioClient = { 0x1cb9ad4c, 0xdbfa, 0x4c32, { 0xb1, 0x78, 0xc2, 0xf5, 0x68, 0xa7, 0x03, 0xb2 } };
+static const IID D_IID_IAudioRenderClient = { 0xf294acfc, 0x3146, 0x4483, { 0xa7, 0xbf, 0xad, 0xdc, 0xa7, 0xc2, 0x60, 0xe2 } };
 
 static void d_wasapi_init(void) {
 
@@ -371,7 +316,7 @@ static void d_wasapi_init(void) {
 	hr = CoInitializeEx(0, COINIT_MULTITHREADED);
 
 	if (FAILED(hr)) {
-		printf("failed to initialize COM\n");
+		fprintf(stderr, "failed to initialize COM\n");
 		return;
 	}
 
@@ -384,7 +329,7 @@ static void d_wasapi_init(void) {
 	);
 
 	if (FAILED(hr)) {
-		printf("failed to create device enumerator\n");
+		fprintf(stderr, "failed to create device enumerator\n");
 		return;
 	}
 
@@ -396,7 +341,7 @@ static void d_wasapi_init(void) {
 	);
 
 	if (FAILED(hr)) {
-		printf("failed to get default audio device\n");
+		fprintf(stderr, "failed to get default audio device\n");
 		return;
 	}
 
@@ -409,7 +354,7 @@ static void d_wasapi_init(void) {
 	);
 
 	if (FAILED(hr)) {
-		printf("failed to get activate audio client\n");
+		fprintf(stderr, "failed to get activate audio client\n");
 		return;
 	}
 
@@ -438,14 +383,14 @@ static void d_wasapi_init(void) {
 	);
 
 	if (FAILED(hr)) {
-		printf("failed to initialize audio client\n");
+		fprintf(stderr, "failed to initialize audio client\n");
 		return;
 	}
 
 	hr = d_audio.client->lpVtbl->SetEventHandle(d_audio.client, d_audio.event);
 
 	if (FAILED(hr)) {
-		printf("failed to set event handle\n");
+		fprintf(stderr, "failed to set event handle\n");
 		return;
 	}
 
@@ -456,14 +401,14 @@ static void d_wasapi_init(void) {
 	);
 
 	if (FAILED(hr)) {
-		printf("failed to get render client\n");
+		fprintf(stderr, "failed to get render client\n");
 		return;
 	}
 
 	hr = d_audio.client->lpVtbl->Start(d_audio.client);
 
 	if (FAILED(hr)) {
-		printf("failed to start audio client\n");
+		fprintf(stderr, "failed to start audio client\n");
 		return;
 	}
 
@@ -550,7 +495,6 @@ static void d_alsa_dispose(void) {
 void d_audio_init(d_audio_desc desc) {
 	d_audio.volume = 1.0;
 	d_audio.user_stream = desc.stream;
-	d_audio.synth = d_synth_new();
 #if defined(D_COREAUDIO)
 	d_ca_init();
 #elif defined(D_WEBAUDIO)
@@ -740,178 +684,6 @@ void d_playback_seek_by(d_playback* pb, float time) {
 
 float d_playback_time(d_playback* pb) {
 	return (float)pb->pos / (float)D_SAMPLE_RATE;
-}
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846264338327950288
-#endif
-
-float d_note_freq(int n) {
-	return D_A4_FREQ * pow(powf(2.0, 1.0 / 12.0), n - D_A4_NOTE);
-}
-
-float d_wav_sin(float freq, float t) {
-	return sin(freq * 2.0 * M_PI * t);
-}
-
-float d_wav_square(float freq, float t) {
-	return d_wav_sin(freq, t) > 0.0 ? 1.0 : -1.0;
-}
-
-float d_wav_tri(float freq, float t) {
-	return asin(d_wav_sin(freq, t)) * 2.0 / M_PI;
-}
-
-float d_wav_saw(float freq, float t) {
-	return (2.0 / M_PI) * (freq * M_PI * fmod(t, 1.0 / freq) - M_PI / 2.0);
-}
-
-float d_wav_noise(float freq, float t) {
-	return d_randf(-1.0, 1.0);
-}
-
-d_synth d_synth_new(void) {
-	return (d_synth) {
-		.notes = {0},
-		.volume = 0.5,
-		.clock = 0,
-		.sample_rate = D_SAMPLE_RATE,
-		.wav_func = d_wav_sin,
-		.envelope = (d_envelope) {
-			.attack = 0.05,
-			.decay = 0.05,
-			.sustain = 1.0,
-			.release = 0.5,
-		},
-	};
-}
-
-d_voice d_voice_new(void) {
-	return (d_voice) {
-		.active = true,
-		.life = 0.0,
-		.afterlife = 0.0,
-		.volume = 0.0,
-		.alive = true,
-	};
-}
-
-void d_synth_play(int note) {
-	if (note < 0 || note >= D_SYNTH_NOTES) {
-		fprintf(stderr, "note out of bound: '%d'\n", note);
-		return;
-	}
-	d_audio.synth.notes[note] = d_voice_new();
-}
-
-void d_synth_release(int note) {
-	if (note < 0 || note >= D_SYNTH_NOTES) {
-		fprintf(stderr, "note out of bound: '%d'\n", note);
-		return;
-	}
-	d_audio.synth.notes[note].active = false;
-}
-
-void d_voice_process(d_voice* v, d_envelope* e, float dt) {
-
-	if (!v->alive) {
-		return;
-	}
-
-	float a = e->attack;
-	float d = e->decay;
-	float s = e->sustain;
-	float r = e->release;
-
-	// attack
-	if (v->life <= a) {
-		if (a == 0.0) {
-			v->volume = 1.0;
-		} else {
-			v->volume = v->life / a;
-		}
-	} else if (v->life > a && v->life <= a + d) {
-		// decay
-		v->volume = 1.0 - (v->life - a) / d * (1.0 - s);
-	} else {
-		// systain
-		if (v->active) {
-			v->volume = s;
-		} else {
-			// release
-			if (r == 0.0) {
-				v->volume = 0.0;
-			} else {
-				v->volume = s * (1.0 - (v->afterlife / r));
-				if (v->volume <= 0.0) {
-					v->alive = false;
-				}
-			}
-		}
-	}
-
-	v->life += dt;
-
-	if (!v->active) {
-		v->afterlife += dt;
-	}
-
-}
-
-float d_synth_next(void) {
-
-	d_synth* synth = &d_audio.synth;
-	float frame = 0.0;
-	float dt = 1.0 / (float)synth->sample_rate;
-
-	synth->clock += dt;
-
-	for (int i = 0; i < D_SYNTH_NOTES; i++) {
-
-		d_voice* v = &synth->notes[i];
-
-		d_voice_process(v, &synth->envelope, dt);
-
-		float freq = d_note_freq(i);
-		float sample = synth->wav_func(freq, synth->clock) * v->volume;
-
-		frame += sample;
-
-	}
-
-	frame *= synth->volume;
-
-	if (synth->buf_size < D_SYNTH_BUF_SIZE) {
-		synth->buf[synth->buf_size++] = frame;
-	} else {
-		synth->buf[synth->buf_head++] = frame;
-		if (synth->buf_head >= D_SYNTH_BUF_SIZE) {
-			synth->buf_head = 0;
-		}
-	}
-
-	return frame;
-
-}
-
-float d_synth_peek(int n) {
-	d_synth* synth = &d_audio.synth;
-	if (synth->buf_size == 0) {
-		return 0.0;
-	}
-	int idx = (n + synth->buf_size - 1 + synth->buf_head) % D_SYNTH_BUF_SIZE;
-	if (idx < 0 || idx >= D_SYNTH_BUF_SIZE) {
-		return 0.0;
-	}
-	return synth->buf[idx];
-}
-
-d_envelope* d_synth_envelope(void) {
-	return &d_audio.synth.envelope;
-}
-
-void d_synth_wav(float (*func)(float freq, float t)) {
-	d_audio.synth.wav_func = func;
 }
 
 #endif // #ifndef D_AUDIO_IMPL_ONCE
