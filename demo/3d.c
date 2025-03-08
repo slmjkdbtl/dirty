@@ -98,7 +98,7 @@ void frame(void) {
 	if (d_app_mouse_down(D_MOUSE_LEFT)) {
 		d_vec2 mdpos = d_gfx_mouse_dpos();
 		rot.x -= mdpos.y / 100;
-		rot.y -= mdpos.x / 100;
+		rot.y += mdpos.x / 100;
 	}
 
 	d_gfx_clear();

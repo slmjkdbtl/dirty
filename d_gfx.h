@@ -221,6 +221,7 @@ void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img*
 void d_draw_img(d_img* img, d_color c);
 void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c);
 void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c);
+void d_draw_rect_outline(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c);
 void d_draw_circle(float r, d_color c);
@@ -242,8 +243,8 @@ void d_transform_rot(float a);
 void d_transform_rot_x(float a);
 void d_transform_rot_y(float a);
 void d_transform_rot_z(float a);
-d_vec2 d_gfx_to_world(d_vec2 p);
-d_vec3 d_gfx_to_world3(d_vec3 p);
+d_vec2 d_transform_apply_vec2(d_vec2 p);
+d_vec3 d_transform_apply_vec3(d_vec3 p);
 void d_gfx_drawon(d_img* img);
 d_img* d_gfx_canvas(void);
 void d_gfx_set_shader(d_shader func);
@@ -738,7 +739,6 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
-	// TODO: these tests are costly even when not turned on
 	if (d_gfx.depth_test) {
 		if (d_ibuf_get(&d_gfx.depth_buf, x, y) <= z) {
 			d_ibuf_set(&d_gfx.depth_buf, x, y, z);
@@ -965,9 +965,9 @@ void d_draw_prim_tri(
 	d_img* tex
 ) {
 
-	d_vec3 p1 = d_gfx_to_world3(v1.pos);
-	d_vec3 p2 = d_gfx_to_world3(v2.pos);
-	d_vec3 p3 = d_gfx_to_world3(v3.pos);
+	d_vec3 p1 = d_transform_apply_vec3(v1.pos);
+	d_vec3 p2 = d_transform_apply_vec3(v2.pos);
+	d_vec3 p3 = d_transform_apply_vec3(v3.pos);
 
 	bool same_color = false;
 	bool no_color = false;
@@ -1022,9 +1022,9 @@ void d_draw_prim_tri(
 	int y3 = p3.y;
 	int z3 = p3.z;
 
-	// d_vec3 n1 = d_vec3_unit(d_gfx_to_world3(v1.normal));
-	// d_vec3 n2 = d_vec3_unit(d_gfx_to_world3(v2.normal));
-	// d_vec3 n3 = d_vec3_unit(d_gfx_to_world3(v3.normal));
+	// d_vec3 n1 = d_vec3_unit(d_transform_apply_vec3(v1.normal));
+	// d_vec3 n2 = d_vec3_unit(d_transform_apply_vec3(v2.normal));
+	// d_vec3 n3 = d_vec3_unit(d_transform_apply_vec3(v3.normal));
 
 	int gw = d_gfx_width();
 	int gh = d_gfx_height();
@@ -1204,15 +1204,30 @@ void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c) {
 	d_gfx.backface_cull = cull;
 }
 
+void d_draw_rect_outline(d_vec2 p1, d_vec2 p2, d_color c) {
+	d_vec2 v1 = p1;
+	d_vec2 v2 = { p2.x, p1.y };
+	d_vec2 v3 = p2;
+	d_vec2 v4 = { p1.x, p2.y };
+	v1 = d_transform_apply_vec2(v1);
+	v2 = d_transform_apply_vec2(v2);
+	v3 = d_transform_apply_vec2(v3);
+	v4 = d_transform_apply_vec2(v4);
+	d_blit_line(v1, v2, c);
+	d_blit_line(v2, v3, c);
+	d_blit_line(v3, v4, c);
+	d_blit_line(v4, v1, c);
+}
+
 void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c) {
-	p1 = d_gfx_to_world(p1);
-	p2 = d_gfx_to_world(p2);
+	p1 = d_transform_apply_vec2(p1);
+	p2 = d_transform_apply_vec2(p2);
 	d_blit_line(p1, p2, c);
 }
 
 void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c) {
-	p1 = d_gfx_to_world3(p1);
-	p2 = d_gfx_to_world3(p2);
+	p1 = d_transform_apply_vec3(p1);
+	p2 = d_transform_apply_vec3(p2);
 	d_blit_line((d_vec2){ p1.x, p1.y }, (d_vec2) { p2.x, p2.y }, c);
 }
 
@@ -1251,7 +1266,7 @@ void d_draw_line2(d_vec2 p1, d_vec2 p2, int w, d_color c) {
 // TODO
 void d_draw_circle(float r, d_color c) {
 	d_mat4 t = d_gfx.t;
-	d_vec2 p = d_gfx_to_world((d_vec2) { 0, 0 });
+	d_vec2 p = d_transform_apply_vec2((d_vec2) { 0, 0 });
 	r *= (t.m[0] + t.m[5]) / 2;
 	d_blit_circle(p, r, c);
 }
@@ -1333,11 +1348,11 @@ void d_transform_rot_z(float a) {
 	d_gfx.t = d_mat4_mult(d_gfx.t, d_mat4_rot_z(a));
 }
 
-d_vec2 d_gfx_to_world(d_vec2 p) {
+d_vec2 d_transform_apply_vec2(d_vec2 p) {
 	return d_mat4_mult_vec2(d_gfx.t, p);
 }
 
-d_vec3 d_gfx_to_world3(d_vec3 p) {
+d_vec3 d_transform_apply_vec3(d_vec3 p) {
 	return d_mat4_mult_vec3(d_gfx.t, p);
 }
 

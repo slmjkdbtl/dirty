@@ -103,7 +103,7 @@ void frame(void) {
 
 	if (d_app_mouse_down(D_MOUSE_LEFT)) {
 		rot.x -= mdpos.y / 100;
-		rot.y -= mdpos.x / 100;
+		rot.y += mdpos.x / 100;
 	}
 
 	int s = d_gfx_width() / 4;

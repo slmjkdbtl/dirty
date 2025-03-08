@@ -13,13 +13,13 @@
 #define HEIGHT 240
 #define SCALE 2
 #define SPEED 100.0f
-#define ROT_SPEED 160.0f
+#define ROT_SPEED 2.0f
 
 d_t2 player_t = (d_t2) {
 	.pos = (d_vec2) { 30, 30 },
 	.scale = (d_vec2) { 1, 1 },
 	.origin = (d_vec2) { 0, 0 },
-	.rot = 90,
+	.rot = 0,
 };
 
 d_img img;
@@ -108,7 +108,7 @@ void frame(void) {
 
 	d_transform_push();
 	d_t2_apply(player_t);
-	d_draw_img(&img);
+	d_draw_img(&img, D_WHITE);
 	d_draw_poly_outline(d_rect_to_poly(player_rect), d_colorx(0x0000ffff));
 	d_transform_pop();
 

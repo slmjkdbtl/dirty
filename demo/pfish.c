@@ -23,6 +23,7 @@
 #define HEIGHT 480
 #define SCALE 1
 #define NUM_FISH 200
+#define MAX_SQUEEZE_INTERVAL 40
 
 typedef struct {
 	bool is_pink;
@@ -55,7 +56,7 @@ fish_t fish_new(d_vec2 pos, bool is_pink) {
 			.rot = r(0, M_PI * 2),
 			.origin = d_vec2_scale(v2(fish_img.width, fish_img.height), 0.5),
 		},
-		.squeeze_timer = d_timer_new(r(0, 48), false),
+		.squeeze_timer = d_timer_new(r(0, MAX_SQUEEZE_INTERVAL), false),
 		.is_squeezing = false,
 		.is_grabbing = false,
 	};
@@ -89,7 +90,7 @@ void fish_update(fish_t* f) {
 	} else {
 		if (d_timer_tick(&f->squeeze_timer, dt)) {
 			fish_squeeze(f);
-			d_timer_reset_to(&f->squeeze_timer, r(0, 48));
+			d_timer_reset_to(&f->squeeze_timer, r(0, MAX_SQUEEZE_INTERVAL));
 		}
 	}
 	if (f->is_grabbing) {
@@ -104,6 +105,9 @@ void fish_draw(fish_t* f) {
 		d_transform_pos(v2(r(-6, 6), r(-6, 6)));
 	}
 	d_draw_img(f->is_pink ? &pfish_img : &fish_img, D_WHITE);
+	if (debug) {
+		d_draw_rect_outline(fish_rect.p1, fish_rect.p2, D_WHITE);
+	}
 	d_transform_pop();
 }
 
@@ -135,8 +139,8 @@ void init(void) {
 	pfish_img = d_img_load(d_res_path("res/pfish.png"));
 	pop_sound = d_sound_load(d_res_path("res/pop.ogg"));
 	fish_rect = (d_rect) {
-		{ 0, 0 },
-		{ fish_img.width, fish_img.height },
+		{ 16, 4 },
+		{ fish_img.width - 32, fish_img.height - 4 },
 	};
 
 	for (int i = 0; i < NUM_FISH; i++) {
@@ -166,7 +170,7 @@ void frame(void) {
 	}
 
 	if (d_app_key_pressed(D_KEY_TAB)) {
-		debug = !debug;
+		// debug = !debug;
 	}
 
 	if (d_app_mouse_pressed(D_MOUSE_LEFT)) {

@@ -192,6 +192,7 @@ d_vec4 d_mat4_mult_vec4(d_mat4, d_vec4);
 d_vec3 d_mat4_mult_vec3(d_mat4, d_vec3);
 d_vec2 d_mat4_mult_vec2(d_mat4, d_vec2);
 d_mat4 d_mat4_invert(d_mat4);
+d_mat4 d_mat4_transpose(d_mat4 mat);
 d_mat4 d_mat4_scale(d_vec3);
 d_mat4 d_mat4_translate(d_vec3);
 d_mat4 d_mat4_ortho(float w, float n, float near, float far);
@@ -614,14 +615,14 @@ d_mat4 d_mat4_identity(void) {
 }
 
 d_mat4 d_mat4_mult(d_mat4 m1, d_mat4 m2) {
-	d_mat4 out = d_mat4u();
+	d_mat4 out = {0};
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			out.m[i * 4 + j] =
-				m1.m[0 * 4 + j] * m2.m[i * 4 + 0] +
-				m1.m[1 * 4 + j] * m2.m[i * 4 + 1] +
-				m1.m[2 * 4 + j] * m2.m[i * 4 + 2] +
-				m1.m[3 * 4 + j] * m2.m[i * 4 + 3];
+				m1.m[i * 4 + 0] * m2.m[0 * 4 + j] +
+				m1.m[i * 4 + 1] * m2.m[1 * 4 + j] +
+				m1.m[i * 4 + 2] * m2.m[2 * 4 + j] +
+				m1.m[i * 4 + 3] * m2.m[3 * 4 + j];
 		}
 	}
 	return out;
@@ -629,81 +630,208 @@ d_mat4 d_mat4_mult(d_mat4 m1, d_mat4 m2) {
 
 d_vec4 d_mat4_mult_vec4(d_mat4 m, d_vec4 p) {
 	return (d_vec4) {
-		.x = p.x * m.m[0] + p.y * m.m[4] + p.z * m.m[8] + p.w * m.m[12],
-		.y = p.x * m.m[1] + p.y * m.m[5] + p.z * m.m[9] + p.w * m.m[13],
-		.z = p.x * m.m[2] + p.y * m.m[6] + p.z * m.m[10] + p.w * m.m[14],
-		.w = p.x * m.m[3] + p.y * m.m[7] + p.z * m.m[11] + p.w * m.m[15]
+		.x = p.x * m.m[0] + p.y * m.m[1] + p.z * m.m[2] + p.w * m.m[3],
+		.y = p.x * m.m[4] + p.y * m.m[5] + p.z * m.m[6] + p.w * m.m[7],
+		.z = p.x * m.m[8] + p.y * m.m[9] + p.z * m.m[10] + p.w * m.m[11],
+		.w = p.x * m.m[12] + p.y * m.m[13] + p.z * m.m[14] + p.w * m.m[15]
 	};
 }
 
 d_vec3 d_mat4_mult_vec3(d_mat4 m, d_vec3 p) {
 	d_vec4 p4 = d_mat4_mult_vec4(m, d_vec4f(p.x, p.y, p.z, 1.0));
-	return d_vec3f(p4.x, p4.y, p4.z);
+	return (d_vec3) { p4.x, p4.y, p4.z };
 }
 
 d_vec2 d_mat4_mult_vec2(d_mat4 m, d_vec2 p) {
 	d_vec3 p3 = d_mat4_mult_vec3(m, d_vec3f(p.x, p.y, 0.0));
-	return d_vec2f(p3.x, p3.y);
+	return (d_vec2) { p3.x, p3.y };
 }
 
-d_mat4 d_mat4_invert(d_mat4 m) {
+#define DAMPING_FACTOR 1e-6
 
-	d_mat4 out = d_mat4u();
-
-	float f00 = m.m[10] * m.m[15] - m.m[14] * m.m[11];
-	float f01 = m.m[9] * m.m[15] - m.m[13] * m.m[11];
-	float f02 = m.m[9] * m.m[14] - m.m[13] * m.m[10];
-	float f03 = m.m[8] * m.m[15] - m.m[12] * m.m[11];
-	float f04 = m.m[8] * m.m[14] - m.m[12] * m.m[10];
-	float f05 = m.m[8] * m.m[13] - m.m[12] * m.m[9];
-	float f06 = m.m[6] * m.m[15] - m.m[14] * m.m[7];
-	float f07 = m.m[5] * m.m[15] - m.m[13] * m.m[7];
-	float f08 = m.m[5] * m.m[14] - m.m[13] * m.m[6];
-	float f09 = m.m[4] * m.m[15] - m.m[12] * m.m[7];
-	float f10 = m.m[4] * m.m[14] - m.m[12] * m.m[6];
-	float f11 = m.m[5] * m.m[15] - m.m[13] * m.m[7];
-	float f12 = m.m[4] * m.m[13] - m.m[12] * m.m[5];
-	float f13 = m.m[6] * m.m[11] - m.m[10] * m.m[7];
-	float f14 = m.m[5] * m.m[11] - m.m[9] * m.m[7];
-	float f15 = m.m[5] * m.m[10] - m.m[9] * m.m[6];
-	float f16 = m.m[4] * m.m[11] - m.m[8] * m.m[7];
-	float f17 = m.m[4] * m.m[10] - m.m[8] * m.m[6];
-	float f18 = m.m[4] * m.m[9] - m.m[8] * m.m[5];
-
-	out.m[0] = m.m[5] * f00 - m.m[6] * f01 + m.m[7] * f02;
-	out.m[4] = -(m.m[4] * f00 - m.m[6] * f03 + m.m[7] * f04);
-	out.m[8] = m.m[4] * f01 - m.m[5] * f03 + m.m[7] * f05;
-	out.m[12] = -(m.m[4] * f02 - m.m[5] * f04 + m.m[6] * f05);
-
-	out.m[1] = -(m.m[1] * f00 - m.m[2] * f01 + m.m[3] * f02);
-	out.m[5] = m.m[0] * f00 - m.m[2] * f03 + m.m[3] * f04;
-	out.m[9] = -(m.m[0] * f01 - m.m[1] * f03 + m.m[3] * f05);
-	out.m[13] = m.m[0] * f02 - m.m[1] * f04 + m.m[2] * f05;
-
-	out.m[2] = m.m[1] * f06 - m.m[2] * f07 + m.m[3] * f08;
-	out.m[6] = -(m.m[0] * f06 - m.m[2] * f09 + m.m[3] * f10);
-	out.m[10] = m.m[0] * f11 - m.m[1] * f09 + m.m[3] * f12;
-	out.m[14] = -(m.m[0] * f08 - m.m[1] * f10 + m.m[2] * f12);
-
-	out.m[3] = -(m.m[1] * f13 - m.m[2] * f14 + m.m[3] * f15);
-	out.m[7] = m.m[0] * f13 - m.m[2] * f16 + m.m[3] * f17;
-	out.m[11] = -(m.m[0] * f14 - m.m[1] * f16 + m.m[3] * f18);
-	out.m[15] = m.m[0] * f15 - m.m[1] * f17 + m.m[2] * f18;
-
-	float det =
-		m.m[0] * out.m[0] +
-		m.m[1] * out.m[4] +
-		m.m[2] * out.m[8] +
-		m.m[3] * out.m[12];
-
+// tikhonov regularization
+static d_mat4 d_mat4_invert_damped(d_mat4 mat) {
+	d_mat4 At = d_mat4_transpose(mat);
+	d_mat4 AtA = d_mat4_mult(At, mat);
 	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			out.m[i * 4 + j] *= (1.0 / det);
-		}
+		AtA.m[i * 4 + i] += DAMPING_FACTOR;
 	}
+	d_mat4 AtA_inv = d_mat4_invert(AtA);
+	return d_mat4_mult(AtA_inv, At);
+}
+
+d_mat4 d_mat4_invert(d_mat4 in) {
+
+	d_mat4 out = {0};
+	float* m = in.m;
+	float inv[16];
+	float det;
+	int i;
+
+	out.m[0] =
+		m[5]  * m[10] * m[15] -
+		m[5]  * m[11] * m[14] -
+		m[9]  * m[6]  * m[15] +
+		m[9]  * m[7]  * m[14] +
+		m[13] * m[6]  * m[11] -
+		m[13] * m[7]  * m[10];
+
+	out.m[4] =
+		-m[4] * m[10] * m[15] +
+		m[4]  * m[11] * m[14] +
+		m[8]  * m[6]  * m[15] -
+		m[8]  * m[7]  * m[14] -
+		m[12] * m[6]  * m[11] +
+		m[12] * m[7]  * m[10];
+
+	out.m[8] =
+		m[4]  * m[9]  * m[15] -
+		m[4]  * m[11] * m[13] -
+		m[8]  * m[5]  * m[15] +
+		m[8]  * m[7]  * m[13] +
+		m[12] * m[5]  * m[11] -
+		m[12] * m[7]  * m[9];
+
+	out.m[12] =
+		-m[4] * m[9]  * m[14] +
+		m[4]  * m[10] * m[13] +
+		m[8]  * m[5]  * m[14] -
+		m[8]  * m[6]  * m[13] -
+		m[12] * m[5]  * m[10] +
+		m[12] * m[6]  * m[9];
+
+	out.m[1] =
+		-m[1] * m[10] * m[15] +
+		m[1]  * m[11] * m[14] +
+		m[9]  * m[2]  * m[15] -
+		m[9]  * m[3]  * m[14] -
+		m[13] * m[2]  * m[11] +
+		m[13] * m[3]  * m[10];
+
+	out.m[5] =
+		m[0]  * m[10] * m[15] -
+		m[0]  * m[11] * m[14] -
+		m[8]  * m[2]  * m[15] +
+		m[8]  * m[3]  * m[14] +
+		m[12] * m[2]  * m[11] -
+		m[12] * m[3]  * m[10];
+
+	out.m[9] =
+		-m[0] * m[9]  * m[15] +
+		m[0]  * m[11] * m[13] +
+		m[8]  * m[1]  * m[15] -
+		m[8]  * m[3]  * m[13] -
+		m[12] * m[1]  * m[11] +
+		m[12] * m[3]  * m[9];
+
+	out.m[13] =
+		m[0]  * m[9]  * m[14] -
+		m[0]  * m[10] * m[13] -
+		m[8]  * m[1]  * m[14] +
+		m[8]  * m[2]  * m[13] +
+		m[12] * m[1]  * m[10] -
+		m[12] * m[2]  * m[9];
+
+	out.m[2] =
+		m[1]  * m[6] * m[15] -
+		m[1]  * m[7] * m[14] -
+		m[5]  * m[2] * m[15] +
+		m[5]  * m[3] * m[14] +
+		m[13] * m[2] * m[7] -
+		m[13] * m[3] * m[6];
+
+	out.m[6] =
+		-m[0] * m[6] * m[15] +
+		m[0]  * m[7] * m[14] +
+		m[4]  * m[2] * m[15] -
+		m[4]  * m[3] * m[14] -
+		m[12] * m[2] * m[7] +
+		m[12] * m[3] * m[6];
+
+	out.m[10] =
+		m[0]  * m[5] * m[15] -
+		m[0]  * m[7] * m[13] -
+		m[4]  * m[1] * m[15] +
+		m[4]  * m[3] * m[13] +
+		m[12] * m[1] * m[7] -
+		m[12] * m[3] * m[5];
+
+	out.m[14] =
+		-m[0] * m[5] * m[14] +
+		m[0]  * m[6] * m[13] +
+		m[4]  * m[1] * m[14] -
+		m[4]  * m[2] * m[13] -
+		m[12] * m[1] * m[6] +
+		m[12] * m[2] * m[5];
+
+	out.m[3] =
+		-m[1] * m[6] * m[11] +
+		m[1]  * m[7] * m[10] +
+		m[5]  * m[2] * m[11] -
+		m[5]  * m[3] * m[10] -
+		m[9]  * m[2] * m[7] +
+		m[9]  * m[3] * m[6];
+
+	out.m[7] =
+		m[0] * m[6] * m[11] -
+		m[0] * m[7] * m[10] -
+		m[4] * m[2] * m[11] +
+		m[4] * m[3] * m[10] +
+		m[8] * m[2] * m[7] -
+		m[8] * m[3] * m[6];
+
+	out.m[11] =
+		-m[0] * m[5] * m[11] +
+		m[0]  * m[7] * m[9] +
+		m[4]  * m[1] * m[11] -
+		m[4]  * m[3] * m[9] -
+		m[8]  * m[1] * m[7] +
+		m[8]  * m[3] * m[5];
+
+	out.m[15] =
+		m[0] * m[5] * m[10] -
+		m[0] * m[6] * m[9] -
+		m[4] * m[1] * m[10] +
+		m[4] * m[2] * m[9] +
+		m[8] * m[1] * m[6] -
+		m[8] * m[2] * m[5];
+
+	det = m[0] * out.m[0] + m[1] * out.m[4] + m[2] * out.m[8] + m[3] * out.m[12];
+
+	if (det == 0) {
+		return d_mat4_invert_damped(in);
+	}
+
+	det = 1.0 / det;
+
+	for (i = 0; i < 16; i++)
+		out.m[i] *= det;
 
 	return out;
 
+}
+
+d_mat4 d_mat4_transpose(d_mat4 mat) {
+	float* m = mat.m;
+	return (d_mat4) {
+		.m = {
+			m[0], m[4], m[8], m[12],
+			m[1], m[5], m[9], m[13],
+			m[2], m[6], m[10], m[14],
+			m[3], m[7], m[11], m[15],
+		},
+	};
+}
+
+d_mat4 d_mat4_translate(d_vec3 p) {
+	return (d_mat4) {
+		.m = {
+			1.0, 0.0, 0.0, p.x,
+			0.0, 1.0, 0.0, p.y,
+			0.0, 0.0, 1.0, p.z,
+			0.0, 0.0, 0.0, 1.0,
+		},
+	};
 }
 
 d_mat4 d_mat4_scale(d_vec3 s) {
@@ -717,44 +845,39 @@ d_mat4 d_mat4_scale(d_vec3 s) {
 	};
 }
 
-d_mat4 d_mat4_translate(d_vec3 p) {
-	return (d_mat4) {
-		.m = {
-			1.0, 0.0, 0.0, 0.0,
-			0.0, 1.0, 0.0, 0.0,
-			0.0, 0.0, 1.0, 0.0,
-			p.x, p.y, p.z, 1.0,
-		},
-	};
-}
-
 d_mat4 d_mat4_rot_x(float a) {
+	float s = sinf(a);
+	float c = cosf(a);
 	return (d_mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
-			0.0, cos(-a), -sin(-a), 0.0,
-			0.0, sin(-a), cos(-a), 0.0,
+			0.0, c, -s, 0.0,
+			0.0, s, c, 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},
 	};
 }
 
 d_mat4 d_mat4_rot_y(float a) {
+	float s = sinf(a);
+	float c = cosf(a);
 	return (d_mat4) {
 		.m = {
-			cos(-a), 0.0, -sin(-a), 0.0,
+			c, 0.0, s, 0.0,
 			0.0, 1.0, 0.0, 0.0,
-			sin(-a), 0.0, cos(-a), 0.0,
+			-s, 0.0, c, 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},
 	};
 }
 
 d_mat4 d_mat4_rot_z(float a) {
+	float s = sinf(a);
+	float c = cosf(a);
 	return (d_mat4) {
 		.m = {
-			cos(-a), -sin(-a), 0.0, 0.0,
-			sin(-a), cos(-a), 0.0, 0.0,
+			c, -s, 0.0, 0.0,
+			s, c, 0.0, 0.0,
 			0.0, 0.0, 1.0, 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},
@@ -762,20 +885,33 @@ d_mat4 d_mat4_rot_z(float a) {
 }
 
 d_mat4 d_mat4_rot_quat(d_quat q) {
-	return d_mat4_mult(
-		(d_mat4) {
-			q.w, q.z, -q.y, q.x,
-			-q.z, q.w, q.x, q.y,
-			q.y, -q.x, q.w, q.z,
-			-q.x, -q.y, -q.z, q.w
-		},
-		(d_mat4) {
-			q.w, q.z, -q.y, -q.x,
-			-q.z, q.w, q.x, -q.y,
-			q.y, -q.x, q.w, -q.z,
-			q.x, q.y, q.z, q.w
-		}
-	);
+	d_mat4 out = {0};
+	float xx = q.x * q.x;
+	float yy = q.y * q.y;
+	float zz = q.z * q.z;
+	float xy = q.x * q.y;
+	float xz = q.x * q.z;
+	float yz = q.y * q.z;
+	float wx = q.w * q.x;
+	float wy = q.w * q.y;
+	float wz = q.w * q.z;
+	out.m[0]  = 1.0f - 2.0f * (yy + zz);
+	out.m[1]  = 2.0f * (xy - wz);
+	out.m[2]  = 2.0f * (xz + wy);
+	out.m[3]  = 0.0f;
+	out.m[4]  = 2.0f * (xy + wz);
+	out.m[5]  = 1.0f - 2.0f * (xx + zz);
+	out.m[6]  = 2.0f * (yz - wx);
+	out.m[7]  = 0.0f;
+	out.m[8]  = 2.0f * (xz - wy);
+	out.m[9]  = 2.0f * (yz + wx);
+	out.m[10] = 1.0f - 2.0f * (xx + yy);
+	out.m[11] = 0.0f;
+	out.m[12] = 0.0f;
+	out.m[13] = 0.0f;
+	out.m[14] = 0.0f;
+	out.m[15] = 1.0f;
+	return out;
 }
 
 d_mat4 d_mat4_lerp(d_mat4 m1, d_mat4 m2, float t) {
