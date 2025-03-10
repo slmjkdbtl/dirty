@@ -8,13 +8,20 @@
 #include <float.h>
 
 #ifndef M_PI
-#define M_PI 3.14159265358979323846264338327950288
+#define M_PI 3.14159265358979323846
 #endif
 
 #define D_RNG_A 1103515245
 #define D_RNG_C 12345
 #define D_RNG_M 2147483648
 #define D_MAX_POLY_VERTS 8
+
+#define D_CLEAR ((d_color) { 0, 0, 0, 0 })
+#define D_WHITE ((d_color) { 255, 255, 255, 255 })
+#define D_BLACK ((d_color) { 0, 0, 0, 255 })
+#define D_RED   ((d_color) { 255, 0, 0, 255 })
+#define D_GREEN ((d_color) { 0, 255, 0, 255 })
+#define D_BLUE  ((d_color) { 0, 0, 255, 255 })
 
 typedef struct {
 	uint64_t seed;
@@ -37,13 +44,6 @@ typedef struct {
 	float z;
 	float w;
 } d_vec4;
-
-#define D_CLEAR ((d_color) { 0, 0, 0, 0 })
-#define D_WHITE ((d_color) { 255, 255, 255, 255 })
-#define D_BLACK ((d_color) { 0, 0, 0, 255 })
-#define D_RED   ((d_color) { 255, 0, 0, 255 })
-#define D_GREEN ((d_color) { 0, 255, 0, 255 })
-#define D_BLUE  ((d_color) { 0, 0, 255, 255 })
 
 typedef struct {
 	uint8_t r;
@@ -345,7 +345,7 @@ d_vec2 d_vec2_normal(d_vec2 p) {
 }
 
 float d_vec2_angle(d_vec2 p1, d_vec2 p2) {
-	return atan2(p1.y - p2.y, p1.x - p2.x);
+	return atan2f(p1.y - p2.y, p1.x - p2.x);
 }
 
 d_vec2 d_vec2_min(d_vec2 a, d_vec2 b) {
@@ -888,9 +888,9 @@ d_mat4 d_mat4_rot_z(float a) {
 }
 
 d_mat4 d_mat4_rot_quat(d_quat q) {
-	float x2 = q.x * q.x;
-	float y2 = q.y * q.y;
-	float z2 = q.z * q.z;
+	float xx = q.x * q.x;
+	float yy = q.y * q.y;
+	float zz = q.z * q.z;
 	float xy = q.x * q.y;
 	float xz = q.x * q.z;
 	float yz = q.y * q.z;
@@ -899,9 +899,9 @@ d_mat4 d_mat4_rot_quat(d_quat q) {
 	float wz = q.w * q.z;
 	return (d_mat4) {
 		.m = {
-			1.0f - 2.0f * (y2 + z2), 2.0f * (xy + wz), 2.0f * (xz - wy), 0.0f,
-			2.0f * (xy - wz), 1.0f - 2.0f * (x2 + z2), 2.0f * (yz + wx), 0.0f,
-			2.0f * (xz + wy), 2.0f * (yz - wx), 1.0f - 2.0f * (x2 + y2), 0.0f,
+			1.0f - 2.0f * (yy + zz), 2.0f * (xy + wz), 2.0f * (xz - wy), 0.0f,
+			2.0f * (xy - wz), 1.0f - 2.0f * (xx + zz), 2.0f * (yz + wx), 0.0f,
+			2.0f * (xz + wy), 2.0f * (yz - wx), 1.0f - 2.0f * (xx + yy), 0.0f,
 			0.0f, 0.0f, 0.0f, 1.0f
 		},
 	};
@@ -1243,7 +1243,7 @@ float d_rad2deg(float r) {
 }
 
 float d_deg2rad(float d) {
-	return d / (180.0 / M_PI);
+	return d * (M_PI / 180.0);
 }
 
 int d_maxi(int a, int b) {

@@ -98,7 +98,7 @@ float d_playback_time(d_playback* pb);
 
 #define D_SAMPLE_RATE 44100
 #define D_NUM_CHANNELS 1
-#define D_BUFFER_FRAMES 2048
+#define D_BUFFER_FRAMES 1024
 #define D_MAX_PLAYBACKS 1024
 
 typedef struct {

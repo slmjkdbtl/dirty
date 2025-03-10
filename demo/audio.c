@@ -11,6 +11,7 @@
 #include <d_gfx.h>
 #include <d_tween.h>
 #include <d_audio.h>
+#include <d_synth.h>
 #include <d_timer.h>
 
 #define WIDTH 480
@@ -32,8 +33,32 @@ static char* fmt(char *fmt, ...) {
 
 }
 
+int octave = 5;
+d_synth synth;
 d_sound music;
 d_playback* music_pb;
+
+int keynotes[] = {
+	D_KEY_A,
+	D_KEY_W,
+	D_KEY_S,
+	D_KEY_E,
+	D_KEY_D,
+	D_KEY_F,
+	D_KEY_T,
+	D_KEY_G,
+	D_KEY_Y,
+	D_KEY_H,
+	D_KEY_U,
+	D_KEY_J,
+	D_KEY_K,
+	D_KEY_O,
+	D_KEY_L,
+};
+
+float audio_stream(void) {
+	return d_synth_next(&synth);
+}
 
 void init(void) {
 
@@ -42,7 +67,11 @@ void init(void) {
 		.clear_color = rgb(0, 0, 0),
 	});
 
-	d_audio_init((d_audio_desc) {0});
+	d_audio_init((d_audio_desc) {
+		.stream = audio_stream,
+	});
+
+	synth = d_synth_new();
 
 	music = d_sound_load(d_res_path("res/cowpoke.ogg"));
 	music_pb = d_play_ex(&music, (d_play_opts) {
@@ -82,6 +111,27 @@ void frame(void) {
 
 	if (d_app_key_rpressed(D_KEY_UP)) {
 		music_pb->volume += 0.1;
+	}
+
+	if (d_app_key_pressed(D_KEY_Z)) {
+		octave = d_maxi(4, octave - 1);
+	}
+
+	if (d_app_key_pressed(D_KEY_X)) {
+		octave = d_mini(6, octave + 1);
+	}
+
+	for (int i = 0; i < 15; i++) {
+		int k = keynotes[i];
+		int note = octave * 12 + i;
+		if (d_app_key_pressed(k)) {
+			d_synth_play(&synth, note);
+		}
+		if (d_app_key_released(k)) {
+			for (int i = -2; i <= 2; i++) {
+				d_synth_release(&synth, note + i * 12);
+			}
+		}
 	}
 
 	d_gfx_clear();

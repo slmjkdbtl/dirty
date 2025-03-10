@@ -2,7 +2,6 @@
 #include <stb_image.h>
 
 #define D_IMPL
-#include <d_plat.h>
 #include <d_fs.h>
 #include <d_math.h>
 #include <d_app.h>
@@ -16,16 +15,15 @@ d_img img;
 d_vec2 pos;
 
 void init(void) {
-
 	d_gfx_init((d_gfx_desc) {
 		.scale = SCALE,
 	});
-
 	img = d_img_load(d_res_path("res/wizard.png"));
-
 }
 
 void frame(void) {
+
+	d_vec2 mpos = d_gfx_mouse_pos();
 
 	if (d_app_key_pressed(D_KEY_ESC)) {
 		d_app_quit();
@@ -40,14 +38,8 @@ void frame(void) {
 	}
 
 	d_gfx_clear();
-
-	d_vec2 mpos = d_gfx_mouse_pos();
-
 	d_blit_bg();
-
 	d_blit_img(&img, pos);
-	d_blit_circle(mpos, 3, d_colorx(0xffffffff));
-
 	d_gfx_present();
 
 }

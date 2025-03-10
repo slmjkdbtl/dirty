@@ -1,6 +1,8 @@
 #ifndef D_SYNTH_H
 #define D_SYNTH_H
 
+#include "d_gfx.h"
+#define D_SAMPLE_RATE 44100
 #define D_SYNTH_NOTES 128
 #define D_A4_FREQ 440
 #define D_A4_NOTE 69
@@ -9,8 +11,8 @@
 #include <stdbool.h>
 
 typedef struct {
-	float life;
-	float afterlife;
+	float time;
+	float time_after;
 	float volume;
 	bool active;
 	bool alive;
@@ -36,15 +38,11 @@ typedef struct {
 } d_synth;
 
 d_synth d_synth_new(void);
-float d_synth_next(void);
-void d_synth_play(int note);
-void d_synth_release(int note);
-d_envelope* d_synth_envelope(void);
-void d_synth_wav(float (*func)(float freq, float t));
-float d_synth_peek(int n);
-
-d_voice d_voice_new(void);
-void d_voice_process(d_voice* v, d_envelope* e, float dt);
+float d_synth_next(d_synth* synth);
+void d_synth_play(d_synth* synth, int note);
+void d_synth_release(d_synth* synth, int note);
+void d_synth_set_wav(d_synth* synth, float (*func)(float freq, float t));
+float d_synth_peek(d_synth* synth, int n);
 
 float d_wav_sin(float freq, float t);
 float d_wav_square(float freq, float t);
@@ -63,15 +61,15 @@ float d_wav_noise(float freq, float t);
 #define D_SYNTH_IMPL_ONCE
 
 #ifndef M_PI
-#define M_PI 3.14159265358979323846264338327950288
+#define M_PI 3.14159265358979323846
 #endif
 
 float d_note_freq(int n) {
-	return D_A4_FREQ * pow(powf(2.0, 1.0 / 12.0), n - D_A4_NOTE);
+	return D_A4_FREQ * powf(powf(2.0, 1.0 / 12.0), n - D_A4_NOTE);
 }
 
 float d_wav_sin(float freq, float t) {
-	return sin(freq * 2.0 * M_PI * t);
+	return sinf(freq * 2.0 * M_PI * t);
 }
 
 float d_wav_square(float freq, float t) {
@@ -79,15 +77,15 @@ float d_wav_square(float freq, float t) {
 }
 
 float d_wav_tri(float freq, float t) {
-	return asin(d_wav_sin(freq, t)) * 2.0 / M_PI;
+	return asinf(d_wav_sin(freq, t)) * 2.0 / M_PI;
 }
 
 float d_wav_saw(float freq, float t) {
-	return (2.0 / M_PI) * (freq * M_PI * fmod(t, 1.0 / freq) - M_PI / 2.0);
+	return (2.0 / M_PI) * (freq * M_PI * fmodf(t, 1.0 / freq) - M_PI / 2.0);
 }
 
 float d_wav_noise(float freq, float t) {
-	return d_randf(-1.0, 1.0);
+	return (float)rand() / (float)RAND_MAX * 2.0 - 1.0;
 }
 
 d_synth d_synth_new(void) {
@@ -98,41 +96,37 @@ d_synth d_synth_new(void) {
 		.sample_rate = D_SAMPLE_RATE,
 		.wav_func = d_wav_sin,
 		.envelope = (d_envelope) {
-			.attack = 0.05,
-			.decay = 0.05,
+			.attack = 0.01,
+			.decay = 0.0,
 			.sustain = 1.0,
-			.release = 0.5,
+			.release = 0.01,
 		},
 	};
 }
 
-d_voice d_voice_new(void) {
-	return (d_voice) {
+void d_synth_play(d_synth* synth, int note) {
+	if (note < 0 || note >= D_SYNTH_NOTES) {
+		fprintf(stderr, "note out of bound: '%d'\n", note);
+		return;
+	}
+	synth->notes[note] = (d_voice) {
 		.active = true,
-		.life = 0.0,
-		.afterlife = 0.0,
+		.time = 0.0,
+		.time_after = 0.0,
 		.volume = 0.0,
 		.alive = true,
 	};
 }
 
-void d_synth_play(int note) {
+void d_synth_release(d_synth* synth, int note) {
 	if (note < 0 || note >= D_SYNTH_NOTES) {
 		fprintf(stderr, "note out of bound: '%d'\n", note);
 		return;
 	}
-	d_audio.synth.notes[note] = d_voice_new();
+	synth->notes[note].active = false;
 }
 
-void d_synth_release(int note) {
-	if (note < 0 || note >= D_SYNTH_NOTES) {
-		fprintf(stderr, "note out of bound: '%d'\n", note);
-		return;
-	}
-	d_audio.synth.notes[note].active = false;
-}
-
-void d_voice_process(d_voice* v, d_envelope* e, float dt) {
+static void d_voice_process(d_voice* v, d_envelope* e, float dt) {
 
 	if (!v->alive) {
 		return;
@@ -144,15 +138,11 @@ void d_voice_process(d_voice* v, d_envelope* e, float dt) {
 	float r = e->release;
 
 	// attack
-	if (v->life <= a) {
-		if (a == 0.0) {
-			v->volume = 1.0;
-		} else {
-			v->volume = v->life / a;
-		}
-	} else if (v->life > a && v->life <= a + d) {
+	if (v->time <= a) {
+		v->volume = a == 0.0 ? 1.0 : v->time / a;
+	} else if (v->time > a && v->time <= a + d) {
 		// decay
-		v->volume = 1.0 - (v->life - a) / d * (1.0 - s);
+		v->volume = 1.0 - (v->time - a) / d * (1.0 - s);
 	} else {
 		// systain
 		if (v->active) {
@@ -162,7 +152,7 @@ void d_voice_process(d_voice* v, d_envelope* e, float dt) {
 			if (r == 0.0) {
 				v->volume = 0.0;
 			} else {
-				v->volume = s * (1.0 - (v->afterlife / r));
+				v->volume = s * (1.0 - (v->time_after / r));
 				if (v->volume <= 0.0) {
 					v->alive = false;
 				}
@@ -170,17 +160,16 @@ void d_voice_process(d_voice* v, d_envelope* e, float dt) {
 		}
 	}
 
-	v->life += dt;
+	v->time += dt;
 
 	if (!v->active) {
-		v->afterlife += dt;
+		v->time_after += dt;
 	}
 
 }
 
-float d_synth_next(void) {
+float d_synth_next(d_synth* synth) {
 
-	d_synth* synth = &d_audio.synth;
 	float frame = 0.0;
 	float dt = 1.0 / (float)synth->sample_rate;
 
@@ -214,8 +203,7 @@ float d_synth_next(void) {
 
 }
 
-float d_synth_peek(int n) {
-	d_synth* synth = &d_audio.synth;
+float d_synth_peek(d_synth* synth, int n) {
 	if (synth->buf_size == 0) {
 		return 0.0;
 	}
@@ -226,12 +214,8 @@ float d_synth_peek(int n) {
 	return synth->buf[idx];
 }
 
-d_envelope* d_synth_envelope(void) {
-	return &d_audio.synth.envelope;
-}
-
-void d_synth_wav(float (*func)(float freq, float t)) {
-	d_audio.synth.wav_func = func;
+void d_synth_set_wav(d_synth* synth, float (*func)(float freq, float t)) {
+	synth->wav_func = func;
 }
 
 #endif

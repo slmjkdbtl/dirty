@@ -363,13 +363,16 @@ typedef struct {
 	d_btn_state key_states[_D_NUM_KEYS];
 	d_btn_state mouse_states[_D_NUM_MOUSE];
 	d_touch_state touches[D_MAX_TOUCHES];
+	char char_input;
 	int num_touches;
 	bool has_focus;
 	bool resized;
-	char char_input;
+	bool mouse_hidden;
+	bool mouse_locked;
 	float fps_timer;
 	int fps;
 	bool quit;
+	char* title;
 	d_scale_mode scale_mode;
 
 #if defined(D_COCOA)
@@ -871,6 +874,17 @@ static void d_cocoa_present(int w, int h, d_color* buf) {
 
 }
 
+static void d_cocoa_update_mpos(void) {
+	NSPoint mpos = [d_app.window mouseLocationOutsideOfEventStream];
+	d_app.mouse_pos = (d_vec2) { mpos.x, d_app.height - mpos.y };
+}
+
+static bool d_cocoa_is_mouse_inside(void) {
+	NSPoint mpos = [d_app.window mouseLocationOutsideOfEventStream];
+	NSRect win_frame = [d_app.view frame];
+	return NSPointInRect(mpos, win_frame);
+}
+
 @implementation DAppDelegate
 - (void)applicationDidFinishLaunching:(NSNotification*)noti {
 
@@ -945,6 +959,7 @@ static void d_cocoa_present(int w, int h, d_color* buf) {
 		d_app_set_fullscreen(true);
 	}
 
+	d_cocoa_update_mpos();
 	d_app_init();
 
 	[NSTimer
@@ -974,7 +989,6 @@ static void d_cocoa_present(int w, int h, d_color* buf) {
 @end
 
 @implementation DView
-CVDisplayLinkRef displayLink;
 - (BOOL)canBecomeKeyView {
 	return YES;
 }
@@ -999,6 +1013,13 @@ CVDisplayLinkRef displayLink;
 - (void)mouseUp:(NSEvent*)event {
 	d_app.mouse_states[D_MOUSE_LEFT] = D_BTN_RELEASED;
 }
+- (void)mouseMoved:(NSEvent*)event {
+	d_cocoa_update_mpos();
+	d_app.mouse_dpos = (d_vec2) { event.deltaX, event.deltaY };
+}
+- (void)mouseDragged:(NSEvent*)event {
+	[self mouseMoved:event];
+}
 - (void)rightMouseDown:(NSEvent*)event {
 	d_app.mouse_states[D_MOUSE_RIGHT] = D_BTN_PRESSED;
 }
@@ -1008,39 +1029,40 @@ CVDisplayLinkRef displayLink;
 - (void)scrollWheel:(NSEvent*)event {
 	d_app.wheel = d_vec2f(event.scrollingDeltaX, event.scrollingDeltaY);
 }
+- (void)updateTrackingAreas {
+	[super updateTrackingAreas];
+    const NSTrackingAreaOptions opts =
+		NSTrackingMouseEnteredAndExited |
+		NSTrackingActiveInKeyWindow |
+		NSTrackingEnabledDuringMouseDrag |
+		NSTrackingCursorUpdate |
+		NSTrackingInVisibleRect |
+		NSTrackingAssumeInside;
+	NSTrackingArea* area = [[NSTrackingArea alloc]
+		initWithRect:[self bounds]
+		options:opts
+		owner:self
+		userInfo:nil
+	];
+	[self addTrackingArea:area];
+}
+- (void)mouseEntered:(NSEvent*)event {
+	if (d_app.mouse_hidden) {
+		[NSCursor hide];
+	}
+}
+- (void)mouseExited:(NSEvent*)event {
+	if (d_app.mouse_hidden) {
+		[NSCursor unhide];
+	}
+}
 - (void)drawRect:(NSRect)rect {
-
-	NSPoint ompos = [d_app.window mouseLocationOutsideOfEventStream];
-	d_vec2 mpos = d_vec2f(
-		ompos.x,
-		d_app.height - ompos.y
-	);
-	d_app.mouse_dpos = d_vec2_sub(mpos, d_app.mouse_pos);
-	d_app.mouse_pos = mpos;
-
 	d_app_frame();
-
 	if (d_app.quit) {
 		[NSApp terminate:nil];
 	}
-
 }
 @end
-
-static CVReturn displayLinkCallback(
-	CVDisplayLinkRef display_link,
-	const CVTimeStamp* now,
-	const CVTimeStamp* output_time,
-	CVOptionFlags flags_in,
-	CVOptionFlags* flags_out,
-	void* display_link_ctx
-) {
-	DView* view = (__bridge DView*)display_link_ctx;
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[d_app.view setNeedsDisplay:YES];
-	});
-	return kCVReturnSuccess;
-}
 
 static void d_cocoa_run(d_app_desc* desc) {
 	[NSApplication sharedApplication];
@@ -2263,20 +2285,38 @@ bool d_app_is_fullscreen(void) {
 
 // TODO
 void d_app_set_mouse_locked(bool b) {
+	d_app.mouse_locked = b;
+	if (d_app.mouse_locked == b) return;
+#if defined(D_COCOA)
+	if (b) {
+		CGAssociateMouseAndMouseCursorPosition(false);
+	} else {
+		CGAssociateMouseAndMouseCursorPosition(true);
+	}
+#endif
 }
 
-// TODO
 bool d_app_is_mouse_locked(void) {
-	return false;
+	return d_app.mouse_locked;
 }
 
 // TODO
 void d_app_set_mouse_hidden(bool b) {
+	d_app.mouse_hidden = b;
+	if (d_app.mouse_hidden == b) return;
+#if defined(D_COCOA)
+	if (d_cocoa_is_mouse_inside()) {
+		if (b) {
+			[NSCursor hide];
+		} else {
+			[NSCursor unhide];
+		}
+	}
+#endif
 }
 
-// TODO
 bool d_app_is_mouse_hidden(void) {
-	return false;
+	return d_app.mouse_hidden;
 }
 
 void d_app_set_title(char* title) {
