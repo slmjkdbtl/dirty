@@ -13,7 +13,7 @@
 #define HEIGHT 240
 #define SCALE 2
 #define SPEED 100.0f
-#define ROT_SPEED 2.0f
+#define ROT_SPEED 120.0f
 
 d_t2 player_t = (d_t2) {
 	.pos = (d_vec2) { 30, 30 },

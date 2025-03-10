@@ -24,6 +24,7 @@
 #define SCALE 1
 #define NUM_FISH 200
 #define MAX_SQUEEZE_INTERVAL 40
+#define SQUEEZE_INTENSITY 4
 
 typedef struct {
 	bool is_pink;
@@ -53,7 +54,7 @@ fish_t fish_new(d_vec2 pos, bool is_pink) {
 		.t = (d_t2) {
 			.pos = pos,
 			.scale = v2(1, 1),
-			.rot = r(0, M_PI * 2),
+			.rot = r(0, 360),
 			.origin = d_vec2_scale(v2(fish_img.width, fish_img.height), 0.5),
 		},
 		.squeeze_timer = d_timer_new(r(0, MAX_SQUEEZE_INTERVAL), false),
@@ -69,7 +70,7 @@ void fish_squeeze(fish_t* f) {
 		.volume = r(0.5, 1.0),
 	});
 	float orig_rot = f->t.rot;
-	f->t.rot += r(0, 1) > 0.5 ? 0.1 : -0.1;
+	f->t.rot += r(0, 1) > 0.5 ? -SQUEEZE_INTENSITY : SQUEEZE_INTENSITY;
 	f->squeeze_tween = d_tween_new(
 		f->t.rot,
 		orig_rot,
@@ -94,7 +95,7 @@ void fish_update(fish_t* f) {
 		}
 	}
 	if (f->is_grabbing) {
-		f->t.rot += r(-0.1, 0.1);
+		f->t.rot += r(-3, 3);
 	}
 }
 

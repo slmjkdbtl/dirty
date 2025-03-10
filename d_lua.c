@@ -696,7 +696,7 @@ static int l_gfx_mouse_dpos(lua_State* L) {
 static int l_gfx_blit_pixel(lua_State* L) {
 	int x = luaL_checknumber(L, 1);
 	int y = luaL_checknumber(L, 2);
-	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 3, "color", &D_WHITE);
 	d_blit_pixel(x, y, *c);
 	return 0;
 }
@@ -704,7 +704,7 @@ static int l_gfx_blit_pixel(lua_State* L) {
 static int l_gfx_blit_text(lua_State* L) {
 	const char* str = luaL_checkstring(L, 1);
 	d_vec2* pos = luaL_optudata(L, 2, "vec2", &(d_vec2) { 0, 0 });
-	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 3, "color", &D_WHITE);
 	bool bold = luaL_optboolean(L, 4, false);
 	bool italic = luaL_optboolean(L, 5, false);
 	d_blit_text(str, *pos, *c, bold, italic);
@@ -714,7 +714,7 @@ static int l_gfx_blit_text(lua_State* L) {
 static int l_gfx_blit_line(lua_State* L) {
 	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
-	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 3, "color", &D_WHITE);
 	d_blit_line(*p1, *p2, *c);
 	return 0;
 }
@@ -722,7 +722,7 @@ static int l_gfx_blit_line(lua_State* L) {
 static int l_gfx_blit_rect(lua_State* L) {
 	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
-	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 3, "color", &D_WHITE);
 	d_blit_rect(*p1, *p2, *c);
 	return 0;
 }
@@ -730,7 +730,7 @@ static int l_gfx_blit_rect(lua_State* L) {
 static int l_gfx_blit_circle(lua_State* L) {
 	d_vec2* center = luaL_checkudata(L, 1, "vec2");
 	float radius = luaL_checknumber(L, 2);
-	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 3, "color", &D_WHITE);
 	d_blit_circle(*center, radius, *c);
 	return 0;
 }
@@ -739,7 +739,7 @@ static int l_gfx_blit_tri(lua_State* L) {
 	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
 	d_vec2* p3 = luaL_checkudata(L, 3, "vec2");
-	d_color* c = luaL_optudata(L, 4, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 4, "color", &D_WHITE);
 	d_blit_tri(*p1, *p2, *p3, *c);
 	return 0;
 }
@@ -766,7 +766,7 @@ static d_poly l_get_poly(lua_State* L, int pos) {
 
 static int l_gfx_blit_poly(lua_State* L) {
 	d_poly poly = l_get_poly(L, 1);
-	d_color* c = luaL_optudata(L, 2, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 2, "color", &D_WHITE);
 	d_blit_poly(poly, *c);
 	return 0;
 }
@@ -782,7 +782,7 @@ static int l_gfx_draw_pixel(lua_State* L) {
 	int x = luaL_checknumber(L, 1);
 	int y = luaL_checknumber(L, 2);
 	int z = luaL_checknumber(L, 3);
-	d_color* c = luaL_optudata(L, 4, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 4, "color", &D_WHITE);
 	d_draw_pixel(x, y, z, *c);
 	return 0;
 }
@@ -790,7 +790,7 @@ static int l_gfx_draw_pixel(lua_State* L) {
 static int l_gfx_draw_line(lua_State* L) {
 	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
-	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 3, "color", &D_WHITE);
 	d_draw_line(*p1, *p2, *c);
 	return 0;
 }
@@ -798,14 +798,14 @@ static int l_gfx_draw_line(lua_State* L) {
 static int l_gfx_draw_rect(lua_State* L) {
 	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
-	d_color* c = luaL_optudata(L, 3, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 3, "color", &D_WHITE);
 	d_draw_rect(*p1, *p2, *c);
 	return 0;
 }
 
 static int l_gfx_draw_circle(lua_State* L) {
 	float radius = luaL_checknumber(L, 1);
-	d_color* c = luaL_optudata(L, 2, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 2, "color", &D_WHITE);
 	d_draw_circle(radius, *c);
 	return 0;
 }
@@ -814,21 +814,22 @@ static int l_gfx_draw_tri(lua_State* L) {
 	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
 	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
 	d_vec2* p3 = luaL_checkudata(L, 3, "vec2");
-	d_color* c = luaL_optudata(L, 4, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 4, "color", &D_WHITE);
 	d_draw_tri(*p1, *p2, *p3, *c);
 	return 0;
 }
 
 static int l_gfx_draw_poly(lua_State* L) {
 	d_poly poly = l_get_poly(L, 1);
-	d_color* c = luaL_optudata(L, 2, "color", &(d_color) { 255, 255, 255, 255 });
+	d_color* c = luaL_optudata(L, 2, "color", &D_WHITE);
 	d_draw_poly(poly, *c);
 	return 0;
 }
 
 static int l_gfx_draw_img(lua_State* L) {
 	d_img* img = luaL_checkudata(L, 1, "img");
-	d_draw_img(img);
+	d_color* c = luaL_optudata(L, 2, "color", &D_WHITE);
+	d_draw_img(img, *c);
 	return 0;
 }
 

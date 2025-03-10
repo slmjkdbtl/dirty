@@ -38,12 +38,12 @@ typedef struct {
 	float w;
 } d_vec4;
 
-#define D_CLEAR (d_color) { 0, 0, 0, 0 }
-#define D_WHITE (d_color) { 255, 255, 255, 255 }
-#define D_BLACK (d_color) { 0, 0, 0, 255 }
-#define D_RED   (d_color) { 255, 0, 0, 255 }
-#define D_GREEN (d_color) { 0, 255, 0, 255 }
-#define D_BLUE  (d_color) { 0, 0, 255, 255 }
+#define D_CLEAR ((d_color) { 0, 0, 0, 0 })
+#define D_WHITE ((d_color) { 255, 255, 255, 255 })
+#define D_BLACK ((d_color) { 0, 0, 0, 255 })
+#define D_RED   ((d_color) { 255, 0, 0, 255 })
+#define D_GREEN ((d_color) { 0, 255, 0, 255 })
+#define D_BLUE  ((d_color) { 0, 0, 255, 255 })
 
 typedef struct {
 	uint8_t r;
@@ -286,7 +286,7 @@ d_vec2 d_vec2f(float x, float y) {
 }
 
 d_vec2 d_vec2u(void) {
-	return d_vec2f(0.0, 0.0);
+	return (d_vec2) { 0.0, 0.0 };
 }
 
 d_vec2 d_vec2_add(d_vec2 p1, d_vec2 p2) {
@@ -325,7 +325,7 @@ float d_vec2_dist(d_vec2 p1, d_vec2 p2) {
 }
 
 float d_vec2_len(d_vec2 p) {
-	return d_vec2_dist(p, d_vec2f(0.0, 0.0));
+	return d_vec2_dist(p, (d_vec2) { 0.0, 0.0 });
 }
 
 d_vec2 d_vec2_unit(d_vec2 p) {
@@ -341,7 +341,7 @@ float d_vec2_dot(d_vec2 p1, d_vec2 p2) {
 }
 
 d_vec2 d_vec2_normal(d_vec2 p) {
-	return d_vec2f(p.y, -p.x);
+	return (d_vec2) { p.y, -p.x };
 }
 
 float d_vec2_angle(d_vec2 p1, d_vec2 p2) {
@@ -402,7 +402,7 @@ d_vec3 d_vec3f(float x, float y, float z) {
 }
 
 d_vec3 d_vec3u(void) {
-	return d_vec3f(0.0, 0.0, 0.0);
+	return (d_vec3) { 0.0, 0.0, 0.0 };
 }
 
 d_vec3 d_vec3_add(d_vec3 p1, d_vec3 p2) {
@@ -525,7 +525,7 @@ d_vec4 d_vec4f(float x, float y, float z, float w) {
 }
 
 d_vec4 d_vec4u(void) {
-	return d_vec4f(0.0, 0.0, 0.0, 1.0);
+	return (d_vec4) { 0.0, 0.0, 0.0, 1.0 };
 }
 
 d_color d_colori(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
@@ -614,15 +614,15 @@ d_mat4 d_mat4_identity(void) {
 	};
 }
 
-d_mat4 d_mat4_mult(d_mat4 m1, d_mat4 m2) {
+d_mat4 d_mat4_mult(d_mat4 a, d_mat4 b) {
 	d_mat4 out = {0};
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			out.m[i * 4 + j] =
-				m1.m[i * 4 + 0] * m2.m[0 * 4 + j] +
-				m1.m[i * 4 + 1] * m2.m[1 * 4 + j] +
-				m1.m[i * 4 + 2] * m2.m[2 * 4 + j] +
-				m1.m[i * 4 + 3] * m2.m[3 * 4 + j];
+				a.m[0 * 4 + j] * b.m[i * 4 + 0] +
+				a.m[1 * 4 + j] * b.m[i * 4 + 1] +
+				a.m[2 * 4 + j] * b.m[i * 4 + 2] +
+				a.m[3 * 4 + j] * b.m[i * 4 + 3];
 		}
 	}
 	return out;
@@ -630,10 +630,10 @@ d_mat4 d_mat4_mult(d_mat4 m1, d_mat4 m2) {
 
 d_vec4 d_mat4_mult_vec4(d_mat4 m, d_vec4 p) {
 	return (d_vec4) {
-		.x = p.x * m.m[0] + p.y * m.m[1] + p.z * m.m[2] + p.w * m.m[3],
-		.y = p.x * m.m[4] + p.y * m.m[5] + p.z * m.m[6] + p.w * m.m[7],
-		.z = p.x * m.m[8] + p.y * m.m[9] + p.z * m.m[10] + p.w * m.m[11],
-		.w = p.x * m.m[12] + p.y * m.m[13] + p.z * m.m[14] + p.w * m.m[15]
+		.x = p.x * m.m[0] + p.y * m.m[4] + p.z * m.m[8] + p.w * m.m[12],
+		.y = p.x * m.m[1] + p.y * m.m[5] + p.z * m.m[9] + p.w * m.m[13],
+		.z = p.x * m.m[2] + p.y * m.m[6] + p.z * m.m[10] + p.w * m.m[14],
+		.w = p.x * m.m[3] + p.y * m.m[7] + p.z * m.m[11] + p.w * m.m[15]
 	};
 }
 
@@ -826,10 +826,10 @@ d_mat4 d_mat4_transpose(d_mat4 mat) {
 d_mat4 d_mat4_translate(d_vec3 p) {
 	return (d_mat4) {
 		.m = {
-			1.0, 0.0, 0.0, p.x,
-			0.0, 1.0, 0.0, p.y,
-			0.0, 0.0, 1.0, p.z,
-			0.0, 0.0, 0.0, 1.0,
+			1.0, 0.0, 0.0, 0.0,
+			0.0, 1.0, 0.0, 0.0,
+			0.0, 0.0, 1.0, 0.0,
+			p.x, p.y, p.z, 1.0,
 		},
 	};
 }
@@ -846,38 +846,41 @@ d_mat4 d_mat4_scale(d_vec3 s) {
 }
 
 d_mat4 d_mat4_rot_x(float a) {
+	a = d_deg2rad(a);
 	float s = sinf(a);
 	float c = cosf(a);
 	return (d_mat4) {
 		.m = {
 			1.0, 0.0, 0.0, 0.0,
-			0.0, c, -s, 0.0,
-			0.0, s, c, 0.0,
+			0.0, c, s, 0.0,
+			0.0, -s, c, 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},
 	};
 }
 
 d_mat4 d_mat4_rot_y(float a) {
+	a = d_deg2rad(a);
 	float s = sinf(a);
 	float c = cosf(a);
 	return (d_mat4) {
 		.m = {
-			c, 0.0, s, 0.0,
+			c, 0.0, -s, 0.0,
 			0.0, 1.0, 0.0, 0.0,
-			-s, 0.0, c, 0.0,
+			s, 0.0, c, 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},
 	};
 }
 
 d_mat4 d_mat4_rot_z(float a) {
+	a = d_deg2rad(a);
 	float s = sinf(a);
 	float c = cosf(a);
 	return (d_mat4) {
 		.m = {
-			c, -s, 0.0, 0.0,
-			s, c, 0.0, 0.0,
+			c, s, 0.0, 0.0,
+			-s, c, 0.0, 0.0,
 			0.0, 0.0, 1.0, 0.0,
 			0.0, 0.0, 0.0, 1.0,
 		},
@@ -885,33 +888,23 @@ d_mat4 d_mat4_rot_z(float a) {
 }
 
 d_mat4 d_mat4_rot_quat(d_quat q) {
-	d_mat4 out = {0};
-	float xx = q.x * q.x;
-	float yy = q.y * q.y;
-	float zz = q.z * q.z;
+	float x2 = q.x * q.x;
+	float y2 = q.y * q.y;
+	float z2 = q.z * q.z;
 	float xy = q.x * q.y;
 	float xz = q.x * q.z;
 	float yz = q.y * q.z;
 	float wx = q.w * q.x;
 	float wy = q.w * q.y;
 	float wz = q.w * q.z;
-	out.m[0]  = 1.0f - 2.0f * (yy + zz);
-	out.m[1]  = 2.0f * (xy - wz);
-	out.m[2]  = 2.0f * (xz + wy);
-	out.m[3]  = 0.0f;
-	out.m[4]  = 2.0f * (xy + wz);
-	out.m[5]  = 1.0f - 2.0f * (xx + zz);
-	out.m[6]  = 2.0f * (yz - wx);
-	out.m[7]  = 0.0f;
-	out.m[8]  = 2.0f * (xz - wy);
-	out.m[9]  = 2.0f * (yz + wx);
-	out.m[10] = 1.0f - 2.0f * (xx + yy);
-	out.m[11] = 0.0f;
-	out.m[12] = 0.0f;
-	out.m[13] = 0.0f;
-	out.m[14] = 0.0f;
-	out.m[15] = 1.0f;
-	return out;
+	return (d_mat4) {
+		.m = {
+			1.0f - 2.0f * (y2 + z2), 2.0f * (xy + wz), 2.0f * (xz - wy), 0.0f,
+			2.0f * (xy - wz), 1.0f - 2.0f * (x2 + z2), 2.0f * (yz + wx), 0.0f,
+			2.0f * (xz + wy), 2.0f * (yz - wx), 1.0f - 2.0f * (x2 + y2), 0.0f,
+			0.0f, 0.0f, 0.0f, 1.0f
+		},
+	};
 }
 
 d_mat4 d_mat4_lerp(d_mat4 m1, d_mat4 m2, float t) {
@@ -944,23 +937,20 @@ d_mat4 d_mat4_ortho(float w, float h, float near, float far) {
 }
 
 d_mat4 d_mat4_persp(float fov, float aspect, float near, float far) {
-
-	float f = 1.0 / tan(fov / 2.0);
-
+	float f = 1.0 / tanf(d_deg2rad(fov) / 2.0);
 	return (d_mat4) {
 		.m = {
-			-f / aspect, 0.0, 0.0, 0.0,
-			0.0, f, 0.0, 0.0,
-			0.0, 0.0, (far + near) / (far - near), 1.0,
-			0.0, 0.0, -(2.0 * far * near) / (far - near), 0.0,
+			-f / aspect, 0.0, 0.0,                                0.0,
+			0.0,         f,   0.0,                                0.0,
+			0.0,         0.0, (far + near) / (far - near),        1.0,
+			0.0,         0.0, -(2.0 * far * near) / (far - near), 0.0,
 		}
 	};
-
 }
 
-d_mat4 d_mat4_view(d_vec3 pos, d_vec3 dir, d_vec3 up) {
+d_mat4 d_mat4_lookat(d_vec3 eye, d_vec3 center, d_vec3 up) {
 
-	d_vec3 z = d_vec3_unit(dir);
+	d_vec3 z = d_vec3_unit(d_vec3_sub(center, eye));
 	d_vec3 x = d_vec3_unit(d_vec3_cross(up, z));
 	d_vec3 y = d_vec3_cross(z, x);
 
@@ -969,7 +959,7 @@ d_mat4 d_mat4_view(d_vec3 pos, d_vec3 dir, d_vec3 up) {
 			x.x, y.x, z.x, 0.0,
 			x.y, y.y, z.y, 0.0,
 			x.z, y.z, z.z, 0.0,
-			-d_vec3_dot(x, pos), -d_vec3_dot(y, pos), -d_vec3_dot(z, pos), 1.0,
+			-d_vec3_dot(x, eye), -d_vec3_dot(y, eye), -d_vec3_dot(z, eye), 1.0,
 		},
 	};
 
@@ -1209,7 +1199,7 @@ bool d_col_poly_poly(d_poly p1, d_poly p2) {
 
 bool d_col_sat(d_poly p1, d_poly p2, d_vec2* dis_out) {
 	float overlap = FLT_MAX;
-	d_vec2 dis = d_vec2f(0, 0);
+	d_vec2 dis = { 0, 0 };
 	d_poly polys[2] = { p1, p2 };
 	for (int i = 0; i < 2; i++) {
 		d_poly p = polys[i];
@@ -1233,7 +1223,7 @@ bool d_col_sat(d_poly p1, d_poly p2, d_vec2* dis_out) {
 			}
 			float o = fminf(max1, max2) - fmaxf(min1, min2);
 			if (o < 0) {
-				if (dis_out) *dis_out = d_vec2f(0, 0);
+				if (dis_out) *dis_out = (d_vec2) { 0, 0 };
 				return false;
 			}
 			if (o < fabsf(overlap)) {

@@ -10,8 +10,8 @@
 #include <d_app.h>
 #include <d_gfx.h>
 
-#define WIDTH 64
-#define HEIGHT 64
+#define WIDTH 640
+#define HEIGHT 640
 #define SCALE 10
 
 d_img canvas;
@@ -19,8 +19,7 @@ d_img canvas;
 void init(void) {
 
 	d_gfx_init((d_gfx_desc) {
-		.width = WIDTH,
-		.height = HEIGHT,
+		.scale = SCALE,
 		.clear_color = d_colori(0, 0, 0, 255),
 	});
 

@@ -835,8 +835,8 @@ void d_blit_img(d_img* img, d_vec2 pos) {
 }
 
 void d_blit_bg(void) {
-	d_color c1 = d_colori(128, 128, 128, 255);
-	d_color c2 = d_colori(191, 191, 191, 255);
+	d_color c1 = { 128, 128, 128, 255 };
+	d_color c2 = { 191, 191, 191, 255 };
 	int s = 32;
 	for (int x = 0; x < d_gfx_width(); x++) {
 		for (int y = 0; y < d_gfx_height(); y++) {
@@ -1226,9 +1226,7 @@ void d_draw_line(d_vec2 p1, d_vec2 p2, d_color c) {
 }
 
 void d_draw_line3(d_vec3 p1, d_vec3 p2, d_color c) {
-	p1 = d_transform_apply_vec3(p1);
-	p2 = d_transform_apply_vec3(p2);
-	d_blit_line((d_vec2){ p1.x, p1.y }, (d_vec2) { p2.x, p2.y }, c);
+	d_draw_line((d_vec2){ p1.x, p1.y }, (d_vec2) { p2.x, p2.y }, c);
 }
 
 // TODO

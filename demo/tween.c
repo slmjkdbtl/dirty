@@ -4,6 +4,7 @@
 #include <cgltf.h>
 
 #define D_IMPL
+#define D_SHORTCUT
 #include <d_plat.h>
 #include <d_math.h>
 #include <d_fs.h>
@@ -18,7 +19,6 @@
 d_tweener tweener;
 d_model btfly;
 d_vec2 pos;
-d_vec2 rot;
 bool show_bbox;
 
 void init(void) {
@@ -27,10 +27,10 @@ void init(void) {
 		.scale = SCALE,
 		.depth_test = true,
 		.backface_cull = true,
-		.clear_color = d_colorx(0x00000000),
+		// .clear_color = d_colorx(0x000000ff),
 	});
 
-	pos = d_vec2f(d_gfx_width() / 2.0, d_gfx_height() / 2.0);
+	pos = v2(d_gfx_width() / 2.0, d_gfx_height() / 2.0);
 	btfly = d_model_load(d_res_path("res/btfly.glb"));
 	tweener = d_tweener_new(128);
 
@@ -55,25 +55,19 @@ void frame(void) {
 		d_tweener_add_vec2(&tweener, pos, mpos, 1, &pos, d_ease_out_elastic);
 	}
 
-	if (d_app_mouse_down(D_MOUSE_LEFT)) {
-		d_vec2 mdpos = d_gfx_mouse_dpos();
-		rot.x -= mdpos.y / 100;
-		rot.y -= mdpos.x / 100;
-	}
-
 	float dt = d_app_dt();
 	d_vec2 mpos = d_gfx_mouse_pos();
 
 	d_tweener_update(&tweener, dt);
 
 	d_gfx_clear();
-	// d_blit_bg();
+	d_blit_bg();
 
 	d_transform_push();
-	d_transform_pos3((d_vec3) { pos.x, pos.y, 0 });
-	d_transform_rot_x(-mpos.y / d_gfx_height() + 0.5);
-	d_transform_rot_y(-mpos.x / d_gfx_width() + 0.5);
-	d_transform_scale3((d_vec3) { 2, -2, 2 });
+	d_transform_pos3(v3(pos.x, pos.y, 0));
+	d_transform_rot_x((-mpos.y / d_gfx_height() + 0.5) * 100);
+	d_transform_rot_y((mpos.x / d_gfx_width() - 0.5) * 100);
+	d_transform_scale3(v3(2, -2, 2));
 	d_transform_pos3(d_vec3_scale(btfly.center, -1));
 	d_draw_model(&btfly);
 
