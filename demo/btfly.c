@@ -61,8 +61,8 @@ void frame(void) {
 
 	d_transform_push();
 	d_transform_pos3(d_vec3f(d_gfx_width() / 2.0, d_gfx_height() / 2.0, 0));
-	d_transform_rot_y(d_app_time());
-	d_transform_rot_z(d_app_time() * -0.5);
+	d_transform_rot_y(d_app_time() * 50);
+	d_transform_rot_z(d_app_time() * -20);
 	d_transform_scale3(d_vec3f(4, -4, 4));
 	d_transform_pos3(d_vec3_scale(btfly.center, -1));
 	d_draw_model(&btfly);

@@ -14,7 +14,6 @@ typedef struct d_gfx_desc {
 	int scale;
 	bool depth_test;
 	bool backface_cull;
-	bool anti_alias;
 	d_color clear_color;
 } d_gfx_desc;
 
@@ -138,6 +137,12 @@ typedef struct {
 	float rot;
 } d_t2;
 
+typedef struct {
+	d_vec2 center;
+	float scale;
+	float rot;
+} d_cam;
+
 typedef d_color(*d_shader)(d_color);
 
 void d_gfx_init(d_gfx_desc);
@@ -218,7 +223,7 @@ void d_blit_poly(d_poly p, d_color c);
 void d_draw_pixel(int x, int y, int z, d_color c);
 void d_draw_prim_tri(d_vertex v1, d_vertex v2, d_vertex v3, d_img* tex);
 void d_draw_prim_quad(d_vertex v1, d_vertex v2, d_vertex v3, d_vertex v4, d_img* tex);
-void d_draw_img(d_img* img, d_color c);
+void d_draw_img(d_img* img);
 void d_draw_tri(d_vec2 p1, d_vec2 p2, d_vec2 p3, d_color c);
 void d_draw_rect(d_vec2 p1, d_vec2 p2, d_color c);
 void d_draw_rect_outline(d_vec2 p1, d_vec2 p2, d_color c);
@@ -257,6 +262,9 @@ void d_gfx_bbuf_clear(void);
 
 void d_t2_apply(d_t2);
 d_mat4 d_t2_get_mat4(d_t2 t);
+
+d_mat4 d_cam_mat4(d_cam* cam);
+void d_cam_apply(d_cam* cam);
 
 #endif // #ifndef D_GFX_H
 
@@ -384,11 +392,11 @@ typedef struct {
 	d_bbuf bbuf;
 	bool depth_test;
 	bool backface_cull;
-	bool anti_alias;
 	bool bbuf_write;
 	bool bbuf_test;
 	d_font def_font;
 	d_font* cur_font;
+	d_shader shader;
 	d_color clear_color;
 	d_blend blend;
 	d_wrap wrap;
@@ -417,7 +425,6 @@ void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.bbuf = d_bbuf_new(width, height);
 	d_gfx.depth_test = desc.depth_test;
 	d_gfx.backface_cull = desc.backface_cull;
-	d_gfx.anti_alias = desc.anti_alias;
 	d_gfx.bbuf_write = false;
 	d_gfx.bbuf_test = false;
 	d_gfx.def_font = d_font_parse(proggy_bytes);
@@ -712,6 +719,10 @@ void d_gfx_clear(void) {
 
 void d_gfx_bbuf_clear(void) {
 	d_bbuf_clear(&d_gfx.bbuf, false);
+}
+
+void d_gfx_set_shader(d_shader func) {
+	d_gfx.shader = func;
 }
 
 void d_gfx_set_backface_cull(bool b) {
@@ -1121,29 +1132,29 @@ void d_draw_prim_quad(
 	d_draw_prim_tri(v1, v3, v4, tex);
 }
 
-void d_draw_img(d_img* img, d_color c) {
+void d_draw_img(d_img* img) {
 	d_draw_prim_quad(
 		(d_vertex) {
 			.pos = { 0, 0, 0 },
-			.color = c,
+			.color = D_WHITE,
 			.uv = { 0, 0 },
 			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
 			.pos = { 0, img->height, 0 },
-			.color = c,
+			.color = D_WHITE,
 			.uv = { 0, 1 },
 			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
 			.pos = { img->width, img->height, 0 },
-			.color = c,
+			.color = D_WHITE,
 			.uv = { 1, 1 },
 			.normal = { 0, 0, 1 },
 		},
 		(d_vertex) {
 			.pos = { img->width, 0, 0 },
-			.color = c,
+			.color = D_WHITE,
 			.uv = { 1, 0 },
 			.normal = { 0, 0, 1 },
 		},
@@ -1367,6 +1378,21 @@ d_mat4 d_t2_get_mat4(d_t2 t) {
 	d_mat4 mat = d_transform_get();
 	d_transform_pop();
 	return mat;
+}
+
+d_mat4 d_cam_mat4(d_cam* cam) {
+	float gw = d_gfx_width();
+	float gh = d_gfx_height();
+	d_mat4 m = d_mat4_identity();
+	m = d_mat4_mult(m, d_mat4_translate((d_vec3) { gw / 2.0, gh / 2.0, 0.0 }));
+	m = d_mat4_mult(m, d_mat4_scale((d_vec3) { cam->scale, cam->scale, 1.0 }));
+	m = d_mat4_mult(m, d_mat4_rot_z(cam->rot));
+	m = d_mat4_mult(m, d_mat4_translate((d_vec3) { -cam->center.x, -cam->center.y, 0.0 }));
+	return m;
+}
+
+void d_cam_apply(d_cam* cam) {
+	d_transform_apply(d_cam_mat4(cam));
 }
 
 void d_draw_mesh(d_mesh* mesh, d_img* tex) {

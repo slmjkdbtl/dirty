@@ -22,7 +22,7 @@
 #define WIDTH 640
 #define HEIGHT 480
 #define SCALE 1
-#define NUM_FISH 200
+#define NUM_FISH 20
 #define MAX_SQUEEZE_INTERVAL 40
 #define SQUEEZE_INTENSITY 4
 
@@ -46,7 +46,9 @@ d_img pfish_img;
 d_sound pop_sound;
 d_rect fish_rect;
 fish_t pool[NUM_FISH];
+fish_t* pfish;
 grab_t grabbing;
+d_cam cam;
 
 fish_t fish_new(d_vec2 pos, bool is_pink) {
 	return (fish_t) {
@@ -105,7 +107,7 @@ void fish_draw(fish_t* f) {
 	if (f->is_grabbing) {
 		d_transform_pos(v2(r(-6, 6), r(-6, 6)));
 	}
-	d_draw_img(f->is_pink ? &pfish_img : &fish_img, D_WHITE);
+	d_draw_img(f->is_pink ? &pfish_img : &fish_img);
 	if (debug) {
 		d_draw_rect_outline(fish_rect.p1, fish_rect.p2, D_WHITE);
 	}
@@ -155,12 +157,25 @@ void init(void) {
 	grabbing.fish = NULL;
 	grabbing.offset = v2(0, 0);
 
+	cam.center = v2(d_gfx_width() / 2.0, d_gfx_height() / 2.0);
+	cam.scale = 1.0;
+	cam.rot = 0.0;
+
 }
 
 void frame(void) {
 
 	float dt = d_app_dt();
-	d_vec2 mpos = d_gfx_mouse_pos();
+
+	if (pfish) {
+		// cam.scale = 3.0;
+		// cam.center = pfish->t.pos;
+	}
+
+	d_mat4 cam_mat = d_cam_mat4(&cam);
+	d_mat4 cam_mat_inv = d_mat4_invert(cam_mat);
+	d_vec2 mpos = d_mat4_mult_vec2(cam_mat_inv, d_gfx_mouse_pos());
+	printf("%f, %f\n", mpos.x, mpos.y);
 
 	if (d_app_key_pressed(D_KEY_ESC)) {
 		d_app_quit();
@@ -171,7 +186,39 @@ void frame(void) {
 	}
 
 	if (d_app_key_pressed(D_KEY_TAB)) {
-		// debug = !debug;
+		debug = !debug;
+	}
+
+	if (d_app_key_down(D_KEY_W)) {
+		cam.center.y -= 400 * dt;
+	}
+
+	if (d_app_key_down(D_KEY_S)) {
+		cam.center.y += 400 * dt;
+	}
+
+	if (d_app_key_down(D_KEY_A)) {
+		cam.center.x -= 400 * dt;
+	}
+
+	if (d_app_key_down(D_KEY_D)) {
+		cam.center.x += 400 * dt;
+	}
+
+	if (d_app_key_down(D_KEY_DOWN)) {
+		cam.scale -= 2 * dt;
+	}
+
+	if (d_app_key_down(D_KEY_UP)) {
+		cam.scale += 2 * dt;
+	}
+
+	if (d_app_key_down(D_KEY_LEFT)) {
+		cam.rot -= 60 * dt;
+	}
+
+	if (d_app_key_down(D_KEY_RIGHT)) {
+		cam.rot += 60 * dt;
 	}
 
 	if (d_app_mouse_pressed(D_MOUSE_LEFT)) {
@@ -192,7 +239,7 @@ void frame(void) {
 				grabbing.offset = d_vec2_sub(mpos, f.t.pos);
 				grabbing.fish->is_grabbing = true;
 				if (f.is_pink) {
-					// TODO
+					pfish = &f;
 				}
 				break;
 			}
@@ -214,10 +261,13 @@ void frame(void) {
 	d_app_set_title(fmt("%d", d_app_fps()));
 
 	d_gfx_clear();
+	d_transform_push();
+	d_transform_apply(cam_mat);
 
 	for (int i = 0; i < NUM_FISH; i++) fish_update(&pool[i]);
 	for (int i = 0; i < NUM_FISH; i++) fish_draw(&pool[i]);
 
+	d_transform_pop();
 	d_gfx_present();
 
 }

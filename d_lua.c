@@ -15,6 +15,7 @@
 #include <d_plat.h>
 #include <d_fs.h>
 #include <d_math.h>
+#include <d_tween.h>
 #include <d_app.h>
 #include <d_gfx.h>
 #define STB_VORBIS_IMPLEMENTATION
@@ -72,7 +73,7 @@ bool luaL_args4(lua_State* L, int t1, int t2, int t3, int t4) {
 	return false;
 }
 
-static void lua_stack_dump(lua_State *L) {
+static void luaL_stack_dump(lua_State *L) {
 	int top = lua_gettop(L);
 	printf("Lua Stack (size: %d):\n", top);
 	for (int i = 1; i <= top; i++) {
@@ -115,6 +116,10 @@ static void lua_stack_dump(lua_State *L) {
 
 void luaL_checktable(lua_State* L, int pos) {
 	luaL_checktype(L, pos, LUA_TTABLE);
+}
+
+void luaL_checkfunction(lua_State* L, int pos) {
+	luaL_checktype(L, pos, LUA_TFUNCTION);
 }
 
 bool luaL_checkboolean(lua_State* L, int pos) {
@@ -297,32 +302,33 @@ static luaL_Enum l_app_keymod_map[] = {
 
 typedef struct {
 	lua_State* lua;
-	int init_ref;
-	int frame_ref;
-	int quit_ref;
-	int err_ref;
-} l_app_ctx;
+	int app_init_ref;
+	int app_frame_ref;
+	int app_quit_ref;
+	int app_err_ref;
+	int gfx_shader_ref;
+} l_ctx;
 
-static l_app_ctx l_app;
+static l_ctx g;
 
 static void l_init_inner(void) {
-	lua_rawgeti(l_app.lua, LUA_REGISTRYINDEX, l_app.init_ref);
-	if (lua_isfunction(l_app.lua, -1)) {
-		lua_call(l_app.lua, 0, 0);
+	lua_rawgeti(g.lua, LUA_REGISTRYINDEX, g.app_init_ref);
+	if (lua_isfunction(g.lua, -1)) {
+		lua_call(g.lua, 0, 0);
 	}
 }
 
 static void l_frame_inner(void) {
-	lua_rawgeti(l_app.lua, LUA_REGISTRYINDEX, l_app.frame_ref);
-	if (lua_isfunction(l_app.lua, -1)) {
-		lua_call(l_app.lua, 0, 0);
+	lua_rawgeti(g.lua, LUA_REGISTRYINDEX, g.app_frame_ref);
+	if (lua_isfunction(g.lua, -1)) {
+		lua_call(g.lua, 0, 0);
 	}
 }
 
 static void l_quit_inner(void) {
-	lua_rawgeti(l_app.lua, LUA_REGISTRYINDEX, l_app.quit_ref);
-	if (lua_isfunction(l_app.lua, -1)) {
-		lua_call(l_app.lua, 0, 0);
+	lua_rawgeti(g.lua, LUA_REGISTRYINDEX, g.app_quit_ref);
+	if (lua_isfunction(g.lua, -1)) {
+		lua_call(g.lua, 0, 0);
 	}
 }
 
@@ -331,11 +337,11 @@ static int l_app_run(lua_State* L) {
 	luaL_checktable(L, 1);
 
 	lua_getfield(L, 1, "init");
-	l_app.init_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+	g.app_init_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	lua_getfield(L, 1, "frame");
-	l_app.frame_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+	g.app_frame_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	lua_getfield(L, 1, "quit");
-	l_app.quit_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+	g.app_quit_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 
 	d_app_desc desc = {0};
 	desc.init = l_init_inner;
@@ -585,10 +591,11 @@ static int l_app_title(lua_State* L) {
 }
 
 void l_app_cleanup(lua_State* L) {
-	luaL_unref(L, LUA_REGISTRYINDEX, l_app.init_ref);
-	luaL_unref(L, LUA_REGISTRYINDEX, l_app.frame_ref);
-	luaL_unref(L, LUA_REGISTRYINDEX, l_app.quit_ref);
-	luaL_unref(L, LUA_REGISTRYINDEX, l_app.err_ref);
+	luaL_unref(L, LUA_REGISTRYINDEX, g.app_init_ref);
+	luaL_unref(L, LUA_REGISTRYINDEX, g.app_frame_ref);
+	luaL_unref(L, LUA_REGISTRYINDEX, g.app_quit_ref);
+	luaL_unref(L, LUA_REGISTRYINDEX, g.app_err_ref);
+	luaL_unref(L, LUA_REGISTRYINDEX, g.gfx_shader_ref);
 }
 
 static luaL_Reg app_funcs[] = {
@@ -641,6 +648,14 @@ static int l_gfx_init(lua_State* L) {
 		lua_pop(L, 1);
 		if (lua_getfield(L, -1, "clear_color")) {
 			desc.clear_color = *(d_color*)luaL_checkudata(L, -1, "color");
+		}
+		lua_pop(L, 1);
+		if (lua_getfield(L, -1, "depth_test")) {
+			desc.depth_test = luaL_checkboolean(L, -1);
+		}
+		lua_pop(L, 1);
+		if (lua_getfield(L, -1, "backface_cull")) {
+			desc.backface_cull = luaL_checkboolean(L, -1);
 		}
 		lua_pop(L, 1);
 	}
@@ -828,8 +843,7 @@ static int l_gfx_draw_poly(lua_State* L) {
 
 static int l_gfx_draw_img(lua_State* L) {
 	d_img* img = luaL_checkudata(L, 1, "img");
-	d_color* c = luaL_optudata(L, 2, "color", &D_WHITE);
-	d_draw_img(img, *c);
+	d_draw_img(img);
 	return 0;
 }
 
@@ -849,27 +863,50 @@ static int l_gfx_pop(lua_State* L) {
 	return 0;
 }
 
+static d_vec2 l_vec2_or_number(lua_State* L) {
+	if (lua_gettop(L) == 2) {
+		float x = luaL_checknumber(L, 1);
+		float y = luaL_checknumber(L, 2);
+		return (d_vec2) { x, y };
+	} else {
+		d_vec2* pos = luaL_checkudata(L, 1, "vec2");
+		return *pos;
+	}
+}
+
+static d_vec3 l_vec3_or_number(lua_State* L) {
+	if (lua_gettop(L) == 3) {
+		float x = luaL_checknumber(L, 1);
+		float y = luaL_checknumber(L, 2);
+		float z = luaL_checknumber(L, 3);
+		return (d_vec3) { x, y, z };
+	} else {
+		d_vec3* pos = luaL_checkudata(L, 1, "vec3");
+		return *pos;
+	}
+}
+
 static int l_gfx_pos(lua_State* L) {
-	d_vec2* pos = luaL_checkudata(L, 1, "vec2");
-	d_transform_pos(*pos);
+	d_vec2 pos = l_vec2_or_number(L);
+	d_transform_pos(pos);
 	return 0;
 }
 
 static int l_gfx_pos3(lua_State* L) {
-	d_vec3* pos = luaL_checkudata(L, 1, "vec3");
-	d_transform_pos3(*pos);
+	d_vec3 pos = l_vec3_or_number(L);
+	d_transform_pos3(pos);
 	return 0;
 }
 
 static int l_gfx_scale(lua_State* L) {
-	d_vec2* s = luaL_checkudata(L, 1, "vec2");
-	d_transform_scale(*s);
+	d_vec2 s = l_vec2_or_number(L);
+	d_transform_scale(s);
 	return 0;
 }
 
 static int l_gfx_scale3(lua_State* L) {
-	d_vec3* s = luaL_checkudata(L, 1, "vec3");
-	d_transform_scale3(*s);
+	d_vec3 s = l_vec3_or_number(L);
+	d_transform_scale3(s);
 	return 0;
 }
 
@@ -908,6 +945,23 @@ static int l_gfx_get_canvas(lua_State* L) {
 	lua_pushlightuserdata(L, img);
 	luaL_setmetatable(L, "img");
 	return 1;
+}
+
+static int l_gfx_set_shader(lua_State* L) {
+	if (lua_isnil(L, 1)) {
+		d_gfx_set_shader(NULL);
+	} else {
+		luaL_checktype(L, 1, LUA_TFUNCTION);
+		g.gfx_shader_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+	}
+	return 0;
+}
+
+void l_gfx_shader(lua_State* L) {
+	lua_rawgeti(g.lua, LUA_REGISTRYINDEX, g.gfx_shader_ref);
+	if (lua_isfunction(g.lua, -1)) {
+		lua_call(g.lua, 0, 0);
+	}
 }
 
 static int l_img_load(lua_State* L) {
@@ -1316,6 +1370,310 @@ static luaL_Reg fs_funcs[] = {
 	{ NULL, NULL, },
 };
 
+static int l_col_pt_pt(lua_State* L) {
+	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* p2 = luaL_checkudata(L, 2, "vec2");
+	lua_pushboolean(L, d_col_pt_pt(*p1, *p2));
+	return 1;
+}
+
+static int l_col_pt_line(lua_State* L) {
+	d_vec2* pt = luaL_checkudata(L, 1, "vec2");
+	d_vec2* lp1 = luaL_checkudata(L, 2, "vec2");
+	d_vec2* lp2 = luaL_checkudata(L, 3, "vec2");
+	lua_pushboolean(L, d_col_pt_line(*pt, (d_line2) { *lp1, *lp2 }));
+	return 1;
+}
+
+static int l_col_pt_rect(lua_State* L) {
+	d_vec2* pt = luaL_checkudata(L, 1, "vec2");
+	d_vec2* rp1 = luaL_checkudata(L, 2, "vec2");
+	d_vec2* rp2 = luaL_checkudata(L, 3, "vec2");
+	lua_pushboolean(L, d_col_pt_rect(*pt, (d_rect) { *rp1, *rp2 }));
+	return 1;
+}
+
+static int l_col_pt_circle(lua_State* L) {
+	d_vec2* pt = luaL_checkudata(L, 1, "vec2");
+	d_vec2* c = luaL_checkudata(L, 2, "vec2");
+	float r = luaL_checknumber(L, 3);
+	lua_pushboolean(L, d_col_pt_circle(*pt, (d_circle) { *c, r }));
+	return 1;
+}
+
+static int l_col_pt_poly(lua_State* L) {
+	d_vec2* pt = luaL_checkudata(L, 1, "vec2");
+	d_poly poly = l_get_poly(L, 2);
+	lua_pushboolean(L, d_col_pt_poly(*pt, poly));
+	return 1;
+}
+
+static int l_col_line_line(lua_State* L) {
+	d_vec2* l1p1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* l1p2 = luaL_checkudata(L, 2, "vec2");
+	d_vec2* l2p1 = luaL_checkudata(L, 3, "vec2");
+	d_vec2* l2p2 = luaL_checkudata(L, 4, "vec2");
+	d_line2 l1 = { *l1p1, *l1p2 };
+	d_line2 l2 = { *l2p1, *l2p2 };
+	lua_pushboolean(L, d_col_line_line(l1, l2));
+	return 1;
+}
+
+static int l_col_line_rect(lua_State* L) {
+	d_vec2* lp1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* lp2 = luaL_checkudata(L, 2, "vec2");
+	d_vec2* rp1 = luaL_checkudata(L, 3, "vec2");
+	d_vec2* rp2 = luaL_checkudata(L, 4, "vec2");
+	d_line2 l = { *lp1, *lp2 };
+	d_rect r = { *rp1, *rp2 };
+	lua_pushboolean(L, d_col_line_rect(l, r));
+	return 1;
+}
+
+static int l_col_line_circle(lua_State* L) {
+	d_vec2* lp1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* lp2 = luaL_checkudata(L, 2, "vec2");
+	d_vec2* c = luaL_checkudata(L, 2, "vec2");
+	float r = luaL_checknumber(L, 3);
+	d_line2 l = { *lp1, *lp2 };
+	d_circle circle = { *c, r };
+	lua_pushboolean(L, d_col_line_circle(l, circle));
+	return 1;
+}
+
+static int l_col_line_poly(lua_State* L) {
+	d_vec2* lp1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* lp2 = luaL_checkudata(L, 2, "vec2");
+	d_poly poly = l_get_poly(L, 3);
+	d_line2 l = { *lp1, *lp2 };
+	lua_pushboolean(L, d_col_line_poly(l, poly));
+	return 1;
+}
+
+static int l_col_circle_circle(lua_State* L) {
+	d_vec2* p1 = luaL_checkudata(L, 1, "vec2");
+	float r1 = luaL_checknumber(L, 2);
+	d_vec2* p2 = luaL_checkudata(L, 3, "vec2");
+	float r2 = luaL_checknumber(L, 4);
+	d_circle c1 = { *p1, r1 };
+	d_circle c2 = { *p2, r2 };
+	lua_pushboolean(L, d_col_circle_circle(c1, c2));
+	return 1;
+}
+
+static int l_col_circle_rect(lua_State* L) {
+	d_vec2* p = luaL_checkudata(L, 1, "vec2");
+	float r = luaL_checknumber(L, 2);
+	d_vec2* rp1 = luaL_checkudata(L, 3, "vec2");
+	d_vec2* rp2 = luaL_checkudata(L, 4, "vec2");
+	d_circle circle = { *p, r };
+	d_rect rect = { *rp1, *rp2 };
+	lua_pushboolean(L, d_col_circle_rect(circle, rect));
+	return 1;
+}
+
+static int l_col_circle_poly(lua_State* L) {
+	d_vec2* p = luaL_checkudata(L, 1, "vec2");
+	float r = luaL_checknumber(L, 2);
+	d_poly poly = l_get_poly(L, 3);
+	d_circle circle = { *p, r };
+	lua_pushboolean(L, d_col_circle_poly(circle, poly));
+	return 1;
+}
+
+static int l_col_rect_rect(lua_State* L) {
+	d_vec2* r1p1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* r1p2 = luaL_checkudata(L, 2, "vec2");
+	d_vec2* r2p1 = luaL_checkudata(L, 3, "vec2");
+	d_vec2* r2p2 = luaL_checkudata(L, 4, "vec2");
+	d_rect r1 = { *r1p1, *r1p2 };
+	d_rect r2 = { *r2p1, *r2p2 };
+	lua_pushboolean(L, d_col_rect_rect(r1, r2));
+	return 1;
+}
+
+static int l_col_rect_poly(lua_State* L) {
+	d_vec2* rp1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* rp2 = luaL_checkudata(L, 2, "vec2");
+	d_poly poly = l_get_poly(L, 3);
+	d_rect r = { *rp1, *rp2 };
+	lua_pushboolean(L, d_col_rect_poly(r, poly));
+	return 1;
+}
+
+static int l_col_poly_poly(lua_State* L) {
+	d_poly p1 = l_get_poly(L, 1);
+	d_poly p2 = l_get_poly(L, 2);
+	lua_pushboolean(L, d_col_poly_poly(p1, p2));
+	return 1;
+}
+
+static int l_col_sat(lua_State* L) {
+	d_poly p1 = l_get_poly(L, 1);
+	d_poly p2 = l_get_poly(L, 2);
+	d_vec2 dis = { 0, 0 };
+	bool res = d_col_sat(p1, p2, &dis);
+	if (res) {
+		lua_pushudata(L, d_vec2, "vec2", &dis);
+	} else {
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+static luaL_Reg col_funcs[] = {
+	{ "pt_pt", l_col_pt_pt, },
+	{ "pt_line", l_col_pt_line, },
+	{ "pt_rect", l_col_pt_rect, },
+	{ "pt_circle", l_col_pt_circle, },
+	{ "pt_poly", l_col_pt_poly, },
+	{ "line_line", l_col_line_line, },
+	{ "line_rect", l_col_line_rect, },
+	{ "line_circle", l_col_line_circle, },
+	{ "line_poly", l_col_line_poly, },
+	{ "circle_circle", l_col_circle_circle, },
+	{ "circle_rect", l_col_circle_rect, },
+	{ "circle_poly", l_col_circle_poly, },
+	{ "rect_rect", l_col_rect_rect, },
+	{ "rect_poly", l_col_rect_poly, },
+	{ "poly_poly", l_col_poly_poly, },
+	{ "sat", l_col_sat, },
+	{ NULL, NULL, },
+};
+
+static int l_tween_start(lua_State* L) {
+	luaL_checkfunction(L, 4);
+	lua_newtable(L);
+	lua_pushvalue(L, 1);
+	lua_setfield(L, -2, "from");
+	lua_pushvalue(L, 2);
+	lua_setfield(L, -2, "to");
+	lua_pushvalue(L, 3);
+	lua_setfield(L, -2, "duration");
+	lua_pushvalue(L, 4);
+	lua_setfield(L, -2, "func");
+	lua_pushvalue(L, 5);
+	lua_setfield(L, -2, "action");
+	lua_pushnumber(L, 0);
+	lua_setfield(L, -2, "elapsed");
+	lua_pushboolean(L, false);
+	lua_setfield(L, -2, "paused");
+	lua_pushboolean(L, false);
+	lua_setfield(L, -2, "done");
+	return 1;
+}
+
+static int luaL_getfieldtype(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	int ty = lua_type(L, -1);
+	lua_pop(L, 1);
+	return ty;
+}
+
+static bool luaL_getbooleanfield(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	bool b = luaL_checkboolean(L, -1);
+	lua_pop(L, 1);
+	return b;
+}
+
+static void luaL_setbooleanfield(lua_State* L, int idx, char* key, bool b) {
+	lua_pushboolean(L, b);
+	lua_setfield(L, idx, key);
+}
+
+static float luaL_getnumberfield(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	float n = luaL_checknumber(L, -1);
+	lua_pop(L, 1);
+	return n;
+}
+
+static void luaL_setnumberfield(lua_State* L, int idx, char* key, float v) {
+	lua_pushnumber(L, v);
+	lua_setfield(L, idx, key);
+}
+
+static d_vec2 luaL_getvec2field(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	d_vec2* p = luaL_checkudata(L, -1, "vec2");
+	lua_pop(L, 1);
+	return *p;
+}
+
+static void luaL_setvec2field(lua_State* L, int idx, char* key, d_vec2 v) {
+	lua_pushudata(L, d_vec2, "vec2", &v);
+	lua_setfield(L, idx, key);
+}
+
+static int l_tween_update(lua_State* L) {
+	luaL_checktable(L, 1);
+	float dt = luaL_checknumber(L, 2);
+	bool done = luaL_getbooleanfield(L, 1, "done");
+	bool paused = luaL_getbooleanfield(L, 1, "paused");
+	if (done || paused) return 0;
+	float elapsed = luaL_getnumberfield(L, 1, "elapsed");
+	float duration = luaL_getnumberfield(L, 1, "duration");
+	elapsed += dt;
+	float t = fminf(elapsed / duration, 1.0);
+	lua_getfield(L, 1, "func");
+	lua_pushnumber(L, t);
+	lua_call(L, 1, 1);
+	float t2 = luaL_checknumber(L, -1);
+	lua_getfield(L, 1, "action");
+	switch (luaL_getfieldtype(L, 1, "from")) {
+		case LUA_TNUMBER: {
+			float from = luaL_getnumberfield(L, 1, "from");
+			float to = luaL_getnumberfield(L, 1, "to");
+			float val = d_tween_lerp(from, to, t2);
+			lua_pushnumber(L, val);
+			break;
+		}
+		case LUA_TUSERDATA: {
+			d_vec2 from = luaL_getvec2field(L, 1, "from");
+			d_vec2 to = luaL_getvec2field(L, 1, "to");
+			float x = d_tween_lerp(from.x, to.x, t2);
+			float y = d_tween_lerp(from.y, to.y, t2);
+			d_vec2 p = { x, y };
+			lua_pushudata(L, d_vec2, "vec2", &p);
+			break;
+		}
+		default:
+			// TODO
+			break;
+	}
+	if (t >= 1.0f) {
+		elapsed = duration;
+		done = true;
+	}
+	luaL_setnumberfield(L, 1, "elapsed", elapsed);
+	luaL_setbooleanfield(L, 1, "done", done);
+	lua_call(L, 1, 0);
+	return 0;
+}
+
+static luaL_Reg tween_funcs[] = {
+	{ "start", l_tween_start, },
+	{ "update", l_tween_update, },
+	{ NULL, NULL, },
+};
+
+static int l_ease_linear(lua_State* L) {
+	lua_pushnumber(L, d_ease_linear(luaL_checknumber(L, 1)));
+	return 1;
+}
+
+static int l_ease_out_elastic(lua_State* L) {
+	lua_pushnumber(L, d_ease_out_elastic(luaL_checknumber(L, 1)));
+	return 1;
+}
+
+static luaL_Reg ease_funcs[] = {
+	{ "linear", l_ease_linear, },
+	{ "out_elastic", l_ease_out_elastic, },
+	{ NULL, NULL, },
+};
+
 static int l_vec2_len(lua_State* L) {
 	d_vec2* p = luaL_checkudata(L, 1, "vec2");
 	float l = d_vec2_len(*p);
@@ -1692,6 +2050,43 @@ static luaL_Reg color_meta[] = {
 	{ NULL, NULL, },
 };
 
+static int l_rng_rand(lua_State* L) {
+	d_rng* rng = luaL_checkudata(L, 1, "rng");
+	float a = luaL_optnumber(L, 1, 1);
+	float b = luaL_optnumber(L, 2, 0);
+	lua_pushnumber(L, d_rng_rand(rng, a, b));
+	return 1;
+}
+
+static int l_rng_randi(lua_State* L) {
+	d_rng* rng = luaL_checkudata(L, 1, "rng");
+	int a = luaL_optnumber(L, 1, 2);
+	int b = luaL_optnumber(L, 2, 0);
+	lua_pushinteger(L, d_rng_randi(rng, a, b));
+	return 1;
+}
+
+static int l_rng_index(lua_State* L) {
+	d_rng* rng = luaL_checkudata(L, 1, "rng");
+	const char* key = luaL_checkstring(L, 2);
+	if (strcmp(key, "seed") == 0) {
+		lua_pushinteger(L, rng->seed);
+	} else if (strcmp(key, "rand") == 0) {
+		lua_pushcfunction(L, l_rng_rand);
+	} else if (strcmp(key, "randi") == 0) {
+		lua_pushcfunction(L, l_rng_randi);
+	} else {
+		luaL_error(L, "unknown field '%s' on rng", key);
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+static luaL_Reg rng_meta[] = {
+	{ "__index", l_rng_index },
+	{ NULL, NULL, },
+};
+
 static int l_vec2(lua_State* L) {
 	float x = luaL_optnumber(L, 1, 0);
 	float y = luaL_optnumber(L, 2, x);
@@ -1729,10 +2124,33 @@ static int l_color(lua_State* L) {
 	return 1;
 }
 
+static int l_rand(lua_State* L) {
+	float a = luaL_optnumber(L, 1, 1);
+	float b = luaL_optnumber(L, 2, 0);
+	lua_pushnumber(L, d_randf(a, b));
+	return 1;
+}
+
+static int l_randi(lua_State* L) {
+	int a = luaL_optnumber(L, 1, 2);
+	int b = luaL_optnumber(L, 2, 0);
+	lua_pushinteger(L, d_randi(a, b));
+	return 1;
+}
+
+static int l_chance(lua_State* L) {
+	float c = luaL_optnumber(L, 1, 0.5);
+	lua_pushboolean(L, d_chance(c));
+	return 1;
+}
+
 static luaL_Reg global_funcs[] = {
 	{ "vec2", l_vec2 },
 	{ "vec3", l_vec3 },
 	{ "color", l_color },
+	{ "rand", l_rand },
+	{ "randi", l_randi },
+	{ "chance", l_chance },
 	{ NULL, NULL, },
 };
 
@@ -1761,33 +2179,47 @@ int main(int argc, char** argv) {
 
 	lua_State* L = luaL_newstate();
 
-	l_app.lua = L;
+	g.lua = L;
 	luaL_openlibs(L);
-
-	luaL_newlib(L, app_funcs);
-	lua_setglobal(L, "app");
-
-	luaL_newlib(L, gfx_funcs);
-	lua_setglobal(L, "gfx");
 
 	luaL_regtype(L, "img", img_meta);
 	luaL_regtype(L, "model", model_meta);
-
-	luaL_newlib(L, audio_funcs);
-	lua_setglobal(L, "audio");
-
 	luaL_regtype(L, "sound", sound_meta);
 	luaL_regtype(L, "playback", playback_meta);
-
-	luaL_newlib(L, fs_funcs);
-	lua_setglobal(L, "fs");
-
 	luaL_regtype(L, "vec2", vec2_meta);
 	luaL_regtype(L, "vec3", vec3_meta);
 	luaL_regtype(L, "color", color_meta);
+	luaL_regtype(L, "rng", rng_meta);
+
+	// d
+	lua_newtable(L);
+
+	luaL_newlib(L, app_funcs);
+	lua_setfield(L, -2, "app");
+
+	luaL_newlib(L, gfx_funcs);
+	lua_setfield(L, -2, "gfx");
+
+	luaL_newlib(L, audio_funcs);
+	lua_setfield(L, -2, "audio");
+
+	luaL_newlib(L, fs_funcs);
+	lua_setfield(L, -2, "fs");
+
+	luaL_newlib(L, col_funcs);
+	lua_setfield(L, -2, "col");
+
+	luaL_newlib(L, tween_funcs);
+	lua_setfield(L, -2, "tween");
+
+	luaL_newlib(L, ease_funcs);
+	lua_setfield(L, -2, "ease");
+
+	lua_setglobal(L, "d");
 
 	luaL_regfuncs(L, global_funcs);
 
+	// arg
 	lua_newtable(L);
 
 	if (arg_start != -1) {

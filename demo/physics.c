@@ -108,7 +108,7 @@ void frame(void) {
 
 	d_transform_push();
 	d_t2_apply(player_t);
-	d_draw_img(&img, D_WHITE);
+	d_draw_img(&img);
 	d_draw_poly_outline(d_rect_to_poly(player_rect), d_colorx(0x0000ffff));
 	d_transform_pop();
 

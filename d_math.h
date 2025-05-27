@@ -129,8 +129,11 @@ typedef struct {
 
 d_rng d_rng_new(uint64_t seed);
 float d_rng_gen(d_rng* rng);
+float d_rng_rand(d_rng* rng, float low, float hi);
+int d_rng_randi(d_rng* rng, int low, int hi);
 float d_randf(float, float);
 int d_randi(int, int);
+bool d_chance(float);
 
 d_vec2 d_vec2f(float, float);
 d_vec2 d_vec2u(void);
@@ -180,6 +183,7 @@ d_color d_colori(uint8_t, uint8_t, uint8_t, uint8_t);
 d_color d_colorf(float, float, float, float);
 d_color d_colorx(uint32_t hex);
 d_color d_color_mix(d_color c1, d_color c2);
+d_color d_color_blend(d_color c1, d_color c2);
 d_color d_color_darken(d_color c, int d);
 d_color d_color_lighten(d_color c, int l);
 bool d_color_eq(d_color, d_color);
@@ -270,12 +274,24 @@ float d_rng_gen(d_rng* rng) {
 	return (float)(rng->seed) / (float)D_RNG_M;
 }
 
+float d_rng_rand(d_rng* rng, float low, float hi) {
+	return low + d_rng_gen(rng) * (hi - low);
+}
+
+int d_rng_randi(d_rng* rng, int low, int hi) {
+	return (int)d_rng_rand(rng, low, hi);
+}
+
 float d_randf(float low, float hi) {
 	return low + (float)rand() / (float)RAND_MAX * (hi - low);
 }
 
 int d_randi(int low, int hi) {
-	return low + (int)rand() / (int)RAND_MAX * (hi - low);
+	return (int)d_randf(low, hi);
+}
+
+bool d_chance(float c) {
+	return d_randf(0, 1) <= c;
 }
 
 d_vec2 d_vec2f(float x, float y) {
@@ -570,6 +586,22 @@ d_color d_color_mix(d_color c1, d_color c2) {
 		.g = c1.g * c2.g / 255,
 		.b = c1.b * c2.b / 255,
 		.a = c1.a * c2.a / 255,
+	};
+}
+
+d_color d_color_blend(d_color c1, d_color c2) {
+	float a1 = c1.a / 255.0;
+	float a2 = c2.a / 255.0;
+	float a = a1 + a2 * (1.0f - a1);
+	if (a == 0) return (d_color){ 0, 0, 0, 0 };
+	float r = c1.r * a1 + c2.r * a2 * (1.0 - a1);
+	float g = c1.g * a1 + c2.g * a2 * (1.0 - a1);
+	float b = c1.b * a1 + c2.b * a2 * (1.0 - a1);
+	return (d_color) {
+		.r = (uint8_t)(r + 0.5),
+		.g = (uint8_t)(g + 0.5),
+		.b = (uint8_t)(b + 0.5),
+		.a = (uint8_t)(a * 255 + 0.5),
 	};
 }
 

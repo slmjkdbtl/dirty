@@ -1,57 +1,70 @@
 local WIDTH = 480
 local HEIGHT = 480
-local SCALE = 4
+local SCALE = 2
 
-local img = gfx.img_load("demo/res/wizard.png")
-local model = gfx.model_load("demo/res/btfly.glb")
-local snd = audio.sound_load("demo/res/pop.ogg")
+local img = d.gfx.img_load("demo/res/wizard.png")
+local model = d.gfx.model_load("demo/res/btfly.glb")
+local snd = d.audio.sound_load("demo/res/pop.ogg")
 local pos = vec2(20, 20)
 
 function init()
-	gfx.init({
+	d.gfx.init({
 		clear_color = color(0, 0, 0, 255),
 		scale = SCALE,
+		depth_test = true,
+		backface_cull = true,
 	})
-	audio.init()
+	d.audio.init()
 end
 
 function wave(a, b, t)
 	return a + ((math.sin(t) + 1) / 2) * (b - a)
 end
 
+-- local tweener = d.tween.new()
+
+local t = nil
+
 function frame()
 
-	if app.key_pressed("esc") then
-		app.quit()
+	if d.app.key_pressed("esc") then
+		d.app.quit()
 	end
 
-	if app.key_pressed("space") then
-		audio.play(snd)
+	if d.app.key_pressed("space") then
+		d.audio.play(snd, { speed = rand(0.5, 1.5) })
 	end
 
-	if app.mouse_pressed() then
-		pos = gfx.mouse_pos()
+	if d.app.mouse_pressed() then
+		t = d.tween.start(pos, d.gfx.mouse_pos(), 1, d.ease.out_elastic, function(p)
+			pos = p
+			-- for k, v in pairs(t) do
+				-- print(k, v)
+			-- end
+		end)
 	end
 
-	local t = app.time()
+	if t then
+		-- print(t)
+		d.tween.update(t, d.app.dt())
+	end
+	-- tweener.update()
 
-	gfx.clear()
-	gfx.blit_bg()
+	local t = d.app.time()
 
-	gfx.push()
-	gfx.pos3(vec3(gfx.width() / 2, gfx.height() / 2, 0))
-	gfx.roty(t)
-	gfx.rotz(t * -0.5)
-	gfx.scale3(vec3(4, -4, 4))
-	gfx.pos3(model.center * -1)
-	gfx.draw_model(model)
-	gfx.pop()
+	d.gfx.clear()
+	d.gfx.blit_bg()
 
-	gfx.present()
+	d.gfx.push()
+	d.gfx.pos(pos)
+	d.gfx.draw_img(img)
+	d.gfx.pop()
+
+	d.gfx.present()
 
 end
 
-app.run({
+d.app.run({
 	title = "test",
 	width = WIDTH,
 	height = HEIGHT,

@@ -1027,7 +1027,7 @@ static bool d_cocoa_is_mouse_inside(void) {
 	d_app.mouse_states[D_MOUSE_RIGHT] = D_BTN_RELEASED;
 }
 - (void)scrollWheel:(NSEvent*)event {
-	d_app.wheel = d_vec2f(event.scrollingDeltaX, event.scrollingDeltaY);
+	d_app.wheel = (d_vec2) { event.scrollingDeltaX, event.scrollingDeltaY };
 }
 - (void)updateTrackingAreas {
 	[super updateTrackingAreas];

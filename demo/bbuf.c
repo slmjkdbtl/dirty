@@ -47,23 +47,23 @@ void frame(void) {
 
 	d_transform_push();
 	d_transform_pos3(d_vec3f(60, 80, 0));
-	d_transform_rot_y(d_app_time());
+	d_transform_rot_y(d_app_time() * 60);
 	d_transform_scale3(d_vec3f(6, -6, 6));
 	d_draw_model(&btfly);
 	d_transform_pop();
 
 	d_vec2 mpos = d_gfx_mouse_pos();
-	float t = d_app_time() * 10;
+	float t = d_app_time();
 
 	d_gfx_set_bbuf_test(true);
 	if (d_gfx_bbuf_get(mpos.x, mpos.y)) {
 		d_blit_rect(
 			d_vec2f(0, 0),
 			d_vec2f(d_gfx_width(), d_gfx_height()),
-			d_colori((sin(t) + 1) / 2 * 255, (cos(t) + 1) / 2 * 255, 255, 255)
+			d_colori((sin(t * 10) + 1) / 2 * 255, (cos(t * 10) + 1) / 2 * 255, 255, 255)
 		);
 	} else {
-// 		d_blit_bg();
+		d_blit_bg();
 	}
 	d_gfx_set_bbuf_test(false);
 	d_gfx_bbuf_clear();
