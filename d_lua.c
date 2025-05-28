@@ -73,7 +73,7 @@ bool luaL_args4(lua_State* L, int t1, int t2, int t3, int t4) {
 	return false;
 }
 
-static void luaL_stack_dump(lua_State *L) {
+static void luaL_stackdump(lua_State *L) {
 	int top = lua_gettop(L);
 	printf("Lua Stack (size: %d):\n", top);
 	for (int i = 1; i <= top; i++) {
@@ -138,7 +138,7 @@ void* luaL_optudata(lua_State* L, int pos, const char *type, void *def) {
 	return lua_isnoneornil(L, pos) ? def : luaL_checkudata(L, pos, type);
 }
 
-const char* lua_udatatype(lua_State* L, int pos) {
+const char* luaL_udatatype(lua_State* L, int pos) {
 	if (!lua_getmetatable(L, pos)) {
 		return NULL;
 	}
@@ -148,11 +148,35 @@ const char* lua_udatatype(lua_State* L, int pos) {
 	return tname;
 }
 
-static int lua_getlen(lua_State* L, int idx) {
+static int luaL_tablelen(lua_State* L, int idx) {
 	lua_len(L, idx);
 	int len = lua_tonumber(L, -1);
 	lua_pop(L, 1);
 	return len;
+}
+
+static int luaL_absidx(lua_State* L, int idx) {
+	return idx < 0 ? lua_gettop(L) + idx + 1 : idx;
+}
+
+static void luaL_rmi(lua_State* L, int idx, int pos) {
+
+	idx = luaL_absidx(L, idx);
+
+	int len = lua_rawlen(L, idx);
+
+	if (pos < 1 || pos > len) {
+		return;
+	}
+
+	for (int i = pos; i < len; i++) {
+		lua_geti(L, idx, i + 1);
+		lua_seti(L, idx, i);
+	}
+
+	lua_pushnil(L);
+	lua_seti(L, idx, len);
+
 }
 
 void luaL_regfuncs(lua_State* L, luaL_Reg *reg) {
@@ -189,6 +213,66 @@ void luaL_regtype(lua_State* L, const char* name, luaL_Reg *meta) {
 		// lua_setfield(L, -2, reg[i].name);
 	}
 	lua_pop(L, 1);
+}
+
+static int luaL_getfieldtype(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	int ty = lua_type(L, -1);
+	lua_pop(L, 1);
+	return ty;
+}
+
+static bool luaL_getbooleanfield(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	bool b = luaL_checkboolean(L, -1);
+	lua_pop(L, 1);
+	return b;
+}
+
+static float luaL_getnumberfield(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	float n = luaL_checknumber(L, -1);
+	lua_pop(L, 1);
+	return n;
+}
+
+static const char* luaL_getstringfield(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	const char* str = luaL_checkstring(L, -1);
+	lua_pop(L, 1);
+	return str;
+}
+
+static const char* luaL_getoptstringfield(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	const char* str = NULL;
+	if (lua_isstring(L, -1)) {
+		str = luaL_checkstring(L, -1);
+	}
+	lua_pop(L, 1);
+	return str;
+}
+
+static d_vec2 luaL_getvec2field(lua_State* L, int idx, char* key) {
+	lua_getfield(L, idx, key);
+	d_vec2* p = luaL_checkudata(L, -1, "vec2");
+	lua_pop(L, 1);
+	return *p;
+}
+
+static void luaL_setbooleanfield(lua_State* L, int idx, char* key, bool b) {
+	lua_pushboolean(L, b);
+	lua_setfield(L, idx, key);
+}
+
+static void luaL_setnumberfield(lua_State* L, int idx, char* key, float v) {
+	lua_pushnumber(L, v);
+	lua_setfield(L, idx, key);
+}
+
+static void luaL_setvec2field(lua_State* L, int idx, char* key, d_vec2 v) {
+	lua_pushudata(L, d_vec2, "vec2", &v);
+	lua_setfield(L, idx, key);
 }
 
 static luaL_Enum l_app_mouse_map[] = {
@@ -762,7 +846,7 @@ static int l_gfx_blit_tri(lua_State* L) {
 static d_poly l_get_poly(lua_State* L, int pos) {
 	d_poly poly = {0};
 	luaL_checktable(L, pos);
-	int num_verts = lua_getlen(L, 1);
+	int num_verts = luaL_tablelen(L, 1);
 	if (num_verts > D_MAX_POLY_VERTS) {
 		luaL_error(L, "%d exceeds max polygon verts", num_verts);
 		return poly;
@@ -1541,71 +1625,6 @@ static luaL_Reg col_funcs[] = {
 	{ NULL, NULL, },
 };
 
-static int l_tween_start(lua_State* L) {
-	luaL_checkfunction(L, 4);
-	lua_newtable(L);
-	lua_pushvalue(L, 1);
-	lua_setfield(L, -2, "from");
-	lua_pushvalue(L, 2);
-	lua_setfield(L, -2, "to");
-	lua_pushvalue(L, 3);
-	lua_setfield(L, -2, "duration");
-	lua_pushvalue(L, 4);
-	lua_setfield(L, -2, "func");
-	lua_pushvalue(L, 5);
-	lua_setfield(L, -2, "action");
-	lua_pushnumber(L, 0);
-	lua_setfield(L, -2, "elapsed");
-	lua_pushboolean(L, false);
-	lua_setfield(L, -2, "paused");
-	lua_pushboolean(L, false);
-	lua_setfield(L, -2, "done");
-	return 1;
-}
-
-static int luaL_getfieldtype(lua_State* L, int idx, char* key) {
-	lua_getfield(L, idx, key);
-	int ty = lua_type(L, -1);
-	lua_pop(L, 1);
-	return ty;
-}
-
-static bool luaL_getbooleanfield(lua_State* L, int idx, char* key) {
-	lua_getfield(L, idx, key);
-	bool b = luaL_checkboolean(L, -1);
-	lua_pop(L, 1);
-	return b;
-}
-
-static void luaL_setbooleanfield(lua_State* L, int idx, char* key, bool b) {
-	lua_pushboolean(L, b);
-	lua_setfield(L, idx, key);
-}
-
-static float luaL_getnumberfield(lua_State* L, int idx, char* key) {
-	lua_getfield(L, idx, key);
-	float n = luaL_checknumber(L, -1);
-	lua_pop(L, 1);
-	return n;
-}
-
-static void luaL_setnumberfield(lua_State* L, int idx, char* key, float v) {
-	lua_pushnumber(L, v);
-	lua_setfield(L, idx, key);
-}
-
-static d_vec2 luaL_getvec2field(lua_State* L, int idx, char* key) {
-	lua_getfield(L, idx, key);
-	d_vec2* p = luaL_checkudata(L, -1, "vec2");
-	lua_pop(L, 1);
-	return *p;
-}
-
-static void luaL_setvec2field(lua_State* L, int idx, char* key, d_vec2 v) {
-	lua_pushudata(L, d_vec2, "vec2", &v);
-	lua_setfield(L, idx, key);
-}
-
 static int l_tween_update(lua_State* L) {
 	luaL_checktable(L, 1);
 	float dt = luaL_checknumber(L, 2);
@@ -1630,6 +1649,7 @@ static int l_tween_update(lua_State* L) {
 			break;
 		}
 		case LUA_TUSERDATA: {
+			// TODO: color, vec3
 			d_vec2 from = luaL_getvec2field(L, 1, "from");
 			d_vec2 to = luaL_getvec2field(L, 1, "to");
 			float x = d_tween_lerp(from.x, to.x, t2);
@@ -1652,25 +1672,185 @@ static int l_tween_update(lua_State* L) {
 	return 0;
 }
 
+static int l_tween_new(lua_State* L) {
+	luaL_checkfunction(L, 4);
+	lua_newtable(L);
+	lua_pushvalue(L, 1);
+	lua_setfield(L, -2, "from");
+	lua_pushvalue(L, 2);
+	lua_setfield(L, -2, "to");
+	lua_pushvalue(L, 3);
+	lua_setfield(L, -2, "duration");
+	lua_pushvalue(L, 4);
+	lua_setfield(L, -2, "func");
+	lua_pushvalue(L, 5);
+	lua_setfield(L, -2, "action");
+	lua_pushvalue(L, 6);
+	lua_setfield(L, -2, "name");
+	lua_pushnumber(L, 0);
+	lua_setfield(L, -2, "elapsed");
+	lua_pushboolean(L, false);
+	lua_setfield(L, -2, "paused");
+	lua_pushboolean(L, false);
+	lua_setfield(L, -2, "done");
+	lua_pushcfunction(L, l_tween_update);
+	lua_setfield(L, -2, "update");
+	return 1;
+}
+
+static int l_tween_manager_add(lua_State* L) {
+
+	lua_pushcfunction(L, l_tween_new);
+
+	for (int i = 2; i <= 7; i++) {
+		lua_pushvalue(L, i);
+	}
+
+	lua_call(L, 6, 1);
+
+	const char* name = luaL_getoptstringfield(L, -1, "name");
+
+	lua_getfield(L, 1, "tweens");
+	int len = lua_rawlen(L, -1);
+
+	// cancel previous tween with the same name
+	if (name) {
+		const char* name = luaL_checkstring(L, 7);
+		for (int i = len; i >= 1; --i) {
+			lua_geti(L, -1, i);
+			const char* name2 = luaL_getstringfield(L, -1, "name");
+			if (strcmp(name, name2) == 0) {
+				luaL_rmi(L, -2, i);
+				len -= 1;
+			}
+			lua_pop(L, 1);
+		}
+	}
+
+	lua_pushvalue(L, -2);
+	lua_seti(L, -2, len + 1);
+	lua_pop(L, 1);
+
+	return 1;
+
+}
+
+static int l_tween_manager_update(lua_State* L) {
+
+	float dt = luaL_checknumber(L, 2);
+	lua_getfield(L, 1, "tweens");
+	int len = lua_rawlen(L, -1);
+
+	for (int i = len; i >= 1; --i) {
+
+		lua_geti(L, -1, i);
+
+		lua_pushcfunction(L, l_tween_update);
+		lua_pushvalue(L, -2);
+		lua_pushnumber(L, dt);
+		lua_call(L, 2, 0);
+
+		bool done = luaL_getbooleanfield(L, -1, "done");
+
+		if (done) {
+			luaL_rmi(L, 3, i);
+		}
+
+		lua_pop(L, 1);
+
+	}
+
+	return 0;
+
+}
+
+static int l_tween_manager(lua_State* L) {
+	lua_newtable(L);
+	lua_newtable(L);
+	lua_setfield(L, -2, "tweens");
+	lua_pushcfunction(L, l_tween_manager_add);
+	lua_setfield(L, -2, "add");
+	lua_pushcfunction(L, l_tween_manager_update);
+	lua_setfield(L, -2, "update");
+	return 1;
+}
+
 static luaL_Reg tween_funcs[] = {
-	{ "start", l_tween_start, },
-	{ "update", l_tween_update, },
+	{ "manager", l_tween_manager, },
+	{ "new", l_tween_new, },
 	{ NULL, NULL, },
 };
 
-static int l_ease_linear(lua_State* L) {
-	lua_pushnumber(L, d_ease_linear(luaL_checknumber(L, 1)));
-	return 1;
-}
+#define BIND_EASE_FUNC(name) \
+	static int l_ease_##name(lua_State* L) { \
+		lua_pushnumber(L, d_ease_##name(luaL_checknumber(L, 1))); \
+		return 1; \
+	}
 
-static int l_ease_out_elastic(lua_State* L) {
-	lua_pushnumber(L, d_ease_out_elastic(luaL_checknumber(L, 1)));
-	return 1;
-}
+BIND_EASE_FUNC(linear)
+BIND_EASE_FUNC(in_sine)
+BIND_EASE_FUNC(out_sine)
+BIND_EASE_FUNC(in_out_sine)
+BIND_EASE_FUNC(in_quad)
+BIND_EASE_FUNC(out_quad)
+BIND_EASE_FUNC(in_out_quad)
+BIND_EASE_FUNC(in_cubic)
+BIND_EASE_FUNC(out_cubic)
+BIND_EASE_FUNC(in_out_cubic)
+BIND_EASE_FUNC(in_quart)
+BIND_EASE_FUNC(out_quart)
+BIND_EASE_FUNC(in_out_quart)
+BIND_EASE_FUNC(in_quint)
+BIND_EASE_FUNC(out_quint)
+BIND_EASE_FUNC(in_out_quint)
+BIND_EASE_FUNC(in_etpo)
+BIND_EASE_FUNC(out_etpo)
+BIND_EASE_FUNC(in_out_etpo)
+BIND_EASE_FUNC(in_circ)
+BIND_EASE_FUNC(out_circ)
+BIND_EASE_FUNC(in_out_circ)
+BIND_EASE_FUNC(in_back)
+BIND_EASE_FUNC(out_back)
+BIND_EASE_FUNC(in_out_back)
+BIND_EASE_FUNC(in_elastic)
+BIND_EASE_FUNC(out_elastic)
+BIND_EASE_FUNC(in_out_elastic)
+BIND_EASE_FUNC(in_bounce)
+BIND_EASE_FUNC(out_bounce)
+BIND_EASE_FUNC(in_out_bounce)
 
 static luaL_Reg ease_funcs[] = {
 	{ "linear", l_ease_linear, },
+	{ "in_sine", l_ease_in_sine, },
+	{ "out_sine", l_ease_out_sine, },
+	{ "in_out_sine", l_ease_in_out_sine, },
+	{ "in_quad", l_ease_in_quad, },
+	{ "out_quad", l_ease_out_quad, },
+	{ "in_out_quad", l_ease_in_out_quad, },
+	{ "in_cubic", l_ease_in_cubic, },
+	{ "out_cubic", l_ease_out_cubic, },
+	{ "in_out_cubic", l_ease_in_out_cubic, },
+	{ "in_quart", l_ease_in_quart, },
+	{ "out_quart", l_ease_out_quart, },
+	{ "in_out_quart", l_ease_in_out_quart, },
+	{ "in_quint", l_ease_in_quint, },
+	{ "out_quint", l_ease_out_quint, },
+	{ "in_out_quint", l_ease_in_out_quint, },
+	{ "in_etpo", l_ease_in_etpo, },
+	{ "out_etpo", l_ease_out_etpo, },
+	{ "in_out_etpo", l_ease_in_out_etpo, },
+	{ "in_circ", l_ease_in_circ, },
+	{ "out_circ", l_ease_out_circ, },
+	{ "in_out_circ", l_ease_in_out_circ, },
+	{ "in_back", l_ease_in_back, },
+	{ "out_back", l_ease_out_back, },
+	{ "in_out_back", l_ease_in_out_back, },
+	{ "in_elastic", l_ease_in_elastic, },
 	{ "out_elastic", l_ease_out_elastic, },
+	{ "in_out_elastic", l_ease_in_out_elastic, },
+	{ "in_bounce", l_ease_in_bounce, },
+	{ "out_bounce", l_ease_out_bounce, },
+	{ "in_out_bounce", l_ease_in_out_bounce, },
 	{ NULL, NULL, },
 };
 

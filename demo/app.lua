@@ -21,9 +21,7 @@ function wave(a, b, t)
 	return a + ((math.sin(t) + 1) / 2) * (b - a)
 end
 
--- local tweener = d.tween.new()
-
-local t = nil
+local tweener = d.tween.manager()
 
 function frame()
 
@@ -33,22 +31,18 @@ function frame()
 
 	if d.app.key_pressed("space") then
 		d.audio.play(snd, { speed = rand(0.5, 1.5) })
+		if t then
+			t.paused = not t.paused
+		end
 	end
 
 	if d.app.mouse_pressed() then
-		t = d.tween.start(pos, d.gfx.mouse_pos(), 1, d.ease.out_elastic, function(p)
+		tweener:add(pos, d.gfx.mouse_pos(), 1, d.ease.out_elastic, function(p)
 			pos = p
-			-- for k, v in pairs(t) do
-				-- print(k, v)
-			-- end
-		end)
+		end, "move")
 	end
 
-	if t then
-		-- print(t)
-		d.tween.update(t, d.app.dt())
-	end
-	-- tweener.update()
+	tweener:update(d.app.dt())
 
 	local t = d.app.time()
 
