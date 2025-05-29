@@ -23,7 +23,48 @@ end
 
 local tweener = d.tween.manager()
 
+local co_tasks = {}
+
+function co(task)
+	local co = coroutine.create(task)
+	co_tasks[#co_tasks + 1] = function()
+		if coroutine.status(co) ~= "dead" then
+			local success, err = coroutine.resume(co)
+			if not success then
+				error(err)
+			end
+		end
+	end
+end
+
+function wait(seconds)
+	local start = d.app.time()
+	while d.app.time() - start < seconds do
+		coroutine.yield()
+	end
+end
+
+function tween(...)
+	local t = tweener:add(...)
+	while not t.done do
+		coroutine.yield()
+	end
+end
+
+co(function()
+	wait(2)
+	print("2 sec later")
+	tween(pos, d.gfx.mouse_pos(), 1, d.ease.out_elastic, function(t)
+		pos = t.val
+	end)
+	print("tween done")
+end)
+
 function frame()
+
+	for i = 1, #co_tasks do
+		co_tasks[i]()
+	end
 
 	if d.app.key_pressed("esc") then
 		d.app.quit()
@@ -37,8 +78,8 @@ function frame()
 	end
 
 	if d.app.mouse_pressed() then
-		tweener:add(pos, d.gfx.mouse_pos(), 1, d.ease.out_elastic, function(p)
-			pos = p
+		tweener:add(pos, d.gfx.mouse_pos(), 1, d.ease.out_elastic, function(t)
+			pos = t.val
 		end, "move")
 	end
 

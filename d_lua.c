@@ -28,6 +28,10 @@
 	luaL_setmetatable(L, TS); \
 	memcpy(lv, V, sizeof(T)); \
 
+#define luaL_setfieldudata(L, IDX, K, T, TS, V) \
+	lua_pushudata(L, T, TS, &V); \
+	lua_setfield(L, IDX, K); \
+
 typedef struct {
 	const char *str;
 	int val;
@@ -222,28 +226,28 @@ static int luaL_getfieldtype(lua_State* L, int idx, char* key) {
 	return ty;
 }
 
-static bool luaL_getbooleanfield(lua_State* L, int idx, char* key) {
+static bool luaL_getfieldboolean(lua_State* L, int idx, char* key) {
 	lua_getfield(L, idx, key);
 	bool b = luaL_checkboolean(L, -1);
 	lua_pop(L, 1);
 	return b;
 }
 
-static float luaL_getnumberfield(lua_State* L, int idx, char* key) {
+static float luaL_getfieldnumber(lua_State* L, int idx, char* key) {
 	lua_getfield(L, idx, key);
 	float n = luaL_checknumber(L, -1);
 	lua_pop(L, 1);
 	return n;
 }
 
-static const char* luaL_getstringfield(lua_State* L, int idx, char* key) {
+static const char* luaL_getfieldstring(lua_State* L, int idx, char* key) {
 	lua_getfield(L, idx, key);
 	const char* str = luaL_checkstring(L, -1);
 	lua_pop(L, 1);
 	return str;
 }
 
-static const char* luaL_getoptstringfield(lua_State* L, int idx, char* key) {
+static const char* luaL_getfieldstringopt(lua_State* L, int idx, char* key) {
 	lua_getfield(L, idx, key);
 	const char* str = NULL;
 	if (lua_isstring(L, -1)) {
@@ -253,25 +257,20 @@ static const char* luaL_getoptstringfield(lua_State* L, int idx, char* key) {
 	return str;
 }
 
-static d_vec2 luaL_getvec2field(lua_State* L, int idx, char* key) {
+static void* luaL_getfieldudata(lua_State* L, int idx, char* key, char* ty) {
 	lua_getfield(L, idx, key);
-	d_vec2* p = luaL_checkudata(L, -1, "vec2");
+	void* v = luaL_checkudata(L, -1, ty);
 	lua_pop(L, 1);
-	return *p;
+	return v;
 }
 
-static void luaL_setbooleanfield(lua_State* L, int idx, char* key, bool b) {
+static void luaL_setfieldboolean(lua_State* L, int idx, char* key, bool b) {
 	lua_pushboolean(L, b);
 	lua_setfield(L, idx, key);
 }
 
-static void luaL_setnumberfield(lua_State* L, int idx, char* key, float v) {
+static void luaL_setfieldnumber(lua_State* L, int idx, char* key, float v) {
 	lua_pushnumber(L, v);
-	lua_setfield(L, idx, key);
-}
-
-static void luaL_setvec2field(lua_State* L, int idx, char* key, d_vec2 v) {
-	lua_pushudata(L, d_vec2, "vec2", &v);
 	lua_setfield(L, idx, key);
 }
 
@@ -1628,11 +1627,11 @@ static luaL_Reg col_funcs[] = {
 static int l_tween_update(lua_State* L) {
 	luaL_checktable(L, 1);
 	float dt = luaL_checknumber(L, 2);
-	bool done = luaL_getbooleanfield(L, 1, "done");
-	bool paused = luaL_getbooleanfield(L, 1, "paused");
+	bool done = luaL_getfieldboolean(L, 1, "done");
+	bool paused = luaL_getfieldboolean(L, 1, "paused");
 	if (done || paused) return 0;
-	float elapsed = luaL_getnumberfield(L, 1, "elapsed");
-	float duration = luaL_getnumberfield(L, 1, "duration");
+	float elapsed = luaL_getfieldnumber(L, 1, "elapsed");
+	float duration = luaL_getfieldnumber(L, 1, "duration");
 	elapsed += dt;
 	float t = fminf(elapsed / duration, 1.0);
 	lua_getfield(L, 1, "func");
@@ -1642,20 +1641,20 @@ static int l_tween_update(lua_State* L) {
 	lua_getfield(L, 1, "action");
 	switch (luaL_getfieldtype(L, 1, "from")) {
 		case LUA_TNUMBER: {
-			float from = luaL_getnumberfield(L, 1, "from");
-			float to = luaL_getnumberfield(L, 1, "to");
-			float val = d_tween_lerp(from, to, t2);
-			lua_pushnumber(L, val);
+			float from = luaL_getfieldnumber(L, 1, "from");
+			float to = luaL_getfieldnumber(L, 1, "to");
+			float val = d_tween_lerp(from, to, t2);;
+			luaL_setfieldnumber(L, 1, "val", val);
 			break;
 		}
 		case LUA_TUSERDATA: {
 			// TODO: color, vec3
-			d_vec2 from = luaL_getvec2field(L, 1, "from");
-			d_vec2 to = luaL_getvec2field(L, 1, "to");
-			float x = d_tween_lerp(from.x, to.x, t2);
-			float y = d_tween_lerp(from.y, to.y, t2);
+			d_vec2* from = luaL_getfieldudata(L, 1, "from", "vec2");
+			d_vec2* to = luaL_getfieldudata(L, 1, "to", "vec2");
+			float x = d_tween_lerp(from->x, to->x, t2);
+			float y = d_tween_lerp(from->y, to->y, t2);
 			d_vec2 p = { x, y };
-			lua_pushudata(L, d_vec2, "vec2", &p);
+			luaL_setfieldudata(L, 1, "val", d_vec2, "vec2", p);
 			break;
 		}
 		default:
@@ -1666,8 +1665,9 @@ static int l_tween_update(lua_State* L) {
 		elapsed = duration;
 		done = true;
 	}
-	luaL_setnumberfield(L, 1, "elapsed", elapsed);
-	luaL_setbooleanfield(L, 1, "done", done);
+	luaL_setfieldnumber(L, 1, "elapsed", elapsed);
+	luaL_setfieldboolean(L, 1, "done", done);
+	lua_pushvalue(L, 1);
 	lua_call(L, 1, 0);
 	return 0;
 }
@@ -1677,6 +1677,8 @@ static int l_tween_new(lua_State* L) {
 	lua_newtable(L);
 	lua_pushvalue(L, 1);
 	lua_setfield(L, -2, "from");
+	lua_pushvalue(L, 1);
+	lua_setfield(L, -2, "val");
 	lua_pushvalue(L, 2);
 	lua_setfield(L, -2, "to");
 	lua_pushvalue(L, 3);
@@ -1708,7 +1710,7 @@ static int l_tween_manager_add(lua_State* L) {
 
 	lua_call(L, 6, 1);
 
-	const char* name = luaL_getoptstringfield(L, -1, "name");
+	const char* name = luaL_getfieldstringopt(L, -1, "name");
 
 	lua_getfield(L, 1, "tweens");
 	int len = lua_rawlen(L, -1);
@@ -1716,9 +1718,9 @@ static int l_tween_manager_add(lua_State* L) {
 	// cancel previous tween with the same name
 	if (name) {
 		const char* name = luaL_checkstring(L, 7);
-		for (int i = len; i >= 1; --i) {
+		for (int i = len; i >= 1; i--) {
 			lua_geti(L, -1, i);
-			const char* name2 = luaL_getstringfield(L, -1, "name");
+			const char* name2 = luaL_getfieldstring(L, -1, "name");
 			if (strcmp(name, name2) == 0) {
 				luaL_rmi(L, -2, i);
 				len -= 1;
@@ -1750,7 +1752,7 @@ static int l_tween_manager_update(lua_State* L) {
 		lua_pushnumber(L, dt);
 		lua_call(L, 2, 0);
 
-		bool done = luaL_getbooleanfield(L, -1, "done");
+		bool done = luaL_getfieldboolean(L, -1, "done");
 
 		if (done) {
 			luaL_rmi(L, 3, i);
