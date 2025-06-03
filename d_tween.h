@@ -12,7 +12,6 @@ typedef struct {
 	float duration;
 	d_ease_func easing_func;
 	float val;
-	float* val_src;
 	float elapsed;
 	bool paused;
 	bool done;
@@ -22,7 +21,6 @@ d_tween d_tween_new(
 	float from,
 	float to,
 	float duration,
-	float* val_src,
 	d_ease_func func
 );
 
@@ -43,20 +41,8 @@ d_tween* d_tweener_add_number(
 	float from,
 	float to,
 	float duration,
-	float* val_src,
 	d_ease_func func
 );
-
-#ifdef D_MATH_H
-void d_tweener_add_vec2(
-	d_tweener* tweener,
-	d_vec2 from,
-	d_vec2 to,
-	float duration,
-	d_vec2* val_src,
-	d_ease_func func
-);
-#endif
 
 float d_ease_linear(float t);
 float d_ease_in_sine(float t);
@@ -108,7 +94,6 @@ d_tween d_tween_new(
 	float from,
 	float to,
 	float duration,
-	float* val_src,
 	d_ease_func func
 ) {
 	return (d_tween) {
@@ -117,7 +102,6 @@ d_tween d_tween_new(
 		.duration = duration,
 		.easing_func = func == NULL ? d_ease_linear: func,
 		.val = from,
-		.val_src = val_src,
 		.elapsed = 0.0,
 		.paused = false,
 		.done = false,
@@ -132,12 +116,10 @@ bool d_tween_update(d_tween* tween, float dt, float* val) {
 		tween->val = tween->to;
 		tween->elapsed = tween->duration;
 		tween->done = true;
-		if (tween->val_src) *tween->val_src = tween->to;
 		if (val) *val = tween->to;
 		return true;
 	}
 	tween->val = d_tween_lerp(tween->from, tween->to, tween->easing_func(t));
-	if (tween->val_src) *tween->val_src = tween->val;
 	if (val) *val = tween->val;
 	return false;
 }
@@ -161,14 +143,6 @@ d_tween* d_tweener_add(d_tweener* tweener, d_tween t) {
 	if (tweener->num_tweens >= tweener->max_tweens) return NULL;
 	int idx = tweener->num_tweens;
 	tweener->tweens[tweener->num_tweens++] = t;
-	// a bit pointer magic to cancel all previous tween on the value
-	// is this good?
-	for (int i = 0; i < idx; i++) {
-		d_tween* t2 = &tweener->tweens[i];
-		if (t2->val_src != NULL && t2->val_src == t.val_src) {
-			t2->done = true;
-		}
-	}
 	return &tweener->tweens[idx];
 }
 
@@ -177,27 +151,11 @@ d_tween* d_tweener_add_number(
 	float from,
 	float to,
 	float duration,
-	float* val_src,
 	d_ease_func func
 ) {
-	d_tween t = d_tween_new(from, to, duration, val_src, func);
+	d_tween t = d_tween_new(from, to, duration, func);
 	return d_tweener_add(tweener, t);
 }
-
-#ifdef D_MATH_H
-// TODO: return a handle
-void d_tweener_add_vec2(
-	d_tweener* tweener,
-	d_vec2 from,
-	d_vec2 to,
-	float duration,
-	d_vec2* val_src,
-	d_ease_func func
-) {
-	d_tweener_add_number(tweener, from.x, to.x, duration, &val_src->x, func);
-	d_tweener_add_number(tweener, from.y, to.y, duration, &val_src->y, func);
-}
-#endif
 
 void d_tweener_update(d_tweener* tweener, float dt) {
 	for (int i = 0; i < tweener->num_tweens; i++) {
@@ -217,7 +175,7 @@ void d_tweener_update(d_tweener* tweener, float dt) {
 }
 
 #ifndef M_PI
-#define M_PI 3.14159265358979323846264338327950288
+#define M_PI 3.14159265358979323846
 #endif
 
 // https://github.com/ai/easings.net/blob/master/src/easings/easingsFunctions.ts

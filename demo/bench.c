@@ -28,6 +28,7 @@ static char* fmt(char *fmt, ...) {
 }
 
 d_img img;
+int count = 5000;
 
 void init(void) {
 
@@ -51,10 +52,16 @@ void frame(void) {
 		d_app_set_fullscreen(!d_app_is_fullscreen());
 	}
 
+	if (d_app_key_pressed(D_KEY_UP)) {
+		count += 1000;
+	}
+
+	if (d_app_key_pressed(D_KEY_DOWN)) {
+		count = d_maxi(0, count - 1000);
+	}
+
 	d_gfx_clear();
 	d_blit_bg();
-
-	int count = 5000;
 
 	for (int i = 0; i < count; i++) {
 		d_transform_push();
@@ -64,7 +71,7 @@ void frame(void) {
 		d_transform_pop();
 	}
 
-	char* fps = fmt("%d", d_app_fps());
+	char* fps = fmt("%d, fps: %d", count, d_app_fps());
 	d_blit_text(fps, d_vec2f(10, 10), d_colorx(0xffffffff), false, false);
 	d_app_set_title(fps);
 

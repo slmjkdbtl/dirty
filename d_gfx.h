@@ -427,6 +427,7 @@ void d_gfx_init(d_gfx_desc desc) {
 	d_gfx.backface_cull = desc.backface_cull;
 	d_gfx.bbuf_write = false;
 	d_gfx.bbuf_test = false;
+	d_gfx.shader = NULL;
 	d_gfx.def_font = d_font_parse(proggy_bytes);
 	d_gfx.cur_font = &d_gfx.def_font;
 	d_gfx.blend = D_BLEND_ALPHA;
@@ -750,6 +751,7 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
+// #ifdef D_GFX_DEPTH_TEST
 	if (d_gfx.depth_test) {
 		if (d_ibuf_get(&d_gfx.depth_buf, x, y) <= z) {
 			d_ibuf_set(&d_gfx.depth_buf, x, y, z);
@@ -757,6 +759,8 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 			return;
 		}
 	}
+// #endif
+// #ifdef D_GFX_BIT_TEST
 	if (d_gfx.bbuf_write) {
 		if (c.a != 0) {
 			d_bbuf_set(&d_gfx.bbuf, x, y, true);
@@ -767,6 +771,12 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 			return;
 		}
 	}
+// #endif
+// #ifdef D_GFX_SHADER
+	if (d_gfx.shader) {
+		c = d_gfx.shader(c);
+	}
+// #endif
 	int i = y * img->width + x;
 	switch (d_gfx.blend) {
 		case D_BLEND_ALPHA: {

@@ -56,7 +56,7 @@ co(function()
 	print("2 sec later")
 	tween(pos, d.gfx.mouse_pos(), 1, d.ease.out_elastic, function(t)
 		pos = t.val
-	end)
+	end, "move")
 	print("tween done")
 end)
 
@@ -72,9 +72,6 @@ function frame()
 
 	if d.app.key_pressed("space") then
 		d.audio.play(snd, { speed = rand(0.5, 1.5) })
-		if t then
-			t.paused = not t.paused
-		end
 	end
 
 	if d.app.mouse_pressed() then
@@ -85,13 +82,12 @@ function frame()
 
 	tweener:update(d.app.dt())
 
-	local t = d.app.time()
-
 	d.gfx.clear()
 	d.gfx.blit_bg()
 
 	d.gfx.push()
 	d.gfx.pos(pos)
+	d.gfx.pos(img:dimension() * -0.5)
 	d.gfx.draw_img(img)
 	d.gfx.pop()
 

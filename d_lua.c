@@ -61,7 +61,11 @@ bool luaL_args2(lua_State* L, int t1, int t2) {
 
 bool luaL_args3(lua_State* L, int t1, int t2, int t3) {
 	if (lua_gettop(L) == 3) {
-		if (lua_type(L, 1) == t1 && lua_type(L, 2) == t2 && lua_type(L, 3) == t3) {
+		if (
+			lua_type(L, 1) == t1
+			&& lua_type(L, 2) == t2
+			&& lua_type(L, 3) == t3
+		) {
 			return true;
 		}
 	}
@@ -70,7 +74,12 @@ bool luaL_args3(lua_State* L, int t1, int t2, int t3) {
 
 bool luaL_args4(lua_State* L, int t1, int t2, int t3, int t4) {
 	if (lua_gettop(L) == 4) {
-		if (lua_type(L, 1) == t1 && lua_type(L, 2) == t2 && lua_type(L, 3) == t3 && lua_type(L, 4) == t4) {
+		if (
+			lua_type(L, 1) == t1
+			&& lua_type(L, 2) == t2
+			&& lua_type(L, 3) == t3
+			&& lua_type(L, 4) == t4
+		) {
 			return true;
 		}
 	}
@@ -213,8 +222,6 @@ void luaL_regtype(lua_State* L, const char* name, luaL_Reg *meta) {
 		lua_pushstring(L, meta[i].name);
 		lua_pushcfunction(L, meta[i].func);
 		lua_settable(L, -3);
-		// lua_pushcfunction(L, reg[i].func);
-		// lua_setfield(L, -2, reg[i].name);
 	}
 	lua_pop(L, 1);
 }
@@ -1030,27 +1037,41 @@ static int l_gfx_get_canvas(lua_State* L) {
 	return 1;
 }
 
+d_color l_gfx_shader(d_color c) {
+	lua_rawgeti(g.lua, LUA_REGISTRYINDEX, g.gfx_shader_ref);
+	if (lua_isfunction(g.lua, -1)) {
+		lua_pushudata(g.lua, d_color, "color", &c);
+		lua_call(g.lua, 1, 1);
+		d_color* c = luaL_checkudata(g.lua, -1, "color");
+		return *c;
+	} else {
+		luaL_error(g.lua, "shader func ref not set");
+	}
+	return d_colori(0, 0, 0, 0);
+}
+
 static int l_gfx_set_shader(lua_State* L) {
 	if (lua_isnil(L, 1)) {
 		d_gfx_set_shader(NULL);
 	} else {
 		luaL_checktype(L, 1, LUA_TFUNCTION);
 		g.gfx_shader_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+		d_gfx_set_shader(l_gfx_shader);
 	}
 	return 0;
-}
-
-void l_gfx_shader(lua_State* L) {
-	lua_rawgeti(g.lua, LUA_REGISTRYINDEX, g.gfx_shader_ref);
-	if (lua_isfunction(g.lua, -1)) {
-		lua_call(g.lua, 0, 0);
-	}
 }
 
 static int l_img_load(lua_State* L) {
 	const char* path = luaL_checkstring(L, 1);
 	d_img img = d_img_load(path);
 	lua_pushudata(L, d_img, "img", &img);
+	return 1;
+}
+
+static int l_img_dimension(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	d_vec2 d = { img->width, img->height };
+	lua_pushudata(L, d_vec2, "vec2", &d);
 	return 1;
 }
 
@@ -1106,6 +1127,8 @@ static int l_img_index(lua_State* L) {
 		lua_pushinteger(L, img->width);
 	} else if (strcmp(key, "height") == 0) {
 		lua_pushinteger(L, img->height);
+	} else if (strcmp(key, "dimension") == 0) {
+		lua_pushcfunction(L, l_img_dimension);
 	} else if (strcmp(key, "get") == 0) {
 		lua_pushcfunction(L, l_img_get);
 	} else if (strcmp(key, "set") == 0) {
@@ -1203,6 +1226,7 @@ static luaL_Reg gfx_funcs[] = {
 	{ "rotz", l_gfx_rotz },
 	{ "drawon", l_gfx_drawon },
 	{ "get_canvas", l_gfx_get_canvas },
+	{ "set_shader", l_gfx_set_shader },
 	{ "img_load", l_img_load },
 	{ "model_load", l_model_load },
 	{ NULL, NULL, },
@@ -1306,6 +1330,13 @@ static int l_playback_seek(lua_State* L) {
 	return 0;
 }
 
+static int l_playback_seek_by(lua_State* L) {
+	d_playback* pb = luaL_checkudata(L, 1, "playback");
+	float t = luaL_checknumber(L, 2);
+	d_playback_seek_by(pb, t);
+	return 0;
+}
+
 static int l_playback_index(lua_State* L) {
 	d_playback* pb = luaL_checkudata(L, 1, "playback");
 	const char* key = luaL_checkstring(L, 2);
@@ -1323,6 +1354,8 @@ static int l_playback_index(lua_State* L) {
 		lua_pushnumber(L, d_playback_time(pb));
 	} else if (strcmp(key, "seek") == 0) {
 		lua_pushcfunction(L, l_playback_seek);
+	} else if (strcmp(key, "seek_by") == 0) {
+		lua_pushcfunction(L, l_playback_seek_by);
 	} else if (strcmp(key, "src") == 0) {
 		lua_pushlightuserdata(L, pb->src);
 		luaL_setmetatable(L, "sound");
@@ -1348,6 +1381,9 @@ static int l_playback_newindex(lua_State* L) {
 	} else if (strcmp(key, "speed") == 0) {
 		float p = luaL_checknumber(L, 3);
 		pb->speed = p;
+	} else if (strcmp(key, "time") == 0) {
+		float t = luaL_checknumber(L, 3);
+		d_playback_seek(pb, t);
 	}
 	return 0;
 }
@@ -1385,6 +1421,25 @@ static int l_fs_write_text(lua_State* L) {
 	const char* content = luaL_checklstring(L, 2, &size);
 	d_write_text(path, content, size);
 	return 0;
+}
+
+static int l_fs_read_dir(lua_State* L) {
+	const char* path = luaL_checkstring(L, 1);
+	DIR* dir = opendir(path);
+	if (dir == NULL) {
+		return luaL_error(L, "cannot open directory: %s", path);
+	}
+	lua_newtable(L);
+	int i = 1;
+	struct dirent* entry;
+	while ((entry = readdir(dir)) != NULL) {
+		if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+			continue;
+		lua_pushstring(L, entry->d_name);
+		lua_rawseti(L, -2, i++);
+	}
+	closedir(dir);
+	return 1;
 }
 
 static int l_fs_is_dir(lua_State* L) {
@@ -1442,8 +1497,9 @@ static int l_fs_extname(lua_State* L) {
 }
 
 static luaL_Reg fs_funcs[] = {
-	{ "read_text", l_fs_read_text, },
-	{ "write_text", l_fs_write_text, },
+	{ "read_file", l_fs_read_text, },
+	{ "write_file", l_fs_write_text, },
+	{ "read_dir", l_fs_read_dir, },
 	{ "is_dir", l_fs_is_dir, },
 	{ "is_file", l_fs_is_file, },
 	{ "extname", l_fs_extname, },
@@ -1639,7 +1695,7 @@ static int l_tween_update(lua_State* L) {
 	lua_call(L, 1, 1);
 	float t2 = luaL_checknumber(L, -1);
 	lua_getfield(L, 1, "action");
-	switch (luaL_getfieldtype(L, 1, "from")) {
+	switch (luaL_getfieldtype(L, 1, "val")) {
 		case LUA_TNUMBER: {
 			float from = luaL_getfieldnumber(L, 1, "from");
 			float to = luaL_getfieldnumber(L, 1, "to");
@@ -1648,17 +1704,40 @@ static int l_tween_update(lua_State* L) {
 			break;
 		}
 		case LUA_TUSERDATA: {
-			// TODO: color, vec3
-			d_vec2* from = luaL_getfieldudata(L, 1, "from", "vec2");
-			d_vec2* to = luaL_getfieldudata(L, 1, "to", "vec2");
-			float x = d_tween_lerp(from->x, to->x, t2);
-			float y = d_tween_lerp(from->y, to->y, t2);
-			d_vec2 p = { x, y };
-			luaL_setfieldudata(L, 1, "val", d_vec2, "vec2", p);
+			lua_getfield(L, 1, "val");
+			const char* ty = luaL_udatatype(L, -1);
+			lua_pop(L, 1);
+			if (strcmp(ty, "vec2") == 0) {
+				d_vec2* from = luaL_getfieldudata(L, 1, "from", "vec2");
+				d_vec2* to = luaL_getfieldudata(L, 1, "to", "vec2");
+				float x = d_tween_lerp(from->x, to->x, t2);
+				float y = d_tween_lerp(from->y, to->y, t2);
+				d_vec2 p = { x, y };
+				luaL_setfieldudata(L, 1, "val", d_vec2, "vec2", p);
+			} else if (strcmp(ty, "vec3")) {
+				d_vec3* from = luaL_getfieldudata(L, 1, "from", "vec3");
+				d_vec3* to = luaL_getfieldudata(L, 1, "to", "vec3");
+				float x = d_tween_lerp(from->x, to->x, t2);
+				float y = d_tween_lerp(from->y, to->y, t2);
+				float z = d_tween_lerp(from->z, to->z, t2);
+				d_vec3 p = { x, y, z };
+				luaL_setfieldudata(L, 1, "val", d_vec3, "vec3", p);
+			} else if (strcmp(ty, "color")) {
+				d_color* from = luaL_getfieldudata(L, 1, "from", "color");
+				d_color* to = luaL_getfieldudata(L, 1, "to", "color");
+				float r = d_tween_lerp(from->r, to->r, t2);
+				float g = d_tween_lerp(from->g, to->g, t2);
+				float b = d_tween_lerp(from->b, to->b, t2);
+				float a = d_tween_lerp(from->a, to->a, t2);
+				d_color c = { r, g, b, a };
+				luaL_setfieldudata(L, 1, "val", d_color, "color", c);
+			} else {
+				luaL_error(L, "unsupported tween type \"%s\"", ty);
+			}
 			break;
 		}
 		default:
-			// TODO
+			luaL_error(L, "unsupported tween type");
 			break;
 	}
 	if (t >= 1.0f) {

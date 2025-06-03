@@ -47,8 +47,6 @@ d_sound d_sound_parse(uint8_t* bytes, size_t size);
 d_sound d_sound_load(char* path);
 #endif
 d_sound d_sound_clone(d_sound* snd);
-d_sound d_sound_stereo_to_mono(d_sound* snd);
-d_sound d_sound_resample(d_sound* src, int input_rate, int output_rate);
 float d_sound_sample(d_sound* snd, float time);
 float d_sound_duration(d_sound* snd);
 void d_sound_free(d_sound* sound);
