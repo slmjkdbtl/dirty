@@ -51,8 +51,6 @@ void init(void) {
 		.clear_color = d_colori(0, 0, 0, 255),
 	});
 
-	d_gfx_set_shader(shade);
-
 	models[0] = (model) {
 		.pos = d_vec3f(60, 80, 0),
 		.rot = d_vec3f(-10, -10, 0),

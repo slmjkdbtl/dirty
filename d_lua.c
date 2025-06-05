@@ -8,6 +8,9 @@
 #include <stb_image.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
+#define STB_VORBIS_IMPLEMENTATION
+#define STB_VORBIS_HEADER_ONLY
+#include <stb_vorbis.c>
 #define CGLTF_IMPLEMENTATION
 #include <cgltf.h>
 
@@ -18,9 +21,6 @@
 #include <d_tween.h>
 #include <d_app.h>
 #include <d_gfx.h>
-#define STB_VORBIS_IMPLEMENTATION
-#define STB_VORBIS_HEADER_ONLY
-#include <stb_vorbis.c>
 #include <d_audio.h>
 
 #define lua_pushudata(L, T, TS, V) \
@@ -2495,8 +2495,6 @@ int main(int argc, char** argv) {
 	if (luaL_loadfile(L, path) || lua_pcall(L, 0, 0, 0)) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
 	}
-
-	lua_close(L);
 
 	return EXIT_SUCCESS;
 

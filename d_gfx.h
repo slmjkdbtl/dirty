@@ -773,6 +773,7 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 	}
 // #endif
 // #ifdef D_GFX_SHADER
+	// TODO: shader should be in draw_triangle
 	if (d_gfx.shader) {
 		c = d_gfx.shader(c);
 	}
