@@ -972,6 +972,9 @@ static bool d_cocoa_is_mouse_inside(void) {
 
 }
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication*)sender {
+	if (d_app.desc.quit) {
+		d_app.desc.quit();
+	}
 	return YES;
 }
 -(void)loop:(NSTimer*)timer {
@@ -1059,6 +1062,9 @@ static bool d_cocoa_is_mouse_inside(void) {
 - (void)drawRect:(NSRect)rect {
 	d_app_frame();
 	if (d_app.quit) {
+		if (d_app.desc.quit) {
+			d_app.desc.quit();
+		}
 		[NSApp terminate:nil];
 	}
 }
@@ -1416,6 +1422,10 @@ static void d_term_run(d_app_desc* desc) {
 
 	}
 
+	if (d_app.desc.quit) {
+		d_app.desc.quit();
+	}
+
 }
 
 // TODO: scale down if buf is bigger
@@ -1634,6 +1644,10 @@ static void d_x11_run(d_app_desc* desc) {
 
 		d_app_frame();
 
+	}
+
+	if (d_app.desc.quit) {
+		d_app.desc.quit();
 	}
 
 	XDestroyWindow(dis, window);
@@ -1916,6 +1930,10 @@ static void d_win32_run(d_app_desc* desc) {
 			}
 		}
         d_app_frame();
+	}
+
+	if (d_app.desc.quit) {
+		d_app.desc.quit();
 	}
 
 }

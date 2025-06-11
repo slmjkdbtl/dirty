@@ -7,6 +7,16 @@ local model = d.gfx.model_load("demo/res/btfly.glb")
 local snd = d.audio.sound_load("demo/res/pop.ogg")
 local pos = vec2(20, 20)
 
+local data = {
+	x = 42,
+	list = { 5, 3, 9 },
+	name = "space55",
+}
+
+print(d.data.serialize(data, true))
+local a = d.data.deserialize(d.data.serialize(data))
+print(d.data.serialize(a, true))
+
 function init()
 	d.gfx.init({
 		clear_color = color(0, 0, 0, 255),
@@ -17,44 +27,14 @@ function init()
 	d.audio.init()
 end
 
-function wave(a, b, t)
-	return a + ((math.sin(t) + 1) / 2) * (b - a)
-end
-
 local tweener = d.tween.manager()
 
-local co_tasks = {}
+local co = runner()
 
-function co(task)
-	local co = coroutine.create(task)
-	co_tasks[#co_tasks + 1] = function()
-		if coroutine.status(co) ~= "dead" then
-			local success, err = coroutine.resume(co)
-			if not success then
-				error(err)
-			end
-		end
-	end
-end
-
-function wait(seconds)
-	local start = d.app.time()
-	while d.app.time() - start < seconds do
-		coroutine.yield()
-	end
-end
-
-function tween(...)
-	local t = tweener:add(...)
-	while not t.done do
-		coroutine.yield()
-	end
-end
-
-co(function()
+co:run(function()
 	wait(2)
 	print("2 sec later")
-	tween(pos, d.gfx.mouse_pos(), 1, d.ease.out_elastic, function(t)
+	tweener:add_async(pos, d.gfx.mouse_pos(), 1, d.ease.out_elastic, function(t)
 		pos = t.val
 	end, "move")
 	print("tween done")
@@ -62,9 +42,7 @@ end)
 
 function frame()
 
-	for i = 1, #co_tasks do
-		co_tasks[i]()
-	end
+	co:update()
 
 	if d.app.key_pressed("esc") then
 		d.app.quit()

@@ -622,7 +622,6 @@ d_sound d_sound_load(char* path) {
 	size_t size;
 	uint8_t* bytes = d_read_bytes(path, &size);
 	if (!bytes) {
-		fprintf(stderr, "failed to load sound from '%s'\n", path);
 		return d_sound_empty();
 	}
 	d_sound snd = d_sound_parse(bytes, size);

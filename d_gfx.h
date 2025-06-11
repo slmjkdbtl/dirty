@@ -143,7 +143,7 @@ typedef struct {
 	float rot;
 } d_cam;
 
-typedef d_color(*d_shader)(d_color);
+typedef d_color(*d_shader)(d_color, int, int);
 
 void d_gfx_init(d_gfx_desc);
 #ifdef D_APP_H
@@ -592,7 +592,6 @@ d_img d_img_load(char* path) {
 	size_t size;
 	uint8_t* bytes = d_read_bytes(path, &size);
 	if (!bytes) {
-		fprintf(stderr, "failed to load img from '%s'\n", path);
 		return d_img_empty();
 	}
 	d_img img = d_img_parse(bytes, size);
@@ -699,7 +698,6 @@ d_font d_font_load(char* path) {
 	size_t size;
 	uint8_t* bytes = d_read_bytes(path, &size);
 	if (!bytes) {
-		fprintf(stderr, "failed to load font from '%s'\n", path);
 		return (d_font) {0};
 	}
 	d_font font = d_font_parse(bytes);
@@ -775,7 +773,7 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 // #ifdef D_GFX_SHADER
 	// TODO: shader should be in draw_triangle
 	if (d_gfx.shader) {
-		c = d_gfx.shader(c);
+		c = d_gfx.shader(c, x, y);
 	}
 // #endif
 	int i = y * img->width + x;
@@ -1988,7 +1986,6 @@ d_model d_model_load(char* path) {
 	size_t size;
 	uint8_t* bytes = d_read_bytes(path, &size);
 	if (!bytes) {
-		fprintf(stderr, "failed to load model from '%s'\n", path);
 		return d_model_empty();
 	}
 	d_model model = d_model_parse(bytes, size);

@@ -23,6 +23,8 @@
 #include <d_gfx.h>
 #include <d_audio.h>
 
+#include <d_lua_lib.h>
+
 #define lua_pushudata(L, T, TS, V) \
 	T* lv = lua_newuserdata(L, sizeof(T)); \
 	luaL_setmetatable(L, TS); \
@@ -33,7 +35,7 @@
 	lua_setfield(L, IDX, K); \
 
 typedef struct {
-	const char *str;
+	const char* str;
 	int val;
 } luaL_Enum;
 
@@ -86,7 +88,7 @@ bool luaL_args4(lua_State* L, int t1, int t2, int t3, int t4) {
 	return false;
 }
 
-static void luaL_stackdump(lua_State *L) {
+void luaL_stackdump(lua_State *L) {
 	int top = lua_gettop(L);
 	printf("Lua Stack (size: %d):\n", top);
 	for (int i = 1; i <= top; i++) {
@@ -152,27 +154,24 @@ void* luaL_optudata(lua_State* L, int pos, const char *type, void *def) {
 }
 
 const char* luaL_udatatype(lua_State* L, int pos) {
-	if (!lua_getmetatable(L, pos)) {
-		return NULL;
-	}
-	lua_getfield(L, -1, "__name");
+	luaL_getmetafield(L, pos, "__name");
 	const char* tname = lua_tostring(L, -1);
-	lua_pop(L, 2);
+	lua_pop(L, 1);
 	return tname;
 }
 
-static int luaL_tablelen(lua_State* L, int idx) {
+int luaL_tablelen(lua_State* L, int idx) {
 	lua_len(L, idx);
 	int len = lua_tonumber(L, -1);
 	lua_pop(L, 1);
 	return len;
 }
 
-static int luaL_absidx(lua_State* L, int idx) {
+int luaL_absidx(lua_State* L, int idx) {
 	return idx < 0 ? lua_gettop(L) + idx + 1 : idx;
 }
 
-static void luaL_rmi(lua_State* L, int idx, int pos) {
+void luaL_rmi(lua_State* L, int idx, int pos) {
 
 	idx = luaL_absidx(L, idx);
 
@@ -226,35 +225,35 @@ void luaL_regtype(lua_State* L, const char* name, luaL_Reg *meta) {
 	lua_pop(L, 1);
 }
 
-static int luaL_getfieldtype(lua_State* L, int idx, char* key) {
+int luaL_getfieldtype(lua_State* L, int idx, char* key) {
 	lua_getfield(L, idx, key);
 	int ty = lua_type(L, -1);
 	lua_pop(L, 1);
 	return ty;
 }
 
-static bool luaL_getfieldboolean(lua_State* L, int idx, char* key) {
+bool luaL_getfieldboolean(lua_State* L, int idx, char* key) {
 	lua_getfield(L, idx, key);
 	bool b = luaL_checkboolean(L, -1);
 	lua_pop(L, 1);
 	return b;
 }
 
-static float luaL_getfieldnumber(lua_State* L, int idx, char* key) {
+float luaL_getfieldnumber(lua_State* L, int idx, char* key) {
 	lua_getfield(L, idx, key);
 	float n = luaL_checknumber(L, -1);
 	lua_pop(L, 1);
 	return n;
 }
 
-static const char* luaL_getfieldstring(lua_State* L, int idx, char* key) {
+const char* luaL_getfieldstring(lua_State* L, int idx, char* key) {
 	lua_getfield(L, idx, key);
 	const char* str = luaL_checkstring(L, -1);
 	lua_pop(L, 1);
 	return str;
 }
 
-static const char* luaL_getfieldstringopt(lua_State* L, int idx, char* key) {
+const char* luaL_getfieldstringopt(lua_State* L, int idx, char* key) {
 	lua_getfield(L, idx, key);
 	const char* str = NULL;
 	if (lua_isstring(L, -1)) {
@@ -264,19 +263,19 @@ static const char* luaL_getfieldstringopt(lua_State* L, int idx, char* key) {
 	return str;
 }
 
-static void* luaL_getfieldudata(lua_State* L, int idx, char* key, char* ty) {
+void* luaL_getfieldudata(lua_State* L, int idx, char* key, char* ty) {
 	lua_getfield(L, idx, key);
 	void* v = luaL_checkudata(L, -1, ty);
 	lua_pop(L, 1);
 	return v;
 }
 
-static void luaL_setfieldboolean(lua_State* L, int idx, char* key, bool b) {
+void luaL_setfieldboolean(lua_State* L, int idx, char* key, bool b) {
 	lua_pushboolean(L, b);
 	lua_setfield(L, idx, key);
 }
 
-static void luaL_setfieldnumber(lua_State* L, int idx, char* key, float v) {
+void luaL_setfieldnumber(lua_State* L, int idx, char* key, float v) {
 	lua_pushnumber(L, v);
 	lua_setfield(L, idx, key);
 }
@@ -668,24 +667,10 @@ static int l_app_keyboard_shown(lua_State* L) {
 	}
 }
 
-static int l_app_title(lua_State* L) {
-	if (lua_isnoneornil(L, 1)) {
-		return 0;
-		// lua_pushstring(L, d_app_title());
-		// return 1;
-	} else {
-		const char* title = luaL_checkstring(L, 1);
-		d_app_set_title(title);
-		return 0;
-	}
-}
-
-void l_app_cleanup(lua_State* L) {
-	luaL_unref(L, LUA_REGISTRYINDEX, g.app_init_ref);
-	luaL_unref(L, LUA_REGISTRYINDEX, g.app_frame_ref);
-	luaL_unref(L, LUA_REGISTRYINDEX, g.app_quit_ref);
-	luaL_unref(L, LUA_REGISTRYINDEX, g.app_err_ref);
-	luaL_unref(L, LUA_REGISTRYINDEX, g.gfx_shader_ref);
+static int l_app_set_title(lua_State* L) {
+	const char* title = luaL_checkstring(L, 1);
+	d_app_set_title(title);
+	return 0;
 }
 
 static luaL_Reg app_funcs[] = {
@@ -716,7 +701,7 @@ static luaL_Reg app_funcs[] = {
 	{ "mouse_locked", l_app_mouse_locked, },
 	{ "mouse_hidden", l_app_mouse_hidden, },
 	{ "keyboard_shown", l_app_keyboard_shown, },
-	{ "title", l_app_title, },
+	{ "set_title", l_app_set_title, },
 	{ NULL, NULL, },
 };
 
@@ -1037,11 +1022,13 @@ static int l_gfx_get_canvas(lua_State* L) {
 	return 1;
 }
 
-d_color l_gfx_shader(d_color c) {
+d_color l_gfx_shader(d_color c, int x, int y) {
 	lua_rawgeti(g.lua, LUA_REGISTRYINDEX, g.gfx_shader_ref);
 	if (lua_isfunction(g.lua, -1)) {
 		lua_pushudata(g.lua, d_color, "color", &c);
-		lua_call(g.lua, 1, 1);
+		lua_pushnumber(g.lua, x);
+		lua_pushnumber(g.lua, y);
+		lua_call(g.lua, 3, 1);
 		d_color* c = luaL_checkudata(g.lua, -1, "color");
 		return *c;
 	} else {
@@ -1064,6 +1051,11 @@ static int l_gfx_set_shader(lua_State* L) {
 static int l_img_load(lua_State* L) {
 	const char* path = luaL_checkstring(L, 1);
 	d_img img = d_img_load(path);
+	if (img.width == 0 || img.height == 0) {
+		luaL_error(L, "failed to load img from '%s'", path);
+		lua_pushnil(L);
+		return 1;
+	}
 	lua_pushudata(L, d_img, "img", &img);
 	return 1;
 }
@@ -1157,6 +1149,11 @@ static luaL_Reg img_meta[] = {
 static int l_model_load(lua_State* L) {
 	const char* path = luaL_checkstring(L, 1);
 	d_model model = d_model_load(path);
+	if (model.num_nodes == 0) {
+		luaL_error(L, "failed to load model from '%s'", path);
+		lua_pushnil(L);
+		return 1;
+	}
 	lua_pushudata(L, d_model, "model", &model);
 	return 1;
 }
@@ -1278,6 +1275,11 @@ static int l_audio_play(lua_State* L) {
 static int l_sound_load(lua_State* L) {
 	const char* path = luaL_checkstring(L, 1);
 	d_sound sound = d_sound_load(path);
+	if (sound.num_frames == 0) {
+		luaL_error(L, "failed to load sound from '%s'", path);
+		lua_pushnil(L);
+		return 1;
+	}
 	lua_pushudata(L, d_sound, "sound", &sound);
 	return 1;
 }
@@ -1384,6 +1386,8 @@ static int l_playback_newindex(lua_State* L) {
 	} else if (strcmp(key, "time") == 0) {
 		float t = luaL_checknumber(L, 3);
 		d_playback_seek(pb, t);
+	} else {
+		luaL_error(L, "unknown field '%s' on playback", key);
 	}
 	return 0;
 }
@@ -1680,188 +1684,6 @@ static luaL_Reg col_funcs[] = {
 	{ NULL, NULL, },
 };
 
-static int l_tween_update(lua_State* L) {
-	luaL_checktable(L, 1);
-	float dt = luaL_checknumber(L, 2);
-	bool done = luaL_getfieldboolean(L, 1, "done");
-	bool paused = luaL_getfieldboolean(L, 1, "paused");
-	if (done || paused) return 0;
-	float elapsed = luaL_getfieldnumber(L, 1, "elapsed");
-	float duration = luaL_getfieldnumber(L, 1, "duration");
-	elapsed += dt;
-	float t = fminf(elapsed / duration, 1.0);
-	lua_getfield(L, 1, "func");
-	lua_pushnumber(L, t);
-	lua_call(L, 1, 1);
-	float t2 = luaL_checknumber(L, -1);
-	lua_getfield(L, 1, "action");
-	switch (luaL_getfieldtype(L, 1, "val")) {
-		case LUA_TNUMBER: {
-			float from = luaL_getfieldnumber(L, 1, "from");
-			float to = luaL_getfieldnumber(L, 1, "to");
-			float val = d_tween_lerp(from, to, t2);;
-			luaL_setfieldnumber(L, 1, "val", val);
-			break;
-		}
-		case LUA_TUSERDATA: {
-			lua_getfield(L, 1, "val");
-			const char* ty = luaL_udatatype(L, -1);
-			lua_pop(L, 1);
-			if (strcmp(ty, "vec2") == 0) {
-				d_vec2* from = luaL_getfieldudata(L, 1, "from", "vec2");
-				d_vec2* to = luaL_getfieldudata(L, 1, "to", "vec2");
-				float x = d_tween_lerp(from->x, to->x, t2);
-				float y = d_tween_lerp(from->y, to->y, t2);
-				d_vec2 p = { x, y };
-				luaL_setfieldudata(L, 1, "val", d_vec2, "vec2", p);
-			} else if (strcmp(ty, "vec3")) {
-				d_vec3* from = luaL_getfieldudata(L, 1, "from", "vec3");
-				d_vec3* to = luaL_getfieldudata(L, 1, "to", "vec3");
-				float x = d_tween_lerp(from->x, to->x, t2);
-				float y = d_tween_lerp(from->y, to->y, t2);
-				float z = d_tween_lerp(from->z, to->z, t2);
-				d_vec3 p = { x, y, z };
-				luaL_setfieldudata(L, 1, "val", d_vec3, "vec3", p);
-			} else if (strcmp(ty, "color")) {
-				d_color* from = luaL_getfieldudata(L, 1, "from", "color");
-				d_color* to = luaL_getfieldudata(L, 1, "to", "color");
-				float r = d_tween_lerp(from->r, to->r, t2);
-				float g = d_tween_lerp(from->g, to->g, t2);
-				float b = d_tween_lerp(from->b, to->b, t2);
-				float a = d_tween_lerp(from->a, to->a, t2);
-				d_color c = { r, g, b, a };
-				luaL_setfieldudata(L, 1, "val", d_color, "color", c);
-			} else {
-				luaL_error(L, "unsupported tween type \"%s\"", ty);
-			}
-			break;
-		}
-		default:
-			luaL_error(L, "unsupported tween type");
-			break;
-	}
-	if (t >= 1.0f) {
-		elapsed = duration;
-		done = true;
-	}
-	luaL_setfieldnumber(L, 1, "elapsed", elapsed);
-	luaL_setfieldboolean(L, 1, "done", done);
-	lua_pushvalue(L, 1);
-	lua_call(L, 1, 0);
-	return 0;
-}
-
-static int l_tween_new(lua_State* L) {
-	luaL_checkfunction(L, 4);
-	lua_newtable(L);
-	lua_pushvalue(L, 1);
-	lua_setfield(L, -2, "from");
-	lua_pushvalue(L, 1);
-	lua_setfield(L, -2, "val");
-	lua_pushvalue(L, 2);
-	lua_setfield(L, -2, "to");
-	lua_pushvalue(L, 3);
-	lua_setfield(L, -2, "duration");
-	lua_pushvalue(L, 4);
-	lua_setfield(L, -2, "func");
-	lua_pushvalue(L, 5);
-	lua_setfield(L, -2, "action");
-	lua_pushvalue(L, 6);
-	lua_setfield(L, -2, "name");
-	lua_pushnumber(L, 0);
-	lua_setfield(L, -2, "elapsed");
-	lua_pushboolean(L, false);
-	lua_setfield(L, -2, "paused");
-	lua_pushboolean(L, false);
-	lua_setfield(L, -2, "done");
-	lua_pushcfunction(L, l_tween_update);
-	lua_setfield(L, -2, "update");
-	return 1;
-}
-
-static int l_tween_manager_add(lua_State* L) {
-
-	lua_pushcfunction(L, l_tween_new);
-
-	for (int i = 2; i <= 7; i++) {
-		lua_pushvalue(L, i);
-	}
-
-	lua_call(L, 6, 1);
-
-	const char* name = luaL_getfieldstringopt(L, -1, "name");
-
-	lua_getfield(L, 1, "tweens");
-	int len = lua_rawlen(L, -1);
-
-	// cancel previous tween with the same name
-	if (name) {
-		const char* name = luaL_checkstring(L, 7);
-		for (int i = len; i >= 1; i--) {
-			lua_geti(L, -1, i);
-			const char* name2 = luaL_getfieldstring(L, -1, "name");
-			if (strcmp(name, name2) == 0) {
-				luaL_rmi(L, -2, i);
-				len -= 1;
-			}
-			lua_pop(L, 1);
-		}
-	}
-
-	lua_pushvalue(L, -2);
-	lua_seti(L, -2, len + 1);
-	lua_pop(L, 1);
-
-	return 1;
-
-}
-
-static int l_tween_manager_update(lua_State* L) {
-
-	float dt = luaL_checknumber(L, 2);
-	lua_getfield(L, 1, "tweens");
-	int len = lua_rawlen(L, -1);
-
-	for (int i = len; i >= 1; --i) {
-
-		lua_geti(L, -1, i);
-
-		lua_pushcfunction(L, l_tween_update);
-		lua_pushvalue(L, -2);
-		lua_pushnumber(L, dt);
-		lua_call(L, 2, 0);
-
-		bool done = luaL_getfieldboolean(L, -1, "done");
-
-		if (done) {
-			luaL_rmi(L, 3, i);
-		}
-
-		lua_pop(L, 1);
-
-	}
-
-	return 0;
-
-}
-
-static int l_tween_manager(lua_State* L) {
-	lua_newtable(L);
-	lua_newtable(L);
-	lua_setfield(L, -2, "tweens");
-	lua_pushcfunction(L, l_tween_manager_add);
-	lua_setfield(L, -2, "add");
-	lua_pushcfunction(L, l_tween_manager_update);
-	lua_setfield(L, -2, "update");
-	return 1;
-}
-
-static luaL_Reg tween_funcs[] = {
-	{ "manager", l_tween_manager, },
-	{ "new", l_tween_new, },
-	{ NULL, NULL, },
-};
-
 #define BIND_EASE_FUNC(name) \
 	static int l_ease_##name(lua_State* L) { \
 		lua_pushnumber(L, d_ease_##name(luaL_checknumber(L, 1))); \
@@ -2013,6 +1835,8 @@ static int l_vec2_newindex(lua_State* L) {
 		p->x = value;
 	} else if (strcmp(key, "y") == 0) {
 		p->y = value;
+	} else {
+		luaL_error(L, "unknown field '%s' on vec2", key);
 	}
 	return 0;
 }
@@ -2139,6 +1963,8 @@ static int l_vec3_newindex(lua_State* L) {
 		p->y = value;
 	} else if (strcmp(key, "z") == 0) {
 		p->z = value;
+	} else {
+		luaL_error(L, "unknown field '%s' on vec3", key);
 	}
 	return 0;
 }
@@ -2245,6 +2071,13 @@ static int l_color_mix(lua_State* L) {
 	return 1;
 }
 
+static int l_color_clone(lua_State* L) {
+	d_color* c = luaL_checkudata(L, 1, "color");
+	d_color c2 = *c;
+	lua_pushudata(L, d_color, "color", &c2);
+	return 1;
+}
+
 static int l_color_index(lua_State* L) {
 	d_color* c = luaL_checkudata(L, 1, "color");
 	const char* key = luaL_checkstring(L, 2);
@@ -2262,6 +2095,8 @@ static int l_color_index(lua_State* L) {
 		lua_pushcfunction(L, l_color_darken);
 	} else if (strcmp(key, "lighten") == 0) {
 		lua_pushcfunction(L, l_color_lighten);
+	} else if (strcmp(key, "clone") == 0) {
+		lua_pushcfunction(L, l_color_clone);
 	} else {
 		luaL_error(L, "unknown field '%s' on color", key);
 		lua_pushnil(L);
@@ -2281,6 +2116,8 @@ static int l_color_newindex(lua_State* L) {
 		c->b = value;
 	} else if (strcmp(key, "a") == 0) {
 		c->a = value;
+	} else {
+		luaL_error(L, "unknown field '%s' on color", key);
 	}
 	return 0;
 }
@@ -2399,21 +2236,23 @@ static int l_randi(lua_State* L) {
 	return 1;
 }
 
-static int l_chance(lua_State* L) {
-	float c = luaL_optnumber(L, 1, 0.5);
-	lua_pushboolean(L, d_chance(c));
-	return 1;
-}
-
 static luaL_Reg global_funcs[] = {
 	{ "vec2", l_vec2 },
 	{ "vec3", l_vec3 },
 	{ "color", l_color },
 	{ "rand", l_rand },
 	{ "randi", l_randi },
-	{ "chance", l_chance },
 	{ NULL, NULL, },
 };
+
+static void cleanup(void) {
+	luaL_unref(g.lua, LUA_REGISTRYINDEX, g.app_init_ref);
+	luaL_unref(g.lua, LUA_REGISTRYINDEX, g.app_frame_ref);
+	luaL_unref(g.lua, LUA_REGISTRYINDEX, g.app_quit_ref);
+	luaL_unref(g.lua, LUA_REGISTRYINDEX, g.app_err_ref);
+	luaL_unref(g.lua, LUA_REGISTRYINDEX, g.gfx_shader_ref);
+	lua_close(g.lua);
+}
 
 int main(int argc, char** argv) {
 
@@ -2470,9 +2309,6 @@ int main(int argc, char** argv) {
 	luaL_newlib(L, col_funcs);
 	lua_setfield(L, -2, "col");
 
-	luaL_newlib(L, tween_funcs);
-	lua_setfield(L, -2, "tween");
-
 	luaL_newlib(L, ease_funcs);
 	lua_setfield(L, -2, "ease");
 
@@ -2491,6 +2327,8 @@ int main(int argc, char** argv) {
 	}
 
 	lua_setglobal(L, "arg");
+
+	luaL_dostring(L, (const char*)lib_lua);
 
 	if (luaL_loadfile(L, path) || lua_pcall(L, 0, 0, 0)) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));

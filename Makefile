@@ -33,7 +33,7 @@ CC := x86_64-w64-mingw32-gcc
 endif
 
 DEMO := hi
-BIN_PATH := build/$(TARGET)
+BUILD_PATH := build/$(TARGET)
 DEMO_PATH := demo
 
 # flags
@@ -128,19 +128,21 @@ endif
 
 # files
 DEMO_FILES := $(wildcard $(DEMO_PATH)/*.c)
-DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(BIN_PATH)/%, $(DEMO_FILES))
+DEMO_TARGETS := $(patsubst $(DEMO_PATH)/%.c, $(BUILD_PATH)/%, $(DEMO_FILES))
 PREFIX := /usr/local
 
 LUA_PATH := ext/lua
-LUA_SRC := $(wildcard $(LUA_PATH)/src/*.c) ext/stb_vorbis.c
+LUA_SRC := $(wildcard $(LUA_PATH)/src/*.c) ext/stb_vorbis.c d_lua.c
+LUA_OBJ := $(patsubst %.c, $(BUILD_PATH)/obj/%.o, $(LUA_SRC))
+LUA_TARGET := $(BUILD_PATH)/dlua
 LUA_CFLAGS += -I$(LUA_PATH)/src
 LUA_CFLAGS += -Wno-gnu-label-as-value
 LUA_CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
 
 .PHONY: run
-run: $(BIN_PATH)/$(DEMO)
+run: $(BUILD_PATH)/$(DEMO)
 ifeq ($(TARGET),web)
-	cd $(BIN_PATH); \
+	cd $(BUILD_PATH); \
 		python3 -m http.server 8000
 else ifeq ($(TARGET),iossim)
 	@if [ -z "$(SIMULATOR)" ]; then \
@@ -157,29 +159,29 @@ else ifeq ($(TARGET),ios)
 	ios-deploy --debug --bundle $<.app
 else ifeq ($(TARGET),windows)
 ifeq ($(HOST), windows)
-	cd $(BIN_PATH); \
+	cd $(BUILD_PATH); \
 		$(DEMO).exe $(ARGS)
 else
-	cd $(BIN_PATH); \
+	cd $(BUILD_PATH); \
 		wine $(DEMO).exe $(ARGS)
 endif
 else
-	cd $(BIN_PATH); \
+	cd $(BUILD_PATH); \
 		./$(DEMO) $(ARGS)
 endif
 
 .PHONY: debug
-debug: $(BIN_PATH)/$(DEMO)
+debug: $(BUILD_PATH)/$(DEMO)
 	lldb -- $< $(ARGS)
 
 .PHONY: demo
-demo: $(BIN_PATH)/$(DEMO)
+demo: $(BUILD_PATH)/$(DEMO)
 
 .PHONY: demos
 demos: $(DEMO_TARGETS)
 
 .PHONY: bundle
-bundle: $(BIN_PATH)/$(DEMO)
+bundle: $(BUILD_PATH)/$(DEMO)
 ifeq ($(TARGET),macos)
 	mkdir -p $<.app/Contents/MacOS
 	mkdir -p $<.app/Contents/Resources
@@ -189,12 +191,12 @@ ifeq ($(TARGET),macos)
 else ifeq ($(TARGET),iossim)
 	mkdir -p $<.app
 	cp $< $<.app/
-	cp -r $(BIN_PATH)/res $<.app/
+	cp -r $(BUILD_PATH)/res $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
 else ifeq ($(TARGET),ios)
 	mkdir -p $<.app
 	cp $< $<.app/
-	cp -r $(BIN_PATH)/res $<.app/
+	cp -r $(BUILD_PATH)/res $<.app/
 	sed 's/{{name}}/$(DEMO)/' misc/ios.plist > $<.app/Info.plist
 	@if [ -z "$(PROVISION)" ] || [ -z "$(CODESIGN)" ]; then \
 		echo "PROVISION and CODESIGN required"; \
@@ -204,42 +206,45 @@ else ifeq ($(TARGET),ios)
 	codesign -s "$(CODESIGN)" --deep --force $<.app
 endif
 
-$(BIN_PATH)/%: $(DEMO_PATH)/%.c *.h
-	@mkdir -p $(BIN_PATH)
+$(BUILD_PATH)/%: $(DEMO_PATH)/%.c *.h
+	@mkdir -p $(BUILD_PATH)
 ifeq ($(TARGET),web)
 	$(CC) $(CFLAGS) -o $@.js $< ext/stb_vorbis.c $(LDFLAGS)
-	sed 's/{{name}}/$*/' misc/web.html > $(BIN_PATH)/index.html
+	sed 's/{{name}}/$*/' misc/web.html > $(BUILD_PATH)/index.html
 else
 	$(CC) $(CFLAGS) -o $@ $< ext/stb_vorbis.c $(LDFLAGS)
 endif
-	rsync -a --delete $(DEMO_PATH)/res $(BIN_PATH)/
+	rsync -a --delete $(DEMO_PATH)/res $(BUILD_PATH)/
 
-$(BIN_PATH)/dlua: $(LUA_SRC) d_lua.c *.h
-	@mkdir -p $(BIN_PATH)
-	$(CC) $(CFLAGS) $(LUA_CFLAGS) $(LDFLAGS) $(LUA_SRC) d_lua.c -o $@
+d_lua_lib.h: lib.lua
+	xxd -i $< > $@
 
-$(BIN_PATH)/dirty: dirty.c *.h
-	@mkdir -p $(BIN_PATH)
-	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+$(LUA_TARGET): $(LUA_SRC) d_lua_lib.h *.h
+	@mkdir -p $(BUILD_PATH)
+	$(CC) $(CFLAGS) $(LUA_CFLAGS) $(LDFLAGS) $(LUA_SRC) -o $@
 
 .PHONY: runlua
-runlua: $(BIN_PATH)/dlua
+runlua: $(LUA_TARGET)
 	$< $(ARGS)
 
 .PHONY: install
-installlua: $(BIN_PATH)/dlua
+installlua: $(LUA_TARGET)
 	install $< $(PREFIX)/bin/dlua
 
+$(BUILD_PATH)/dirty: dirty.c *.h
+	@mkdir -p $(BUILD_PATH)
+	$(CC) $(CFLAGS) $(LDFLAGS) $< -o $@
+
 .PHONY: runscript
-runscript: $(BIN_PATH)/dirty
+runscript: $(BUILD_PATH)/dirty
 	$< $(ARGS)
 
 .PHONY: debugscript
-debugscript: $(BIN_PATH)/dirty
+debugscript: $(BUILD_PATH)/dirty
 	lldb -- $< $(ARGS)
 
 .PHONY: install
-install: $(BIN_PATH)/dirty
+install: $(BUILD_PATH)/dirty
 	install $< $(PREFIX)/bin/dirty
 
 .PHONY: clean

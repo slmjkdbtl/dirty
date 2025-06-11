@@ -134,6 +134,7 @@ int d_rng_randi(d_rng* rng, int low, int hi);
 float d_randf(float, float);
 int d_randi(int, int);
 bool d_chance(float);
+float d_wave(float a, float b, float t);
 
 d_vec2 d_vec2f(float, float);
 d_vec2 d_vec2u(void);
@@ -292,6 +293,10 @@ int d_randi(int low, int hi) {
 
 bool d_chance(float c) {
 	return d_randf(0, 1) <= c;
+}
+
+float d_wave(float a, float b, float t) {
+	return a + ((sinf(t) + 1) / 2) * (b - a);
 }
 
 d_vec2 d_vec2f(float x, float y) {
