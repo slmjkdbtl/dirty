@@ -103,7 +103,7 @@ function table.weighedchoice(t)
 		sum = sum + v
 	end
 	assert(sum ~= 0, "all weights are zero")
-	local rnd = rand(sum)
+	local rnd = d.rand(sum)
 	for k, v in pairs(t) do
 		if rnd < v then
 			return k
@@ -275,11 +275,9 @@ function d.tween.manager()
 	function m:add(...)
 		local t = d.tween.new(...)
 		if t.name then
-			for i = #tweens, 1, -1 do
-				if tweens[i].name == t.name then
-					table.remove(tweens, i)
-				end
-			end
+			tweens = table.filter(tweens, function(t2)
+				return t.name ~= t2.name
+			end)
 		end
 		tweens[#tweens + 1] = t
 		return t
@@ -293,13 +291,13 @@ function d.tween.manager()
 	end
 	function m:update(dt)
 		if m.paused then return end
-		for i = #tweens, 1, -1 do
+		for i = 1, #tweens do
 			local t = tweens[i]
 			t:update(dt)
-			if t.done then
-				table.remove(tweens, i)
-			end
 		end
+		tweens = table.filter(tweens, function(t)
+			return t.done == false
+		end)
 	end
 	function m:clear()
 		tweens = {}
@@ -309,23 +307,29 @@ end
 
 d.timer = {}
 
-function d.timer.new(secs, action, loop)
+function d.timer.new(time, action, loop)
 	local t = {
-		time = 0,
+		elapsed = 0,
+		time = time,
 		paused = false,
 		done = false,
 	}
+	function t:reset(time2)
+		self.elapsed = 0
+		self.done = false
+		self.time = time2 or self.time
+	end
 	function t:update(dt)
 		if self.paused or self.done then return end
-		self.time = self.time + dt
-		if self.time >= secs then
-			if action then
-				action()
-			end
+		self.elapsed = self.elapsed + dt
+		if self.elapsed >= self.time then
 			if loop then
-				self.time = 0
+				self.elapsed = 0
 			else
 				self.done = true
+			end
+			if action then
+				action(self)
 			end
 		end
 	end
@@ -349,13 +353,13 @@ function d.timer.manager()
 		end
 	end
 	function m:update(dt)
-		for i = #timers, 1, -1 do
+		for i = 1, #timers do
 			local t = timers[i]
 			t:update(dt)
-			if t.done then
-				table.remove(timers, i)
-			end
 		end
+		timers = table.filter(timers, function(t)
+			return t.done == false
+		end)
 	end
 	return m
 end
@@ -376,10 +380,7 @@ local function serialize_inner(value, fmt, depth, seen)
 		end
 		seen[value] = true
 		local result = "{" .. nl
-		local keys = {}
-		for k in pairs(value) do
-			table.insert(keys, k)
-		end
+		local keys = table.keys(value)
 		table.sort(keys, function(a, b)
 			return tostring(a) < tostring(b)
 		end)
@@ -427,6 +428,7 @@ end
 
 function d.data.save(name, data)
 	local dir = d.fs.data_dir()
+	local buf = d.data.serialize(dats)
 	-- TODO
 end
 
@@ -441,7 +443,7 @@ function d.task.manager()
 	local tasks = {}
 	local m = {}
 	function m:update()
-		for i = #tasks, 1, -1 do
+		for i = 1, #tasks do
 			local task = tasks[i]
 			task.run()
 		end
@@ -479,7 +481,7 @@ function d.task.loader()
 	function loader:add(action)
 		actions[#actions + 1] = action
 	end
-	function loader:start()
+	function loader:load()
 		loaded = 0
 		for _, action in ipairs(actions) do
 			action()
@@ -502,6 +504,32 @@ function d.task.loader()
 		return #actions
 	end
 	return loader
+end
+
+function d.task.assetloader(desc)
+	local loader = d.task.loader()
+	local assets = {
+		img = {},
+		model = {},
+		sound = {},
+		loader = loader,
+	}
+	for name, path in pairs(desc.img or {}) do
+		loader:add(function()
+			assets.img[name] = d.gfx.img_load(path)
+		end)
+	end
+	for name, path in pairs(desc.model or {}) do
+		loader:add(function()
+			assets.model[name] = d.gfx.model_load(path)
+		end)
+	end
+	for name, path in pairs(desc.sound or {}) do
+		loader:add(function()
+			assets.sound[name] = d.audio.sound_load(path)
+		end)
+	end
+	return assets
 end
 
 function wait(secs)

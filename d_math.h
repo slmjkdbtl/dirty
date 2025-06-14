@@ -1,6 +1,7 @@
 #ifndef D_MATH_H
 #define D_MATH_H
 
+#include "lua.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -51,6 +52,13 @@ typedef struct {
 	uint8_t b;
 	uint8_t a;
 } d_color;
+
+typedef struct {
+	float h;
+	float s;
+	float l;
+	uint8_t a;
+} d_hsl;
 
 typedef struct {
 	float m[16];
@@ -189,6 +197,9 @@ d_color d_color_darken(d_color c, int d);
 d_color d_color_lighten(d_color c, int l);
 bool d_color_eq(d_color, d_color);
 d_color d_color_lerp(d_color from, d_color to, float t);
+d_hsl d_rgb2hsl(d_color rgb);
+d_color d_hsl2rgb(d_hsl hsl);
+bool d_hsl_eq(d_hsl c1, d_hsl c2);
 
 d_mat4 d_mat4u(void);
 d_mat4 d_mat4_identity(void);
@@ -610,6 +621,15 @@ d_color d_color_blend(d_color c1, d_color c2) {
 	};
 }
 
+d_color d_color_invert(d_color c) {
+	return (d_color) {
+		.r = 255 - c.r,
+		.g = 255 - c.g,
+		.b = 255 - c.b,
+		.a = c.a,
+	};
+}
+
 d_color d_color_darken(d_color c, int d) {
 	return (d_color) {
 		.r = d_clampi(c.r - d, 0, 255),
@@ -634,6 +654,76 @@ d_color d_color_lerp(d_color from, d_color to, float t) {
 		.b = (int)d_lerpf(from.b, to.b, t),
 		.a = (int)d_lerpf(from.a, to.a, t),
 	};
+}
+
+d_hsl d_rgb2hsl(d_color rgb) {
+
+	float rf = rgb.r / 255.0;
+	float gf = rgb.g / 255.0;
+	float bf = rgb.b / 255.0;
+	float max = fmax(fmax(rf, gf), bf);
+	float min = fmin(fmin(rf, gf), bf);
+	float delta = max - min;
+	float l = (max + min) / 2.0;
+
+	if (delta == 0) {
+		return (d_hsl) { 0, 0, l, rgb.a };
+	}
+
+	float s = l > 0.5
+		? delta / (2.0 - max - min)
+		: delta / (max + min);
+
+	float h = 0;
+
+	if (max == rf) {
+		h = fmod((gf - bf) / delta + (gf < bf ? 6.0 : 0.0), 6.0);
+	} else if (max == gf) {
+		h = ((bf - rf) / delta) + 2.0;
+	} else {
+		h = ((rf - gf) / delta) + 4.0;
+	}
+
+	h *= 60.0;
+
+	return (d_hsl) { h, s, l, rgb.a };
+
+}
+
+float d_hue2rgb(float p, float q, float t) {
+	if (t < 0)
+		t += 1;
+	if (t > 1)
+		t -= 1;
+	if (t < 1.0 / 6)
+		return p + (q - p) * 6 * t;
+	if (t < 1.0 / 2)
+		return q;
+	if (t < 2.0 / 3)
+		return p + (q - p) * (2.0 / 3 - t) * 6;
+	return p;
+}
+
+d_color d_hsl2rgb(d_hsl hsl) {
+	float h = hsl.h;
+	float s = hsl.s;
+	float l = hsl.l;
+	uint8_t a = hsl.a;
+	if(hsl.s == 0) {
+		return (d_color) { l, l, l, a };
+	}
+	float q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+	float p = 2 * l - q;
+	return (d_color) {
+		.r = d_hue2rgb(p, q, h + 1.0 / 3) * 255,
+		.g = d_hue2rgb(p, q, h) * 255,
+		.b = d_hue2rgb(p, q, h - 1.0 / 3) * 255,
+		.a = a,
+	};
+}
+
+bool d_hsl_eq(d_hsl c1, d_hsl c2) {
+	return c1.h == c2.h && c1.s == c2.s && c1.l == c2.l && c1.a == c2.a;
 }
 
 d_mat4 d_mat4u(void) {

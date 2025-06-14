@@ -22,7 +22,7 @@
 #define WIDTH 640
 #define HEIGHT 480
 #define SCALE 1
-#define NUM_FISH 20
+#define NUM_FISH 333
 #define MAX_SQUEEZE_INTERVAL 40
 #define SQUEEZE_INTENSITY 4
 
@@ -77,7 +77,6 @@ void fish_squeeze(fish_t* f) {
 		f->t.rot,
 		orig_rot,
 		1,
-		NULL,
 		d_ease_out_elastic
 	);
 	f->is_squeezing = true;

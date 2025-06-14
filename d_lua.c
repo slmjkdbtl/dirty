@@ -34,6 +34,9 @@
 	lua_pushudata(L, T, TS, &V); \
 	lua_setfield(L, IDX, K); \
 
+#define luaL_dobuffer(L, buf, sz, name) \
+	(luaL_loadbuffer(L, buf, sz, name) || lua_pcall(L, 0, LUA_MULTRET, 0))
+
 typedef struct {
 	const char* str;
 	int val;
@@ -519,7 +522,7 @@ static int l_app_dt(lua_State* L) {
 }
 
 static int l_app_fps(lua_State* L) {
-	lua_pushnumber(L, d_app_fps());
+	lua_pushinteger(L, d_app_fps());
 	return 1;
 }
 
@@ -834,12 +837,12 @@ static int l_gfx_blit_tri(lua_State* L) {
 	return 0;
 }
 
-static d_poly l_get_poly(lua_State* L, int pos) {
+static d_poly l_to_poly(lua_State* L, int pos) {
 	d_poly poly = {0};
 	luaL_checktable(L, pos);
 	int num_verts = luaL_tablelen(L, 1);
 	if (num_verts > D_MAX_POLY_VERTS) {
-		luaL_error(L, "%d exceeds max polygon verts", num_verts);
+		luaL_error(L, "exceeds max polygon verts: %d", num_verts);
 		return poly;
 	}
 	poly.num_verts = num_verts;
@@ -854,8 +857,16 @@ static d_poly l_get_poly(lua_State* L, int pos) {
 	return poly;
 }
 
+static void l_push_poly(lua_State* L, d_poly poly) {
+	lua_newtable(L);
+	for (int i = 0; i < poly.num_verts; i++) {
+		lua_pushudata(L, d_vec2, "vec2", &poly.verts[i]);
+		lua_rawseti(L, -2, i + 1);
+	}
+}
+
 static int l_gfx_blit_poly(lua_State* L) {
-	d_poly poly = l_get_poly(L, 1);
+	d_poly poly = l_to_poly(L, 1);
 	d_color* c = luaL_optudata(L, 2, "color", &D_WHITE);
 	d_blit_poly(poly, *c);
 	return 0;
@@ -910,7 +921,7 @@ static int l_gfx_draw_tri(lua_State* L) {
 }
 
 static int l_gfx_draw_poly(lua_State* L) {
-	d_poly poly = l_get_poly(L, 1);
+	d_poly poly = l_to_poly(L, 1);
 	d_color* c = luaL_optudata(L, 2, "color", &D_WHITE);
 	d_draw_poly(poly, *c);
 	return 0;
@@ -1009,6 +1020,24 @@ static int l_gfx_rotz(lua_State* L) {
 	return 0;
 }
 
+static int l_gfx_transform_apply(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	d_transform_apply(*m);
+	return 0;
+}
+
+static int l_gfx_transform_set(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	d_transform_set(*m);
+	return 0;
+}
+
+static int l_gfx_transform_get(lua_State* L) {
+	d_mat4 m = d_transform_get();
+	lua_pushudata(L, d_mat4, "mat4", &m);
+	return 1;
+}
+
 static int l_gfx_drawon(lua_State* L) {
 	d_img* img = luaL_checkudata(L, 1, "img");
 	d_gfx_drawon(img);
@@ -1052,7 +1081,7 @@ static int l_img_load(lua_State* L) {
 	const char* path = luaL_checkstring(L, 1);
 	d_img img = d_img_load(path);
 	if (img.width == 0 || img.height == 0) {
-		luaL_error(L, "failed to load img from '%s'", path);
+		luaL_error(L, "failed to load img: '%s'", path);
 		lua_pushnil(L);
 		return 1;
 	}
@@ -1099,6 +1128,15 @@ static int l_img_save(lua_State* L) {
 	return 0;
 }
 
+static int l_img_resize(lua_State* L) {
+	d_img* img = luaL_checkudata(L, 1, "img");
+	int w = luaL_checkinteger(L, 2);
+	int h = luaL_checkinteger(L, 3);
+	d_img img2 = d_img_resize(img, w, h);
+	lua_pushudata(L, d_img, "img", &img2);
+	return 1;
+}
+
 static int l_img_clone(lua_State* L) {
 	d_img* img = luaL_checkudata(L, 1, "img");
 	d_img img2 = d_img_clone(img);
@@ -1129,12 +1167,14 @@ static int l_img_index(lua_State* L) {
 		lua_pushcfunction(L, l_img_fill);
 	} else if (strcmp(key, "save") == 0) {
 		lua_pushcfunction(L, l_img_save);
+	} else if (strcmp(key, "resize") == 0) {
+		lua_pushcfunction(L, l_img_resize);
 	} else if (strcmp(key, "clone") == 0) {
 		lua_pushcfunction(L, l_img_clone);
 	} else if (strcmp(key, "free") == 0) {
 		lua_pushcfunction(L, l_img_free);
 	} else {
-		luaL_error(L, "unknown field '%s' on img", key);
+		luaL_error(L, "unknown field on img: %s", key);
 		lua_pushnil(L);
 	}
 	return 1;
@@ -1150,7 +1190,7 @@ static int l_model_load(lua_State* L) {
 	const char* path = luaL_checkstring(L, 1);
 	d_model model = d_model_load(path);
 	if (model.num_nodes == 0) {
-		luaL_error(L, "failed to load model from '%s'", path);
+		luaL_error(L, "failed to load model: '%s'", path);
 		lua_pushnil(L);
 		return 1;
 	}
@@ -1172,7 +1212,7 @@ static int l_model_index(lua_State* L) {
 	} else if (strcmp(key, "free") == 0) {
 		lua_pushcfunction(L, l_model_free);
 	} else {
-		luaL_error(L, "unknown field '%s' on model", key);
+		luaL_error(L, "unknown field on model: %s", key);
 		lua_pushnil(L);
 	}
 	return 1;
@@ -1221,6 +1261,9 @@ static luaL_Reg gfx_funcs[] = {
 	{ "rotx", l_gfx_rotx },
 	{ "roty", l_gfx_roty },
 	{ "rotz", l_gfx_rotz },
+	{ "transform_apply", l_gfx_transform_apply },
+	{ "transform_set", l_gfx_transform_set },
+	{ "transform_get", l_gfx_transform_get },
 	{ "drawon", l_gfx_drawon },
 	{ "get_canvas", l_gfx_get_canvas },
 	{ "set_shader", l_gfx_set_shader },
@@ -1276,7 +1319,7 @@ static int l_sound_load(lua_State* L) {
 	const char* path = luaL_checkstring(L, 1);
 	d_sound sound = d_sound_load(path);
 	if (sound.num_frames == 0) {
-		luaL_error(L, "failed to load sound from '%s'", path);
+		luaL_error(L, "failed to load sound: '%s'", path);
 		lua_pushnil(L);
 		return 1;
 	}
@@ -1313,7 +1356,7 @@ static int l_sound_index(lua_State* L) {
 	} else if (strcmp(key, "free") == 0) {
 		lua_pushcfunction(L, l_sound_free);
 	} else {
-		luaL_error(L, "unknown field '%s' on sound", key);
+		luaL_error(L, "unknown field on sound: %s", key);
 		lua_pushnil(L);
 	}
 	return 1;
@@ -1362,7 +1405,7 @@ static int l_playback_index(lua_State* L) {
 		lua_pushlightuserdata(L, pb->src);
 		luaL_setmetatable(L, "sound");
 	} else {
-		luaL_error(L, "unknown field '%s' on playback", key);
+		luaL_error(L, "unknown field on playback: %s", key);
 		lua_pushnil(L);
 	}
 	return 1;
@@ -1387,7 +1430,7 @@ static int l_playback_newindex(lua_State* L) {
 		float t = luaL_checknumber(L, 3);
 		d_playback_seek(pb, t);
 	} else {
-		luaL_error(L, "unknown field '%s' on playback", key);
+		luaL_error(L, "unknown field on playback: %s", key);
 	}
 	return 0;
 }
@@ -1546,7 +1589,7 @@ static int l_col_pt_circle(lua_State* L) {
 
 static int l_col_pt_poly(lua_State* L) {
 	d_vec2* pt = luaL_checkudata(L, 1, "vec2");
-	d_poly poly = l_get_poly(L, 2);
+	d_poly poly = l_to_poly(L, 2);
 	lua_pushboolean(L, d_col_pt_poly(*pt, poly));
 	return 1;
 }
@@ -1587,7 +1630,7 @@ static int l_col_line_circle(lua_State* L) {
 static int l_col_line_poly(lua_State* L) {
 	d_vec2* lp1 = luaL_checkudata(L, 1, "vec2");
 	d_vec2* lp2 = luaL_checkudata(L, 2, "vec2");
-	d_poly poly = l_get_poly(L, 3);
+	d_poly poly = l_to_poly(L, 3);
 	d_line2 l = { *lp1, *lp2 };
 	lua_pushboolean(L, d_col_line_poly(l, poly));
 	return 1;
@@ -1618,7 +1661,7 @@ static int l_col_circle_rect(lua_State* L) {
 static int l_col_circle_poly(lua_State* L) {
 	d_vec2* p = luaL_checkudata(L, 1, "vec2");
 	float r = luaL_checknumber(L, 2);
-	d_poly poly = l_get_poly(L, 3);
+	d_poly poly = l_to_poly(L, 3);
 	d_circle circle = { *p, r };
 	lua_pushboolean(L, d_col_circle_poly(circle, poly));
 	return 1;
@@ -1638,22 +1681,22 @@ static int l_col_rect_rect(lua_State* L) {
 static int l_col_rect_poly(lua_State* L) {
 	d_vec2* rp1 = luaL_checkudata(L, 1, "vec2");
 	d_vec2* rp2 = luaL_checkudata(L, 2, "vec2");
-	d_poly poly = l_get_poly(L, 3);
+	d_poly poly = l_to_poly(L, 3);
 	d_rect r = { *rp1, *rp2 };
 	lua_pushboolean(L, d_col_rect_poly(r, poly));
 	return 1;
 }
 
 static int l_col_poly_poly(lua_State* L) {
-	d_poly p1 = l_get_poly(L, 1);
-	d_poly p2 = l_get_poly(L, 2);
+	d_poly p1 = l_to_poly(L, 1);
+	d_poly p2 = l_to_poly(L, 2);
 	lua_pushboolean(L, d_col_poly_poly(p1, p2));
 	return 1;
 }
 
 static int l_col_sat(lua_State* L) {
-	d_poly p1 = l_get_poly(L, 1);
-	d_poly p2 = l_get_poly(L, 2);
+	d_poly p1 = l_to_poly(L, 1);
+	d_poly p2 = l_to_poly(L, 2);
 	d_vec2 dis = { 0, 0 };
 	bool res = d_col_sat(p1, p2, &dis);
 	if (res) {
@@ -1681,6 +1724,40 @@ static luaL_Reg col_funcs[] = {
 	{ "rect_poly", l_col_rect_poly, },
 	{ "poly_poly", l_col_poly_poly, },
 	{ "sat", l_col_sat, },
+	{ NULL, NULL, },
+};
+
+static int l_geo_transform_rect(lua_State* L) {
+	d_vec2* rp1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* rp2 = luaL_checkudata(L, 2, "vec2");
+	d_rect rect = { *rp1, *rp2 };
+	d_mat4* m = luaL_checkudata(L, 3, "mat4");
+	d_poly poly = d_rect_transform(rect, *m);
+	l_push_poly(L, poly);
+	return 1;
+}
+
+static int l_geo_transform_poly(lua_State* L) {
+	d_poly poly = l_to_poly(L, 1);
+	d_mat4* m = luaL_checkudata(L, 2, "mat4");
+	d_poly poly2 = d_poly_transform(poly, *m);
+	l_push_poly(L, poly2);
+	return 1;
+}
+
+static int l_geo_rect_to_poly(lua_State* L) {
+	d_vec2* rp1 = luaL_checkudata(L, 1, "vec2");
+	d_vec2* rp2 = luaL_checkudata(L, 2, "vec2");
+	d_rect rect = { *rp1, *rp2 };
+	d_poly poly = d_rect_to_poly(rect);
+	l_push_poly(L, poly);
+	return 1;
+}
+
+static luaL_Reg geo_funcs[] = {
+	{ "transform_rect", l_geo_transform_rect, },
+	{ "transform_poly", l_geo_transform_poly, },
+	{ "rect_to_poly", l_geo_rect_to_poly, },
 	{ NULL, NULL, },
 };
 
@@ -1821,7 +1898,7 @@ static int l_vec2_index(lua_State* L) {
 	} else if (strcmp(key, "clone") == 0) {
 		lua_pushcfunction(L, l_vec2_clone);
 	} else {
-		luaL_error(L, "unknown field '%s' on vec2", key);
+		luaL_error(L, "unknown field on vec2: %s", key);
 		lua_pushnil(L);
 	}
 	return 1;
@@ -1836,7 +1913,7 @@ static int l_vec2_newindex(lua_State* L) {
 	} else if (strcmp(key, "y") == 0) {
 		p->y = value;
 	} else {
-		luaL_error(L, "unknown field '%s' on vec2", key);
+		luaL_error(L, "unknown field on vec2: %s", key);
 	}
 	return 0;
 }
@@ -1844,7 +1921,7 @@ static int l_vec2_newindex(lua_State* L) {
 static int l_vec2_tostring(lua_State* L) {
 	d_vec2* p = luaL_checkudata(L, 1, "vec2");
 	char buf[64];
-	snprintf(buf, sizeof(buf), "vec2(%.02f, %.02f)", p->x, p->y);
+	snprintf(buf, sizeof(buf), "vec2(%g, %g)", p->x, p->y);
 	lua_pushstring(L, buf);
 	return 1;
 }
@@ -1877,7 +1954,7 @@ static int l_vec2_mul(lua_State* L) {
 		d_vec2 p = { p1->x * p2->x, p1->y * p2->y };
 		lua_pushudata(L, d_vec2, "vec2", &p);
 	} else {
-		luaL_error(L, "cannot multiply vec2 with %s", lua_typename(L, type));
+		luaL_error(L, "cannot multiply vec2 with: %s", lua_typename(L, type));
 		lua_pushnil(L);
 	}
 	return 1;
@@ -1947,7 +2024,7 @@ static int l_vec3_index(lua_State* L) {
 	} else if (strcmp(key, "clone") == 0) {
 		lua_pushcfunction(L, l_vec3_clone);
 	} else {
-		luaL_error(L, "unknown field '%s' on vec3", key);
+		luaL_error(L, "unknown field on vec3: %s", key);
 		lua_pushnil(L);
 	}
 	return 1;
@@ -1964,7 +2041,7 @@ static int l_vec3_newindex(lua_State* L) {
 	} else if (strcmp(key, "z") == 0) {
 		p->z = value;
 	} else {
-		luaL_error(L, "unknown field '%s' on vec3", key);
+		luaL_error(L, "unknown field on vec3: %s", key);
 	}
 	return 0;
 }
@@ -1972,7 +2049,7 @@ static int l_vec3_newindex(lua_State* L) {
 static int l_vec3_tostring(lua_State* L) {
 	d_vec3* p = luaL_checkudata(L, 1, "vec3");
 	char buf[64];
-	snprintf(buf, sizeof(buf), "vec3(%.02f, %.02f, %.02f)", p->x, p->y, p->z);
+	snprintf(buf, sizeof(buf), "vec3(%g, %g, %g)", p->x, p->y, p->z);
 	lua_pushstring(L, buf);
 	return 1;
 }
@@ -2005,7 +2082,7 @@ static int l_vec3_mul(lua_State* L) {
 		d_vec3 p = { p1->x * p1->x, p1->y * p2->y, p1->z * p2->z };
 		lua_pushudata(L, d_vec3, "vec3", &p);
 	} else {
-		luaL_error(L, "cannot multiply vec3 with %s", lua_typename(L, type));
+		luaL_error(L, "cannot multiply vec3 with: %s", lua_typename(L, type));
 		lua_pushnil(L);
 	}
 	return 1;
@@ -2047,6 +2124,143 @@ static luaL_Reg vec3_meta[] = {
 	{ NULL, NULL, },
 };
 
+static int l_mat4_invert(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	d_mat4 m2 = d_mat4_invert(*m);
+	lua_pushudata(L, d_mat4, "mat4", &m2);
+	return 1;
+}
+
+// TODO: vec3, number
+static int l_mat4_translate(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	d_vec2* p = luaL_checkudata(L, 2, "vec2");
+	d_mat4 m2 = d_mat4_mult(*m, d_mat4_translate((d_vec3) { p->x, p->y, 0 }));
+	lua_pushudata(L, d_mat4, "mat4", &m2);
+	return 1;
+}
+
+static int l_mat4_scale(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	d_vec2* p = luaL_checkudata(L, 2, "vec2");
+	d_mat4 m2 = d_mat4_mult(*m, d_mat4_scale((d_vec3) { p->x, p->y, 0 }));
+	lua_pushudata(L, d_mat4, "mat4", &m2);
+	return 1;
+}
+
+static int l_mat4_rotate(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	float r = luaL_checknumber(L, 2);
+	d_mat4 m2 = d_mat4_mult(*m, d_mat4_rot_z(r));
+	lua_pushudata(L, d_mat4, "mat4", &m2);
+	return 1;
+}
+
+static int l_mat4_index(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	int type = lua_type(L, 2);
+	if (type == LUA_TNUMBER) {
+		int i = luaL_checkinteger(L, 2);
+		if (i >= 0 && i < 16) {
+			lua_pushnumber(L, m->m[i]);
+		} else {
+			lua_pushnil(L);
+		}
+		return 1;
+	}
+	const char* key = luaL_checkstring(L, 2);
+	if (strcmp(key, "invert") == 0) {
+		lua_pushcfunction(L, l_mat4_invert);
+	} else if (strcmp(key, "translate") == 0) {
+		lua_pushcfunction(L, l_mat4_translate);
+	} else if (strcmp(key, "scale") == 0) {
+		lua_pushcfunction(L, l_mat4_scale);
+	} else if (strcmp(key, "rotate") == 0) {
+		lua_pushcfunction(L, l_mat4_rotate);
+	} else {
+		luaL_error(L, "unknown field on mat4: %s", key);
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+static int l_mat4_newindex(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	int i = luaL_checkinteger(L, 2);
+	float value = luaL_checknumber(L, 3);
+	if (i >= 0 && i < 16) {
+		m->m[i] = value;
+	}
+	return 0;
+}
+
+static int l_mat4_tostring(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	char buf[128];
+	// TODO
+	snprintf(buf, sizeof(buf), "mat4");
+	lua_pushstring(L, buf);
+	return 1;
+}
+
+static int l_mat4_mult(lua_State* L) {
+	d_mat4* m = luaL_checkudata(L, 1, "mat4");
+	const char* ty = luaL_udatatype(L, 2);
+	if (strcmp(ty, "vec2") == 0) {
+		d_vec2* p = luaL_checkudata(L, 2, "vec2");
+		d_vec2 p2 = d_mat4_mult_vec2(*m, *p);
+		lua_pushudata(L, d_vec2, "vec2", &p2);
+	} else if (strcmp(ty, "vec3") == 0) {
+		d_vec3* p = luaL_checkudata(L, 2, "vec3");
+		d_vec3 p2 = d_mat4_mult_vec3(*m, *p);
+		lua_pushudata(L, d_vec3, "vec3", &p2);
+	} else if (strcmp(ty, "mat4") == 0) {
+		d_mat4* m2 = luaL_checkudata(L, 2, "mat4");
+		d_mat4 m3 = d_mat4_mult(*m, *m2);
+		lua_pushudata(L, d_mat4, "mat4", &m3);
+	} else {
+		luaL_error(L, "cannot multiply mat4 with: %s", ty);
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+static int l_mat4_eq(lua_State* L) {
+	d_mat4* m1 = luaL_checkudata(L, 1, "mat4");
+	d_mat4* m2 = luaL_checkudata(L, 2, "mat4");
+	for (int i = 0; i < 16; i++) {
+		if (m1->m[i] != m2->m[i]) {
+			lua_pushboolean(L, false);
+			return 1;
+		}
+	}
+	lua_pushboolean(L, true);
+	return 1;
+}
+
+static luaL_Reg mat4_meta[] = {
+	{ "__index", l_mat4_index },
+	{ "__newindex", l_mat4_newindex },
+	{ "__tostring", l_mat4_tostring },
+	{ "__mul", l_mat4_mult },
+	{ "__eq", l_mat4_eq },
+	{ NULL, NULL, },
+};
+
+static int l_hsl2rgb(lua_State* L) {
+	d_hsl* hsl = luaL_checkudata(L, 1, "hsl");
+	d_color rgb = d_hsl2rgb(*hsl);
+	lua_pushudata(L, d_color, "color", &rgb);
+	return 1;
+}
+
+static int l_rgb2hsl(lua_State* L) {
+	d_color* rgb = luaL_checkudata(L, 1, "color");
+	d_hsl hsl = d_rgb2hsl(*rgb);
+	lua_pushudata(L, d_hsl, "hsl", &hsl);
+	return 1;
+}
+
 static int l_color_darken(lua_State* L) {
 	d_color* c1 = luaL_checkudata(L, 1, "color");
 	int s = luaL_checknumber(L, 2);
@@ -2068,6 +2282,13 @@ static int l_color_mix(lua_State* L) {
 	d_color* c2 = luaL_checkudata(L, 2, "color");
 	d_color c = d_color_mix(*c1, *c2);
 	lua_pushudata(L, d_color, "color", &c);
+	return 1;
+}
+
+static int l_color_invert(lua_State* L) {
+	d_color* c1 = luaL_checkudata(L, 1, "color");
+	d_color c2 = d_color_invert(*c1);
+	lua_pushudata(L, d_color, "color", &c2);
 	return 1;
 }
 
@@ -2095,10 +2316,14 @@ static int l_color_index(lua_State* L) {
 		lua_pushcfunction(L, l_color_darken);
 	} else if (strcmp(key, "lighten") == 0) {
 		lua_pushcfunction(L, l_color_lighten);
+	} else if (strcmp(key, "invert") == 0) {
+		lua_pushcfunction(L, l_color_invert);
 	} else if (strcmp(key, "clone") == 0) {
 		lua_pushcfunction(L, l_color_clone);
+	} else if (strcmp(key, "hsl") == 0) {
+		lua_pushcfunction(L, l_rgb2hsl);
 	} else {
-		luaL_error(L, "unknown field '%s' on color", key);
+		luaL_error(L, "unknown field on color: %s", key);
 		lua_pushnil(L);
 	}
 	return 1;
@@ -2117,7 +2342,7 @@ static int l_color_newindex(lua_State* L) {
 	} else if (strcmp(key, "a") == 0) {
 		c->a = value;
 	} else {
-		luaL_error(L, "unknown field '%s' on color", key);
+		luaL_error(L, "unknown field on color: %s", key);
 	}
 	return 0;
 }
@@ -2148,6 +2373,81 @@ static luaL_Reg color_meta[] = {
 	{ NULL, NULL, },
 };
 
+static int l_hsl_clone(lua_State* L) {
+	d_hsl* c = luaL_checkudata(L, 1, "hsl");
+	d_hsl c2 = *c;
+	lua_pushudata(L, d_hsl, "hsl", &c2);
+	return 1;
+}
+
+static int l_hsl_index(lua_State* L) {
+	d_hsl* c = luaL_checkudata(L, 1, "hsl");
+	const char* key = luaL_checkstring(L, 2);
+	if (strcmp(key, "h") == 0) {
+		lua_pushnumber(L, c->h);
+	} else if (strcmp(key, "s") == 0) {
+		lua_pushnumber(L, c->s);
+	} else if (strcmp(key, "l") == 0) {
+		lua_pushnumber(L, c->l);
+	} else if (strcmp(key, "a") == 0) {
+		lua_pushinteger(L, c->a);
+	} else if (strcmp(key, "rgb") == 0) {
+		lua_pushcfunction(L, l_hsl2rgb);
+	} else if (strcmp(key, "clone") == 0) {
+		lua_pushcfunction(L, l_hsl_clone);
+	} else {
+		luaL_error(L, "unknown field on hsl: %s", key);
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+static int l_hsl_newindex(lua_State* L) {
+	d_hsl* c = luaL_checkudata(L, 1, "hsl");
+	const char* key = luaL_checkstring(L, 2);
+	float value = luaL_checknumber(L, 3);
+	if (strcmp(key, "h") == 0) {
+		c->h = value;
+	} else if (strcmp(key, "s") == 0) {
+		c->s = value;
+	} else if (strcmp(key, "l") == 0) {
+		c->l = value;
+	} else if (strcmp(key, "a") == 0) {
+		c->a = value;
+	} else {
+		luaL_error(L, "unknown field on hsl: %s", key);
+		lua_pushnil(L);
+	}
+	return 1;
+}
+
+static int l_hsl_tostring(lua_State* L) {
+	d_hsl* c = luaL_checkudata(L, 1, "hsl");
+	char buf[64];
+	snprintf(
+		buf, sizeof(buf),
+		"hsl(%d, %g, %g, %d)",
+		(int)roundf(c->h), c->s, c->l, c->a
+	);
+	lua_pushstring(L, buf);
+	return 1;
+}
+
+static int l_hsl_eq(lua_State* L) {
+	d_hsl* c1 = luaL_checkudata(L, 1, "hsl");
+	d_hsl* c2 = luaL_checkudata(L, 2, "hsl");
+	lua_pushboolean(L, d_hsl_eq(*c1, *c2));
+	return 1;
+}
+
+static luaL_Reg hsl_meta[] = {
+	{ "__index", l_hsl_index },
+	{ "__newindex", l_hsl_newindex },
+	{ "__tostring", l_hsl_tostring },
+	{ "__eq", l_hsl_eq },
+	{ NULL, NULL, },
+};
+
 static int l_rng_rand(lua_State* L) {
 	d_rng* rng = luaL_checkudata(L, 1, "rng");
 	float a = luaL_optnumber(L, 1, 1);
@@ -2174,7 +2474,7 @@ static int l_rng_index(lua_State* L) {
 	} else if (strcmp(key, "randi") == 0) {
 		lua_pushcfunction(L, l_rng_randi);
 	} else {
-		luaL_error(L, "unknown field '%s' on rng", key);
+		luaL_error(L, "unknown field on rng: %s", key);
 		lua_pushnil(L);
 	}
 	return 1;
@@ -2202,7 +2502,13 @@ static int l_vec3(lua_State* L) {
 	return 1;
 }
 
-static int l_color(lua_State* L) {
+static int l_mat4(lua_State* L) {
+	d_mat4 m = d_mat4_identity();
+	lua_pushudata(L, d_mat4, "mat4", &m);
+	return 1;
+}
+
+static int l_rgb(lua_State* L) {
 	int nargs = lua_gettop(L);
 	if (nargs == 1) {
 		int x = luaL_checknumber(L, 1);
@@ -2213,12 +2519,22 @@ static int l_color(lua_State* L) {
 		int g = luaL_checknumber(L, 2);
 		int b = luaL_checknumber(L, 3);
 		int a = luaL_optnumber(L, 4, 255);
-		d_color c = d_colori(r, g, b, a);
+		d_color c = (d_color) { r, g, b, a };
 		lua_pushudata(L, d_color, "color", &c);
 	} else {
-		luaL_error(L, "wrong number of arguments to color: %d", nargs);
+		luaL_error(L, "wrong number of arguments to rgb: %d", nargs);
 		lua_pushnil(L);
 	}
+	return 1;
+}
+
+static int l_hsl(lua_State* L) {
+	float h = luaL_checknumber(L, 1);
+	float s = luaL_checknumber(L, 2);
+	float l = luaL_checknumber(L, 3);
+	int a = luaL_optnumber(L, 4, 255);
+	d_hsl c = (d_hsl) { h, s, l, a };
+	lua_pushudata(L, d_hsl, "hsl", &c);
 	return 1;
 }
 
@@ -2239,7 +2555,9 @@ static int l_randi(lua_State* L) {
 static luaL_Reg global_funcs[] = {
 	{ "vec2", l_vec2 },
 	{ "vec3", l_vec3 },
-	{ "color", l_color },
+	{ "mat4", l_mat4 },
+	{ "rgb", l_rgb },
+	{ "hsl", l_hsl },
 	{ "rand", l_rand },
 	{ "randi", l_randi },
 	{ NULL, NULL, },
@@ -2288,7 +2606,9 @@ int main(int argc, char** argv) {
 	luaL_regtype(L, "playback", playback_meta);
 	luaL_regtype(L, "vec2", vec2_meta);
 	luaL_regtype(L, "vec3", vec3_meta);
+	luaL_regtype(L, "mat4", mat4_meta);
 	luaL_regtype(L, "color", color_meta);
+	luaL_regtype(L, "hsl", hsl_meta);
 	luaL_regtype(L, "rng", rng_meta);
 
 	// d
@@ -2309,12 +2629,15 @@ int main(int argc, char** argv) {
 	luaL_newlib(L, col_funcs);
 	lua_setfield(L, -2, "col");
 
+	luaL_newlib(L, geo_funcs);
+	lua_setfield(L, -2, "geo");
+
 	luaL_newlib(L, ease_funcs);
 	lua_setfield(L, -2, "ease");
 
-	lua_setglobal(L, "d");
+	luaL_setfuncs(L, global_funcs, 0);
 
-	luaL_regfuncs(L, global_funcs);
+	lua_setglobal(L, "d");
 
 	// arg
 	lua_newtable(L);
@@ -2328,10 +2651,16 @@ int main(int argc, char** argv) {
 
 	lua_setglobal(L, "arg");
 
-	luaL_dostring(L, (const char*)lib_lua);
-
-	if (luaL_loadfile(L, path) || lua_pcall(L, 0, 0, 0)) {
+	if (luaL_dobuffer(L, (char*)lib_lua, lib_lua_len, "lib")) {
 		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		lua_pop(L, 1);
+		return EXIT_FAILURE;
+	}
+
+	if (luaL_dofile(L, path)) {
+		fprintf(stderr, "%s\n", lua_tostring(L, -1));
+		lua_pop(L, 1);
+		// TODO: error screen
 	}
 
 	return EXIT_SUCCESS;

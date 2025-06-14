@@ -749,7 +749,7 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 	if (x < 0 || x >= img->width || y < 0 || y >= img->height) {
 		return;
 	}
-// #ifdef D_GFX_DEPTH_TEST
+#ifdef D_GFX_DEPTH_TEST
 	if (d_gfx.depth_test) {
 		if (d_ibuf_get(&d_gfx.depth_buf, x, y) <= z) {
 			d_ibuf_set(&d_gfx.depth_buf, x, y, z);
@@ -757,8 +757,8 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 			return;
 		}
 	}
-// #endif
-// #ifdef D_GFX_BIT_TEST
+#endif
+#ifdef D_GFX_BIT_TEST
 	if (d_gfx.bbuf_write) {
 		if (c.a != 0) {
 			d_bbuf_set(&d_gfx.bbuf, x, y, true);
@@ -769,13 +769,13 @@ void d_draw_pixel(int x, int y, int z, d_color c) {
 			return;
 		}
 	}
-// #endif
-// #ifdef D_GFX_SHADER
+#endif
+#ifdef D_GFX_SHADER
 	// TODO: shader should be in draw_triangle
 	if (d_gfx.shader) {
 		c = d_gfx.shader(c, x, y);
 	}
-// #endif
+#endif
 	int i = y * img->width + x;
 	switch (d_gfx.blend) {
 		case D_BLEND_ALPHA: {
